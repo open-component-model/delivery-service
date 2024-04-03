@@ -1,0 +1,174 @@
+componentDescriptors:
+    - component:
+        name: TestComponent_1
+        version: v1.0.0
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences:
+          - name: TestRef_1
+            componentName: TestRef_1
+            version: v10.0.1
+            digest:
+              hashAlgorithm: ""
+              normalisationAlgorithm: ""
+              value: ""
+            extraIdentity: {}
+            labels: []
+          - name: TestRef_2
+            componentName: TestRef_2
+            version: v10.0.2
+            digest:
+              hashAlgorithm: ""
+              normalisationAlgorithm: ""
+              value: ""
+            extraIdentity: { }
+            labels: [ ]
+        resources: [ ]
+        labels:
+          - name: cloud.gardener/ocm/creation-date
+            value: '2023-12-18T00:00:00.000000+00:00'
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestComponent_1
+        version: v2.0.0
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences:
+          - name: TestRef_1
+            componentName: TestRef_1
+            version: v20.0.1
+            digest:
+              hashAlgorithm: ""
+              normalisationAlgorithm: ""
+              value: ""
+            extraIdentity: { }
+            labels: [ ]
+          - name: TestRef_2
+            componentName: TestRef_2
+            version: v20.0.2
+            digest:
+              hashAlgorithm: ""
+              normalisationAlgorithm: ""
+              value: ""
+            extraIdentity: { }
+            labels: [ ]
+        resources: [ ]
+        labels:
+          - name: cloud.gardener/ocm/creation-date
+            value: '2023-12-20T00:00:00.000000+00:00'
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestComponent_1
+        version: v3.0.0
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences:
+          - name: TestRef_1
+            componentName: TestRef_1
+            version: v20.0.1
+            digest:
+              hashAlgorithm: ""
+              normalisationAlgorithm: ""
+              value: ""
+            extraIdentity: { }
+            labels: [ ]
+          - name: TestRef_2
+            componentName: TestRef_2
+            version: v30.0.2
+            digest:
+              hashAlgorithm: ""
+              normalisationAlgorithm: ""
+              value: ""
+            extraIdentity: { }
+            labels: [ ]
+        resources: [ ]
+        labels:
+          - name: cloud.gardener/ocm/creation-date
+            value: '2023-12-22T00:00:00.000000+00:00'
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestRef_1
+        version: v10.0.1
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences: []
+        resources: [ ]
+        labels:
+          - name: cloud.gardener/ocm/creation-date
+            value: '2023-12-10T00:00:00.000000+00:00'
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestRef_1
+        version: v20.0.1
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences: [ ]
+        resources: [ ]
+        labels:
+          - name: cloud.gardener/ocm/creation-date
+            value: '2023-12-12T00:00:00.000000+00:00'
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestRef_2
+        version: v10.0.2
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences: [ ]
+        resources: [ ]
+        labels:
+          - name: cloud.gardener/ocm/creation-date
+            value: '2023-12-10T00:00:00.000000+00:00'
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestRef_2
+        version: v20.0.2
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences: [ ]
+        resources: [ ]
+        labels:
+          - name: cloud.gardener/ocm/creation-date
+            value: '2023-11-12T00:00:00.000000+00:00'
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestRef_2
+        version: v30.0.2
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences: [ ]
+        resources: [ ]
+        labels:
+          - name: cloud.gardener/ocm/creation-date
+            value: '2023-12-14T00:00:00.000000+00:00'
+      meta:
+        schemaVersion: v2
+      signatures: [ ]

@@ -1,0 +1,109 @@
+ocmRepoMappings:
+- prefix: ocm.software/ocmcli
+  repository: ghcr.io/open-component-model/ocm
+- prefix: ocm.software/delivery-gear
+  repository: europe-docker.pkg.dev/gardener-project/releases
+specialComponents: []
+rescoring:
+  defaultRuleSetName: example-rescoring-v1
+  rescoringRuleSets:
+  - name: example-rescoring-v1
+    # todo: create example repository
+    description: https://github.com/pages/open-component-model/compliance-reporting-example/cvss-rescoring.html#rescoring-rules
+    rule_set:
+    - category_value: 'network_exposure:public'
+      name: network-exposure-public
+      rules:
+      - cve_values:
+        - AV:N
+        rescore: no-change
+      - cve_values:
+        - AV:A
+        rescore: reduce
+      - cve_values:
+        - AV:L
+        - AV:P
+        rescore: not-exploitable
+    - category_value: 'network_exposure:protected'
+      name: network-exposure-protected
+      rules:
+      - cve_values:
+        - AV:N
+        rescore: reduce
+      - cve_values:
+        - AV:A
+        - AV:L
+        - AV:P
+        rescore: not-exploitable
+    - category_value: 'network_exposure:private'
+      name: network-exposure-private
+      rules:
+      - cve_values:
+        - AV:N
+        - AV:A
+        - AV:L
+        - AV:P
+        rescore: not-exploitable
+    - category_value: 'authentication_enforced:true'
+      name: authentication-enforced
+      rules:
+      - cve_values:
+        - PR:L
+        - PR:H
+        rescore: reduce
+    - category_value: 'user_interaction:service-operator'
+      name: user-interaction-service-operator
+      rules:
+      - cve_values:
+        - UI:R
+        rescore: reduce
+    - category_value: 'confidentiality_requirement:none'
+      name: confidentiality-requirement-none
+      rules:
+      - cve_values:
+        - C:H
+        - C:L
+        rescore: reduce
+    - category_value: 'integrity_requirement:none'
+      name: integrity-requirement-none
+      rules:
+      - cve_values:
+        - I:H
+        - I:L
+        rescore: reduce
+    - category_value: 'availability_requirement:none'
+      name: availability-requirement-none
+      rules:
+      - cve_values:
+        - A:H
+        - A:L
+        rescore: reduce
+  # todo: create example repository
+  cveCategorisationLabelUrl: https://pages.github.com/open-component-model/compliance-reporting-example/cvss-rescoring.html#cvss-categorisation
+  # todo: create example repository
+  cveSeverityUrl: https://ocm.software/example/cve-severity-slas
+addressbook:
+  # todo: create example repository
+  repoUrl: https://github.com/open-component-model/example-yellow-pages
+  addressbookRelpath: ~ # (set to null to disable feature) addressbook.yaml
+  githubMappingsRelpath: github.yaml
+sprints:
+  # todo: create example repository
+  repoUrl: https://github.com/open-component-model/example-yellow-pages
+  sprintsRelpath: ~ # set to null to disable feature; sprints.yaml
+  sprintDateNameMappings:
+  - dateName: canary_freeze
+    displayName: Canary Freeze
+  - dateName: release_decision
+    displayName: Release Decision
+  - dateName: end_date
+    displayName: End Date
+  - dateName: rtc
+    displayName: Release To Customer
+upgradePRs:
+  identificationMethod: title
+  titleRegex: ^\[ci:(\S*):(\S*):(\S*)->(\S*)\]$
+issues:
+  issueRepoMappings:
+  - componentName: ocm.software/example/component
+    repoName: github.com/example/example-issues-repository

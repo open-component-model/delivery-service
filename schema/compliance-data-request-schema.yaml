@@ -1,0 +1,25 @@
+$id: 'https://gardener.cloud/schemas/delivery-service/components-schema'
+$schema: 'https://json-schema.org/draft/2020-12/schema'
+description: 'Delivery Service Components schema'
+definitions:
+  component:
+    type: 'object'
+    required:
+      - 'componentName'
+      - 'componentVersion'
+    properties:
+      componentName:
+        type: 'string'
+      componentVersion:
+        type: 'string'
+  components:
+    type: 'array'
+    items:
+      $ref: '#/definitions/component'
+
+type: 'object'
+required:
+  - 'components'
+properties:
+  components:
+    $ref: '#/definitions/components'

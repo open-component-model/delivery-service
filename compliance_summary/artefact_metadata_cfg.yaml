@@ -1,0 +1,41 @@
+artefactMetadataCfg:
+- type: codechecks/aggregated
+  categories:
+  - compliance
+  severityMappings:
+  - severityName: HIGH
+    codecheckSeverityNames:
+    - high
+    - medium
+  - severityName: LOW
+    codecheckSeverityNames:
+    - low
+  - severityName: CLEAN
+    codecheckSeverityNames:
+    - info
+- type: malware
+  categories:
+  - compliance
+  severityMappings:
+  - severityName: BLOCKER
+    malwareNames:
+    - '.*'
+- type: os_ids
+  categories:
+  - compliance
+  severityMappings:
+  - severityName: CRITICAL
+    status:
+    - isEol
+  - severityName: MEDIUM
+    status:
+    - updateAvailableForBranch
+  - severityName: UNKNOWN
+    status:
+    - emptyOsId
+    - noBranchInfo
+    - noReleaseInfo
+    - unableToCompareVersion
+  - severityName: CLEAN
+    status:
+    - greatestBranchVersion

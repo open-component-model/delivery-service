@@ -1,0 +1,28 @@
+FROM europe-docker.pkg.dev/gardener-project/snapshots/cicd/alpine-sap
+
+# makes debugging easier
+COPY VERSION /VERSION
+COPY CC_UTILS_VERSION /CC_UTILS_VERSION
+COPY requirements.utils.txt /requirements.utils.txt
+COPY requirements.extensions.txt /requirements.txt
+
+COPY /dist /dist
+
+RUN apk add --no-cache \
+    bash \
+    gcc \
+    libc-dev \
+    libffi-dev \
+    postgresql16-client \
+    python3 \
+    python3-dev \
+    py3-pip
+
+RUN mkdir -p $HOME/.config/pip \
+    && echo -e "[global]\nbreak-system-packages = true" >> $HOME/.config/pip/pip.conf \
+    && pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-extensions
+
+# set env-variable so that 'requests' python library uses the system's trust-store
+ENV REQUESTS_CA_BUNDLE /etc/ssl/certs/ca-certificates.crt
+
+RUN rm -rf /dist

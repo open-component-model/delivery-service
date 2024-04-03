@@ -1,0 +1,50 @@
+$id: 'https://gardener.cloud/schemas/delivery-service/components-schema'
+$schema: 'https://json-schema.org/draft/2020-12/schema'
+description: 'Delivery Service Compliance Data Response schema'
+definitions:
+  complianceDataEntry:
+    type: 'object'
+    required:
+      - 'datasource'
+      - 'creationDate'
+    properties:
+      artifactName:
+        type: 'string'
+      artifactVersion:
+        type: 'string'
+  complianceData:
+    type: 'object'
+    required:
+      - 'identity'
+      - 'complianceDataEntries'
+    properties:
+      identity:
+        type: 'object'
+        required:
+          - 'componentName'
+          - 'componentVersion'
+          - 'artifactName'
+          - 'artifactVersion'
+          - 'artifactType'
+          - 'artifactExtraIdentity'
+        properties:
+          componentName:
+            type: 'string'
+          componentVersion:
+            type: 'string'
+          artifactName:
+            type: 'string'
+          artifactVersion:
+            type: 'string'
+          artifactType:
+            type: 'string'
+          artifactExtraIdentity:
+            type: 'object'
+      complianceDataEntries:
+        type: 'array'
+        items:
+          $ref: '#/definitions/complianceDataEntry'
+
+type: 'array'
+items:
+  $ref: '#/definitions/complianceData'

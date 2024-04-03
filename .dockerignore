@@ -1,0 +1,3 @@
+.git
+*.db
+__pycache__

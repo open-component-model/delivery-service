@@ -1,0 +1,6 @@
+dacite
+gardener-cicd-dso==1.2376.0
+github3.py
+kubernetes
+pytz
+watchdog

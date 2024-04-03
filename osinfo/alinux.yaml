@@ -1,0 +1,8 @@
+# outdated branches need an eol-date (cannot easily be retrieved programmatically)
+# future branches should be added, once an eol has been published
+
+# https://www.alibabacloud.com/help/en/elastic-compute-service/latest/end-of-support-for-operating-systems
+- eol_date: '2031-04-30'
+  name: '3'
+- eol_date: '2024-03-31'
+  name: '2'

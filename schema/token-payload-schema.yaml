@@ -1,0 +1,29 @@
+$id: 'https://gardener.cloud/schemas/delivery-service/dto/jwt-schema'
+$schema: 'http://json-schema.org/draft/2020-12/schema'
+description: 'Delivery Service JWT schema'
+type: 'object'
+required:
+  - 'iss'
+  - 'sub'
+  - 'iat'
+  - 'version'
+  - 'key_id'
+properties:
+  version:
+    type: 'string'
+  iss:
+    type: 'string'
+  sub:
+    type: 'string'
+  iat:
+    type: 'integer'
+  exp:
+    type: 'integer'
+  nbf:
+    type: 'integer'
+  key_id:
+    type: 'string'
+  team_names:
+    type: 'array'
+    items:
+      type: 'string'

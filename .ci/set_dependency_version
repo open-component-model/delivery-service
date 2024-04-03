@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+
+import os
+
+import ci.util
+
+
+repo_dir = os.path.abspath(ci.util.check_env('MAIN_REPO_DIR'))
+CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
+REQUIREMENTS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
+
+dependency_name = ci.util.check_env('DEPENDENCY_NAME')
+dependency_version = ci.util.check_env('DEPENDENCY_VERSION')
+
+
+def write_component_version_to_file(file_path: str):
+    with open(file_path, 'w') as version_file:
+        version_file.write(dependency_version.strip())
+
+
+def add_package_version(
+    package_name: str,
+    package_version: str,
+    packages: list[str],
+):
+    return [
+        f'{package_name}=={package_version}\n' if package.startswith(package_name) else package
+        for package in packages
+    ]
+
+
+def write_package_version_to_requirements_file(package_name: str, file_path: str):
+    with open(file_path, 'r') as requirements_file:
+        lines = requirements_file.readlines()
+
+        lines = add_package_version(
+            package_name=package_name,
+            package_version=dependency_version,
+            packages=lines,
+        )
+
+    with open(file_path, 'w') as requirements_file:
+        requirements_file.writelines(lines)
+
+
+def main():
+    if dependency_name == 'github.com/gardener/cc-utils':
+        package_name = 'gardener-cicd-dso'
+
+        write_component_version_to_file(CC_UTILS_VERSIONFILE)
+        write_package_version_to_requirements_file(package_name, REQUIREMENTS_FILE)
+    else:
+        raise RuntimeError(f"Don't know how to upgrade dependency: {dependency_name}")
+
+
+if __name__ == '__main__':
+    main()

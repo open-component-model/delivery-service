@@ -1,0 +1,39 @@
+componentDescriptors:
+    - component:
+        name: TestComponent_1
+        version: v1.0.0
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences: [ ]
+        resources: [ ]
+        labels: [ ]
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestComponent_1
+        version: v2.0.0
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences: [ ]
+        resources: [ ]
+        labels: [ ]
+      meta:
+        schemaVersion: v2
+      signatures: [ ]
+
+    - component:
+        name: TestComponent_1
+        version: v3.0.0
+        repositoryContexts: [ ]
+        provider: ""
+        sources: [ ]
+        componentReferences: [ ]
+        resources: [ ]
+        labels: [ ]
+      meta:
+        schemaVersion: v2
+      signatures: [ ]

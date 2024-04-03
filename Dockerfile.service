@@ -1,0 +1,34 @@
+FROM europe-docker.pkg.dev/gardener-project/snapshots/cicd/alpine-sap
+
+# makes debugging easier
+COPY VERSION /VERSION
+COPY CC_UTILS_VERSION /CC_UTILS_VERSION
+COPY requirements.utils.txt /requirements.utils.txt
+COPY requirements.service.txt /requirements.txt
+
+COPY /dist /dist
+
+# cannot install numpy, scipy via pypi
+RUN apk add --no-cache \
+    bash \
+    gcc \
+    libc-dev \
+    libev-dev \
+    libffi-dev \
+    postgresql16-client \
+    python3 \
+    python3-dev \
+    py3-pip \
+    py3-numpy \
+    py3-scipy
+
+RUN mkdir -p $HOME/.config/pip \
+    && echo -e "[global]\nbreak-system-packages = true" >> $HOME/.config/pip/pip.conf \
+    && pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service
+
+RUN rm -rf /dist
+
+# copy VERSION next to app to keep paths stable
+COPY VERSION /usr/lib/python3.11/site-packages/VERSION
+
+ENTRYPOINT ["python3", "-m", "app"]

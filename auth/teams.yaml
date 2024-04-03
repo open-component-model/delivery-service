@@ -1,0 +1,9 @@
+# this configuration is currently a stub / example. For actually being useful, it will need
+# to be factored-out (cannot remain part of delivery-service's code), first.
+# keeping it so using code will remain functional / not break
+github_team_mappings: []
+  # expected format:
+  # - name: 'name'
+  #  host: 'github-host.name' # e.g. github.com
+  #  roles:
+  #    - DELIVERY_DB_READER # see roles.yaml

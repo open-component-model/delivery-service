@@ -1,0 +1,17 @@
+awesomeversion
+bjoern
+cachetools
+dataclasses-json
+falcon>=3
+github3-py
+htmllistparse
+jsonschema
+psycopg[binary]
+pyjwt
+pyyaml
+requests
+spectree
+sqlalchemy>1.4.0
+# numpy and scipy installed via alpine packages
+# numpy
+# scipy

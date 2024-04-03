@@ -1,0 +1,4 @@
+users:
+  - name: service_user
+    roles:
+      - DELIVERY_DB_WRITER

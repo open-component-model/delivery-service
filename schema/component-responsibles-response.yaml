@@ -1,0 +1,34 @@
+$id: 'https://gardener.cloud/schemas/delivery-service/components-schema'
+$schema: 'https://json-schema.org/draft/2020-12/schema'
+description: 'Delivery Service Component Responsibles Response'
+definitions:
+  responsible:
+    type: 'array'
+    items:
+      $ref: '#/definitions/identifier'
+  identifier:
+    type: 'object'
+    required:
+    - 'source'
+    - 'type'
+    properties:
+      source:
+        type: 'string'
+      type:
+        type: 'string'
+      username:
+        type: 'string'
+      email:
+        type: 'string'
+      firstName:
+        type: 'string'
+      lastName:
+        type: 'string'
+type: 'object'
+required:
+  - 'responsibles'
+properties:
+  responsibles:
+    type: 'array'
+    items:
+      $ref: '#/definitions/responsible'

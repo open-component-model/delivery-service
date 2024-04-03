@@ -1,0 +1,107 @@
+delivery-service:
+  inherit:
+    check-steps: &check-steps
+      steps: &steps
+        smoke_test:
+          image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
+          execute: ../smoke_test.py
+        lint:
+          image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
+          execute: lint
+        test:
+          image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
+          execute: test
+
+  base_definition:
+    repo:
+      disable_ci_skip: True
+    traits:
+      version: ~
+      component_descriptor:
+        component_name: ocm.software/delivery-gear/delivery-service
+        ocm_repository: europe-docker.pkg.dev/gardener-project/releases
+        ocm_repository_mappings:
+        - repository: europe-docker.pkg.dev/gardener-project/releases
+          prefix: ''
+      options:
+        public_build_logs: true
+
+  jobs:
+    pull-request:
+      <<: *check-steps
+      traits:
+        pull-request: ~
+        component_descriptor:
+          ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
+
+    upon-cicd-outbound-release:
+      traits:
+        update_component_deps:
+          merge_policy: manual
+        cronjob:
+          interval: 5m
+        component_descriptor:
+          ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
+
+    automatic-release:
+      steps:
+        trigger-release:
+          execute: trigger_release.py
+          inputs:
+            component_descriptor_dir: component_descriptor_dir
+          vars:
+            RELEASE_JOB_NAME: pipeline.variant("manual-release").job_name()
+            PIPELINE_NAME: pipeline_descriptor.get("name")
+          depends:
+            - component_descriptor
+      traits:
+        notifications:
+          cicd-team:
+            on_error:
+              triggering_policy: only_first
+              recipients:
+                - email_addresses:
+                  - christian.cwienk@sap.com
+                  - philipp.heil@sap.com
+                  - j.brand@sap.com
+
+    manual-release:
+      steps:
+        <<: *steps
+        build_python_packages:
+          output_dir: packages
+      traits:
+        version:
+          preprocess: finalize
+          inject_effective_version: True
+        publish:
+          dockerimages:
+            delivery-service:
+              image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service
+              dockerfile: Dockerfile.service
+              tag_as_latest: True
+              inputs:
+                steps:
+                  build_python_packages: ~
+            delivery-gear-extensions:
+              image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-gear-extensions
+              dockerfile: Dockerfile.extensions
+              tag_as_latest: True
+              inputs:
+                steps:
+                  build_python_packages: ~
+        release:
+          nextversion: bump_minor
+          release_notes_policy: disabled
+          release_commit_publishing_policy: tag_and_merge_back
+
+    head-update:
+      <<: *check-steps
+      traits:
+        version: ~
+        notifications:
+          default:
+            on_error:
+              triggering_policy: only_first
+        component_descriptor:
+          ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
