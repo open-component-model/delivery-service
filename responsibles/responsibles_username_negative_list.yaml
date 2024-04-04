@@ -27,3 +27,4 @@ usernames:
 - 'kubernetes-private-serviceuser'
 - 'kubernetes-root-serviceuser'
 - 'kubernetes-tm-stakeholder-serviceuser'
+- 'ocm-ci-robot-0'
