@@ -11,6 +11,7 @@ import yaml
 import kubernetes.client as kc
 import kubernetes.client.rest
 import kubernetes.config
+import urllib3.exceptions
 
 import model.kubernetes
 
@@ -147,6 +148,12 @@ def watch_crd_changes(
                 logger.info('API resource watching expired, will start new watch')
             else:
                 raise e
+        except urllib3.exceptions.ProtocolError:
+            # this is a known error which has no impact on the functionality, thus rather be
+            # degregated to a warning or even info
+            # [ref](https://github.com/kiwigrid/k8s-sidecar/issues/233#issuecomment-1332358459)
+            resource_version = ''
+            logger.info('API resource watching received protocol error, will start new watch')
 
 
 def scale_replica_set(
