@@ -34,7 +34,7 @@ delivery-service:
         component_descriptor:
           ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
 
-    upon-cicd-outbound-release:
+    update-dependencies:
       traits:
         update_component_deps:
           merge_policy: manual
