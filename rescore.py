@@ -68,6 +68,7 @@ class VulnerabilityFinding(Finding):
     cvss_v3_score: float
     cvss: str
     urls: list[str]
+    filesystem_paths: list[dso.model.FilesystemPath]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -390,6 +391,38 @@ def _rescore_vulnerabilitiy(
     )
 
 
+def filesystem_paths_for_finding(
+    artefact_metadata: list[dm.ArtefactMetaData],
+    finding: dm.ArtefactMetaData,
+) -> list[dso.model.FilesystemPath]:
+    id = finding.data.get('id')
+
+    matching_structure_info = tuple(
+        matching_info for matching_info in artefact_metadata
+        if (
+            matching_info.type == dso.model.Datatype.STRUCTURE_INFO and
+            matching_info.data.get('id').get('source') == id.get('source') and
+            matching_info.data.get('id').get('package_name') == id.get('package_name') and
+            matching_info.component_name == finding.component_name and
+            matching_info.component_version == finding.component_version and
+            matching_info.artefact_kind == finding.artefact_kind and
+            matching_info.artefact_name == finding.artefact_name and
+            matching_info.artefact_version == finding.artefact_version and
+            matching_info.artefact_type == finding.artefact_type and
+            matching_info.artefact_extra_id_normalised == finding.artefact_extra_id_normalised
+        )
+    )
+
+    return list({
+        dacite.from_dict(
+            data_class=dso.model.FilesystemPath,
+            data=path,
+        )
+        for structure_info in matching_structure_info
+        for path in structure_info.data.get('filesystem_paths')
+    })
+
+
 def _iter_rescoring_proposals(
     artefact_metadata: list[dm.ArtefactMetaData],
     rescorings: tuple[dso.model.ArtefactMetadata],
@@ -449,6 +482,11 @@ def _iter_rescoring_proposals(
                 if matching_am.data.get('id').get('package_version')
             )
 
+            filesystem_paths = filesystem_paths_for_finding(
+                artefact_metadata=artefact_metadata,
+                finding=am,
+            )
+
             yield dacite.from_dict(
                 data_class=RescoringProposal,
                 data={
@@ -463,6 +501,7 @@ def _iter_rescoring_proposals(
                         'cvss_v3_score': cvss_v3_score,
                         'cvss': f'{cvss}',
                         'urls': [f'https://nvd.nist.gov/vuln/detail/{cve}'],
+                        'filesystem_paths': filesystem_paths,
                     },
                     'severity': _rescore_vulnerabilitiy(
                         rescoring_rules=rescoring_rules,
@@ -504,30 +543,10 @@ def _iter_rescoring_proposals(
                 if matching_am.data.get('id').get('package_version')
             )
 
-            matching_structure_info = tuple(
-                matching_info for matching_info in artefact_metadata
-                if (
-                    matching_info.type == dso.model.Datatype.STRUCTURE_INFO and
-                    matching_info.data.get('id').get('source') == dso.model.Datasource.BDBA and
-                    matching_info.data.get('id').get('package_name') == package_name and
-                    matching_info.component_name == am.component_name and
-                    matching_info.component_version == am.component_version and
-                    matching_info.artefact_kind == am.artefact_kind and
-                    matching_info.artefact_name == am.artefact_name and
-                    matching_info.artefact_version == am.artefact_version and
-                    matching_info.artefact_type == am.artefact_type and
-                    matching_info.artefact_extra_id_normalised == am.artefact_extra_id_normalised
-                )
+            filesystem_paths = filesystem_paths_for_finding(
+                artefact_metadata=artefact_metadata,
+                finding=am,
             )
-
-            filesystem_paths = list({
-                dacite.from_dict(
-                    data_class=dso.model.FilesystemPath,
-                    data=path,
-                )
-                for structure_info in matching_structure_info
-                for path in structure_info.data.get('filesystem_paths')
-            })
 
             yield dacite.from_dict(
                 data_class=RescoringProposal,
@@ -824,9 +843,8 @@ class Rescore:
         artefact_extra_id = req.get_param('artefactExtraId', required=False, default=dict())
         type_filter = req.get_param_as_list('type', required=False)
 
-        if dso.model.Datatype.LICENSE in type_filter:
-            # also filter for structure info to enrich license findings
-            type_filter.append(dso.model.Datatype.STRUCTURE_INFO)
+        # also filter for structure info to enrich findings
+        type_filter.append(dso.model.Datatype.STRUCTURE_INFO)
 
         cve_rescoring_rule_set_name = req.get_param(
             'cveRescoringRuleSetName',
