@@ -1,5 +1,7 @@
 # Delivery-Service
 
+[![REUSE status](https://api.reuse.software/badge/github.com/open-component-model/delivery-service)](https://api.reuse.software/info/github.com/open-component-model/delivery-service)
+
 This repository is used for developing the `Delivery Service` + Extensions, which are part of the
 OCM (Delivery) Gear. It exposes a RESTful API useful for delivery- and compliance-related tasks
 for OCM-based software deliveries.
