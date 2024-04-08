@@ -14,6 +14,7 @@ component_descriptor_path = os.path.abspath(ci.util.check_env('COMPONENT_DESCRIP
 own_dir = os.path.abspath(os.path.dirname(__file__))
 repo_dir = os.path.abspath(os.path.join(own_dir, os.pardir))
 CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
+FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
 
 
 def parse_component_descriptor():
@@ -23,28 +24,37 @@ def parse_component_descriptor():
     return component_descriptor
 
 
-def cc_utils_version():
-    with open(CC_UTILS_VERSIONFILE) as version_file:
-        cc_utils_version = version_file.read().strip()
-    return cc_utils_version
-
-
-def add_dependency_to_cc_utils(component: gci.componentmodel.Component):
-    component.componentReferences.append(
-        gci.componentmodel.ComponentReference(
-            name='cc-utils',
-            componentName='github.com/gardener/cc-utils',
-            version=cc_utils_version(),
-            labels=[],
-        )
-    )
+def version_from_file(
+    version_file_path: str,
+) -> str:
+    with open(version_file_path) as version_file:
+        version = version_file.read().strip()
+    return version
 
 
 def main():
     component_descriptor = parse_component_descriptor()
     component = component_descriptor.component
 
-    add_dependency_to_cc_utils(component)
+    cc_utils_cref = gci.componentmodel.ComponentReference(
+        name='cc-utils',
+        componentName='github.com/gardener/cc-utils',
+        version=version_from_file(CC_UTILS_VERSIONFILE),
+        labels=[],
+    )
+
+    freshclam_cref = gci.componentmodel.ComponentReference(
+        name='freshclam',
+        componentName='ocm.software/delivery-gear/freshclam',
+        version=version_from_file(FRESHCLAM_VERSIONFILE),
+        labels=[],
+    )
+
+    for cref in (
+        cc_utils_cref,
+        freshclam_cref,
+    ):
+        component.componentReferences.append(cref)
 
     with open(component_descriptor_path, 'w') as f:
         yaml.dump(
