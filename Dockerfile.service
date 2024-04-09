@@ -12,6 +12,7 @@ COPY /dist /dist
 RUN apk add --no-cache \
     bash \
     gcc \
+    git \
     libc-dev \
     libev-dev \
     libffi-dev \
