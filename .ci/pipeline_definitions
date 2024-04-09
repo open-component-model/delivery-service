@@ -90,6 +90,13 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+            delivery-gear-extension-clamav:
+              image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-gear-extension-clamav
+              dockerfile: Dockerfile.extensions.clamav
+              tag_as_latest: True
+              inputs:
+                steps:
+                  build_python_packages: ~
         release:
           nextversion: bump_minor
           release_notes_policy: disabled
