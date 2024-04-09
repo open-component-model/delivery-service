@@ -186,7 +186,7 @@ def _issue_milestone(
     sprints = gcmi.target_sprints(
         delivery_svc_client=delivery_client,
         latest_processing_date=latest_processing_date,
-        sprints_count=24,
+        sprints_count=12,
     )
 
     return gcmi.find_or_create_sprint_milestone(
