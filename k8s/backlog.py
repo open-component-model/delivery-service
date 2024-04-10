@@ -438,6 +438,6 @@ def get_resource_node(
         raise ValueError(resource)
 
     return cnudie.iter.ResourceNode(
-        path=(component,),
+        path=(cnudie.iter.NodePathEntry(component),),
         resource=resource,
     )

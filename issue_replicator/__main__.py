@@ -155,12 +155,12 @@ def _artefacts_for_backlog_item_and_components(
             # found artefact of backlog item in component's artefact
             if artefact_kind == 'resource':
                 artefact_node = cnudie.iter.ResourceNode(
-                    path=(component,),
+                    path=(cnudie.iter.NodePathEntry(component),),
                     resource=artefact,
                 )
             elif artefact_kind == 'source':
                 artefact_node = cnudie.iter.SourceNode(
-                    path=(component,),
+                    path=(cnudie.iter.NodePathEntry(component),),
                     source=artefact,
                 )
 

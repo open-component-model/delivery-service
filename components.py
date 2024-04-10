@@ -293,9 +293,9 @@ class ComponentDependencies:
 
             component_dependency['comp_ref'] = [
                 {
-                    'name': ref.name,
-                    'version': ref.version,
-                    'repositoryContexts': ref.repositoryContexts,
+                    'name': ref.component.name,
+                    'version': ref.component.version,
+                    'repositoryContexts': ref.component.repositoryContexts,
                 }
                 for ref in component.path
             ]
@@ -678,7 +678,7 @@ def resolve_component_dependencies(
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ctx_repo: cm.OcmRepository=None,
-) -> list[cm.Component]:
+) -> list[cnudie.iter.ComponentNode]:
     descriptor = util.retrieve_component_descriptor(
         cm.ComponentIdentity(
             name=component_name,
