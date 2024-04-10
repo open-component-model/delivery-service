@@ -23,8 +23,6 @@ delivery-service:
         ocm_repository_mappings:
         - repository: europe-docker.pkg.dev/gardener-project/releases
           prefix: ''
-      options:
-        public_build_logs: true
 
   jobs:
     pull-request:
