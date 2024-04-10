@@ -75,7 +75,7 @@ delivery-service:
 
     manual-release:
       steps:
-        <<: *steps
+        # <<: *steps
         build_python_packages:
           output_dir: packages
       traits:
@@ -111,7 +111,7 @@ delivery-service:
           release_commit_publishing_policy: tag_and_merge_back
 
     head-update:
-      <<: *check-steps
+      # <<: *check-steps
       traits:
         version: ~
         notifications:
