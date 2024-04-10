@@ -37,7 +37,15 @@ delivery-service:
     update-dependencies:
       traits:
         update_component_deps:
-          merge_policy: manual
+          merge_policies:
+          - component_names:
+            - '^((?!github\.com/gardener/cc-utils).)*$' # everything except github.com/gardener/cc-utils
+            merge_mode: manual
+            merge_method: rebase
+          - component_names:
+            - 'github\.com/gardener/cc-utils'
+            merge_mode: auto_merge
+            merge_method: rebase
         cronjob:
           interval: 5m
         component_descriptor:
