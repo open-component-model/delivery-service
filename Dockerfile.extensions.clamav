@@ -17,7 +17,6 @@ RUN apk add --no-cache \
     gcc \
     libc-dev \
     libffi-dev \
-    postgresql16-client \
     python3 \
     python3-dev \
     py3-pip
