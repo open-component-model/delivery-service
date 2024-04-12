@@ -71,7 +71,7 @@ class ArtefactEnumeratorConfig:
 
 
 @dataclasses.dataclass(frozen=True)
-class MalwareConfig:
+class ClamAVConfig:
     '''
     :param int lookup_new_backlog_item_interval:
         time to wait in case no backlog item was found before searching for new backlog item again
@@ -188,7 +188,7 @@ class ScanConfiguration:
     artefact_enumerator_config: ArtefactEnumeratorConfig
     bdba_config: BDBAConfig
     issue_replicator_config: IssueReplicatorConfig
-    malware_config: MalwareConfig
+    clamav_config: ClamAVConfig
 
 
 def deserialise_component_config(
@@ -336,37 +336,37 @@ def deserialise_artefact_enumerator_config(
     )
 
 
-def deserialise_malware_config(
+def deserialise_clamav_config(
     spec_config: dict,
-) -> MalwareConfig:
+) -> ClamAVConfig:
     default_config = spec_config.get('defaults', dict())
-    malware_config = spec_config.get('malware')
+    clamav_config = spec_config.get('clamav')
 
-    if not malware_config:
+    if not clamav_config:
         return
 
     lookup_new_backlog_item_interval = deserialise_config_property(
-        config=malware_config,
+        config=clamav_config,
         property_key='lookup_new_backlog_item_interval',
         default_config=default_config,
         default_value=60,
     )
 
     virus_db_max_age_days = deserialise_config_property(
-        config=malware_config,
+        config=clamav_config,
         property_key='virus_db_max_age_days',
         default_config=default_config,
         default_value=5,
     )
 
     aws_cfg_name = deserialise_config_property(
-        config=malware_config,
+        config=clamav_config,
         property_key='aws_cfg_name',
         absent_ok=True,
         on_absent_message='artefacts of access type s3 will not be scanned'
     )
 
-    return MalwareConfig(
+    return ClamAVConfig(
         lookup_new_backlog_item_interval=lookup_new_backlog_item_interval,
         virus_db_max_age_days=virus_db_max_age_days,
         aws_cfg_name=aws_cfg_name,
@@ -684,17 +684,17 @@ def deserialise_scan_configuration(
         issue_replicator_config = None
 
     if Services.CLAMAV in included_services:
-        malware_config = deserialise_malware_config(
+        clamav_config = deserialise_clamav_config(
             spec_config=spec_config,
         )
     else:
-        malware_config = None
+        clamav_config = None
 
     return ScanConfiguration(
         artefact_enumerator_config=artefact_enumerator_config,
         bdba_config=bdba_config,
         issue_replicator_config=issue_replicator_config,
-        malware_config=malware_config,
+        clamav_config=clamav_config,
     )
 
 

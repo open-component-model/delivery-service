@@ -456,8 +456,8 @@ def _process_compliance_snapshots_of_artefact(
         )
         update_is_required |= issue_update_is_required
 
-    if scan_config.malware_config:
-        interval = scan_config.malware_config.virus_db_max_age_days * (24*60*60) # days to seconds
+    if scan_config.clamav_config:
+        interval = scan_config.clamav_config.virus_db_max_age_days * (24*60*60) # days to seconds
         compliance_snapshots, malware_update_is_required = _create_backlog_item(
             cfg_name=cfg_name,
             namespace=namespace,
