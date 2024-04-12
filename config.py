@@ -73,6 +73,7 @@ class ArtefactEnumeratorConfig:
 @dataclasses.dataclass(frozen=True)
 class ClamAVConfig:
     '''
+    :param str delivery_service_url
     :param int lookup_new_backlog_item_interval:
         time to wait in case no backlog item was found before searching for new backlog item again
     :param int virus_db_max_age_days
@@ -80,6 +81,7 @@ class ClamAVConfig:
     :param str aws_cfg_name
         cfg-element used to create s3 client to retrieve artefacts
     '''
+    delivery_service_url: str
     lookup_new_backlog_item_interval: int
     virus_db_max_age_days: int
     aws_cfg_name: str
@@ -345,6 +347,12 @@ def deserialise_clamav_config(
     if not clamav_config:
         return
 
+    delivery_service_url = deserialise_config_property(
+        config=clamav_config,
+        property_key='delivery_service_url',
+        default_config=default_config,
+    )
+
     lookup_new_backlog_item_interval = deserialise_config_property(
         config=clamav_config,
         property_key='lookup_new_backlog_item_interval',
@@ -367,6 +375,7 @@ def deserialise_clamav_config(
     )
 
     return ClamAVConfig(
+        delivery_service_url=delivery_service_url,
         lookup_new_backlog_item_interval=lookup_new_backlog_item_interval,
         virus_db_max_age_days=virus_db_max_age_days,
         aws_cfg_name=aws_cfg_name,
