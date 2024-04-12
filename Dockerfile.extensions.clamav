@@ -29,4 +29,4 @@ RUN mkdir -p $HOME/.config/pip \
 ENV REQUESTS_CA_BUNDLE /etc/ssl/certs/ca-certificates.crt
 
 RUN rm -rf /dist
-ENTRYPOINT ["clamav_entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/clamav_entrypoint.sh"]
