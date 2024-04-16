@@ -2,6 +2,9 @@
 
 set -eu
 
+mkdir /run/clamav
+chown -R clamav /run/clamav
+
 # start up freshclam to pull the definitions. In our deployment, these will be pulled
 # from a cluster-local mirror
 freshclam --daemon
@@ -10,9 +13,6 @@ freshclam --daemon
 echo "Sleeping for 45 seconds to give freshclam time to download the virus definitions ..."
 sleep 45
 echo "Done"
-
-mkdir /run/clamav
-chown -R clamav /run/clamav
 clamd
 
 # watch logfile
