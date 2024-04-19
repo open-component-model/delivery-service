@@ -67,6 +67,7 @@ class VulnerabilityFinding(Finding):
     cve: str
     cvss_v3_score: float
     cvss: str
+    summary: str | None
     urls: list[str]
     filesystem_paths: list[dso.model.FilesystemPath]
 
@@ -500,6 +501,7 @@ def _iter_rescoring_proposals(
                         'cve': cve,
                         'cvss_v3_score': cvss_v3_score,
                         'cvss': f'{cvss}',
+                        'summary': am.data.get('summary'),
                         'urls': [f'https://nvd.nist.gov/vuln/detail/{cve}'],
                         'filesystem_paths': filesystem_paths,
                     },
