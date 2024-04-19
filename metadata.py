@@ -336,6 +336,18 @@ class ArtefactMetadata:
                         if existing_entry.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
                             existing_entry.data = metadata_entry.data
 
+                        # patch in vulnerability summary to include it in older vulnerabilities too
+                        if (
+                            existing_entry.type == dso.model.Datatype.VULNERABILITY and
+                            (summary := metadata_entry.data.get('summary'))
+                        ):
+                            if 'summary' in existing_entry.data:
+                                del existing_entry.data['summary']
+                            existing_entry.data = dict(
+                                **existing_entry.data,
+                                summary=summary,
+                            )
+
                         del existing_entry.meta['last_update']
                         existing_entry.meta = dict(
                             **existing_entry.meta,
