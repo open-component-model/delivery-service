@@ -440,6 +440,8 @@ def init_app(
             component_descriptor_lookup=component_descriptor_lookup,
             namespace_callback=namespace_callback,
             kubernetes_api_callback=kubernetes_api_callback,
+            sprints_repo_callback=sprints_repo_callback,
+            sprints_relpath_callback=sprints_relpath_callback,
         ),
     )
 
