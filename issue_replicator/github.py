@@ -9,18 +9,21 @@ import re
 import requests
 import textwrap
 import time
+import urllib.parse
 
 import github3
 import github3.issues.comment
 import github3.issues.issue
 import github3.issues.milestone
 
+import ci.util
 import cnudie.iter
 import delivery.client
 import delivery.model
 import dso.cvss
 import dso.labels
 import dso.model
+import gci.componentmodel as cm
 import github.compliance.issue as gci
 import github.compliance.milestone as gcmi
 import github.compliance.model as gcm
@@ -215,11 +218,39 @@ def _artefact_to_str(artefact: cnudie.iter.Node | cnudie.iter.ArtefactNode) -> s
     )
 
 
+def _delivery_dashboard_url(
+    base_url: str,
+    component: cm.Component,
+    sprint_name: str=None,
+):
+    url = ci.util.urljoin(
+        base_url,
+        '#/component'
+    )
+
+    query_params = {
+        'name': component.name,
+        'version': component.version,
+        'view': 'bom',
+        'rootExpanded': True,
+    }
+
+    if sprint_name:
+        query_params['sprints'] = sprint_name
+
+    query = urllib.parse.urlencode(
+        query=query_params,
+    )
+
+    return f'{url}?{query}'
+
+
 def _vulnerability_template_vars(
     issue_replicator_config: config.IssueReplicatorConfig,
     artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
     summary: str,
+    sprint_name: str=None,
 ) -> dict[str, str]:
     # find artefact with greatest version to use its label
     greatest_version = version_util.greatest_version(
@@ -326,9 +357,10 @@ def _vulnerability_template_vars(
         summary += f'\n### {_artefact_to_str(artefact=artefact)}\n'
 
         if issue_replicator_config.delivery_dashboard_url:
-            delivery_dashboard_url = gcr._delivery_dashboard_url(
-                component=artefact.component,
+            delivery_dashboard_url = _delivery_dashboard_url(
                 base_url=issue_replicator_config.delivery_dashboard_url,
+                component=artefact.component,
+                sprint_name=sprint_name,
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
@@ -369,6 +401,7 @@ def _license_template_vars(
     artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
     summary: str,
+    sprint_name: str=None,
 ) -> dict[str, str]:
     summary += '# Summary of found licenses'
 
@@ -427,9 +460,10 @@ def _license_template_vars(
         summary += f'\n### {_artefact_to_str(artefact=artefact)}\n'
 
         if issue_replicator_config.delivery_dashboard_url:
-            delivery_dashboard_url = gcr._delivery_dashboard_url(
-                component=artefact.component,
+            delivery_dashboard_url = _delivery_dashboard_url(
                 base_url=issue_replicator_config.delivery_dashboard_url,
+                component=artefact.component,
+                sprint_name=sprint_name,
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
@@ -468,6 +502,7 @@ def _template_vars(
     artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
     findings: tuple[AggregatedFinding],
     latest_processing_date: datetime.date,
+    sprint_name: str=None,
 ) -> dict:
     # retrieve all distinct component- and resource-versions and store information whether their
     # artefact has findings or not (required for explicit depiction afterwards)
@@ -573,6 +608,7 @@ def _template_vars(
             artefacts=artefacts,
             findings_by_versions=findings_by_versions,
             summary=summary,
+            sprint_name=sprint_name,
         )
     elif type == gci._label_licenses:
         template_variables |= _license_template_vars(
@@ -580,6 +616,7 @@ def _template_vars(
             artefacts=artefacts,
             findings_by_versions=findings_by_versions,
             summary=summary,
+            sprint_name=sprint_name,
         )
 
     return template_variables
@@ -748,12 +785,18 @@ def create_or_update_or_close_issue(
         milestone=milestone,
     )
 
+    if milestone:
+        sprint_name = milestone.title.lstrip('sprint-')
+    else:
+        sprint_name = None
+
     template_variables = _template_vars(
         issue_replicator_config=issue_replicator_config,
         type=type,
         artefacts=artefacts,
         findings=findings,
         latest_processing_date=latest_processing_date,
+        sprint_name=sprint_name,
     )
 
     for issue_template_cfg in issue_replicator_config.github_issue_template_cfgs:
