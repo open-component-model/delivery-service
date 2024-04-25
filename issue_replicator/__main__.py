@@ -283,10 +283,10 @@ def _findings_by_type_and_date(
     None,
 ]:
     '''
-    yields all findings of the given `artefact` in `components`, grouped by finding type and latest
-    processing date. Also, it yields the information whether the artefact was scanned at all which
-    is determined based on if there is a "dummy finding". Thresholds provided by configuration are
-    applied on the findings before yielding.
+    yields all findings (of configured types) of the given `artefact` in `components`, grouped by
+    finding type and latest processing date. Also, it yields the information whether the artefact
+    was scanned at all which is determined based on if there is a "dummy finding". Thresholds
+    provided by configuration are applied on the findings before yielding.
     '''
     findings = tuple(_iter_findings_for_artefact(
         delivery_client=delivery_client,
@@ -297,44 +297,46 @@ def _findings_by_type_and_date(
 
     sprints = sprint_dates(delivery_client=delivery_client)
 
+    datasource_for_datatype = {
+        dso.model.Datatype.VULNERABILITY: dso.model.Datasource.BDBA,
+        dso.model.Datatype.LICENSE: dso.model.Datasource.BDBA,
+        dso.model.Datatype.MALWARE: dso.model.Datasource.CLAMAV,
+    }
+
     for latest_processing_date in latest_processing_dates:
         date = dateutil.parser.isoparse(latest_processing_date).date()
 
-        vulnerability_bdba_findings, is_scanned = _findings_for_type_and_date(
-            issue_replicator_config=issue_replicator_config,
-            latest_processing_date=date,
-            sprints=sprints,
-            type=dso.model.Datatype.VULNERABILITY,
-            source=dso.model.Datasource.BDBA,
-            findings=findings,
-        )
-        vulnerability_bdba_findings = tuple(
-            finding for finding in vulnerability_bdba_findings
-            if finding.finding.data.cvss_v3_score >= issue_replicator_config.cve_threshold
-        )
-        yield (
-            dso.model.Datatype.VULNERABILITY,
-            dso.model.Datasource.BDBA,
-            date,
-            vulnerability_bdba_findings,
-            is_scanned,
-        )
+        for finding_type_cfg in issue_replicator_config.finding_type_issue_replication_cfgs:
+            finding_type = finding_type_cfg.finding_type
+            finding_source = datasource_for_datatype.get(finding_type)
 
-        license_bdba_findings, is_scanned = _findings_for_type_and_date(
-            issue_replicator_config=issue_replicator_config,
-            latest_processing_date=date,
-            sprints=sprints,
-            type=dso.model.Datatype.LICENSE,
-            source=dso.model.Datasource.BDBA,
-            findings=findings,
-        )
-        yield (
-            dso.model.Datatype.LICENSE,
-            dso.model.Datasource.BDBA,
-            date,
-            license_bdba_findings,
-            is_scanned,
-        )
+            logger.info(f'processing findings of {finding_type=} with {finding_type_cfg=}')
+
+            findings, is_scanned = _findings_for_type_and_date(
+                issue_replicator_config=issue_replicator_config,
+                latest_processing_date=date,
+                sprints=sprints,
+                type=finding_type,
+                source=finding_source,
+                findings=findings,
+            )
+
+            if (
+                finding_type == dso.model.Datatype.VULNERABILITY
+                and isinstance(finding_type_cfg, config.VulnerabilityIssueReplicationCfg)
+            ):
+                findings = tuple(
+                    finding for finding in findings
+                    if finding.finding.data.cvss_v3_score >= finding_type_cfg.cve_threshold
+                )
+
+            yield (
+                finding_type,
+                finding_source,
+                date,
+                findings,
+                is_scanned,
+            )
 
 
 def replicate_issue(
@@ -413,13 +415,33 @@ def replicate_issue(
         latest_processing_dates=correlation_ids_by_latest_processing_date.keys(),
     )
 
+    def _find_finding_type_issue_replication_cfg(
+        finding_cfgs: collections.abc.Iterable[config.FindingTypeIssueReplicationCfgBase],
+        finding_type: str,
+        absent_ok: bool=False,
+    ) -> config.FindingTypeIssueReplicationCfgBase:
+        for finding_cfg in finding_cfgs:
+            if finding_cfg.finding_type == finding_type:
+                return finding_cfg
+
+        if absent_ok:
+            return None
+
+        return ValueError(f'no finding-type specific cfg found for {finding_type=}')
+
     is_in_bom = len(active_compliance_snapshots_for_artefact) > 0
     for type, source, date, findings, is_scanned in findings_by_type_and_date:
         correlation_id = correlation_ids_by_latest_processing_date.get(date.isoformat())
 
+        finding_type_issue_replication_cfg = _find_finding_type_issue_replication_cfg(
+            finding_cfgs=issue_replicator_config.finding_type_issue_replication_cfgs,
+            finding_type=type,
+        )
+
         issue_replicator.github.create_or_update_or_close_issue(
             cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
+            finding_type_issue_replication_cfg=finding_type_issue_replication_cfg,
             delivery_client=delivery_client,
             type=type,
             source=source,
