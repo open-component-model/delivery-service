@@ -642,6 +642,7 @@ def update_issue(
 def create_or_update_or_close_issue(
     cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
+    finding_type_issue_replication_cfg: config.FindingTypeIssueReplicationCfgBase,
     delivery_client: delivery.client.DeliveryServiceClient,
     type: str,
     source: str,
@@ -726,7 +727,7 @@ def create_or_update_or_close_issue(
         # not scanned yet but no open issue found either -> nothing to do
         return
 
-    if issue_replicator_config.enable_issue_assignees:
+    if finding_type_issue_replication_cfg.enable_issue_assignees:
         assignees, assignees_statuses = _issue_assignees(
             issue_replicator_config=issue_replicator_config,
             delivery_client=delivery_client,

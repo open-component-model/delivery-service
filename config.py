@@ -12,6 +12,7 @@ import concourse.model.traits.filter as filter
 import concourse.model.traits.image_scan as image_scan
 import cnudie.iter
 import dso.cvss
+import dso.model
 import gci.componentmodel as cm
 import github.compliance.model
 import protecode.model
@@ -137,6 +138,27 @@ class BDBAConfig:
 
 
 @dataclasses.dataclass(frozen=True)
+class FindingTypeIssueReplicationCfgBase:
+    '''
+    :param str finding_type:
+        finding type this configuration should be applied for
+        (see cc-utils dso/model.py for available "Datatype"s)
+    :param bool enable_issue_assignees
+    '''
+    finding_type: str
+    enable_issue_assignees: bool
+
+
+@dataclasses.dataclass(frozen=True)
+class VulnerabilityIssueReplicationCfg(FindingTypeIssueReplicationCfgBase):
+    '''
+    :param int cve_threshold:
+        vulnerability findings below this threshold won't be reported in the issue(s)
+    '''
+    cve_threshold: int
+
+
+@dataclasses.dataclass(frozen=True)
 class IssueReplicatorConfig:
     '''
     :param str delivery_service_url
@@ -145,8 +167,6 @@ class IssueReplicatorConfig:
         time after which an issue must be updated at latest
     :param int lookup_new_backlog_item_interval:
         time to wait in case no backlog item was found before searching for new backlog item again
-    :param int cve_threshold:
-        vulnerability findings below this threshold won't be reported in the issue(s)
     :param LicenseCfg license_cfg:
         required to differentiate between allowed and prohibited licenses
     :param MaxProcessingTimesDays max_processing_days:
@@ -159,19 +179,19 @@ class IssueReplicatorConfig:
         labels matching one of these regexes won't be removed upon an issue update
     :param int number_included_closed_issues:
         number of closed issues to consider when evaluating creating vs re-opening an issue
-    :param bool enable_issue_assignees
     :param tuple[str] artefact_types:
         list of artefact types for which issues should be created, other artefact types are skipped
     :param Callable[Node, bool] node_filter:
         filter of artefact nodes to explicitly in- or exclude artefacts from the issue replication
     :param tuple[RescoringRule] cve_rescoring_rules:
         these rules are applied to calculate proposed rescorings which are displayed in the issue
+    :param tuple[FindingTypeIssueReplicationCfgBase] finding_type_issue_replication_cfgs:
+        these cfgs are finding type specific and allow fine granular configuration
     '''
     delivery_service_url: str
     delivery_dashboard_url: str
     replication_interval: int
     lookup_new_backlog_item_interval: int
-    cve_threshold: int
     license_cfg: image_scan.LicenseCfg
     max_processing_days: github.compliance.model.MaxProcessingTimesDays
     github_api_lookup: typing.Callable[[str], github3.GitHub]
@@ -179,10 +199,10 @@ class IssueReplicatorConfig:
     github_issue_template_cfgs: tuple[image_scan.GithubIssueTemplateCfg]
     github_issue_labels_to_preserve: set[str]
     number_included_closed_issues: int
-    enable_issue_assignees: bool
     artefact_types: tuple[str]
     node_filter: typing.Callable[[cnudie.iter.Node], bool]
     cve_rescoring_rules: tuple[dso.cvss.RescoringRule]
+    finding_type_issue_replication_cfgs: tuple[FindingTypeIssueReplicationCfgBase]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -554,11 +574,6 @@ def deserialise_issue_replicator_config(
         default_value=60,
     )
 
-    cve_threshold = deserialise_config_property(
-        config=issue_replicator_config,
-        property_key='cve_threshold',
-    )
-
     prohibited_licenses = deserialise_config_property(
         config=issue_replicator_config,
         property_key='prohibited_licenses',
@@ -610,12 +625,6 @@ def deserialise_issue_replicator_config(
         default_value=0,
     )
 
-    enable_issue_assignees = deserialise_config_property(
-        config=issue_replicator_config,
-        property_key='enable_issue_assignees',
-        default_value=True,
-    )
-
     artefact_types = tuple(deserialise_config_property(
         config=issue_replicator_config,
         property_key='artefact_types',
@@ -647,12 +656,34 @@ def deserialise_issue_replicator_config(
     )
     cve_rescoring_rules = tuple(dso.cvss.rescoring_rules_from_dicts(cve_rescoring_rules_raw))
 
+    finding_type_issue_replication_cfgs_raw = deserialise_config_property(
+        config=issue_replicator_config,
+        property_key='finding_type_issue_replication_configs',
+        default_config=default_config,
+        default_value=[],
+    )
+
+    model_class_for_finding_type = {
+        dso.model.Datatype.VULNERABILITY: VulnerabilityIssueReplicationCfg,
+        dso.model.Datatype.LICENSE: FindingTypeIssueReplicationCfgBase,
+    }
+
+    finding_type_issue_replication_cfgs = tuple(
+        dacite.from_dict(
+            data_class=model_class_for_finding_type.get(
+                finding_type_issue_replication_cfg_raw['finding_type'],
+                FindingTypeIssueReplicationCfgBase,
+            ),
+            data=finding_type_issue_replication_cfg_raw,
+        )
+        for finding_type_issue_replication_cfg_raw in finding_type_issue_replication_cfgs_raw
+    )
+
     return IssueReplicatorConfig(
         delivery_service_url=delivery_service_url,
         delivery_dashboard_url=delivery_dashboard_url,
         replication_interval=replication_interval,
         lookup_new_backlog_item_interval=lookup_new_backlog_item_interval,
-        cve_threshold=cve_threshold,
         license_cfg=license_cfg,
         max_processing_days=max_processing_days,
         github_api_lookup=github_api_lookup,
@@ -660,10 +691,10 @@ def deserialise_issue_replicator_config(
         github_issue_template_cfgs=github_issue_template_cfgs,
         github_issue_labels_to_preserve=github_issue_labels_to_preserve,
         number_included_closed_issues=number_included_closed_issues,
-        enable_issue_assignees=enable_issue_assignees,
         artefact_types=artefact_types,
         node_filter=node_filter,
         cve_rescoring_rules=cve_rescoring_rules,
+        finding_type_issue_replication_cfgs=finding_type_issue_replication_cfgs,
     )
 
 
