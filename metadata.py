@@ -1,5 +1,4 @@
 import collections.abc
-import dataclasses
 import datetime
 
 import dacite
@@ -251,7 +250,6 @@ class ArtefactMetadata:
         entries: list[dict] = body.get('entries')
 
         session: ss.Session = req.context.db_session
-        now = datetime.datetime.now()
 
         type_hooks = {
             datetime.date:
