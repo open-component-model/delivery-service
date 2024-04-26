@@ -329,7 +329,7 @@ class Auth:
         # auto-generated documentation routes, they are missing the "no-auth" decorator
         if isinstance(
             resource,
-            (spectree.plugins.falcon_plugin.DocPageAsgi, spectree.plugins.falcon_plugin.OpenAPIAsgi),
+            (spectree.plugins.falcon_plugin.DocPage, spectree.plugins.falcon_plugin.OpenAPI),
         ):
             return
 
