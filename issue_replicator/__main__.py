@@ -310,7 +310,7 @@ def _findings_by_type_and_date(
             finding_type = finding_type_cfg.finding_type
             finding_source = datasource_for_datatype.get(finding_type)
 
-            findings, is_scanned = _findings_for_type_and_date(
+            filtered_findings, is_scanned = _findings_for_type_and_date(
                 issue_replicator_config=issue_replicator_config,
                 latest_processing_date=date,
                 sprints=sprints,
@@ -323,8 +323,8 @@ def _findings_by_type_and_date(
                 finding_type == dso.model.Datatype.VULNERABILITY
                 and isinstance(finding_type_cfg, config.VulnerabilityIssueReplicationCfg)
             ):
-                findings = tuple(
-                    finding for finding in findings
+                filtered_findings = tuple(
+                    finding for finding in filtered_findings
                     if finding.finding.data.cvss_v3_score >= finding_type_cfg.cve_threshold
                 )
 
@@ -332,7 +332,7 @@ def _findings_by_type_and_date(
                 finding_type,
                 finding_source,
                 date,
-                findings,
+                filtered_findings,
                 is_scanned,
             )
 
