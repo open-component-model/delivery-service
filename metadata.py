@@ -1,4 +1,5 @@
 import collections.abc
+import dataclasses
 import datetime
 
 import dacite
@@ -194,6 +195,8 @@ class ArtefactMetadata:
 
         try:
             for entry in entries:
+                entry = _fill_default_values(entry)
+
                 local_artefact_metadata = dacite.from_dict(
                     data_class=dso.model.ArtefactMetadata,
                     data=entry,
@@ -261,6 +264,8 @@ class ArtefactMetadata:
 
         try:
             for entry in entries:
+                entry = _fill_default_values(entry)
+
                 metadata_entry = du.to_db_artefact_metadata(
                     artefact_metadata=dacite.from_dict(
                         data_class=dso.model.ArtefactMetadata,
@@ -351,7 +356,7 @@ class ArtefactMetadata:
                         del existing_entry.meta['last_update']
                         existing_entry.meta = dict(
                             **existing_entry.meta,
-                            last_update=metadata_entry.meta.get('last_update') or now.isoformat(),
+                            last_update=metadata_entry.meta['last_update'],
                         )
                         break
 
@@ -428,6 +433,8 @@ class ArtefactMetadata:
 
         try:
             for entry in entries:
+                entry = _fill_default_values(entry)
+
                 artefact_metadata = du.to_db_artefact_metadata(
                     artefact_metadata=dacite.from_dict(
                         data_class=dso.model.ArtefactMetadata,
@@ -531,3 +538,13 @@ def check_if_findigs_are_equal(
         return True
 
     return False
+
+
+def _fill_default_values(
+    raw: dict,
+) -> dict:
+    meta = raw['meta']
+    if not meta.get('last_update'):
+        meta['last_update'] = datetime.datetime.now().isoformat()
+
+    return raw
