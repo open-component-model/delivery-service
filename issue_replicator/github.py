@@ -138,11 +138,11 @@ def _issue_assignees(
 
         gh_users = delivery.client.github_users_from_responsibles(
             responsibles=responsibles,
-            github_url=issue_replicator_config.github_issues_repository.url,
+            github_url=issue_replicator_config.github_issues_repository.html_url,
         )
 
         github_api = issue_replicator_config.github_api_lookup(
-            issue_replicator_config.github_issues_repository.url,
+            issue_replicator_config.github_issues_repository.html_url,
         )
 
         assignees = set(
@@ -169,7 +169,7 @@ def _issue_assignees(
     if invalid_assignees := (assignees - valid_assignees):
         logger.warning(
             f'unable to assign {invalid_assignees} to issues in repository '
-            f'{issue_replicator_config.github_issues_repository.url}. Please make sure '
+            f'{issue_replicator_config.github_issues_repository.html_url}. Please make sure '
             'the users have the necessary permissions to see issues in the repository.'
         )
         assignees -= invalid_assignees
@@ -635,7 +635,7 @@ def close_issue_if_present(
 
     issue.create_comment(closing_reason)
     if not github.util.close_issue(issue):
-        repository_url = issue_replicator_config.github_issues_repository.url
+        repository_url = issue_replicator_config.github_issues_repository.html_url
         logger.warning(f'failed to close {issue.id=} with {repository_url=}')
 
 
