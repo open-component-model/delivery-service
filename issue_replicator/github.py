@@ -199,11 +199,11 @@ def _issue_milestone(
 
 
 def _issue_title(
-    type: str,
+    issue_type: str,
     artefact: cnudie.iter.Node | cnudie.iter.ArtefactNode,
     milestone: github3.issues.milestone.Milestone,
 ) -> str:
-    title = f'[{type}]'
+    title = f'[{issue_type}]'
 
     if milestone:
         title += f' - [{milestone.title}]'
@@ -498,7 +498,7 @@ def _license_template_vars(
 
 def _template_vars(
     issue_replicator_config: config.IssueReplicatorConfig,
-    type: str,
+    issue_type: str,
     artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
     findings: tuple[AggregatedFinding],
     latest_processing_date: datetime.date,
@@ -602,7 +602,7 @@ def _template_vars(
         template_variables |= {
             'summary': summary,
         }
-    elif type == gci._label_bdba:
+    elif issue_type == gci._label_bdba:
         template_variables |= _vulnerability_template_vars(
             issue_replicator_config=issue_replicator_config,
             artefacts=artefacts,
@@ -610,7 +610,7 @@ def _template_vars(
             summary=summary,
             sprint_name=sprint_name,
         )
-    elif type == gci._label_licenses:
+    elif issue_type == gci._label_licenses:
         template_variables |= _license_template_vars(
             issue_replicator_config=issue_replicator_config,
             artefacts=artefacts,
@@ -642,7 +642,7 @@ def close_issue_if_present(
 @github.retry.retry_and_throttle
 def update_issue(
     issue: github3.issues.issue.ShortIssue,
-    type: str,
+    issue_type: str,
     body: str,
     title: str=None,
     labels: set[str]=set(),
@@ -652,7 +652,7 @@ def update_issue(
     assignees = tuple(assignees) # conversion to tuple required for issue update (JSON serialisation)
 
     labels = sorted(gci._search_labels(
-        issue_type=type,
+        issue_type=issue_type,
         extra_labels=labels,
     ))
 
@@ -681,8 +681,7 @@ def create_or_update_or_close_issue(
     issue_replicator_config: config.IssueReplicatorConfig,
     finding_type_issue_replication_cfg: config.FindingTypeIssueReplicationCfgBase,
     delivery_client: delivery.client.DeliveryServiceClient,
-    type: str,
-    source: str,
+    issue_type: str,
     artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
     findings: tuple[AggregatedFinding],
     correlation_id: str,
@@ -705,13 +704,6 @@ def create_or_update_or_close_issue(
                     yield label.name
                     break
 
-    if type == dso.model.Datatype.VULNERABILITY and source == dso.model.Datasource.BDBA:
-        type = gci._label_bdba
-    elif type == dso.model.Datatype.LICENSE and source == dso.model.Datasource.BDBA:
-        type = gci._label_licenses
-    else:
-        raise NotImplementedError(f'{type=} is not supported for {source=}')
-
     labels = {
         correlation_id,
         f'{gci._label_prefix_ctx}/{cfg_name}',
@@ -728,7 +720,7 @@ def create_or_update_or_close_issue(
 
     issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
         known_issues=known_issues,
-        issue_type=type,
+        issue_type=issue_type,
         extra_labels=labels,
     ))
 
@@ -737,7 +729,7 @@ def create_or_update_or_close_issue(
         # if that's the case, re-use the latest issue (greatest id)
         open_issues = tuple(issue for issue in issues if issue.state == 'open')
         if len(open_issues) > 1:
-            raise RuntimeError(f'more than one open issue found for {type=} {correlation_id=}')
+            raise RuntimeError(f'more than one open issue found for {issue_type=} {correlation_id=}')
 
         issue = sorted(issues, key=lambda issue: issue.id, reverse=True)[0]
     elif issues_count == 1:
@@ -781,7 +773,7 @@ def create_or_update_or_close_issue(
     )
 
     title = _issue_title(
-        type=type,
+        issue_type=issue_type,
         artefact=artefacts[0],
         milestone=milestone,
     )
@@ -793,7 +785,7 @@ def create_or_update_or_close_issue(
 
     template_variables = _template_vars(
         issue_replicator_config=issue_replicator_config,
-        type=type,
+        issue_type=issue_type,
         artefacts=artefacts,
         findings=findings,
         latest_processing_date=latest_processing_date,
@@ -801,10 +793,10 @@ def create_or_update_or_close_issue(
     )
 
     for issue_template_cfg in issue_replicator_config.github_issue_template_cfgs:
-        if issue_template_cfg.type == type:
+        if issue_template_cfg.type == issue_type:
             break
     else:
-        raise ValueError(f'no template for {type=}')
+        raise ValueError(f'no template for {issue_type=}')
 
     body = issue_template_cfg.body.format(**template_variables)
 
@@ -817,7 +809,7 @@ def create_or_update_or_close_issue(
     if not is_scanned or issue:
         return update_issue(
             issue=issue,
-            type=type,
+            issue_type=issue_type,
             body=body,
             title=title,
             labels=labels,
@@ -826,7 +818,7 @@ def create_or_update_or_close_issue(
         )
 
     return gci._create_issue(
-        issue_type=type,
+        issue_type=issue_type,
         repository=issue_replicator_config.github_issues_repository,
         body=body,
         title=title,

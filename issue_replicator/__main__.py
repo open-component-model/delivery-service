@@ -19,6 +19,7 @@ import delivery.client
 import delivery.model
 import dso.model
 import gci.componentmodel as cm
+import github.compliance.issue as gci
 import github.compliance.model as gcm
 
 import config
@@ -413,6 +414,25 @@ def replicate_issue(
         latest_processing_dates=correlation_ids_by_latest_processing_date.keys(),
     )
 
+    def _issue_type(
+        finding_type: str,
+        finding_source: str,
+    ) -> str:
+        if (
+            finding_type == dso.model.Datatype.VULNERABILITY
+            and finding_source == dso.model.Datasource.BDBA
+        ):
+            return gci._label_bdba
+
+        elif (
+            finding_type == dso.model.Datatype.LICENSE
+            and finding_source == dso.model.Datasource.BDBA
+        ):
+            return gci._label_licenses
+
+        else:
+            raise NotImplementedError(f'{finding_type=} is not supported for {finding_source=}')
+
     def _find_finding_type_issue_replication_cfg(
         finding_cfgs: collections.abc.Iterable[config.FindingTypeIssueReplicationCfgBase],
         finding_type: str,
@@ -428,7 +448,7 @@ def replicate_issue(
         return ValueError(f'no finding-type specific cfg found for {finding_type=}')
 
     is_in_bom = len(active_compliance_snapshots_for_artefact) > 0
-    for type, source, date, findings, is_scanned in findings_by_type_and_date:
+    for finding_type, finding_source, date, findings, is_scanned in findings_by_type_and_date:
         correlation_id = correlation_ids_by_latest_processing_date.get(date.isoformat())
 
         finding_type_issue_replication_cfg = _find_finding_type_issue_replication_cfg(
@@ -436,13 +456,18 @@ def replicate_issue(
             finding_type=type,
         )
 
+        issue_type = _issue_type(
+            finding_type=finding_type,
+            finding_source=finding_source,
+        )
+
         issue_replicator.github.create_or_update_or_close_issue(
             cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
             finding_type_issue_replication_cfg=finding_type_issue_replication_cfg,
             delivery_client=delivery_client,
-            type=type,
-            source=source,
+            issue_type=issue_type,
+            source=finding_source,
             artefacts=artefacts,
             findings=findings,
             correlation_id=correlation_id,
