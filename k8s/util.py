@@ -13,6 +13,7 @@ import kubernetes.client.rest
 import kubernetes.config
 import urllib3.exceptions
 
+import github.compliance.model as gcm
 import model.kubernetes
 
 import config
@@ -235,10 +236,10 @@ def iter_scan_configurations(
     for scan_configuration in scan_configurations:
         spec = scan_configuration.get('spec')
 
-        if 'bdba' in spec:
+        if bdba_config := spec.get('bdba'):
             # enrich bdba config with bdba url to be able to show bdba url in dashboard
             cfg_factory = ctx_util.cfg_factory()
-            cfg_name = spec.get('bdba').get('cfg_name')
+            cfg_name = bdba_config.get('cfg_name')
 
             try:
                 bdba_cfg = cfg_factory.bdba(cfg_name)
@@ -250,7 +251,13 @@ def iter_scan_configurations(
                     pass
 
             if bdba_cfg:
-                spec['bdba']['base_url'] = bdba_cfg.base_url()
+                bdba_config['base_url'] = bdba_cfg.base_url()
+        if issue_replicator_config := spec.get('issueReplicator'):
+            # enrich issue replicator config with max processing days to be able to show
+            # preview effects of rescorings on due date in dashboard
+            if not 'max_processing_days' in issue_replicator_config:
+                mpd = gcm.MaxProcessingTimesDays()
+                issue_replicator_config['max_processing_days'] = dataclasses.asdict(mpd)
 
         yield k8s.model.ScanConfiguration(
             name=scan_configuration.get('metadata').get('name'),
