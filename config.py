@@ -584,7 +584,7 @@ def deserialise_issue_replicator_config(
 
     max_processing_days_raw = deserialise_config_property(
         config=issue_replicator_config,
-        property_key='max_processing_days_raw',
+        property_key='max_processing_days',
         default_value={},
     )
     max_processing_days = dacite.from_dict(
