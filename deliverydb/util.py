@@ -204,6 +204,9 @@ class ArtefactMetadataFilters:
                     dm.ArtefactMetaData.data.op('->>')('correlation_id').cast(sa.String)
                         == artefact_metadata.data.get('correlation_id'),
                 ),
+                sa.and_(
+                    dm.ArtefactMetaData.type == dso.model.Datatype.MALWARE,
+                ),
             ),
         )
 

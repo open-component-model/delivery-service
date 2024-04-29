@@ -196,8 +196,20 @@ def _iter_findings_for_artefact(
             dso.model.Datatype.STRUCTURE_INFO,
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.LICENSE,
+            dso.model.Datatype.MALWARE,
         ),
     )
+
+    def _severity_for_finding(
+        finding: dso.model.ArtefactMetadata,
+    ) -> gcm.Severity:
+        if finding.meta.type == dso.model.Datatype.MALWARE:
+            if not (severity := finding.data.severity):
+                return gcm.Severity.BLOCKER
+
+            return gcm.Severity[severity]
+
+        return gcm.Severity[finding.data.severity]
 
     for raw in findings_for_components:
         if not (
@@ -224,7 +236,7 @@ def _iter_findings_for_artefact(
         elif finding.meta.type != dso.model.Datatype.STRUCTURE_INFO:
             # structure info does not have any severity but is just retrieved to evaluate
             # whether a scan exists for the given artefacts (if no finding is found)
-            severity = gcm.Severity[finding.data.severity]
+            severity = _severity_for_finding(finding=finding)
         else:
             severity = None
 
