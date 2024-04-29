@@ -71,7 +71,7 @@ def to_db_artefact_metadata(
             artefact_extra_id=artefact.artefact_extra_id,
         ),
         data=data_raw,
-        meta=meta_raw, # XXX actually no longer required
+        meta=meta_raw,
         datasource=meta.datasource,
         discovery_date=artefact_metadata.discovery_date,
     )
@@ -252,7 +252,7 @@ class ArtefactMetadataFilters:
 
         return sa.and_(
             dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
-            dm.ArtefactMetaData.meta.op('->')('relation').op('->>')('refers_to').in_(type_filter)
+            dm.ArtefactMetaData.meta.op('->')('relation').op('->>')('refers_to').in_(type_filter),
         )
 
 
@@ -264,7 +264,7 @@ class ArtefactMetadataQueries:
     ) -> collections.abc.Generator[sqle.BooleanClauseList, None, None]:
         for component in components:
             yield sa.and_(
-                # if no name or version is missing and `none_ok` is set, set predicate to `True`
+                # if name or version is missing and `none_ok` is set, set predicate to `True`
                 sa.or_(
                     sa.and_(
                         none_ok,

@@ -42,6 +42,13 @@ class ArtefactMetadata:
         '''
         query artefact-metadata from delivery-db and mix-in existing rescorings
 
+        **expected query parameters:**
+
+            - type (optional): The metadata types to retrieve. Can be given multiple times. If \n
+              no type is given, all relevant metadata will be returned. Check \n
+              https://github.com/gardener/cc-utils/blob/master/dso/model.py `Datatype` model \n
+              class for a list of possible values. \n
+
         **expected body:**
 
             - components: <array> of <object> \n
@@ -71,7 +78,7 @@ class ArtefactMetadata:
                 dm.ArtefactMetaData.type.in_(type_filter),
             )
             rescorings_query = rescorings_query.filter(
-                du.ArtefactMetadataFilters.filter_for_rescoring_type(type_filter)
+                du.ArtefactMetadataFilters.filter_for_rescoring_type(type_filter),
             )
 
         if component_filter:
@@ -162,23 +169,25 @@ class ArtefactMetadata:
         '''
         store artefact-metadata in delivery-db
 
-        only one database tuple per artefact and artefact-metadata-type is kept, on insert exiting
-        entry is overwritten.
+        Only one database tuple per artefact and meta.type is kept, on insert existing entry is
+        overwritten. Check https://github.com/gardener/cc-utils/blob/master/dso/model.py for allowed
+        values of meta.type (-> dso.model/Datatype) and meta.datasource (-> dso.model.Datasource).
 
         **expected body:**
 
-            - entries: <array> \n
+            - entries: <array> of <object> \n
                 - artefact: <object> \n
                     - component_name: <str> \n
                     - component_version: <str> \n
+                    - artefact_kind: <str> {`artefact`, `rescoure`, `source`} \n
                     - artefact: <object> \n
                         - artefact_name: <str> \n
                         - artefact_version: <str> \n
                         - artefact_type: <str> \n
-                        - artefact_extra_id: <object>\n
+                        - artefact_extra_id: <object> \n
                 - meta: <object> \n
-                    - type: <str> \n
-                    - datasource: <str> \n
+                    - type: <str> # one of dso.model/Datatype \n
+                    - datasource: <str> # one of dso.model/Datasource \n
                 - data: <object> # schema depends on meta.type \n
                 - discovery_date: <str of format YYYY-MM-DD> \n
         '''
@@ -196,53 +205,52 @@ class ArtefactMetadata:
             for entry in entries:
                 entry = _fill_default_values(entry)
 
-                local_artefact_metadata = dacite.from_dict(
-                    data_class=dso.model.ArtefactMetadata,
-                    data=entry,
-                    config=dacite.Config(
-                        type_hooks=type_hooks,
+                metadata_entry = du.to_db_artefact_metadata(
+                    artefact_metadata=dacite.from_dict(
+                        data_class=dso.model.ArtefactMetadata,
+                        data=entry,
+                        config=dacite.Config(type_hooks=type_hooks),
                     ),
-                )
-
-                new_metadata = du.to_db_artefact_metadata(
-                    artefact_metadata=local_artefact_metadata,
                 )
 
                 # only keep latest metadata (purge all existing entries)
                 session.query(dm.ArtefactMetaData).filter(
-                    du.ArtefactMetadataFilters.by_artefact_id_and_type(new_metadata)
+                    du.ArtefactMetadataFilters.by_artefact_id_and_type(metadata_entry),
                 ).delete()
 
-                session.add(new_metadata)
+                session.add(metadata_entry)
 
                 session.commit()
         except:
             session.rollback()
             raise
 
-        resp.status = falcon.HTTP_CREATED # pylint: disable=E1101
+        resp.status = falcon.HTTP_CREATED
 
     def on_put(self, req: falcon.Request, resp: falcon.Response):
         '''
         update artefact-metadata in delivery-db
 
-        only the data from the supplied request body is kept, other database tuples for the
-        same ocm resource (component-id + resource-id) and type are removed
+        Only the data from the supplied request body is kept (created/updated), other database
+        tuples for the same artefact and meta.type are removed. Check
+        https://github.com/gardener/cc-utils/blob/master/dso/model.py for allowed values of
+        meta.type (-> dso.model/Datatype) and meta.datasource (-> dso.model.Datasource).
 
         **expected body:**
 
-            - entries: <array> \n
+            - entries: <array> of <object> \n
                 - artefact: <object> \n
                     - component_name: <str> \n
                     - component_version: <str> \n
+                    - artefact_kind: <str> {`artefact`, `rescoure`, `source`} \n
                     - artefact: <object> \n
                         - artefact_name: <str> \n
                         - artefact_version: <str> \n
                         - artefact_type: <str> \n
                         - artefact_extra_id: <object> \n
                 - meta: <object> \n
-                    - type: <str> \n
-                    - datasource: <str> \n
+                    - type: <str> # one of dso.model/Datatype \n
+                    - datasource: <str> # one of dso.model/Datasource \n
                 - data: <object> # schema depends on meta.type \n
                 - discovery_date: <str of format YYYY-MM-DD> \n
         '''
@@ -269,7 +277,7 @@ class ArtefactMetadata:
                         data_class=dso.model.ArtefactMetadata,
                         data=entry,
                         config=dacite.Config(type_hooks=type_hooks),
-                    )
+                    ),
                 )
 
                 resource_key = {
@@ -279,14 +287,14 @@ class ArtefactMetadata:
                 }
                 if metadata_entry.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
                     resource_key['cfg_name'] = metadata_entry.data.get('cfg_name')
-                key = frozenset([(k, v) for k, v in resource_key.items()])
+                key = frozenset(resource_key.items())
 
                 # retrieve existing artefacts only filtered by name and type to reduce db queries
                 # as artefacts in different versions might be required later to determine correct
                 # discovery date
                 if key not in existing_artefacts:
                     existing_entries = session.query(dm.ArtefactMetaData).filter(
-                        du.ArtefactMetadataFilters.by_name_and_type(metadata_entry)
+                        du.ArtefactMetadataFilters.by_name_and_type(metadata_entry),
                     ).all()
                     existing_artefacts[key] = existing_entries
                 else:
@@ -304,22 +312,26 @@ class ArtefactMetadata:
                     # TODO include extra id as soon as there is one entry for each extra id
                     # 'artefact_extra_id': metadata_entry.artefact_extra_id_normalised,
                 })
-                key = frozenset([(k, v) for k, v in resource_key.items()])
+                key = frozenset(resource_key.items())
                 seen_ocm_resources_for_type.add(key)
 
                 entry_already_exists = False
                 reusable_discovery_date = None
                 for existing_entry in updated_artefacts + existing_entries:
-                    if (metadata_entry.component_name != existing_entry.component_name or
-                        metadata_entry.artefact_name != existing_entry.artefact_name or
-                        metadata_entry.type != existing_entry.type):
+                    if (
+                        metadata_entry.component_name != existing_entry.component_name
+                        or metadata_entry.artefact_name != existing_entry.artefact_name
+                        or metadata_entry.type != existing_entry.type
+                    ):
                         continue
 
                     # if the version of the existing entry does not match the version of the new
                     # finding but in general it's the same finding (e.g. same CVE in same package,
                     # license, ...), we must use its discovery date for the new finding as well
-                    if (metadata_entry.component_version != existing_entry.component_version or
-                        metadata_entry.artefact_version != existing_entry.artefact_version):
+                    if (
+                        metadata_entry.component_version != existing_entry.component_version
+                        or metadata_entry.artefact_version != existing_entry.artefact_version
+                    ):
                         if not reusable_discovery_date:
                             reusable_discovery_date = reuse_discovery_date_if_possible(
                                 old_metadata=existing_entry,
@@ -334,22 +346,11 @@ class ArtefactMetadata:
                         # same db entry already exists, skipping new entry and do not remove later
                         if existing_entry in existing_entries:
                             existing_entries.remove(existing_entry)
+
                         # for compliance snapshots:
                         # update state changes in-place instead of creating new entry
                         if existing_entry.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
                             existing_entry.data = metadata_entry.data
-
-                        # patch in vulnerability summary to include it in older vulnerabilities too
-                        if (
-                            existing_entry.type == dso.model.Datatype.VULNERABILITY and
-                            (summary := metadata_entry.data.get('summary'))
-                        ):
-                            if 'summary' in existing_entry.data:
-                                del existing_entry.data['summary']
-                            existing_entry.data = dict(
-                                **existing_entry.data,
-                                summary=summary,
-                            )
 
                         del existing_entry.meta['last_update']
                         existing_entry.meta = dict(
@@ -365,11 +366,13 @@ class ArtefactMetadata:
 
                 if reusable_discovery_date:
                     metadata_entry.discovery_date = reusable_discovery_date
+                elif not metadata_entry.discovery_date:
+                    metadata_entry.discovery_date = datetime.date.today()
 
                 session.add(metadata_entry)
 
-            # remove metadata for seen ocm resources which was not part of supplied data
-            for _, existing_entries in existing_artefacts.items():
+            # remove metadata for seen ocm resources which were not part of supplied data
+            for existing_entries in existing_artefacts.values():
                 for old_metadata in existing_entries:
                     resource_key = {
                         'component_name': old_metadata.component_name,
@@ -384,11 +387,11 @@ class ArtefactMetadata:
                     }
                     if old_metadata.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
                         resource_key['cfg_name'] = old_metadata.data.get('cfg_name')
-                    key = frozenset([(k, v) for k, v in resource_key.items()])
+                    key = frozenset(resource_key.items())
 
                     if key in seen_ocm_resources_for_type:
                         session.query(dm.ArtefactMetaData).filter(
-                            du.ArtefactMetadataFilters.by_single_scan_result(old_metadata)
+                            du.ArtefactMetadataFilters.by_single_scan_result(old_metadata),
                         ).delete()
 
             session.commit()
@@ -396,7 +399,7 @@ class ArtefactMetadata:
             session.rollback()
             raise
 
-        resp.status = falcon.HTTP_CREATED # pylint: disable=E1101
+        resp.status = falcon.HTTP_CREATED
 
     def on_delete(self, req: falcon.Request, resp: falcon.Response):
         '''
@@ -450,92 +453,79 @@ class ArtefactMetadata:
             session.rollback()
             raise
 
-        resp.status = falcon.HTTP_NO_CONTENT # pylint: disable=E1101
+        resp.status = falcon.HTTP_NO_CONTENT
 
 
 def reuse_discovery_date_if_possible(
     old_metadata: dm.ArtefactMetaData,
     new_metadata: dm.ArtefactMetaData,
 ) -> datetime.date | None:
-    new_id = new_metadata.data.get('id', dict())
-    old_id = old_metadata.data.get('id', dict())
+    new_data = new_metadata.data
+    old_data = old_metadata.data
+    new_id = new_data.get('id', dict())
+    old_id = old_data.get('id', dict())
 
     if new_id.get('source') != old_id.get('source'):
-        return
+        return None
 
     if (
-        new_id.get('source') == dso.model.Datasource.BDBA and
-        new_id.get('package_name') == old_id.get('package_name') and
-        new_metadata.type == dso.model.Datatype.VULNERABILITY and
-        new_metadata.data.get('cve') == old_metadata.data.get('cve')
+        new_id.get('source') == dso.model.Datasource.BDBA
+        and new_id.get('package_name') == old_id.get('package_name')
     ):
-        # found the same cve in existing entry, independent of the component-/
-        # resource-/package-version, so we must re-use its discovery date
-        return old_metadata.discovery_date
+        if (
+            new_metadata.type == dso.model.Datatype.VULNERABILITY
+            and new_data.get('cve') == old_data.get('cve')
+        ):
+            # found the same cve in existing entry, independent of the component-/
+            # resource-/package-version, so we must re-use its discovery date
+            return old_metadata.discovery_date
+        elif (
+            new_metadata.type == dso.model.Datatype.LICENSE
+            and new_data.get('license').get('name') == old_data.get('license').get('name')
+        ):
+            # found the same license in existing entry, independent of the component-/
+            # resource-/package-version, so we must re-use its discovery date
+            return old_metadata.discovery_date
 
-    if (
-        new_id.get('source') == dso.model.Datasource.BDBA and
-        new_id.get('package_name') == old_id.get('package_name') and
-        new_metadata.type == dso.model.Datatype.LICENSE and
-        new_metadata.data.get('license').get('name') == old_metadata.data.get('license').get('name')
-    ):
-        # found the same license in existing entry, independent of the component-/
-        # resource-/package-version, so we must re-use its discovery date
-        return old_metadata.discovery_date
+    return None
 
 
 def check_if_findigs_are_equal(
     old_metadata: dm.ArtefactMetaData,
     new_metadata: dm.ArtefactMetaData,
 ) -> bool:
-    if (
-        new_metadata.type not in (
-        dso.model.Datatype.STRUCTURE_INFO,
-        dso.model.Datatype.VULNERABILITY,
-        dso.model.Datatype.LICENSE,
-        dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
-    )):
-        # because of pre-filtering, findings have to be equal
-        return True
+    new_data = new_metadata.data
+    old_data = old_metadata.data
 
-    if (
-        new_metadata.type == dso.model.Datatype.STRUCTURE_INFO and
-        du.normalise_object(new_metadata.data.get('id'))
-            == du.normalise_object(old_metadata.data.get('id')) and
-        du.normalise_object(new_metadata.data.get('scan_id'))
-            == du.normalise_object(old_metadata.data.get('scan_id'))
-    ):
-        return True
+    if new_metadata.type == dso.model.Datatype.STRUCTURE_INFO:
+        return (
+            du.normalise_object(new_data.get('id')) == du.normalise_object(old_data.get('id'))
+            and du.normalise_object(new_data.get('scan_id'))
+                == du.normalise_object(old_data.get('scan_id'))
+        )
+    elif new_metadata.type == dso.model.Datatype.VULNERABILITY:
+        return (
+            du.normalise_object(new_data.get('id')) == du.normalise_object(old_data.get('id'))
+            and du.normalise_object(new_data.get('scan_id'))
+                == du.normalise_object(old_data.get('scan_id'))
+            and new_data.get('cve') == old_data.get('cve')
+        )
+    elif new_metadata.type == dso.model.Datatype.LICENSE:
+        return (
+            du.normalise_object(new_data.get('id')) == du.normalise_object(old_data.get('id'))
+            and du.normalise_object(new_data.get('scan_id'))
+                == du.normalise_object(old_data.get('scan_id'))
+            and new_data.get('license').get('name') == old_data.get('license').get('name')
+        )
+    elif new_metadata.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
+        return (
+            new_metadata.data.get('cfg_name') == old_metadata.data.get('cfg_name')
+            and new_metadata.data.get('correlation_id') == old_metadata.data.get('correlation_id')
+        )
 
-    if (
-        new_metadata.type == dso.model.Datatype.VULNERABILITY and
-        du.normalise_object(new_metadata.data.get('id'))
-            == du.normalise_object(old_metadata.data.get('id')) and
-        du.normalise_object(new_metadata.data.get('scan_id'))
-            == du.normalise_object(old_metadata.data.get('scan_id')) and
-        new_metadata.data.get('cve') == old_metadata.data.get('cve')
-    ):
-        return True
-
-    if (
-        new_metadata.type == dso.model.Datatype.LICENSE and
-        du.normalise_object(new_metadata.data.get('id'))
-            == du.normalise_object(old_metadata.data.get('id')) and
-        du.normalise_object(new_metadata.data.get('scan_id'))
-            == du.normalise_object(old_metadata.data.get('scan_id')) and
-        new_metadata.data.get('license').get('name')
-            == old_metadata.data.get('license').get('name')
-    ):
-        return True
-
-    if (
-        new_metadata.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS and
-        new_metadata.data.get('cfg_name') == old_metadata.data.get('cfg_name') and
-        new_metadata.data.get('correlation_id') == old_metadata.data.get('correlation_id')
-    ):
-        return True
-
-    return False
+    # for other types, we do not store fine-granular finding (yet), so because the artefact and type
+    # matches, findings have to be equal
+    return True
 
 
 def _fill_default_values(
