@@ -479,7 +479,6 @@ def replicate_issue(
             finding_type_issue_replication_cfg=finding_type_issue_replication_cfg,
             delivery_client=delivery_client,
             issue_type=issue_type,
-            source=finding_source,
             artefacts=artefacts,
             findings=findings,
             correlation_id=correlation_id,
