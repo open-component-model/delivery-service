@@ -465,7 +465,7 @@ def replicate_issue(
 
         finding_type_issue_replication_cfg = _find_finding_type_issue_replication_cfg(
             finding_cfgs=issue_replicator_config.finding_type_issue_replication_cfgs,
-            finding_type=type,
+            finding_type=finding_type,
         )
 
         issue_type = _issue_type(
