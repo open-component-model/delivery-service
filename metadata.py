@@ -10,6 +10,7 @@ import sqlalchemy.orm.session as ss
 import delivery.model
 import dso.model
 import gci.componentmodel as cm
+import github.compliance.model as gcm
 
 import compliance_summary as cs
 import deliverydb.model as dm
@@ -314,6 +315,10 @@ class ArtefactMetadata:
                 })
                 key = frozenset(resource_key.items())
                 seen_ocm_resources_for_type.add(key)
+
+                if metadata_entry.data.get('severity') == gcm.Severity.NONE.name:
+                    # only dummy finding to remove remaining findings in case they are all assessed
+                    continue
 
                 entry_already_exists = False
                 reusable_discovery_date = None
