@@ -400,8 +400,15 @@ def _rescore_vulnerabilitiy(
 def filesystem_paths_for_finding(
     artefact_metadata: list[dm.ArtefactMetaData],
     finding: dm.ArtefactMetaData,
+    package_versions: tuple[str]=(),
 ) -> list[dso.model.FilesystemPath]:
     id = finding.data.get('id')
+
+    if not package_versions:
+        # only show filesystem paths for package versions which actually have findings;
+        # in case no package versions are supplied, BDBA was not able to detect a version
+        # so include only filesystem paths for packages without version
+        package_versions = (None,)
 
     matching_structure_info = tuple(
         matching_info for matching_info in artefact_metadata
@@ -409,6 +416,7 @@ def filesystem_paths_for_finding(
             matching_info.type == dso.model.Datatype.STRUCTURE_INFO and
             matching_info.data.get('id').get('source') == id.get('source') and
             matching_info.data.get('id').get('package_name') == id.get('package_name') and
+            matching_info.data.get('id').get('package_version') in package_versions and
             matching_info.component_name == finding.component_name and
             matching_info.component_version == finding.component_version and
             matching_info.artefact_kind == finding.artefact_kind and
@@ -419,14 +427,14 @@ def filesystem_paths_for_finding(
         )
     )
 
-    return list({
+    return [
         dacite.from_dict(
             data_class=dso.model.FilesystemPath,
             data=path,
         )
         for structure_info in matching_structure_info
         for path in structure_info.data.get('filesystem_paths')
-    })
+    ]
 
 
 def sprint_for_finding(
@@ -531,6 +539,7 @@ def _iter_rescoring_proposals(
             filesystem_paths = filesystem_paths_for_finding(
                 artefact_metadata=artefact_metadata,
                 finding=am,
+                package_versions=package_versions,
             )
 
             yield dacite.from_dict(
@@ -595,6 +604,7 @@ def _iter_rescoring_proposals(
             filesystem_paths = filesystem_paths_for_finding(
                 artefact_metadata=artefact_metadata,
                 finding=am,
+                package_versions=package_versions,
             )
 
             yield dacite.from_dict(
