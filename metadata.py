@@ -357,6 +357,18 @@ class ArtefactMetadata:
                         if existing_entry.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
                             existing_entry.data = metadata_entry.data
 
+                        # TODO remove once all current filesystem paths are updated
+                        if (
+                            existing_entry.type == dso.model.Datatype.STRUCTURE_INFO
+                            and not existing_entry.data.get('filesystem_paths')
+                        ):
+                            if 'filesystem_paths' in existing_entry.data:
+                                del existing_entry.data['filesystem_paths']
+                            existing_entry.data = dict(
+                                **existing_entry.data,
+                                filesystem_paths=metadata_entry.data.get('filesystem_paths'),
+                            )
+
                         del existing_entry.meta['last_update']
                         existing_entry.meta = dict(
                             **existing_entry.meta,
