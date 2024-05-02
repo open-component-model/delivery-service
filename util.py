@@ -3,7 +3,6 @@ import enum
 import functools
 import logging
 import urllib.parse
-import yaml
 
 import falcon
 
@@ -22,13 +21,6 @@ logger = logging.getLogger(__name__)
 class Ready:
     def on_get(self, req, resp: falcon.Response):
         resp.status = falcon.HTTP_200
-
-
-@functools.cache
-def load_dict_from_yaml(
-    path: str,
-) -> dict:
-    return yaml.safe_load(open(path, 'rb'))
 
 
 @functools.cache

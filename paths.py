@@ -3,22 +3,6 @@ import os
 _own_dir = os.path.abspath(os.path.dirname(__file__))
 
 _json_schema_path = os.path.join(_own_dir, 'schema')
-compliance_data_req_jsonschema_path = os.path.join(
-    _json_schema_path,
-    'compliance-data-request-schema.yaml',
-)
-compliance_data_resp_jsonschema_path = os.path.join(
-    _json_schema_path,
-    'compliance-data-response-schema.yaml',
-)
-component_responsibles_req_jsonschema_path = os.path.join(
-    _json_schema_path,
-    'component-responsibles-request.yaml',
-)
-component_responsibles_resp_jsonschema_path = os.path.join(
-    _json_schema_path,
-    'component-responsibles-response.yaml',
-)
 token_jsonschema_path = os.path.join(_json_schema_path, 'token-payload-schema.yaml')
 
 _responsibles_path = os.path.join(_own_dir, 'responsibles')

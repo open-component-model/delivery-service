@@ -17,9 +17,7 @@ import deliverydb.util as du
 import eol
 import features
 import middleware.auth
-import paths
 import rescore
-import util
 
 
 @middleware.auth.noauth
@@ -34,10 +32,6 @@ class ArtefactMetadata:
         self.eol_client = eol_client
         self.artefact_metadata_cfg_by_type = artefact_metadata_cfg_by_type
 
-    @falcon.media.validators.jsonschema.validate(
-        req_schema=util.load_dict_from_yaml(paths.compliance_data_req_jsonschema_path),
-        # resp_schema=util.load_dict_from_yaml(paths.compliance_data_resp_jsonschema_path),
-    )
     def on_post_query(self, req: falcon.Request, resp: falcon.Response):
         '''
         query artefact-metadata from delivery-db and mix-in existing rescorings
