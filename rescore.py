@@ -894,7 +894,7 @@ class Rescore:
                   finding: <object> # schema depends on meta.relation.refers_to \n
                   severity: <string> # one of github.compliance.model.Severity \n
                   matching_rules: <array> of <string> \n
-                  user: <string> \n
+                  user: <object> \n
                   comment: <string> \n
         '''
         session: ss.Session = req.context.db_session

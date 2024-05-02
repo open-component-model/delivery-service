@@ -10,7 +10,6 @@ import sqlalchemy.orm.session as ss
 import delivery.model
 import dso.model
 import gci.componentmodel as cm
-import github.compliance.model as gcm
 
 import compliance_summary as cs
 import deliverydb.model as dm
@@ -265,151 +264,98 @@ class ArtefactMetadata:
             lambda date: datetime.datetime.strptime(date, '%Y-%m-%d').date() if date else None,
         }
 
-        existing_artefacts: dict[frozenset, list[dm.ArtefactMetaData]] = dict()
-        updated_artefacts: list[dm.ArtefactMetaData] = []
-        seen_ocm_resources_for_type = set()
+        artefact_metadata = [
+            dacite.from_dict(
+                data_class=dso.model.ArtefactMetadata,
+                data=_fill_default_values(entry),
+                config=dacite.Config(type_hooks=type_hooks),
+            ) for entry in entries
+        ]
 
-        try:
-            for entry in entries:
-                entry = _fill_default_values(entry)
+        # determine all artefact/type combinations to query them at once afterwards
+        artefacts = dict()
+        for artefact_metadatum in artefact_metadata:
+            key = (artefact_metadatum.artefact.as_frozenset(), artefact_metadatum.meta.type)
+            if key not in artefacts:
+                artefacts[key] = artefact_metadatum
 
-                metadata_entry = du.to_db_artefact_metadata(
-                    artefact_metadata=dacite.from_dict(
-                        data_class=dso.model.ArtefactMetadata,
-                        data=entry,
-                        config=dacite.Config(type_hooks=type_hooks),
+        artefacts = artefacts.values()
+
+        def artefact_queries(artefacts: collections.abc.Iterable[dso.model.ArtefactMetadata]):
+            for artefact in artefacts:
+                yield du.ArtefactMetadataFilters.by_name_and_type(
+                    artefact_metadata=dm.ArtefactMetaData(
+                        component_name=artefact.artefact.component_name,
+                        artefact_name=artefact.artefact.artefact.artefact_name,
+                        type=artefact.meta.type,
                     ),
                 )
 
-                resource_key = {
-                    'component_name': metadata_entry.component_name,
-                    'artefact_name': metadata_entry.artefact_name,
-                    'type': metadata_entry.type,
-                }
-                if metadata_entry.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
-                    resource_key['cfg_name'] = metadata_entry.data.get('cfg_name')
-                key = frozenset(resource_key.items())
+        existing_entries = session.query(dm.ArtefactMetaData).filter(
+            sa.or_(artefact_queries(artefacts=artefacts)),
+        ).all()
 
-                # retrieve existing artefacts only filtered by name and type to reduce db queries
-                # as artefacts in different versions might be required later to determine correct
-                # discovery date
-                if key not in existing_artefacts:
-                    existing_entries = session.query(dm.ArtefactMetaData).filter(
-                        du.ArtefactMetadataFilters.by_name_and_type(metadata_entry),
-                    ).all()
-                    existing_artefacts[key] = existing_entries
-                else:
-                    existing_entries = existing_artefacts[key]
+        created_artefacts: list[dm.ArtefactMetaData] = []
 
-                # add further attributes to key to track which exact ocm resources are part of this
-                # request -> required to remove old metadata for this exact ocm resource later
-                resource_key.update({
-                    'component_version': metadata_entry.component_version,
-                    'artefact_version': metadata_entry.artefact_version,
-                    'artefact_kind': metadata_entry.artefact_kind,
-                    'artefact_type': metadata_entry.artefact_type,
-                    # do not include extra id (yet) because there is only one entry for
-                    # all ocm resources with different extra ids at the moment
-                    # TODO include extra id as soon as there is one entry for each extra id
-                    # 'artefact_extra_id': metadata_entry.artefact_extra_id_normalised,
-                })
-                key = frozenset(resource_key.items())
-                seen_ocm_resources_for_type.add(key)
+        try:
+            for artefact_metadatum in artefact_metadata:
+                metadata_entry = du.to_db_artefact_metadata(
+                    artefact_metadata=artefact_metadatum,
+                )
 
-                if metadata_entry.data.get('severity') == gcm.Severity.NONE.name:
-                    # only dummy finding to remove remaining findings in case they are all assessed
-                    continue
-
-                entry_already_exists = False
                 reusable_discovery_date = None
-                for existing_entry in updated_artefacts + existing_entries:
+                for existing_entry in existing_entries + created_artefacts:
                     if (
-                        metadata_entry.component_name != existing_entry.component_name
-                        or metadata_entry.artefact_name != existing_entry.artefact_name
-                        or metadata_entry.type != existing_entry.type
+                        existing_entry.type != metadata_entry.type
+                        or existing_entry.component_name != metadata_entry.component_name
+                        or existing_entry.artefact_name != metadata_entry.artefact_name
+                        or existing_entry.artefact_type != metadata_entry.artefact_type
                     ):
                         continue
 
-                    # if the version of the existing entry does not match the version of the new
-                    # finding but in general it's the same finding (e.g. same CVE in same package,
-                    # license, ...), we must use its discovery date for the new finding as well
-                    if (
-                        metadata_entry.component_version != existing_entry.component_version
-                        or metadata_entry.artefact_version != existing_entry.artefact_version
-                    ):
-                        if not reusable_discovery_date:
-                            reusable_discovery_date = reuse_discovery_date_if_possible(
-                                old_metadata=existing_entry,
-                                new_metadata=metadata_entry,
-                            )
-                        continue
-
-                    if entry_already_exists := check_if_findigs_are_equal(
-                        old_metadata=existing_entry,
-                        new_metadata=metadata_entry,
-                    ):
-                        # same db entry already exists, skipping new entry and do not remove later
-                        if existing_entry in existing_entries:
-                            existing_entries.remove(existing_entry)
-
-                        # for compliance snapshots:
-                        # update state changes in-place instead of creating new entry
-                        if existing_entry.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
-                            existing_entry.data = metadata_entry.data
-
-                        # TODO remove once all current filesystem paths are updated
-                        if (
-                            existing_entry.type == dso.model.Datatype.STRUCTURE_INFO
-                            and not existing_entry.data.get('filesystem_paths')
-                        ):
-                            if 'filesystem_paths' in existing_entry.data:
-                                del existing_entry.data['filesystem_paths']
-                            existing_entry.data = dict(
-                                **existing_entry.data,
-                                filesystem_paths=metadata_entry.data.get('filesystem_paths'),
-                            )
-
-                        del existing_entry.meta['last_update']
-                        existing_entry.meta = dict(
-                            **existing_entry.meta,
-                            last_update=metadata_entry.meta['last_update'],
+                    if not reusable_discovery_date:
+                        reusable_discovery_date = reuse_discovery_date_if_possible(
+                            old_metadata=existing_entry,
+                            new_metadata=metadata_entry,
                         )
-                        break
 
-                updated_artefacts.append(metadata_entry)
+                    if (
+                        existing_entry.component_version != metadata_entry.component_version
+                        or existing_entry.artefact_version != metadata_entry.artefact_version
+                        # do not include extra id (yet) because there is only one entry for
+                        # all ocm resources with different extra ids at the moment
+                        # TODO include extra id as soon as there is one entry for each extra id
+                        # or existing_entry.artefact_extra_id_normalised
+                        #     != metadata_entry.artefact_extra_id_normalised
+                        or not check_if_findigs_are_equal(
+                            old_metadata=existing_entry,
+                            new_metadata=metadata_entry,
+                        )
+                    ):
+                        continue
 
-                if entry_already_exists:
+                    # found database entry that matches the supplied metadata entry
+                    break
+                else:
+                    # did not find existing database entry that matches the supplied metadata entry
+                    # -> create new entry (and re-use discovery date if possible)
+                    if reusable_discovery_date:
+                        metadata_entry.discovery_date = reusable_discovery_date
+
+                    session.add(metadata_entry)
+                    created_artefacts.append(metadata_entry)
                     continue
 
-                if reusable_discovery_date:
-                    metadata_entry.discovery_date = reusable_discovery_date
-                elif not metadata_entry.discovery_date:
-                    metadata_entry.discovery_date = datetime.date.today()
+                # for compliance snapshots: update state changes in-place
+                if existing_entry.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
+                    existing_entry.data = metadata_entry.data
 
-                session.add(metadata_entry)
-
-            # remove metadata for seen ocm resources which were not part of supplied data
-            for existing_entries in existing_artefacts.values():
-                for old_metadata in existing_entries:
-                    resource_key = {
-                        'component_name': old_metadata.component_name,
-                        'artefact_name': old_metadata.artefact_name,
-                        'type': old_metadata.type,
-                        'component_version': old_metadata.component_version,
-                        'artefact_version': old_metadata.artefact_version,
-                        'artefact_kind': old_metadata.artefact_kind,
-                        'artefact_type': old_metadata.artefact_type,
-                        # see TODO above
-                        # 'artefact_extra_id': old_metadata.artefact_extra_id_normalised,
-                    }
-                    if old_metadata.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
-                        resource_key['cfg_name'] = old_metadata.data.get('cfg_name')
-                    key = frozenset(resource_key.items())
-
-                    if key in seen_ocm_resources_for_type:
-                        session.query(dm.ArtefactMetaData).filter(
-                            du.ArtefactMetadataFilters.by_single_scan_result(old_metadata),
-                        ).delete()
+                # create new dict instead of patching it, otherwise it won't be updated in the db
+                del existing_entry.meta['last_update']
+                existing_entry.meta = dict(
+                    **existing_entry.meta,
+                    last_update=metadata_entry.meta['last_update'],
+                )
 
             session.commit()
         except:
@@ -538,6 +484,24 @@ def check_if_findigs_are_equal(
         return (
             new_metadata.data.get('cfg_name') == old_metadata.data.get('cfg_name')
             and new_metadata.data.get('correlation_id') == old_metadata.data.get('correlation_id')
+        )
+    elif new_metadata.type == dso.model.Datatype.RESCORING:
+        return (
+            new_metadata.meta.get('relation').get('refers_to')
+                == old_metadata.meta.get('relation').get('refers_to')
+            and new_data.get('severity') == old_data.get('severity')
+            and new_data.get('user').get('username') == old_data.get('user').get('username')
+            and new_data.get('comment') == old_data.get('comment')
+            and ((
+                new_metadata.meta.get('relation').get('refers_to')
+                    == dso.model.Datatype.VULNERABILITY
+                and new_data.get('finding').get('cve') == old_data.get('finding').get('cve')
+            ) or (
+                new_metadata.meta.get('relation').get('refers_to')
+                    == dso.model.Datatype.LICENSE
+                and new_data.get('finding').get('license').get('name')
+                    == old_data.get('finding').get('license').get('name')
+            ))
         )
 
     # for other types, we do not store fine-granular finding (yet), so because the artefact and type
