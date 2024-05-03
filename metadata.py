@@ -552,4 +552,7 @@ def _fill_default_values(
     if not meta.get('last_update'):
         meta['last_update'] = datetime.datetime.now().isoformat()
 
+    if not meta.get('creation_date'):
+        meta['creation_date'] = datetime.datetime.now().isoformat()
+
     return raw
