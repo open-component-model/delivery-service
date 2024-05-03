@@ -116,10 +116,10 @@ def iter_existing_backlog_items_for_artefact(
         )
 
         if service is config.Services.BDBA:
-            if crd_artefact.as_frozenset() == artefact.as_frozenset():
+            if crd_artefact == artefact:
                 yield backlog_crd
         elif service is config.Services.CLAMAV:
-            if crd_artefact.as_frozenset() == artefact.as_frozenset():
+            if crd_artefact == artefact:
                 yield backlog_crd
         elif service is config.Services.ISSUE_REPLICATOR:
             if (
