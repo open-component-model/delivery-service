@@ -275,7 +275,7 @@ class ArtefactMetadata:
         # determine all artefact/type combinations to query them at once afterwards
         artefacts = dict()
         for artefact_metadatum in artefact_metadata:
-            key = (artefact_metadatum.artefact.as_frozenset(), artefact_metadatum.meta.type)
+            key = (artefact_metadatum.artefact, artefact_metadatum.meta.type)
             if key not in artefacts:
                 artefacts[key] = artefact_metadatum
 

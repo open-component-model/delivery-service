@@ -224,9 +224,9 @@ def _iter_artefacts(
             )
         )
 
-        if artefact_ref.as_frozenset() in seen_artefact_refs:
+        if artefact_ref in seen_artefact_refs:
             continue
-        seen_artefact_refs.add(artefact_ref.as_frozenset())
+        seen_artefact_refs.add(artefact_ref)
 
         yield artefact_ref
 
@@ -499,7 +499,7 @@ def _process_inactive_compliance_snapshots(
     cs_by_artefact = collections.defaultdict(list)
 
     for compliance_snapshot in compliance_snapshots:
-        cs_by_artefact[compliance_snapshot.artefact.as_frozenset()].append(compliance_snapshot)
+        cs_by_artefact[compliance_snapshot.artefact].append(compliance_snapshot)
 
     for compliance_snapshots in cs_by_artefact.values():
         artefact = compliance_snapshots[0].artefact
@@ -600,14 +600,13 @@ def enumerate_artefacts(
     )
     logger.info(f'{len(sprints)=}')
 
-    artefacts = tuple(_iter_artefacts(
+    artefacts = set(_iter_artefacts(
         components=scan_config.artefact_enumerator_config.components,
         artefact_types=scan_config.artefact_enumerator_config.artefact_types,
         node_filter=scan_config.artefact_enumerator_config.node_filter,
         delivery_client=delivery_client,
         component_descriptor_lookup=component_descriptor_lookup,
     ))
-    artefact_frozensets = set(artefact.as_frozenset() for artefact in artefacts)
     logger.info(f'{len(artefacts)=}')
 
     compliance_snapshots_raw = delivery_client.query_metadata_raw(
@@ -622,19 +621,19 @@ def enumerate_artefacts(
 
     active_compliance_snapshots = tuple(
         compliance_snapshot for compliance_snapshot in compliance_snapshots
-        if compliance_snapshot.artefact.as_frozenset() in artefact_frozensets
+        if compliance_snapshot.artefact in artefacts
     )
     logger.info(f'{len(active_compliance_snapshots)=}')
     inactive_compliance_snapshots = tuple(
         compliance_snapshot for compliance_snapshot in compliance_snapshots
-        if compliance_snapshot.artefact.as_frozenset() not in artefact_frozensets
+        if compliance_snapshot.artefact not in artefacts
     )
     logger.info(f'{len(inactive_compliance_snapshots)=}')
 
     for artefact in artefacts:
         compliance_snapshots = [
             compliance_snapshot for compliance_snapshot in active_compliance_snapshots
-            if compliance_snapshot.artefact.as_frozenset() == artefact.as_frozenset()
+            if compliance_snapshot.artefact == artefact
         ]
 
         _process_compliance_snapshots_of_artefact(
