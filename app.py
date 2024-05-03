@@ -27,6 +27,7 @@ import lookups
 import metadata
 import metric
 import middleware.auth
+import middleware.decompressor
 import middleware.json_translator
 import middleware.route_feature_check as rfc
 import osinfo
@@ -85,7 +86,10 @@ def init(parsed_arguments):
         cfg_factory,
     )
 
-    middlewares.append(falcon.CORSMiddleware(allow_credentials='*', allow_origins='*'))
+    middlewares.extend([
+        falcon.CORSMiddleware(allow_credentials='*', allow_origins='*'),
+        middleware.decompressor.DecompressorMiddleware(),
+    ])
 
     if (unavailable_features := tuple(
         f for f in features.feature_cfgs

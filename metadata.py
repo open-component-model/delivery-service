@@ -49,7 +49,7 @@ class ArtefactMetadata:
                 - componentName: <str> \n
                 - componentVersion: <str> \n
         '''
-        body = req.media
+        body = req.context.media
         component_filter: list[dict] = body.get('components')
         component_ids = tuple(
             cm.ComponentIdentity(
@@ -185,7 +185,7 @@ class ArtefactMetadata:
                 - data: <object> # schema depends on meta.type \n
                 - discovery_date: <str of format YYYY-MM-DD> \n
         '''
-        body = req.media
+        body = req.context.media
         entries: list[dict] = body.get('entries')
 
         session: ss.Session = req.context.db_session
@@ -248,7 +248,7 @@ class ArtefactMetadata:
                 - data: <object> # schema depends on meta.type \n
                 - discovery_date: <str of format YYYY-MM-DD> \n
         '''
-        body = req.media
+        body = req.context.media
         entries: list[dict] = body.get('entries')
 
         session: ss.Session = req.context.db_session
@@ -379,7 +379,7 @@ class ArtefactMetadata:
                 - data: <object> # schema depends on meta.type \n
                 - discovery_date: <str of format YYYY-MM-DD> \n
         '''
-        body = req.media
+        body = req.context.media
         entries: list[dict] = body.get('entries')
 
         session: ss.Session = req.context.db_session
