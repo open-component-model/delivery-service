@@ -49,20 +49,20 @@ Valid SQLite URL forms are:
 
 ### Run with local database (Postgres)
 
-Instantiate a local postgres 14 database
+Instantiate a local postgres 16 database
 
 ```
 docker run -dit  \
     --name postgres \
     -e POSTGRES_USER=admin \
     -e POSTGRES_PASSWORD=passwd \
-    -p 5432:5432 postgres:14
+    -p 5432:5432 postgres:16
 ```
 
 Start the delivery-service
 
 ```
-python3 app.py --delivery-db-url postgresql://admin:passwd@127.0.0.1:5432
+python3 app.py --delivery-db-url postgresql+psycopg://postgres:password@127.0.0.1:5432
 ```
 
 ### Run with remote delivery-db (running in k8s cluster)
@@ -75,7 +75,7 @@ kubectl port-forward service/delivery-db --namespace=delivery 5431:5432
 Start the delivery-service
 
 ```
-python3 app.py --delivery-db-url postgresql://postgres:qnIQo3Loxh@127.0.0.1:5431
+python3 app.py --delivery-db-url postgresql+psycopg://postgres:password@127.0.0.1:5431
 ```
 
 Note: additional configuration/credentials required from secrets-storage (documentation tbd).
