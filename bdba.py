@@ -122,6 +122,7 @@ def scan(
         processing_mode=bdba_config.processing_mode,
         known_scan_results=known_scan_results,
         s3_client=s3_client,
+        delivery_client=delivery_client,
         license_cfg=bdba_config.license_cfg,
         cve_rescoring_rules=bdba_config.cve_rescoring_rules,
         auto_assess_max_severity=bdba_config.auto_assess_max_severity,
