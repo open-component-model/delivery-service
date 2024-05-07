@@ -1,4 +1,6 @@
--r requirements.txt
+-r requirements.extensions.txt
+-r requirements.service.txt
+-r requirements.utils.txt
 numpy
 scipy
 werkzeug
