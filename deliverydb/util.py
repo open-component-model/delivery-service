@@ -5,7 +5,6 @@ import sqlalchemy as sa
 import sqlalchemy.sql.elements as sqle
 
 import ci.util
-import delivery.model
 import dso.model
 import gci.componentmodel as cm
 
@@ -67,9 +66,7 @@ def to_db_artefact_metadata(
         artefact_type=artefact.artefact_type,
         artefact_version=artefact.artefact_version,
         artefact_extra_id=artefact.artefact_extra_id,
-        artefact_extra_id_normalised=delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-            artefact_extra_id=artefact.artefact_extra_id,
-        ),
+        artefact_extra_id_normalised=artefact.normalised_artefact_extra_id(),
         data=data_raw,
         meta=meta_raw,
         datasource=meta.datasource,
@@ -120,9 +117,7 @@ class ArtefactMetadataFilters:
             dm.ArtefactMetaData.artefact_type == artefact_metadata.artefact_type,
             dm.ArtefactMetaData.artefact_version == artefact_metadata.artefact_version,
             dm.ArtefactMetaData.artefact_extra_id_normalised
-                == delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-                    artefact_extra_id=artefact_metadata.artefact_extra_id,
-                ),
+                == artefact_metadata.artefact_extra_id_normalised,
         )
 
     @staticmethod

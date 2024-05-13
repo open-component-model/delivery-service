@@ -144,12 +144,11 @@ def _artefacts_for_backlog_item_and_components(
                 continue
             # currently, we do not set the extraIdentity in the backlog items
             # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # if delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
+            # if dso.model.normalise_artefact_extra_id(
             #     artefact_extra_id=artefact.extraIdentity,
             #     artefact_version=artefact.version,
-            # ) != delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-            #     artefact_extra_id=backlog_item.artefact.artefact.artefact_extra_id,
-            #     artefact_version=backlog_item.artefact.artefact.artefact_version,
+            # ) != backlog_item.artefact.artefact.normalised_artefact_extra_id(
+            #     remove_duplicate_version=True,
             # ):
             #     continue
 
@@ -217,11 +216,9 @@ def _iter_findings_for_artefact(
             raw.get('artefactId').get('artefactName') == artefact.artefact.artefact_name and
             raw.get('artefactId').get('artefactType') == artefact.artefact.artefact_type
             # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
+            # and dso.model.normalise_artefact_extra_id(
             #     artefact_extra_id=raw.get('artefactId').get('artefactExtraId'),
-            # ) == delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-            #     artefact_extra_id=artefact.artefact.artefact_extra_id,
-            # )
+            # ) == artefact.artefact.normalised_artefact_extra_id()
         ):
             continue
 
@@ -376,12 +373,11 @@ def replicate_issue(
             raw.get('artefactId').get('artefactName') == artefact.artefact.artefact_name and
             raw.get('artefactId').get('artefactType') == artefact.artefact.artefact_type
             # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
+            # and dso.model.normalise_artefact_extra_id(
             #     artefact_extra_id=raw.get('artefactId').get('artefactExtraId'),
             #     artefact_version=raw.get('artefactId').get('artefactVersion'),
-            # ) == delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-            #     artefact_extra_id=artefact.artefact.artefact_extra_id,
-            #     artefact_version=artefact.artefact.artefact_version,
+            # ) == artefact.artefact.normalised_artefact_extra_id(
+            #     remove_duplicate_version=True,
             # )
         )
     )

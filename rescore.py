@@ -268,34 +268,33 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            artefact_ref.component_name and
-            artefact_ref.component_name != finding.component_name
+            artefact_ref.component_name
+            and artefact_ref.component_name != finding.component_name
         ):
             continue
 
         if (
-            artefact_ref.component_version and
-            artefact_ref.component_version != finding.component_version
+            artefact_ref.component_version
+            and artefact_ref.component_version != finding.component_version
         ):
             continue
 
         if (
-            artefact_ref.artefact.artefact_name and
-            artefact_ref.artefact.artefact_name != finding.artefact_name
+            artefact_ref.artefact.artefact_name
+            and artefact_ref.artefact.artefact_name != finding.artefact_name
         ):
             continue
 
         if (
-            artefact_ref.artefact.artefact_version and
-            artefact_ref.artefact.artefact_version != finding.artefact_version
+            artefact_ref.artefact.artefact_version
+            and artefact_ref.artefact.artefact_version != finding.artefact_version
         ):
             continue
 
         if (
-            artefact_ref.artefact.artefact_extra_id and
-            delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-                artefact_extra_id=artefact_ref.artefact.artefact_extra_id,
-            ) != finding.artefact_extra_id_normalised
+            artefact_ref.artefact.artefact_extra_id
+            and artefact_ref.artefact.normalised_artefact_extra_id()
+                != finding.artefact_extra_id_normalised
         ):
             continue
 
@@ -303,24 +302,24 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            finding.type == dso.model.Datatype.VULNERABILITY and
-            (
-                data.finding.cve != finding.data.get('cve') or
-                (
-                    data.finding.id.source == dso.model.Datasource.BDBA and
-                    data.finding.id.package_name != finding.data.get('id').get('package_name')
+            finding.type == dso.model.Datatype.VULNERABILITY
+            and (
+                data.finding.cve != finding.data.get('cve')
+                or (
+                    data.finding.id.source == dso.model.Datasource.BDBA
+                    and data.finding.id.package_name != finding.data.get('id').get('package_name')
                 )
             )
         ):
             continue
 
         if (
-            finding.type == dso.model.Datatype.LICENSE and
-            (
-                data.finding.license.name != finding.data.get('license').get('name') or
-                (
-                    data.finding.id.source == dso.model.Datasource.BDBA and
-                    data.finding.id.package_name != finding.data.get('id').get('package_name')
+            finding.type == dso.model.Datatype.LICENSE
+            and (
+                data.finding.license.name != finding.data.get('license').get('name')
+                or (
+                    data.finding.id.source == dso.model.Datasource.BDBA
+                    and data.finding.id.package_name != finding.data.get('id').get('package_name')
                 )
             )
         ):
@@ -413,17 +412,17 @@ def filesystem_paths_for_finding(
     matching_structure_info = tuple(
         matching_info for matching_info in artefact_metadata
         if (
-            matching_info.type == dso.model.Datatype.STRUCTURE_INFO and
-            matching_info.data.get('id').get('source') == id.get('source') and
-            matching_info.data.get('id').get('package_name') == id.get('package_name') and
-            matching_info.data.get('id').get('package_version') in package_versions and
-            matching_info.component_name == finding.component_name and
-            matching_info.component_version == finding.component_version and
-            matching_info.artefact_kind == finding.artefact_kind and
-            matching_info.artefact_name == finding.artefact_name and
-            matching_info.artefact_version == finding.artefact_version and
-            matching_info.artefact_type == finding.artefact_type and
-            matching_info.artefact_extra_id_normalised == finding.artefact_extra_id_normalised
+            matching_info.type == dso.model.Datatype.STRUCTURE_INFO
+            and matching_info.data.get('id').get('source') == id.get('source')
+            and matching_info.data.get('id').get('package_name') == id.get('package_name')
+            and matching_info.data.get('id').get('package_version') in package_versions
+            and matching_info.component_name == finding.component_name
+            and matching_info.component_version == finding.component_version
+            and matching_info.artefact_kind == finding.artefact_kind
+            and matching_info.artefact_name == finding.artefact_name
+            and matching_info.artefact_version == finding.artefact_version
+            and matching_info.artefact_type == finding.artefact_type
+            and matching_info.artefact_extra_id_normalised == finding.artefact_extra_id_normalised
         )
     )
 
@@ -476,15 +475,15 @@ def _iter_rescoring_proposals(
         matching_artefact_metadata = tuple(
             matching_am for matching_am in artefact_metadata
             if (
-                matching_am.id not in seen_ids and
-                matching_am.type == am.type and
-                matching_am.component_name == am.component_name and
-                matching_am.component_version == am.component_version and
-                matching_am.artefact_kind == am.artefact_kind and
-                matching_am.artefact_name == am.artefact_name and
-                matching_am.artefact_version == am.artefact_version and
-                matching_am.artefact_type == am.artefact_type and
-                matching_am.artefact_extra_id_normalised == am.artefact_extra_id_normalised
+                matching_am.id not in seen_ids
+                and matching_am.type == am.type
+                and matching_am.component_name == am.component_name
+                and matching_am.component_version == am.component_version
+                and matching_am.artefact_kind == am.artefact_kind
+                and matching_am.artefact_name == am.artefact_name
+                and matching_am.artefact_version == am.artefact_version
+                and matching_am.artefact_type == am.artefact_type
+                and matching_am.artefact_extra_id_normalised == am.artefact_extra_id_normalised
             )
         )
 
@@ -512,8 +511,8 @@ def _iter_rescoring_proposals(
         )
 
         if (
-            am.type == dso.model.Datatype.VULNERABILITY and
-            am.data.get('id').get('source') == dso.model.Datasource.BDBA
+            am.type == dso.model.Datatype.VULNERABILITY
+            and am.data.get('id').get('source') == dso.model.Datasource.BDBA
         ):
             cve = am.data.get('cve')
             cvss = dso.cvss.CVSSV3.from_dict(cvss=am.data.get('cvss'))
@@ -579,8 +578,8 @@ def _iter_rescoring_proposals(
             )
 
         elif (
-            am.type == dso.model.Datatype.LICENSE and
-            am.data.get('id').get('source') == dso.model.Datasource.BDBA
+            am.type == dso.model.Datatype.LICENSE
+            and am.data.get('id').get('source') == dso.model.Datasource.BDBA
         ):
             license = am.data.get('license')
             severity = am.data.get('severity')
@@ -663,8 +662,8 @@ def iter_matching_artefacts(
             a = compliance_snapshot.artefact
 
             if (
-                artefact.component_name and
-                artefact.component_name != a.component_name
+                artefact.component_name
+                and artefact.component_name != a.component_name
             ):
                 continue
 
@@ -672,8 +671,8 @@ def iter_matching_artefacts(
                 continue
 
             if (
-                artefact.artefact.artefact_name and
-                artefact.artefact.artefact_name != a.artefact.artefact_name
+                artefact.artefact.artefact_name
+                and artefact.artefact.artefact_name != a.artefact.artefact_name
             ):
                 continue
 

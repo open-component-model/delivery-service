@@ -123,17 +123,15 @@ def iter_existing_backlog_items_for_artefact(
                 yield backlog_crd
         elif service is config.Services.ISSUE_REPLICATOR:
             if (
-                crd_artefact.artefact_kind == artefact.artefact_kind and
-                crd_artefact.component_name == artefact.component_name and
-                crd_artefact.artefact.artefact_name == artefact.artefact.artefact_name and
-                crd_artefact.artefact.artefact_type == artefact.artefact.artefact_type
+                crd_artefact.artefact_kind == artefact.artefact_kind
+                and crd_artefact.component_name == artefact.component_name
+                and crd_artefact.artefact.artefact_name == artefact.artefact.artefact_name
+                and crd_artefact.artefact.artefact_type == artefact.artefact.artefact_type
                 # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-                # delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-                #     artefact_extra_id=crd_artefact.artefact.artefact_extra_id,
-                #     artefact_version=crd_artefact.artefact.artefact_version,
-                # ) == delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-                #     artefact_extra_id=artefact.artefact.artefact_extra_id,
-                #     artefact_version=artefact.artefact.artefact_version,
+                # and crd_artefact.artefact.normalised_artefact_extra_id(
+                #     remove_duplicate_version=True,
+                # ) == artefact.artefact.normalised_artefact_extra_id(
+                #     remove_duplicate_version=True,
                 # )
             ):
                 yield backlog_crd
@@ -420,12 +418,11 @@ def get_resource_node(
             continue
         # currently, we do not set the extraIdentity in the backlog items
         # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-        # if delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
+        # if dso.model.normalise_artefact_extra_id(
         #     artefact_extra_id=resource.extraIdentity,
         #     artefact_version=resource.version,
-        # ) != delivery.model.ComponentArtefactId.normalise_artefact_extra_id(
-        #     artefact_extra_id=backlog_item.artefact.artefact.artefact_extra_id,
-        #     artefact_version=backlog_item.artefact.artefact.artefact_version,
+        # ) != backlog_item.artefact.artefact.normalised_artefact_extra_id(
+        #     remove_duplicate_version=True,
         # ):
         #     continue
         break # found resource of backlog item in component's resources
