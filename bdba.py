@@ -15,7 +15,6 @@ import ci.log
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
-import delivery.model
 import oci.client
 import protecode.client
 import protecode.scanning
