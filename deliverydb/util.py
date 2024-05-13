@@ -238,7 +238,7 @@ class ArtefactMetadataFilters:
                     type == dso.model.Datatype.LICENSE,
                     ArtefactMetadataFilters.by_finding_id(artefact_metadata=artefact_metadata),
                     dm.ArtefactMetaData.data.op('->')('finding').op('->')('license').op('->>')('name') # noqa: E501
-                        == finding.get('name'),
+                        == finding.get('license').get('name'),
                 ),
             ),
         )
