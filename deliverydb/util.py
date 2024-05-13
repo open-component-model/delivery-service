@@ -77,23 +77,39 @@ def to_db_artefact_metadata(
 def db_artefact_metadata_to_dict(
     artefact_metadata: dm.ArtefactMetaData,
 ) -> dict:
-    am = artefact_metadata
     return {
-        'id': am.id,
-        'artefactId': {
-            'componentName': am.component_name,
-            'componentVersion': am.component_version,
-            'artefactKind': am.artefact_kind,
-            'artefactName': am.artefact_name,
-            'artefactVersion': am.artefact_version,
-            'artefactType': am.artefact_type,
-            'artefactExtraId': am.artefact_extra_id,
+        'id': artefact_metadata.id,
+        'artefact': {
+            'component_name': artefact_metadata.component_name,
+            'component_version': artefact_metadata.component_version,
+            'artefact_kind': artefact_metadata.artefact_kind,
+            'artefact': {
+                'artefact_name': artefact_metadata.artefact_name,
+                'artefact_version': artefact_metadata.artefact_version,
+                'artefact_type': artefact_metadata.artefact_type,
+                'artefact_extra_id': artefact_metadata.artefact_extra_id,
+            },
         },
-        'type': am.type,
-        'data': am.data,
-        'meta': am.meta,
-        'discovery_date': str(am.discovery_date) if am.discovery_date else None,
+        'meta': artefact_metadata.meta,
+        'data': artefact_metadata.data,
+        'discovery_date': (
+            artefact_metadata.discovery_date.isoformat()
+            if artefact_metadata.discovery_date
+            else None
+        ),
     }
+
+
+def db_artefact_metadata_to_dso(
+    artefact_metadata: dm.ArtefactMetaData,
+) -> dso.model.ArtefactMetadata:
+    artefact_metadata_dict = db_artefact_metadata_to_dict(
+        artefact_metadata=artefact_metadata,
+    )
+
+    return dso.model.ArtefactMetadata.from_dict(
+        raw=artefact_metadata_dict,
+    )
 
 
 class ArtefactMetadataFilters:
