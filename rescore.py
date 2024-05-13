@@ -12,7 +12,6 @@ import sqlalchemy.orm.session as ss
 
 import cnudie.iter
 import cnudie.retrieve
-import delivery.model
 import dso.cvss
 import dso.labels
 import dso.model
@@ -247,9 +246,9 @@ def _find_rescorings(
 
     rescorings_raw = rescorings_query.all()
     return tuple(
-        delivery.model.ArtefactMetadata.from_dict(
-            raw=du.db_artefact_metadata_to_dict(raw),
-        ).to_dso_model_artefact_metadata()
+        du.db_artefact_metadata_to_dso(
+            artefact_metadata=raw,
+        )
         for raw in rescorings_raw
     )
 
@@ -717,9 +716,9 @@ def create_backlog_items_for_rescored_artefacts(
     ).all()
 
     compliance_snapshots = tuple(
-        delivery.model.ArtefactMetadata.from_dict(
-           raw=du.db_artefact_metadata_to_dict(raw),
-        ).to_dso_model_artefact_metadata()
+        du.db_artefact_metadata_to_dso(
+            artefact_metadata=raw,
+        )
         for raw in compliance_snapshots_raw
     )
 
@@ -804,13 +803,7 @@ class Rescore:
             for rescoring_raw in rescorings_raw:
                 rescoring_raw['data']['user'] = dataclasses.asdict(user)
 
-                rescoring = dacite.from_dict(
-                    data_class=dso.model.ArtefactMetadata,
-                    data=rescoring_raw,
-                    config=dacite.Config(
-                        cast=[gcm.Severity],
-                    ),
-                )
+                rescoring = dso.model.ArtefactMetadata.from_dict(rescoring_raw)
 
                 if not rescoring.meta.type == dso.model.Datatype.RESCORING:
                     raise falcon.HTTPBadRequest(
@@ -1017,9 +1010,9 @@ class Rescore:
 
             rescorings_raw = query.all()
             rescorings = tuple(
-                delivery.model.ArtefactMetadata.from_dict(
-                    raw=du.db_artefact_metadata_to_dict(raw),
-                ).to_dso_model_artefact_metadata()
+                du.db_artefact_metadata_to_dso(
+                    artefact_metadata=raw,
+                )
                 for raw in rescorings_raw
             )
 

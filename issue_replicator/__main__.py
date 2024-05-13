@@ -214,17 +214,19 @@ def _iter_findings_for_artefact(
 
     for raw in findings_for_components:
         if not (
-            raw.get('artefactId').get('artefactKind') == artefact.artefact_kind and
-            raw.get('artefactId').get('artefactName') == artefact.artefact.artefact_name and
-            raw.get('artefactId').get('artefactType') == artefact.artefact.artefact_type
+            raw.get('artefact').get('artefact_kind') == artefact.artefact_kind
+            and raw.get('artefact').get('artefact').get('artefact_name')
+                == artefact.artefact.artefact_name
+            and raw.get('artefact').get('artefact').get('artefact_type')
+                == artefact.artefact.artefact_type
             # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
             # and dso.model.normalise_artefact_extra_id(
-            #     artefact_extra_id=raw.get('artefactId').get('artefactExtraId'),
+            #     artefact_extra_id=raw.get('artefact').get('artefact').get('artefact_extra_id'),
             # ) == artefact.artefact.normalised_artefact_extra_id()
         ):
             continue
 
-        finding = delivery.model.ArtefactMetadata.from_dict(raw).to_dso_model_artefact_metadata()
+        finding = dso.model.ArtefactMetadata.from_dict(raw)
 
         if rescorings := raw.get('rescorings', tuple()):
             rescorings = tuple(dacite.from_dict(

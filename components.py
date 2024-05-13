@@ -22,7 +22,6 @@ import ci.util
 import cnudie.iter
 import cnudie.util
 import cnudie.retrieve
-import delivery.model
 import dso.model
 import gci.componentmodel as cm
 import github.util
@@ -1179,9 +1178,9 @@ class ComplianceSummary:
 
         rescorings_raw = rescorings_query.all()
         rescorings = [
-            delivery.model.ArtefactMetadata.from_dict(
-                raw=deliverydb.util.db_artefact_metadata_to_dict(raw),
-            ).to_dso_model_artefact_metadata()
+            deliverydb.util.db_artefact_metadata_to_dso(
+                artefact_metadata=raw,
+            )
             for raw in rescorings_raw
         ]
 
@@ -1288,19 +1287,19 @@ class ComponentMetadata:
 
         **response:**
 
-            - artefactId: \n
-                componentName: ... \n
-                componentVersion: ... \n
-                artefactKind: ... \n
-                artefactName: ... \n
-                artefactVersion: ... \n
-                artefactType: ... \n
-                artefactExtraId: ... \n
-            type: artefact-metadata type, e.g. finding/vulnerability \n
-            data: artefact-metadata type specific \n
-            meta: \n
-                datasource: ... \n
-                type: ... \n
+            - artefact: <object> \n
+                component_name: <str> \n
+                component_version: <str> \n
+                artefact_kind: <str> \n
+                artefact: <object> \n
+                    artefact_name: <str> \n
+                    artefact_version: <str> \n
+                    artefact_type: <str> \n
+                    artefact_extra_id: <object> \n
+            meta: <object> \n
+                type: <str> \n
+                datasource: <str> \n
+            data: <object> # schema depends on meta.type \n
         '''
         component_name = req.get_param(name='name', required=True)
         component_version = req.get_param(name='version', required=False)

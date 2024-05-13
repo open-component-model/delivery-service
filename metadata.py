@@ -7,7 +7,6 @@ import falcon.media.validators.jsonschema
 import sqlalchemy as sa
 import sqlalchemy.orm.session as ss
 
-import delivery.model
 import dso.model
 import gci.componentmodel as cm
 
@@ -92,9 +91,9 @@ class ArtefactMetadata:
 
         rescorings_raw = rescorings_query.all()
         rescorings = tuple(
-            delivery.model.ArtefactMetadata.from_dict(
-                raw=du.db_artefact_metadata_to_dict(raw),
-            ).to_dso_model_artefact_metadata()
+            du.db_artefact_metadata_to_dso(
+                artefact_metadata=raw,
+            )
             for raw in rescorings_raw
         )
 
