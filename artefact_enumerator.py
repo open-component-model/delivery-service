@@ -20,7 +20,6 @@ import ci.log
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
-import delivery.model as dm
 import dso.model
 import gci.componentmodel as cm
 
@@ -322,28 +321,14 @@ def _findings_for_artefact(
         version=artefact.component_version,
     )
 
-    findings_raw = delivery_client.query_metadata_raw(
+    findings = delivery_client.query_metadata(
         components=(component,),
         type=types,
     )
 
     return tuple(
-        dm.ArtefactMetadata.from_dict(raw).to_dso_model_artefact_metadata()
-        for raw in findings_raw
-        if (
-            raw.get('artefactId').get('artefactKind') == artefact.artefact_kind and
-            raw.get('artefactId').get('artefactName') == artefact.artefact.artefact_name and
-            raw.get('artefactId').get('artefactVersion') == artefact.artefact.artefact_version and
-            raw.get('artefactId').get('artefactType') == artefact.artefact.artefact_type
-            # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # dm.ComponentArtefactId.normalise_artefact_extra_id(
-            #     artefact_extra_id=raw.get('artefactId').get('artefactExtraId'),
-            #     artefact_version=raw.get('artefactId').get('artefactVersion'),
-            # ) == dm.ComponentArtefactId.normalise_artefact_extra_id(
-            #     artefact_extra_id=artefact.artefact.artefact_extra_id,
-            #     artefact_version=artefact.artefact.artefact_version,
-            # )
-        )
+        finding for finding in findings
+        if finding.artefact == artefact
     )
 
 
@@ -609,13 +594,12 @@ def enumerate_artefacts(
     ))
     logger.info(f'{len(artefacts)=}')
 
-    compliance_snapshots_raw = delivery_client.query_metadata_raw(
+    compliance_snapshots = delivery_client.query_metadata(
         type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
     )
     compliance_snapshots = [
-        dm.ArtefactMetadata.from_dict(raw).to_dso_model_artefact_metadata()
-        for raw in compliance_snapshots_raw
-        if raw.get('data').get('cfg_name') == cfg_name # TODO mv to delivery service
+        compliance_snapshot for compliance_snapshot in compliance_snapshots
+        if compliance_snapshot.data.cfg_name == cfg_name # TODO mv to delivery service
     ]
     logger.info(f'{len(compliance_snapshots)=}')
 

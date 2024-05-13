@@ -16,7 +16,6 @@ import ci.log
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
-import delivery.model
 import dso.model
 import gci.componentmodel as cm
 import github.compliance.issue as gci
@@ -362,22 +361,22 @@ def replicate_issue(
         f'of component {artefact.component_name}'
     )
 
-    compliance_snapshots_raw = delivery_client.query_metadata_raw(
+    compliance_snapshots = delivery_client.query_metadata(
         type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
     )
     compliance_snapshots_for_artefact = tuple(
-        delivery.model.ArtefactMetadata.from_dict(raw).to_dso_model_artefact_metadata()
-        for raw in compliance_snapshots_raw
+        compliance_snapshot for compliance_snapshot in compliance_snapshots
         if (
-            raw.get('data').get('cfg_name') == cfg_name and
-            raw.get('artefactId').get('artefactKind') == artefact.artefact_kind and
-            raw.get('artefactId').get('componentName') == artefact.component_name and
-            raw.get('artefactId').get('artefactName') == artefact.artefact.artefact_name and
-            raw.get('artefactId').get('artefactType') == artefact.artefact.artefact_type
+            compliance_snapshot.data.cfg_name == cfg_name
+            and compliance_snapshot.artefact.artefact_kind == artefact.artefact_kind
+            and compliance_snapshot.artefact.component_name == artefact.component_name
+            and compliance_snapshot.artefact.artefact.artefact_name
+                == artefact.artefact.artefact_name
+            and compliance_snapshot.artefact.artefact.artefact_type
+                == artefact.artefact.artefact_type
             # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # and dso.model.normalise_artefact_extra_id(
-            #     artefact_extra_id=raw.get('artefactId').get('artefactExtraId'),
-            #     artefact_version=raw.get('artefactId').get('artefactVersion'),
+            # and compliance_snapshot.artefact.artefact.normalised_artefact_extra_id(
+            #     remove_duplicate_version=True,
             # ) == artefact.artefact.normalised_artefact_extra_id(
             #     remove_duplicate_version=True,
             # )
