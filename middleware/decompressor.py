@@ -1,13 +1,9 @@
 import json
-import logging
 import zlib
 
 import falcon
 
 import http_requests
-
-
-logger = logging.getLogger(__name__)
 
 
 class DecompressorMiddleware:
@@ -26,8 +22,6 @@ class DecompressorMiddleware:
                 decompressor = zlib.decompressobj(wbits=31)
                 data = decompressor.decompress(req.stream.read())
             except Exception as e:
-                import traceback
-                logger.error(traceback.format_exc())
                 raise falcon.HTTPBadRequest(
                     title='Invalid gzip data',
                     description=e,
@@ -37,6 +31,12 @@ class DecompressorMiddleware:
             raise NotImplementedError(content_encoding)
 
         if req.content_type == 'application/json':
-            data = json.loads(data)
+            try:
+                data = json.loads(data)
+            except Exception as e:
+                raise falcon.HTTPBadRequest(
+                    title=f'Invalid json data: {data}',
+                    description=e,
+                )
 
         req.context.media = data
