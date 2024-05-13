@@ -1,7 +1,6 @@
 import collections.abc
 import datetime
 
-import dacite
 import falcon
 import falcon.media.validators.jsonschema
 import sqlalchemy as sa
@@ -189,21 +188,12 @@ class ArtefactMetadata:
 
         session: ss.Session = req.context.db_session
 
-        type_hooks = {
-            datetime.date:
-            lambda date: datetime.datetime.strptime(date, '%Y-%m-%d').date() if date else None,
-        }
-
         try:
             for entry in entries:
                 entry = _fill_default_values(entry)
 
                 metadata_entry = du.to_db_artefact_metadata(
-                    artefact_metadata=dacite.from_dict(
-                        data_class=dso.model.ArtefactMetadata,
-                        data=entry,
-                        config=dacite.Config(type_hooks=type_hooks),
-                    ),
+                    artefact_metadata=dso.model.ArtefactMetadata.from_dict(entry),
                 )
 
                 # only keep latest metadata (purge all existing entries)
@@ -252,17 +242,9 @@ class ArtefactMetadata:
 
         session: ss.Session = req.context.db_session
 
-        type_hooks = {
-            datetime.date:
-            lambda date: datetime.datetime.strptime(date, '%Y-%m-%d').date() if date else None,
-        }
-
         artefact_metadata = [
-            dacite.from_dict(
-                data_class=dso.model.ArtefactMetadata,
-                data=_fill_default_values(entry),
-                config=dacite.Config(type_hooks=type_hooks),
-            ) for entry in entries
+            dso.model.ArtefactMetadata.from_dict(_fill_default_values(entry))
+            for entry in entries
         ]
 
         # determine all artefact/type combinations to query them at once afterwards
@@ -383,21 +365,12 @@ class ArtefactMetadata:
 
         session: ss.Session = req.context.db_session
 
-        type_hooks = {
-            datetime.date:
-            lambda date: datetime.datetime.strptime(date, '%Y-%m-%d').date() if date else None,
-        }
-
         try:
             for entry in entries:
                 entry = _fill_default_values(entry)
 
                 artefact_metadata = du.to_db_artefact_metadata(
-                    artefact_metadata=dacite.from_dict(
-                        data_class=dso.model.ArtefactMetadata,
-                        data=entry,
-                        config=dacite.Config(type_hooks=type_hooks),
-                    ),
+                    artefact_metadata=dso.model.ArtefactMetadata.from_dict(entry),
                 )
 
                 session.query(dm.ArtefactMetaData).filter(
