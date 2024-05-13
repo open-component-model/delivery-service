@@ -20,7 +20,7 @@ class DecompressorMiddleware:
         if content_encoding == http_requests.EncodingMethod.GZIP:
             try:
                 decompressor = zlib.decompressobj(wbits=31)
-                data = decompressor.decompress(req.stream.read())
+                data = decompressor.decompress(req.bounded_stream.read())
             except Exception as e:
                 raise falcon.HTTPBadRequest(
                     title='Invalid gzip data',
