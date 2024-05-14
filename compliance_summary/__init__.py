@@ -403,7 +403,7 @@ def calculate_summary(
 
         rescorings_for_type = tuple(
             rescoring for rescoring in rescorings
-            if rescoring.meta.relation.refers_to == type
+            if rescoring.data.referenced_type == type
         )
 
         results[type] = calculate_summary_entry(

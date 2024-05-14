@@ -43,6 +43,10 @@ def to_db_artefact_metadata(
             dict_factory=ci.util.dict_to_json_factory,
         )
 
+    data_key = data.key if hasattr(data, 'key') else None
+    cfg_name = data.cfg_name if hasattr(data, 'cfg_name') else None
+    referenced_type = data.referenced_type if hasattr(data, 'referenced_type') else None
+
     meta_raw = dataclasses.asdict(
         obj=meta,
         dict_factory=ci.util.dict_to_json_factory,
@@ -68,8 +72,11 @@ def to_db_artefact_metadata(
         artefact_extra_id=artefact.artefact_extra_id,
         artefact_extra_id_normalised=artefact.normalised_artefact_extra_id(),
         data=data_raw,
+        data_key=data_key,
         meta=meta_raw,
         datasource=meta.datasource,
+        cfg_name=cfg_name,
+        referenced_type=referenced_type,
         discovery_date=artefact_metadata.discovery_date,
     )
 
@@ -137,121 +144,23 @@ class ArtefactMetadataFilters:
         )
 
     @staticmethod
-    def by_type_id(
-        artefact_metadata: dm.ArtefactMetaData,
-    ):
-        id = artefact_metadata.data.get('id', dict())
-
-        return sa.and_(
-            id.get('source') == dso.model.Datasource.BDBA,
-            dm.ArtefactMetaData.data.op('->')('id').op('->>')('source')
-                == id.get('source'),
-            dm.ArtefactMetaData.data.op('->')('id').op('->>')('package_name')
-                == id.get('package_name'),
-            dm.ArtefactMetaData.data.op('->')('id').op('->>')('package_version')
-                == id.get('package_version'),
-        )
-
-    @staticmethod
-    def by_scan_id(
-        artefact_metadata: dm.ArtefactMetaData,
-    ):
-        scan_id = artefact_metadata.data.get('scan_id', dict())
-
-        return sa.and_(
-            scan_id.get('source') == dso.model.Datasource.BDBA,
-            dm.ArtefactMetaData.data.op('->')('scan_id').op('->>')('source')
-                == scan_id.get('source'),
-            dm.ArtefactMetaData.data.op('->')('scan_id').op('->>')('report_url')
-                == scan_id.get('report_url'),
-            dm.ArtefactMetaData.data.op('->')('scan_id').op('->>')('group_id').cast(sa.Integer)
-                == scan_id.get('group_id'),
-        )
-
-    @staticmethod
-    def by_finding_id(
-        artefact_metadata: dm.ArtefactMetaData,
-    ):
-        finding_id = artefact_metadata.data.get('finding', dict()).get('id', dict())
-
-        return sa.and_(
-            finding_id.get('source') == dso.model.Datasource.BDBA,
-            dm.ArtefactMetaData.data.op('->')('finding').op('->')('id').op('->>')('source')
-                == finding_id.get('source'),
-            dm.ArtefactMetaData.data.op('->')('finding').op('->')('id').op('->>')('package_name')
-                == finding_id.get('package_name'),
-        )
-
-    @staticmethod
     def by_single_scan_result(
         artefact_metadata: dm.ArtefactMetaData,
     ):
         return sa.and_(
             ArtefactMetadataFilters.by_artefact_id_and_type(artefact_metadata=artefact_metadata),
-            sa.or_(
-                sa.and_(
-                    dm.ArtefactMetaData.type == dso.model.Datatype.STRUCTURE_INFO,
-                    ArtefactMetadataFilters.by_type_id(artefact_metadata=artefact_metadata),
-                    ArtefactMetadataFilters.by_scan_id(artefact_metadata=artefact_metadata),
-                ),
-                sa.and_(
-                    dm.ArtefactMetaData.type == dso.model.Datatype.VULNERABILITY,
-                    ArtefactMetadataFilters.by_type_id(artefact_metadata=artefact_metadata),
-                    ArtefactMetadataFilters.by_scan_id(artefact_metadata=artefact_metadata),
-                    dm.ArtefactMetaData.data.op('->>')('cve').cast(sa.String)
-                        == artefact_metadata.data.get('cve'),
-                ),
-                sa.and_(
-                    dm.ArtefactMetaData.type == dso.model.Datatype.LICENSE,
-                    ArtefactMetadataFilters.by_type_id(artefact_metadata=artefact_metadata),
-                    ArtefactMetadataFilters.by_scan_id(artefact_metadata=artefact_metadata),
-                    dm.ArtefactMetaData.data.op('->')('license').op('->>')('name').cast(sa.String)
-                        == artefact_metadata.data.get('license', dict()).get('name'),
-                ),
-                sa.and_(
-                    dm.ArtefactMetaData.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
-                    dm.ArtefactMetaData.data.op('->>')('cfg_name').cast(sa.String)
-                        == artefact_metadata.data.get('cfg_name'),
-                    dm.ArtefactMetaData.data.op('->>')('correlation_id').cast(sa.String)
-                        == artefact_metadata.data.get('correlation_id'),
-                ),
-                sa.and_(
-                    dm.ArtefactMetaData.type == dso.model.Datatype.MALWARE,
-                ),
-            ),
+            dm.ArtefactMetaData.data_key == artefact_metadata.data_key,
         )
 
     @staticmethod
     def filter_for_rescoring(
         artefact_metadata: dm.ArtefactMetaData,
     ):
-        type = artefact_metadata.meta.get('relation').get('refers_to')
-        severity = artefact_metadata.data.get('severity')
-        username = artefact_metadata.data.get('user').get('username')
-        comment = artefact_metadata.data.get('comment')
-        finding = artefact_metadata.data.get('finding')
-
         return sa.and_(
             dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
             ArtefactMetadataFilters.by_artefact_id_and_type(artefact_metadata),
-            dm.ArtefactMetaData.meta.op('->')('relation').op('->>')('refers_to') == type,
-            dm.ArtefactMetaData.data.op('->>')('severity') == severity,
-            dm.ArtefactMetaData.data.op('->')('user').op('->>')('username') == username,
-            dm.ArtefactMetaData.data.op('->>')('comment') == comment,
-            sa.or_(
-                sa.and_(
-                    type == dso.model.Datatype.VULNERABILITY,
-                    ArtefactMetadataFilters.by_finding_id(artefact_metadata=artefact_metadata),
-                    dm.ArtefactMetaData.data.op('->')('finding').op('->>')('cve')
-                        == finding.get('cve'),
-                ),
-                sa.and_(
-                    type == dso.model.Datatype.LICENSE,
-                    ArtefactMetadataFilters.by_finding_id(artefact_metadata=artefact_metadata),
-                    dm.ArtefactMetaData.data.op('->')('finding').op('->')('license').op('->>')('name') # noqa: E501
-                        == finding.get('license', dict()).get('name'),
-                ),
-            ),
+            dm.ArtefactMetaData.data_key == artefact_metadata.data_key,
+            dm.ArtefactMetaData.referenced_type == artefact_metadata.referenced_type,
         )
 
     @staticmethod
@@ -263,7 +172,7 @@ class ArtefactMetadataFilters:
 
         return sa.and_(
             dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
-            dm.ArtefactMetaData.meta.op('->')('relation').op('->>')('refers_to').in_(type_filter),
+            dm.ArtefactMetaData.referenced_type.in_(type_filter),
         )
 
 

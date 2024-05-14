@@ -302,10 +302,7 @@ class ArtefactMetadata:
                         # TODO include extra id as soon as there is one entry for each extra id
                         # or existing_entry.artefact_extra_id_normalised
                         #     != metadata_entry.artefact_extra_id_normalised
-                        or not check_if_findigs_are_equal(
-                            old_metadata=existing_entry,
-                            new_metadata=metadata_entry,
-                        )
+                        or existing_entry.data_key != metadata_entry.data_key
                     ):
                         continue
 
@@ -417,62 +414,6 @@ def reuse_discovery_date_if_possible(
             return old_metadata.discovery_date
 
     return None
-
-
-def check_if_findigs_are_equal(
-    old_metadata: dm.ArtefactMetaData,
-    new_metadata: dm.ArtefactMetaData,
-) -> bool:
-    new_data = new_metadata.data
-    old_data = old_metadata.data
-
-    if new_metadata.type == dso.model.Datatype.STRUCTURE_INFO:
-        return (
-            du.normalise_object(new_data.get('id')) == du.normalise_object(old_data.get('id'))
-            and du.normalise_object(new_data.get('scan_id'))
-                == du.normalise_object(old_data.get('scan_id'))
-        )
-    elif new_metadata.type == dso.model.Datatype.VULNERABILITY:
-        return (
-            du.normalise_object(new_data.get('id')) == du.normalise_object(old_data.get('id'))
-            and du.normalise_object(new_data.get('scan_id'))
-                == du.normalise_object(old_data.get('scan_id'))
-            and new_data.get('cve') == old_data.get('cve')
-        )
-    elif new_metadata.type == dso.model.Datatype.LICENSE:
-        return (
-            du.normalise_object(new_data.get('id')) == du.normalise_object(old_data.get('id'))
-            and du.normalise_object(new_data.get('scan_id'))
-                == du.normalise_object(old_data.get('scan_id'))
-            and new_data.get('license').get('name') == old_data.get('license').get('name')
-        )
-    elif new_metadata.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
-        return (
-            new_metadata.data.get('cfg_name') == old_metadata.data.get('cfg_name')
-            and new_metadata.data.get('correlation_id') == old_metadata.data.get('correlation_id')
-        )
-    elif new_metadata.type == dso.model.Datatype.RESCORING:
-        return (
-            new_metadata.meta.get('relation').get('refers_to')
-                == old_metadata.meta.get('relation').get('refers_to')
-            and new_data.get('severity') == old_data.get('severity')
-            and new_data.get('user').get('username') == old_data.get('user').get('username')
-            and new_data.get('comment') == old_data.get('comment')
-            and ((
-                new_metadata.meta.get('relation').get('refers_to')
-                    == dso.model.Datatype.VULNERABILITY
-                and new_data.get('finding').get('cve') == old_data.get('finding').get('cve')
-            ) or (
-                new_metadata.meta.get('relation').get('refers_to')
-                    == dso.model.Datatype.LICENSE
-                and new_data.get('finding').get('license').get('name')
-                    == old_data.get('finding').get('license').get('name')
-            ))
-        )
-
-    # for other types, we do not store fine-granular finding (yet), so because the artefact and type
-    # matches, findings have to be equal
-    return True
 
 
 def _fill_default_values(

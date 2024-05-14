@@ -257,7 +257,7 @@ def _iter_rescorings_for_finding(
         artefact_ref = rescoring.artefact
         data = rescoring.data
 
-        if rescoring.meta.relation.refers_to != finding.type:
+        if rescoring.data.referenced_type != finding.type:
             continue
 
         if artefact_ref.artefact_kind != finding.artefact_kind:
@@ -708,7 +708,7 @@ def create_backlog_items_for_rescored_artefacts(
 
     compliance_snapshots_raw = session.query(dm.ArtefactMetaData).filter(
         dm.ArtefactMetaData.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
-        dm.ArtefactMetaData.data.op('->>')('cfg_name').cast(sa.String) == scan_config_name,
+        dm.ArtefactMetaData.cfg_name == scan_config_name,
     ).all()
 
     compliance_snapshots = tuple(
@@ -778,11 +778,9 @@ class Rescore:
               meta: <object> \n
                 datasource: <string> # e.g. delivery-dashboard or cli \n
                 type: rescorings \n
-                relation: <object> \n
-                  refers_to: <string> # type of finding, e.g. finding/vulnerability \n
-                  relation_kind: rescore \n
               data: <object> \n
-                finding: <object> # schema depends on meta.relation.refers_to \n
+                finding: <object> # schema depends on data.referenced_type \n
+                referenced_type: <string> # type of finding, e.g. finding/vulnerability \n
                 severity: <string> # one of github.compliance.model.Severity \n
                 matching_rules: <array> of <string> \n
                 comment: <string> \n
@@ -879,11 +877,9 @@ class Rescore:
                 meta: <object> \n
                   datasource: <string> # e.g. delivery-dashboard or cli \n
                   type: rescoring \n
-                  relation: <object> \n
-                    refers_to: <string> # type of finding, e.g. finding/vulnerability \n
-                    relation_kind: rescore \n
                 data: <object> \n
-                  finding: <object> # schema depends on meta.relation.refers_to \n
+                  finding: <object> # schema depends on data.referenced_type \n
+                  referenced_type: <string> # type of finding, e.g. finding/vulnerability \n
                   severity: <string> # one of github.compliance.model.Severity \n
                   matching_rules: <array> of <string> \n
                   user: <object> \n

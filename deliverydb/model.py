@@ -45,7 +45,11 @@ class ArtefactMetaData(Base):
 
     meta = Column(sa.JSON, default=dict)
     data = Column(sa.JSON, default=dict)
+    data_key = Column(sa.String(length=1024))
     datasource = Column(sa.String(length=64)) # bdba, checkmarx
+
+    cfg_name = Column(sa.String(length=64)) # relevant for compliance snapshots
+    referenced_type = Column(sa.String(length=64)) # type of finding a rescoring applies to
 
     discovery_date = Column(sa.Date)
 
@@ -56,4 +60,16 @@ sa.Index(
     ArtefactMetaData.component_version,
     ArtefactMetaData.type,
     ArtefactMetaData.artefact_type,
+)
+
+
+sa.Index(
+    None,
+    ArtefactMetaData.component_name,
+    ArtefactMetaData.artefact_name,
+    ArtefactMetaData.type,
+    ArtefactMetaData.artefact_type,
+    ArtefactMetaData.data_key,
+    ArtefactMetaData.cfg_name,
+    ArtefactMetaData.referenced_type,
 )
