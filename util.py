@@ -70,7 +70,7 @@ def retrieve_component_descriptor(
     except om.OciImageNotFoundException as e:
         err_str = f'component descriptor "{component_id.name}" in version "' \
         f'{component_id.version}" not found in {ctx_repo=}'
-        logger.warning(err_str)
+        logger.debug(err_str)
         raise falcon.HTTPNotFound(
             title='component descriptor not found',
             description=err_str,
