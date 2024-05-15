@@ -208,6 +208,8 @@ def _iter_artefacts(
             artefact_kind = 'resource'
         elif isinstance(artefact_node, cnudie.iter.SourceNode):
             artefact_kind = 'source'
+        else:
+            artefact_kind = 'artefact'
 
         # explicitly remove extraIdentity here to only handle one artefact each
         # TODO-Extra-Id uncomment below code once extraIdentities are handled properly

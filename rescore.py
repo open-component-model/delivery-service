@@ -181,6 +181,8 @@ def _find_artefact_metadata(
         artefact_kind = 'resource'
     elif isinstance(artefact_node, cnudie.iter.SourceNode):
         artefact_kind = 'source'
+    else:
+        artefact_kind = 'artefact'
 
     query = session.query(dm.ArtefactMetaData).filter(
         sa.and_(
@@ -210,6 +212,8 @@ def _find_rescorings(
         artefact_kind = 'resource'
     elif isinstance(artefact_node, cnudie.iter.SourceNode):
         artefact_kind = 'source'
+    else:
+        artefact_kind = 'artefact'
 
     rescorings_query = session.query(dm.ArtefactMetaData).filter(
         sa.and_(

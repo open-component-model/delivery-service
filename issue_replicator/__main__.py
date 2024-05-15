@@ -164,6 +164,8 @@ def _artefacts_for_backlog_item_and_components(
                     path=(cnudie.iter.NodePathEntry(component),),
                     source=artefact,
                 )
+            else:
+                raise RuntimeError('this line should never be reached')
 
             if not artefact_node.resource.type in issue_replicator_config.artefact_types:
                 continue
