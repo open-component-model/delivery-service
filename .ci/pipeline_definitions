@@ -5,9 +5,9 @@ delivery-service:
         smoke_test:
           image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
           execute: ../smoke_test.py
-        # lint:
-        #   image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
-        #   execute: lint
+        lint:
+          image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
+          execute: lint
         test:
           image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
           execute: test
