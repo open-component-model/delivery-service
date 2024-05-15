@@ -470,7 +470,7 @@ def _iter_rescoring_proposals(
     seen_ids = set()
 
     for am in artefact_metadata:
-        if am.id in seen_ids:
+        if am.type == dso.model.Datatype.STRUCTURE_INFO or am.id in seen_ids:
             continue
 
         matching_artefact_metadata = tuple(
