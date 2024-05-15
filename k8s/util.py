@@ -222,6 +222,7 @@ def scale_replica_set(
     )
 
 
+@functools.lru_cache(maxsize=1)
 def iter_scan_configurations(
     namespace: str,
     kubernetes_api: KubernetesApi,
