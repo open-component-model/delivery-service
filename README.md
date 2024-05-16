@@ -22,16 +22,9 @@ default unless explicitly enabled through additional configuration).
 
 ## Run with local database
 
+Currently `SQLite3` and `PostgreSQL 16` are support.
 
-### sqlite3
-
-Instantiate a local sqlite database, e.g.
-
-```
-sqlite3 test.db
-```
-
-Start the delivery-service
+### SQLite3
 
 ```
 python3 app.py --delivery-db-url sqlite:///test.db
@@ -47,38 +40,41 @@ Valid SQLite URL forms are:
 ```
 > Note: _Four_ slashes for abs-path.
 
-### Run with local database (Postgres)
+### PostgreSQL
 
-Instantiate a local postgres 16 database
+Instantiate a local PostgreSQL 16 database, e.g. as OCI Container.
 
 ```
 docker run -dit  \
     --name postgres \
-    -e POSTGRES_USER=admin \
-    -e POSTGRES_PASSWORD=passwd \
+    -e POSTGRES_USER=postgres \
+    -e POSTGRES_PASSWORD=MyPassword \
     -p 5432:5432 postgres:16
 ```
 
 Start the delivery-service
 
 ```
-python3 app.py --delivery-db-url postgresql+psycopg://postgres:password@127.0.0.1:5432
+python3 app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 ```
 
-### Run with remote delivery-db (running in k8s cluster)
+## Run with remote database
+
+
+### Kubernetes
 Port-forward the delivery-db service
 
+
 ```
-kubectl port-forward service/delivery-db --namespace=delivery 5431:5432
+kubectl port-forward service/delivery-db --namespace=database 5431:5432
 ```
 
 Start the delivery-service
 
 ```
-python3 app.py --delivery-db-url postgresql+psycopg://postgres:password@127.0.0.1:5431
+python3 app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5431
 ```
 
-Note: additional configuration/credentials required from secrets-storage (documentation tbd).
 
 ## Hint: Enable caching
 
