@@ -20,6 +20,20 @@ For delivery-service, use `app.py` as entry point. Check online-help (app.py --h
 instructions. Note that most features of delivery-service are optional (features are disabled by
 default unless explicitly enabled through additional configuration).
 
+## Getting Started
+1. Install development dependencies
+```
+pip3 install -r requirements-dev.txt --upgrade --break-system-packages
+```
+
+2. Obtain secrets and configuration (tbd)
+
+3. Start delivery-service with (delivery) database
+    - with [local](#db-local) database
+    - with [remote](#db-remote) database
+
+
+<a id="db-local"></a>
 ## Run with local database
 
 Currently `SQLite3` and `PostgreSQL 16` are support.
@@ -58,8 +72,8 @@ Start the delivery-service
 python3 app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 ```
 
+<a id="db-remote"></a>
 ## Run with remote database
-
 
 ### Kubernetes
 Port-forward the delivery-db service
