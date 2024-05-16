@@ -386,28 +386,20 @@ def reuse_discovery_date_if_possible(
     old_metadata: dm.ArtefactMetaData,
     new_metadata: dm.ArtefactMetaData,
 ) -> datetime.date | None:
-    new_data = new_metadata.data
-    old_data = old_metadata.data
-    new_id = new_data.get('id', dict())
-    old_id = old_data.get('id', dict())
-
-    if new_id.get('source') != old_id.get('source'):
-        return None
-
-    if (
-        new_id.get('source') == dso.model.Datasource.BDBA
-        and new_id.get('package_name') == old_id.get('package_name')
-    ):
+    if new_metadata.type == dso.model.Datatype.VULNERABILITY:
         if (
-            new_metadata.type == dso.model.Datatype.VULNERABILITY
-            and new_data.get('cve') == old_data.get('cve')
+            new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
+            and new_metadata.data.get('cve') == old_metadata.data.get('cve')
         ):
             # found the same cve in existing entry, independent of the component-/
             # resource-/package-version, so we must re-use its discovery date
             return old_metadata.discovery_date
-        elif (
-            new_metadata.type == dso.model.Datatype.LICENSE
-            and new_data.get('license').get('name') == old_data.get('license').get('name')
+
+    elif new_metadata.type == dso.model.Datatype.LICENSE:
+        if (
+            new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
+            and new_metadata.data.get('license').get('name')
+                == old_metadata.data.get('license').get('name')
         ):
             # found the same license in existing entry, independent of the component-/
             # resource-/package-version, so we must re-use its discovery date

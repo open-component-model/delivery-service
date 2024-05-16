@@ -153,17 +153,6 @@ class ArtefactMetadataFilters:
         )
 
     @staticmethod
-    def filter_for_rescoring(
-        artefact_metadata: dm.ArtefactMetaData,
-    ):
-        return sa.and_(
-            dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
-            ArtefactMetadataFilters.by_artefact_id_and_type(artefact_metadata),
-            dm.ArtefactMetaData.data_key == artefact_metadata.data_key,
-            dm.ArtefactMetaData.referenced_type == artefact_metadata.referenced_type,
-        )
-
-    @staticmethod
     def filter_for_rescoring_type(
         type_filter: list[str]=None,
     ):

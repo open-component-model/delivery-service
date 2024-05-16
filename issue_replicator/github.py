@@ -288,7 +288,7 @@ def _vulnerability_template_vars(
         grouped_findings = dict()
 
         for finding in findings:
-            package_name = finding.finding.data.id.package_name
+            package_name = finding.finding.data.package_name
 
             if not package_name in grouped_findings:
                 grouped_findings[package_name] = collections.defaultdict(list)
@@ -334,15 +334,15 @@ def _vulnerability_template_vars(
 
             return _vuln_str + f' `{rescored.name}`'
 
-        versions = ', <br/>'.join((f'`{f.finding.data.id.package_version}`' for f in sorted(
+        versions = ', <br/>'.join((f'`{f.finding.data.package_version}`' for f in sorted(
             findings,
             key=lambda finding: # try to sort by version
-                [x for x in finding.finding.data.id.package_version.split('.')]
-                if finding.finding.data.id.package_version
-                else [f'{finding.finding.data.id.package_version}'],
+                [x for x in finding.finding.data.package_version.split('.')]
+                if finding.finding.data.package_version
+                else [f'{finding.finding.data.package_version}'],
         )))
 
-        return f'\n| `{finding.data.id.package_name}` | {_vulnerability_str()} | {versions} |'
+        return f'\n| `{finding.data.package_name}` | {_vulnerability_str()} | {versions} |'
 
     for version_key, findings in sorted(
         findings_by_versions.items(),
@@ -365,8 +365,8 @@ def _vulnerability_template_vars(
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
         report_urls = {(
-            f'[BDBA {finding.finding.data.scan_id.product_id}]'
-            f'({finding.finding.data.scan_id.report_url})'
+            f'[BDBA {finding.finding.data.product_id}]'
+            f'({finding.finding.data.report_url})'
         ) for finding in findings}
         report_urls_str = '\n'.join(sorted(report_urls))
 
@@ -414,7 +414,7 @@ def _license_template_vars(
         grouped_findings = dict()
 
         for finding in findings:
-            package_name = finding.finding.data.id.package_name
+            package_name = finding.finding.data.package_name
 
             if not package_name in grouped_findings:
                 grouped_findings[package_name] = collections.defaultdict(list)
@@ -437,15 +437,15 @@ def _license_template_vars(
             severity = gcm.Severity[finding.data.severity]
             return f'`{finding.data.license.name}` | `{severity.name}`'
 
-        versions = ', <br/>'.join((f'`{f.finding.data.id.package_version}`' for f in sorted(
+        versions = ', <br/>'.join((f'`{f.finding.data.package_version}`' for f in sorted(
             findings,
             key=lambda finding: # try to sort by version
-                [x for x in finding.finding.data.id.package_version.split('.')]
-                if finding.finding.data.id.package_version
-                else [f'{finding.finding.data.id.package_version}'],
+                [x for x in finding.finding.data.package_version.split('.')]
+                if finding.finding.data.package_version
+                else [f'{finding.finding.data.package_version}'],
         )))
 
-        return f'\n| `{finding.data.id.package_name}` | {_license_str()} | {versions} |'
+        return f'\n| `{finding.data.package_name}` | {_license_str()} | {versions} |'
 
     for version_key, findings in sorted(
         findings_by_versions.items(),
@@ -468,8 +468,8 @@ def _license_template_vars(
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
         report_urls = {(
-            f'[BDBA {finding.finding.data.scan_id.product_id}]'
-            f'({finding.finding.data.scan_id.report_url})'
+            f'[BDBA {finding.finding.data.product_id}]'
+            f'({finding.finding.data.report_url})'
         ) for finding in findings}
         report_urls_str = '\n'.join(sorted(report_urls))
 

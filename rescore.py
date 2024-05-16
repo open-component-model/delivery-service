@@ -46,26 +46,17 @@ class RescoringSpecificity(enum.IntEnum):
 
 
 @dataclasses.dataclass(frozen=True)
-class BDBAPackageId:
+class LicenseFinding(dso.model.Finding):
     package_name: str
     package_versions: tuple[str, ...] # "..." for dacite.from_dict
-    source: str = dso.model.Datasource.BDBA
-
-
-@dataclasses.dataclass(frozen=True)
-class Finding:
-    id: BDBAPackageId
-    severity: Severity
-
-
-@dataclasses.dataclass(frozen=True)
-class LicenseFinding(Finding):
     license: dso.model.License
     filesystem_paths: list[dso.model.FilesystemPath]
 
 
 @dataclasses.dataclass(frozen=True)
-class VulnerabilityFinding(Finding):
+class VulnerabilityFinding(dso.model.Finding):
+    package_name: str
+    package_versions: tuple[str, ...] # "..." for dacite.from_dict
     cve: str
     cvss_v3_score: float
     cvss: str
@@ -301,17 +292,11 @@ def _iter_rescorings_for_finding(
         ):
             continue
 
-        if data.finding.id.source != finding.data.get('id').get('source'):
-            continue
-
         if (
             finding.type == dso.model.Datatype.VULNERABILITY
             and (
                 data.finding.cve != finding.data.get('cve')
-                or (
-                    data.finding.id.source == dso.model.Datasource.BDBA
-                    and data.finding.id.package_name != finding.data.get('id').get('package_name')
-                )
+                or data.finding.package_name != finding.data.get('package_name')
             )
         ):
             continue
@@ -320,10 +305,7 @@ def _iter_rescorings_for_finding(
             finding.type == dso.model.Datatype.LICENSE
             and (
                 data.finding.license.name != finding.data.get('license').get('name')
-                or (
-                    data.finding.id.source == dso.model.Datasource.BDBA
-                    and data.finding.id.package_name != finding.data.get('id').get('package_name')
-                )
+                or data.finding.package_name != finding.data.get('package_name')
             )
         ):
             continue
@@ -404,8 +386,6 @@ def filesystem_paths_for_finding(
     finding: dm.ArtefactMetaData,
     package_versions: tuple[str]=(),
 ) -> list[dso.model.FilesystemPath]:
-    id = finding.data.get('id')
-
     if not package_versions:
         # only show filesystem paths for package versions which actually have findings;
         # in case no package versions are supplied, BDBA was not able to detect a version
@@ -416,9 +396,8 @@ def filesystem_paths_for_finding(
         matching_info for matching_info in artefact_metadata
         if (
             matching_info.type == dso.model.Datatype.STRUCTURE_INFO
-            and matching_info.data.get('id').get('source') == id.get('source')
-            and matching_info.data.get('id').get('package_name') == id.get('package_name')
-            and matching_info.data.get('id').get('package_version') in package_versions
+            and matching_info.data.get('package_name') == finding.data.get('package_name')
+            and matching_info.data.get('package_version') in package_versions
             and matching_info.component_name == finding.component_name
             and matching_info.component_version == finding.component_version
             and matching_info.artefact_kind == finding.artefact_kind
@@ -499,12 +478,8 @@ def _iter_rescoring_proposals(
 
         if current_rescorings:
             current_severity = gcm.Severity[current_rescorings[0].data.severity]
-        elif am.type != dso.model.Datatype.STRUCTURE_INFO:
-            # structure info does not have any severity but is just retrieved to evaluate
-            # whether a scan exists for the given artefacts (if no finding is found)
-            current_severity = gcm.Severity[am.data.get('severity')]
         else:
-            current_severity = None
+            current_severity = gcm.Severity[am.data.get('severity')]
 
         sprint = sprint_for_finding(
             finding=am,
@@ -513,29 +488,26 @@ def _iter_rescoring_proposals(
             sprints=sprints,
         )
 
-        if (
-            am.type == dso.model.Datatype.VULNERABILITY
-            and am.data.get('id').get('source') == dso.model.Datasource.BDBA
-        ):
+        if am.type == dso.model.Datatype.VULNERABILITY:
             cve = am.data.get('cve')
             cvss = dso.cvss.CVSSV3.from_dict(cvss=am.data.get('cvss'))
             cvss_v3_score = am.data.get('cvss_v3_score')
             severity = dso.cvss.CVESeverity[am.data.get('severity')]
-            package_name = am.data.get('id').get('package_name')
+            package_name = am.data.get('package_name')
 
             finding_matching_am = tuple(
                 matching_am for matching_am in matching_artefact_metadata
                 if (
                     matching_am.data.get('cve') == cve and
-                    matching_am.data.get('id').get('package_name') == package_name
+                    matching_am.data.get('package_name') == package_name
                 )
             )
             seen_ids.update(tuple(matching_am.id for matching_am in finding_matching_am))
 
             package_versions = tuple(
-                matching_am.data.get('id').get('package_version')
+                matching_am.data.get('package_version')
                 for matching_am in finding_matching_am
-                if matching_am.data.get('id').get('package_version')
+                if matching_am.data.get('package_version')
             )
 
             filesystem_paths = filesystem_paths_for_finding(
@@ -548,11 +520,8 @@ def _iter_rescoring_proposals(
                 data_class=RescoringProposal,
                 data={
                     'finding': {
-                        'id': {
-                            'package_name': package_name,
-                            'package_versions': package_versions,
-                            'source': dso.model.Datasource.BDBA,
-                        },
+                        'package_name': package_name,
+                        'package_versions': package_versions,
                         'severity': severity.name,
                         'cve': cve,
                         'cvss_v3_score': cvss_v3_score,
@@ -573,34 +542,33 @@ def _iter_rescoring_proposals(
                             categorisation=categorisation,
                             cvss=cvss,
                         )
-                    ] if rescoring_rules and categorisation else ['original-severity'],
+                    ] if rescoring_rules and categorisation else [
+                        dso.model.MetaRescoringRules.ORIGINAL_SEVERITY,
+                    ],
                     'applicable_rescorings': current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
                     'sprint': sprint,
                 },
             )
 
-        elif (
-            am.type == dso.model.Datatype.LICENSE
-            and am.data.get('id').get('source') == dso.model.Datasource.BDBA
-        ):
+        elif am.type == dso.model.Datatype.LICENSE:
             license = am.data.get('license')
             severity = am.data.get('severity')
-            package_name = am.data.get('id').get('package_name')
+            package_name = am.data.get('package_name')
 
             finding_matching_am = tuple(
                 matching_am for matching_am in matching_artefact_metadata
                 if (
                     matching_am.data.get('license').get('name') == license.get('name') and
-                    matching_am.data.get('id').get('package_name') == package_name
+                    matching_am.data.get('package_name') == package_name
                 )
             )
             seen_ids.update(tuple(matching_am.id for matching_am in finding_matching_am))
 
             package_versions = tuple(
-                matching_am.data.get('id').get('package_version')
+                matching_am.data.get('package_version')
                 for matching_am in finding_matching_am
-                if matching_am.data.get('id').get('package_version')
+                if matching_am.data.get('package_version')
             )
 
             filesystem_paths = filesystem_paths_for_finding(
@@ -613,17 +581,14 @@ def _iter_rescoring_proposals(
                 data_class=RescoringProposal,
                 data={
                     'finding': {
-                        'id': {
-                            'package_name': package_name,
-                            'package_versions': package_versions,
-                            'source': dso.model.Datasource.BDBA,
-                        },
+                        'package_name': package_name,
+                        'package_versions': package_versions,
                         'severity': severity,
                         'license': license,
                         'filesystem_paths': filesystem_paths,
                     },
                     'severity': severity,
-                    'matching_rules': ['original-severity'],
+                    'matching_rules': [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY],
                     'applicable_rescorings': current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
                     'sprint': sprint,
@@ -821,7 +786,7 @@ class Rescore:
 
                 # avoid adding rescoring duplicates -> purge old entries
                 session.query(dm.ArtefactMetaData).filter(
-                    du.ArtefactMetadataFilters.filter_for_rescoring(rescoring_db),
+                    du.ArtefactMetadataFilters.by_single_scan_result(rescoring_db),
                 ).delete()
 
                 session.add(rescoring_db)
