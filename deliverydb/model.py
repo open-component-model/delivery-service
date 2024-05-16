@@ -45,7 +45,7 @@ class ArtefactMetaData(Base):
 
     meta = Column(sa.JSON, default=dict)
     data = Column(sa.JSON, default=dict)
-    data_key = Column(sa.String(length=4096))
+    data_key = Column(sa.CHAR(length=40))
     datasource = Column(sa.String(length=64)) # bdba, checkmarx
 
     cfg_name = Column(sa.String(length=64)) # relevant for compliance snapshots

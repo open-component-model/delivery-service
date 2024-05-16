@@ -1,5 +1,6 @@
 import collections.abc
 import dataclasses
+import hashlib
 
 import sqlalchemy as sa
 import sqlalchemy.sql.elements as sqle
@@ -43,7 +44,7 @@ def to_db_artefact_metadata(
             dict_factory=ci.util.dict_to_json_factory,
         )
 
-    data_key = data.key if hasattr(data, 'key') else None
+    data_key = hashlib.sha1(data.key.encode('utf-8')).hexdigest() if hasattr(data, 'key') else None
     cfg_name = data.cfg_name if hasattr(data, 'cfg_name') else None
     referenced_type = data.referenced_type if hasattr(data, 'referenced_type') else None
 
