@@ -61,15 +61,3 @@ sa.Index(
     ArtefactMetaData.type,
     ArtefactMetaData.artefact_type,
 )
-
-
-sa.Index(
-    None,
-    ArtefactMetaData.component_name,
-    ArtefactMetaData.artefact_name,
-    ArtefactMetaData.type,
-    ArtefactMetaData.artefact_type,
-    ArtefactMetaData.data_key,
-    ArtefactMetaData.cfg_name,
-    ArtefactMetaData.referenced_type,
-)
