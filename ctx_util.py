@@ -6,7 +6,6 @@ import threading
 import watchdog.events
 import watchdog.observers.polling
 
-import ccc.secrets_server
 import ci.util
 import model
 
@@ -14,16 +13,8 @@ import model
 def _cfg_factory_from_secret(path: str) -> model.ConfigFactory:
     path = ci.util.existing_file(path)
 
-    with open(path, 'rb') as f:
-        cipher_text = f.read()
-
-    secret = ccc.secrets_server.get_secret_cfg_from_env_if_available()
-    cfg = ccc.secrets_server._decrypt_cipher_text(
-        encrypted_cipher_text=cipher_text,
-        secret=secret,
-    ).decode('utf-8')
-
-    return model.ConfigFactory.from_dict(json.loads(cfg))
+    with open(path, 'rb') as file:
+        return model.ConfigFactory.from_dict(json.loads(file.read()))
 
 
 class FileChangeEventHandler(watchdog.events.FileSystemEventHandler):
