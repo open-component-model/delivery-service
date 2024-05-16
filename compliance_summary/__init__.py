@@ -387,7 +387,7 @@ def calculate_summary(
             if type in bdba_types:
                 bdba_scan_data = tuple(
                     finding for finding in findings
-                    if finding.meta.get('datasource') == dso.model.Datasource.BDBA
+                    if finding.datasource == dso.model.Datasource.BDBA
                 )
                 if bdba_scan_data:
                     results[type] = ComplianceSummaryEntry(
