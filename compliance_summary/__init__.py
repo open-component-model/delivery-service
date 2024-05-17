@@ -193,7 +193,7 @@ class OsStatusMapping(SeverityMappingBase):
         )
 
         if not release_infos:
-            logger.warning(f'did not find release-info for {os_id=}')
+            logger.debug(f'did not find release-info for {os_id=}')
             return severity_for_os_status(OsStatus.NO_RELEASE_INFO)
 
         return severity_for_os_status(determine_status(release_infos))
