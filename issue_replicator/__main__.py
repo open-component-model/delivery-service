@@ -10,8 +10,6 @@ import signal
 import sys
 import time
 
-import dacite
-
 import ci.log
 import cnudie.iter
 import cnudie.retrieve
@@ -29,6 +27,7 @@ import k8s.logging
 import k8s.model
 import k8s.util
 import lookups
+import rescoring_util
 
 
 logger = logging.getLogger(__name__)
@@ -190,10 +189,20 @@ def _iter_findings_for_artefact(
     if not components:
         return tuple()
 
-    findings_for_components = delivery_client.query_metadata_raw(
+    findings_for_components = delivery_client.query_metadata(
         components=components,
         type=(
             dso.model.Datatype.STRUCTURE_INFO,
+            dso.model.Datatype.VULNERABILITY,
+            dso.model.Datatype.LICENSE,
+            dso.model.Datatype.MALWARE,
+        ),
+    )
+
+    rescorings_for_components = delivery_client.query_metadata(
+        components=components,
+        type=dso.model.Datatype.RESCORING,
+        referenced_type=(
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.LICENSE,
             dso.model.Datatype.MALWARE,
@@ -211,27 +220,23 @@ def _iter_findings_for_artefact(
 
         return gcm.Severity[finding.data.severity]
 
-    for raw in findings_for_components:
+    for finding in findings_for_components:
         if not (
-            raw.get('artefact').get('artefact_kind') == artefact.artefact_kind
-            and raw.get('artefact').get('artefact').get('artefact_name')
-                == artefact.artefact.artefact_name
-            and raw.get('artefact').get('artefact').get('artefact_type')
-                == artefact.artefact.artefact_type
+            finding.artefact.artefact_kind == artefact.artefact_kind
+            and finding.artefact.artefact.artefact_name == artefact.artefact.artefact_name
+            and finding.artefact.artefact.artefact_type == artefact.artefact.artefact_type
             # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # and dso.model.normalise_artefact_extra_id(
-            #     artefact_extra_id=raw.get('artefact').get('artefact').get('artefact_extra_id'),
-            # ) == artefact.artefact.normalised_artefact_extra_id()
+            # and finding.artefact.artefact.normalised_artefact_extra_id()
+            #     == artefact.artefact.normalised_artefact_extra_id()
         ):
             continue
 
-        finding = dso.model.ArtefactMetadata.from_dict(raw)
+        rescorings = rescoring_util.rescorings_for_finding_by_specificity(
+            finding=finding,
+            rescorings=rescorings_for_components,
+        )
 
-        if rescorings := raw.get('rescorings', tuple()):
-            rescorings = tuple(dacite.from_dict(
-                data_class=dso.model.ArtefactMetadata,
-                data=rescoring,
-            ) for rescoring in rescorings)
+        if rescorings:
             severity = gcm.Severity[rescorings[0].data.severity]
         elif finding.meta.type != dso.model.Datatype.STRUCTURE_INFO:
             # structure info does not have any severity but is just retrieved to evaluate

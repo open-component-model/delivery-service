@@ -1,4 +1,5 @@
 import collections.abc
+import dataclasses
 import datetime
 
 import falcon
@@ -6,6 +7,7 @@ import falcon.media.validators.jsonschema
 import sqlalchemy as sa
 import sqlalchemy.orm.session as ss
 
+import ci.util
 import dso.model
 import gci.componentmodel as cm
 
@@ -15,7 +17,6 @@ import deliverydb.util as du
 import eol
 import features
 import middleware.auth
-import rescore
 
 
 @middleware.auth.noauth
@@ -40,6 +41,11 @@ class ArtefactMetadata:
               no type is given, all relevant metadata will be returned. Check \n
               https://github.com/gardener/cc-utils/blob/master/dso/model.py `Datatype` model \n
               class for a list of possible values. \n
+            - referenced_type (optional): The referenced types to retrieve (only applicable for \n
+              metadata of type `rescorings`). Can be given multiple times. If no referenced type \n
+              is given, all relevant metadata will be returned. Check \n
+              https://github.com/gardener/cc-utils/blob/master/dso/model.py `Datatype` model \n
+              class for a list of possible values. \n
 
         **expected body:**
 
@@ -59,59 +65,66 @@ class ArtefactMetadata:
         session: ss.Session = req.context.db_session
 
         type_filter = req.get_param_as_list('type', required=False)
+        referenced_type_filter = req.get_param_as_list('referenced_type', required=False)
 
         findings_query = session.query(dm.ArtefactMetaData)
-        rescorings_query = session.query(dm.ArtefactMetaData).filter(
-            dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
-        )
 
         if type_filter:
             findings_query = findings_query.filter(
                 dm.ArtefactMetaData.type.in_(type_filter),
             )
-            rescorings_query = rescorings_query.filter(
-                du.ArtefactMetadataFilters.filter_for_rescoring_type(type_filter),
+
+        if referenced_type_filter:
+            findings_query = findings_query.filter(
+                sa.and_(
+                    dm.ArtefactMetaData.referenced_type.in_(referenced_type_filter),
+                ),
             )
 
         if component_filter:
-            findings_query = findings_query.filter(
-                sa.or_(du.ArtefactMetadataQueries.component_queries(
-                    components=component_ids,
-                )),
-            )
-            rescorings_query = rescorings_query.filter(
-                sa.or_(du.ArtefactMetadataQueries.component_queries(
-                    components=component_ids,
-                    none_ok=True,
-                ))
-            )
+            if type_filter and dso.model.Datatype.RESCORING not in type_filter:
+                findings_query = findings_query.filter(
+                    sa.or_(du.ArtefactMetadataQueries.component_queries(
+                        components=component_ids,
+                    )),
+                )
+            else:
+                # when filtering for metadata of type `rescorings`, entries without a component
+                # name or version should also be considered a "match" (caused by different rescoring
+                # scopes)
+                findings_query = findings_query.filter(
+                    sa.or_(
+                        sa.and_(
+                            dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
+                            sa.or_(du.ArtefactMetadataQueries.component_queries(
+                                components=component_ids,
+                                none_ok=True,
+                            )),
+                        ),
+                        sa.or_(du.ArtefactMetadataQueries.component_queries(
+                            components=component_ids,
+                        )),
+                    ),
+                )
 
         findings_raw = findings_query.all()
-
-        rescorings_raw = rescorings_query.all()
-        rescorings = tuple(
-            du.db_artefact_metadata_to_dso(
-                artefact_metadata=raw,
-            )
-            for raw in rescorings_raw
-        )
+        findings = [
+            du.db_artefact_metadata_to_dso(raw)
+            for raw in findings_raw
+        ]
 
         def iter_findings(
-            findings: list[dm.ArtefactMetaData],
-            rescorings: tuple[dso.model.ArtefactMetadata],
+            findings: list[dso.model.ArtefactMetadata],
             artefact_metadata_cfg_by_type: dict[str, cs.ArtefactMetadataCfg],
         ) -> collections.abc.Generator[dict, None, None]:
             def result_dict(
-                finding: dm.ArtefactMetaData,
-                rescorings: tuple[dso.model.ArtefactMetadata],
+                finding: dso.model.ArtefactMetadata,
                 meta: dict=None,
             ) -> dict:
-                finding_dict = du.db_artefact_metadata_to_dict(
-                    artefact_metadata=finding,
+                finding_dict = dataclasses.asdict(
+                    obj=finding,
+                    dict_factory=ci.util.dict_to_json_factory,
                 )
-
-                if rescorings:
-                    finding_dict['rescorings'] = rescorings
 
                 if meta:
                     finding_dict['meta'] = meta
@@ -119,18 +132,10 @@ class ArtefactMetadata:
                 return finding_dict
 
             for finding in findings:
-                cfg = artefact_metadata_cfg_by_type.get(finding.type)
-
-                rescorings_for_finding = rescore.rescorings_for_finding_by_specificity(
-                    finding=finding,
-                    rescorings=rescorings,
-                )
+                cfg = artefact_metadata_cfg_by_type.get(finding.meta.type)
 
                 if not cfg:
-                    yield result_dict(
-                        finding=finding,
-                        rescorings=rescorings_for_finding,
-                    )
+                    yield result_dict(finding)
                     continue
 
                 severity = cs.severity_for_finding(
@@ -139,21 +144,16 @@ class ArtefactMetadata:
                     eol_client=self.eol_client,
                 )
                 if not severity:
-                    yield result_dict(
-                        finding=finding,
-                        rescorings=rescorings_for_finding,
-                    )
+                    yield result_dict(finding)
                     continue
 
                 yield result_dict(
                     finding=finding,
-                    rescorings=rescorings_for_finding,
-                    meta=dict(**finding.meta, severity=severity),
+                    meta=dict(**dataclasses.asdict(finding.meta), severity=severity),
                 )
 
         resp.media = list(iter_findings(
-            findings=findings_raw,
-            rescorings=rescorings,
+            findings=findings,
             artefact_metadata_cfg_by_type=self.artefact_metadata_cfg_by_type,
         ))
 
