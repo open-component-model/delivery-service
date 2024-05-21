@@ -24,6 +24,7 @@ def modules():
         'ctx_util',
         'lookups',
         'paths',
+        'rescoring_util',
     ]
 
 
