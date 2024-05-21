@@ -18,7 +18,7 @@ import delivery.util as du
 import deliverydb.model as dm
 import eol
 import osinfo
-import rescore
+import rescoring_util
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def rescored_severity_if_any(
     finding: dm.ArtefactMetaData,
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
 ) -> str | None:
-    rescorings_for_finding = rescore.rescorings_for_finding_by_specificity(
+    rescorings_for_finding = rescoring_util.rescorings_for_finding_by_specificity(
         finding=finding,
         rescorings=rescorings,
     )

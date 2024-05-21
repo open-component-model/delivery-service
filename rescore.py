@@ -1,7 +1,6 @@
 import collections.abc
 import dataclasses
 import datetime
-import enum
 import logging
 import typing
 
@@ -26,6 +25,7 @@ import k8s.backlog
 import k8s.model
 import k8s.util
 import middleware.auth
+import rescoring_util
 import util
 import yp
 
@@ -36,13 +36,6 @@ CveRescoringRuleSetLookup = collections.abc.Callable[
     features.CveRescoringRuleSet | None,
 ]
 Severity = str # sap-specific categorisation (see cc-utils github/compliance/model/Severity)
-
-
-class RescoringSpecificity(enum.IntEnum):
-    GLOBAL = 0
-    COMPONENT = 1
-    ARTEFACT = 2
-    SINGLE = 3
 
 
 @dataclasses.dataclass(frozen=True)
@@ -244,122 +237,6 @@ def _find_rescorings(
     )
 
 
-def _iter_rescorings_for_finding(
-    finding: dm.ArtefactMetaData,
-    rescorings: tuple[dso.model.ArtefactMetadata],
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
-    for rescoring in rescorings:
-        artefact_ref = rescoring.artefact
-        data = rescoring.data
-
-        if rescoring.data.referenced_type != finding.type:
-            continue
-
-        if artefact_ref.artefact_kind != finding.artefact_kind:
-            continue
-
-        if artefact_ref.artefact.artefact_type != finding.artefact_type:
-            continue
-
-        if (
-            artefact_ref.component_name
-            and artefact_ref.component_name != finding.component_name
-        ):
-            continue
-
-        if (
-            artefact_ref.component_version
-            and artefact_ref.component_version != finding.component_version
-        ):
-            continue
-
-        if (
-            artefact_ref.artefact.artefact_name
-            and artefact_ref.artefact.artefact_name != finding.artefact_name
-        ):
-            continue
-
-        if (
-            artefact_ref.artefact.artefact_version
-            and artefact_ref.artefact.artefact_version != finding.artefact_version
-        ):
-            continue
-
-        if (
-            artefact_ref.artefact.artefact_extra_id
-            and artefact_ref.artefact.normalised_artefact_extra_id()
-                != finding.artefact_extra_id_normalised
-        ):
-            continue
-
-        if (
-            finding.type == dso.model.Datatype.VULNERABILITY
-            and (
-                data.finding.cve != finding.data.get('cve')
-                or data.finding.package_name != finding.data.get('package_name')
-            )
-        ):
-            continue
-
-        if (
-            finding.type == dso.model.Datatype.LICENSE
-            and (
-                data.finding.license.name != finding.data.get('license').get('name')
-                or data.finding.package_name != finding.data.get('package_name')
-            )
-        ):
-            continue
-
-        yield rescoring
-
-
-def _specificity_of_rescoring(rescoring: dso.model.ArtefactMetadata) -> RescoringSpecificity:
-    '''
-    There are four possible scopes for a rescoring. If multiple rescorings match
-    one finding, the rescoring with the greatest specificity based on its scope
-    should be used.
-
-    Thereby, the "Global" scope has neither component name or version nor artefact
-    name or version set. The "Component" scope only refers to the component name,
-    the "Artefact" scope only to the component name as well as the artefact name.
-    Last, the "Single" scope requires all four parameters to be set.
-    '''
-    if not rescoring.artefact.component_name:
-        return RescoringSpecificity.GLOBAL
-
-    if not rescoring.artefact.artefact.artefact_name:
-       return RescoringSpecificity.COMPONENT
-
-    if not rescoring.artefact.component_version:
-       return RescoringSpecificity.ARTEFACT
-
-    return RescoringSpecificity.SINGLE
-
-
-def rescorings_for_finding_by_specificity(
-    finding: dm.ArtefactMetaData,
-    rescorings: tuple[dso.model.ArtefactMetadata],
-) -> tuple[dso.model.ArtefactMetadata]:
-    '''
-    Returns all rescorings of `rescorings` which match the given `finding`. If multiple
-    rescorings match the finding, they are ordered based on their specificity (greatest
-    specificity first and if the specificity is the same, the latest rescorings wins).
-    '''
-    rescorings_for_finding = _iter_rescorings_for_finding(
-        finding=finding,
-        rescorings=rescorings,
-    )
-
-    return tuple(sorted(
-        rescorings_for_finding,
-        key=lambda rescoring: (
-            _specificity_of_rescoring(rescoring=rescoring),
-            rescoring.meta.creation_date,
-        ),
-        reverse=True,
-    ))
-
-
 def _rescore_vulnerabilitiy(
     rescoring_rules: tuple[dso.cvss.RescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
@@ -471,7 +348,7 @@ def _iter_rescoring_proposals(
 
         seen_ids.add(am.id)
 
-        current_rescorings = rescorings_for_finding_by_specificity(
+        current_rescorings = rescoring_util.rescorings_for_finding_by_specificity(
             finding=am,
             rescorings=rescorings,
         )
