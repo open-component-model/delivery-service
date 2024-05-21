@@ -1175,12 +1175,14 @@ class ComplianceSummary:
         )
 
         findings_raw = findings_query.all()
+        findings = [
+            deliverydb.util.db_artefact_metadata_to_dso(raw)
+            for raw in findings_raw
+        ]
 
         rescorings_raw = rescorings_query.all()
         rescorings = [
-            deliverydb.util.db_artefact_metadata_to_dso(
-                artefact_metadata=raw,
-            )
+            deliverydb.util.db_artefact_metadata_to_dso(raw)
             for raw in rescorings_raw
         ]
 
@@ -1191,7 +1193,7 @@ class ComplianceSummary:
                     dict_factory=util.dict_factory_enum_name_serialisiation,
                 )
                 for summary in cs.component_summaries(
-                    findings=findings_raw,
+                    findings=findings,
                     rescorings=rescorings,
                     component_ids=component_ids,
                     eol_client=self.eol_client,

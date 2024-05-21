@@ -15,7 +15,6 @@ import unixutil.model as um
 
 import delivery.model
 import delivery.util as du
-import deliverydb.model as dm
 import eol
 import osinfo
 import rescoring_util
@@ -41,7 +40,7 @@ def severity_to_summary_severity(severity: gcm.Severity) -> ComplianceEntrySever
 
 
 def rescored_severity_if_any(
-    finding: dm.ArtefactMetaData,
+    finding: dso.model.ArtefactMetadata,
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
 ) -> str | None:
     rescorings_for_finding = rescoring_util.rescorings_for_finding_by_specificity(
@@ -71,10 +70,10 @@ class CodecheckSeverityNamesMapping(SeverityMappingBase):
 
     def match(
         self,
-        finding: dm.ArtefactMetaData,
+        finding: dso.model.ArtefactMetadata,
         **kwargs,
     ) -> str | None:
-        findings: dict = finding.data['findings']
+        findings = dataclasses.asdict(finding.data.findings)
 
         if not any(findings.values()):
             return ComplianceEntrySeverity.CLEAN.name
@@ -92,17 +91,17 @@ class MalwareNamesMapping(SeverityMappingBase):
 
     def match(
         self,
-        finding: dm.ArtefactMetaData,
+        finding: dso.model.ArtefactMetadata,
         **kwargs,
     ) -> str | None:
-        malware_findings = finding.data['findings']
+        malware_findings = finding.data.findings
 
         if not malware_findings:
             return ComplianceEntrySeverity.CLEAN.name
 
         for malware_name in self.malwareNames:
             for malware_finding in malware_findings:
-                if re.fullmatch(malware_name, malware_finding['name']):
+                if re.fullmatch(malware_name, malware_finding.name):
                     return self.severityName
 
         return None
@@ -114,7 +113,7 @@ class OsStatusMapping(SeverityMappingBase):
 
     def match(
         self,
-        finding: dm.ArtefactMetaData,
+        finding: dso.model.ArtefactMetadata,
         **kwargs,
     ) -> str | None:
 
@@ -179,10 +178,7 @@ class OsStatusMapping(SeverityMappingBase):
                     return severity_name
             return None
 
-        os_id = dacite.from_dict(
-            data_class=um.OperatingSystemId,
-            data=finding.data['os_info']
-        )
+        os_id = finding.data.os_info
 
         if empty_os_id(os_id):
             return severity_for_os_status(OsStatus.EMPTY_OS_ID)
@@ -219,7 +215,7 @@ class ArtefactMetadataCfg:
 
     def match(
         self,
-        finding: dm.ArtefactMetaData,
+        finding: dso.model.ArtefactMetadata,
         **kwargs,
     ) -> str | None:
         '''
@@ -229,7 +225,7 @@ class ArtefactMetadataCfg:
             if (severity := severity_mapping.match(finding, **kwargs)):
                 return severity
 
-        raise RuntimeError(f'no severity mapping for {finding.type=}')
+        raise RuntimeError(f'no severity mapping for {finding.meta.type=}')
 
 
 def artefact_metadata_cfg_by_type(artefact_metadata_cfg: dict) -> dict[str, ArtefactMetadataCfg]:
@@ -278,7 +274,7 @@ class SummaryConfig:
 
 
 def component_summaries(
-    findings: list[dm.ArtefactMetaData],
+    findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     component_ids: tuple[cm.ComponentIdentity],
     eol_client: eol.EolClient,
@@ -327,8 +323,8 @@ def component_summaries(
         filtered_findings = tuple(
             finding for finding in findings
             if (
-                component_id.name == finding.component_name and
-                component_id.version == finding.component_version
+                component_id.name == finding.artefact.component_name
+                and component_id.version == finding.artefact.component_version
             )
         )
         filtered_rescorings = tuple(
@@ -356,7 +352,7 @@ def component_summaries(
 
 
 def calculate_summary(
-    findings: tuple[dm.ArtefactMetaData],
+    findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     defaults: dict[ComplianceSummaryEntry],
     types: tuple[dso.model.Datatype],
@@ -373,7 +369,7 @@ def calculate_summary(
 
         findings_with_given_type = tuple(
             finding for finding in findings
-            if finding.type == type
+            if finding.meta.type == type
         )
 
         if not findings_with_given_type:
@@ -387,7 +383,7 @@ def calculate_summary(
             if type in bdba_types:
                 bdba_scan_data = tuple(
                     finding for finding in findings
-                    if finding.datasource == dso.model.Datasource.BDBA
+                    if finding.meta.datasource == dso.model.Datasource.BDBA
                 )
                 if bdba_scan_data:
                     results[type] = ComplianceSummaryEntry(
@@ -417,7 +413,7 @@ def calculate_summary(
 
 
 def severity_for_finding(
-    finding: dm.ArtefactMetaData,
+    finding: dso.model.ArtefactMetadata,
     artefact_metadata_cfg: ArtefactMetadataCfg | None = None,
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata] = tuple(),
     eol_client: eol.EolClient | None = None,
@@ -430,13 +426,13 @@ def severity_for_finding(
     ),
 ) -> str | None:
     '''
-    Severity for known `ArtefactMetaData`.
+    Severity for known `ArtefactMetadata`.
 
-    `None` indicates unknown `ArtefactMetaData`.
+    `None` indicates unknown `ArtefactMetadata`.
     Raises `RuntimeError` if no severity mapping could be applied.
     '''
 
-    if not finding.type in known_artefact_metadata_types:
+    if not finding.meta.type in known_artefact_metadata_types:
         return None
 
     if rescorings:
@@ -447,14 +443,14 @@ def severity_for_finding(
         if rescored_severity:
             return rescored_severity
 
-    if finding.type in (
+    if finding.meta.type in (
         dso.model.Datatype.LICENSE,
         dso.model.Datatype.VULNERABILITY,
     ):
         # these types have the severity already stored in their data field
         # no need to do separate severity mapping
         return severity_to_summary_severity(
-            severity=gcm.Severity[finding.data.get('severity')],
+            severity=gcm.Severity[finding.data.severity],
         ).name
 
     return artefact_metadata_cfg.match(
@@ -464,7 +460,7 @@ def severity_for_finding(
 
 
 def calculate_summary_entry(
-    findings: tuple[dm.ArtefactMetaData],
+    findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     eol_client: eol.EolClient,
     artefact_metadata_cfg: ArtefactMetadataCfg | None = None,
@@ -474,8 +470,8 @@ def calculate_summary_entry(
     `findings` must be of same datatype and not empty!
     '''
     most_critical = ComplianceSummaryEntry(
-        type=findings[0].type,
-        source=findings[0].datasource,
+        type=findings[0].meta.type,
+        source=findings[0].meta.datasource,
         severity=ComplianceEntrySeverity.UNKNOWN,
         scanStatus=ComplianceScanStatus.OK,
     )
@@ -491,8 +487,8 @@ def calculate_summary_entry(
 
         if severity > most_critical.severity:
             most_critical = ComplianceSummaryEntry(
-                type=finding.type,
-                source=finding.datasource,
+                type=finding.meta.type,
+                source=finding.meta.datasource,
                 severity=severity,
                 scanStatus=ComplianceScanStatus.OK,
             )

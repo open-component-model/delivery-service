@@ -159,7 +159,7 @@ def _find_artefact_metadata(
     session: ss.Session,
     artefact_node: typing.Union[cnudie.iter.Node, cnudie.iter.ArtefactNode],
     type_filter: list[str]=[],
-) -> list[dm.ArtefactMetaData]:
+) -> tuple[dso.model.ArtefactMetadata]:
     if isinstance(artefact_node, cnudie.iter.ResourceNode):
         artefact_kind = 'resource'
     elif isinstance(artefact_node, cnudie.iter.SourceNode):
@@ -183,7 +183,11 @@ def _find_artefact_metadata(
         ),
     )
 
-    return query.all()
+    artefact_metadata_raw = query.all()
+    return tuple(
+        du.db_artefact_metadata_to_dso(raw)
+        for raw in artefact_metadata_raw
+    )
 
 
 def _find_rescorings(
@@ -230,9 +234,7 @@ def _find_rescorings(
 
     rescorings_raw = rescorings_query.all()
     return tuple(
-        du.db_artefact_metadata_to_dso(
-            artefact_metadata=raw,
-        )
+        du.db_artefact_metadata_to_dso(raw)
         for raw in rescorings_raw
     )
 
@@ -259,8 +261,8 @@ def _rescore_vulnerabilitiy(
 
 
 def filesystem_paths_for_finding(
-    artefact_metadata: list[dm.ArtefactMetaData],
-    finding: dm.ArtefactMetaData,
+    artefact_metadata: tuple[dso.model.ArtefactMetadata],
+    finding: dso.model.ArtefactMetadata,
     package_versions: tuple[str]=(),
 ) -> list[dso.model.FilesystemPath]:
     if not package_versions:
@@ -272,31 +274,32 @@ def filesystem_paths_for_finding(
     matching_structure_info = tuple(
         matching_info for matching_info in artefact_metadata
         if (
-            matching_info.type == dso.model.Datatype.STRUCTURE_INFO
-            and matching_info.data.get('package_name') == finding.data.get('package_name')
-            and matching_info.data.get('package_version') in package_versions
-            and matching_info.component_name == finding.component_name
-            and matching_info.component_version == finding.component_version
-            and matching_info.artefact_kind == finding.artefact_kind
-            and matching_info.artefact_name == finding.artefact_name
-            and matching_info.artefact_version == finding.artefact_version
-            and matching_info.artefact_type == finding.artefact_type
-            and matching_info.artefact_extra_id_normalised == finding.artefact_extra_id_normalised
+            matching_info.meta.type == dso.model.Datatype.STRUCTURE_INFO
+            and matching_info.data.package_name == finding.data.package_name
+            and matching_info.data.package_version in package_versions
+            and matching_info.artefact.component_name == finding.artefact.component_name
+            and matching_info.artefact.component_version == finding.artefact.component_version
+            and matching_info.artefact.artefact_kind == finding.artefact.artefact_kind
+            and matching_info.artefact.artefact.artefact_name
+                == finding.artefact.artefact.artefact_name
+            and matching_info.artefact.artefact.artefact_version
+                == finding.artefact.artefact.artefact_version
+            and matching_info.artefact.artefact.artefact_type
+                == finding.artefact.artefact.artefact_type
+            and matching_info.artefact.artefact.normalised_artefact_extra_id()
+                == finding.artefact.artefact.normalised_artefact_extra_id()
         )
     )
 
     return [
-        dacite.from_dict(
-            data_class=dso.model.FilesystemPath,
-            data=path,
-        )
+        path
         for structure_info in matching_structure_info
-        for path in structure_info.data.get('filesystem_paths')
+        for path in structure_info.data.filesystem_paths
     ]
 
 
 def sprint_for_finding(
-    finding: dm.ArtefactMetaData,
+    finding: dso.model.ArtefactMetadata,
     severity: gcm.Severity | None,
     max_processing_days: gcm.MaxProcessingTimesDays | None,
     sprints: list[yp.Sprint],
@@ -318,7 +321,7 @@ def sprint_for_finding(
 
 
 def _iter_rescoring_proposals(
-    artefact_metadata: list[dm.ArtefactMetaData],
+    artefact_metadata: tuple[dso.model.ArtefactMetadata],
     rescorings: tuple[dso.model.ArtefactMetadata],
     rescoring_rules: tuple[dso.cvss.RescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
@@ -328,21 +331,25 @@ def _iter_rescoring_proposals(
     seen_ids = set()
 
     for am in artefact_metadata:
-        if am.type == dso.model.Datatype.STRUCTURE_INFO or am.id in seen_ids:
+        if am.meta.type == dso.model.Datatype.STRUCTURE_INFO or am.id in seen_ids:
             continue
 
         matching_artefact_metadata = tuple(
             matching_am for matching_am in artefact_metadata
             if (
                 matching_am.id not in seen_ids
-                and matching_am.type == am.type
-                and matching_am.component_name == am.component_name
-                and matching_am.component_version == am.component_version
-                and matching_am.artefact_kind == am.artefact_kind
-                and matching_am.artefact_name == am.artefact_name
-                and matching_am.artefact_version == am.artefact_version
-                and matching_am.artefact_type == am.artefact_type
-                and matching_am.artefact_extra_id_normalised == am.artefact_extra_id_normalised
+                and matching_am.meta.type == am.meta.type
+                and matching_am.artefact.component_name == am.artefact.component_name
+                and matching_am.artefact.component_version == am.artefact.component_version
+                and matching_am.artefact.artefact_kind == am.artefact.artefact_kind
+                and matching_am.artefact.artefact.artefact_name
+                    == am.artefact.artefact.artefact_name
+                and matching_am.artefact.artefact.artefact_version
+                    == am.artefact.artefact.artefact_version
+                and matching_am.artefact.artefact.artefact_type
+                    == am.artefact.artefact.artefact_type
+                and matching_am.artefact.artefact.normalised_artefact_extra_id()
+                    == am.artefact.artefact.normalised_artefact_extra_id()
             )
         )
 
@@ -356,7 +363,7 @@ def _iter_rescoring_proposals(
         if current_rescorings:
             current_severity = gcm.Severity[current_rescorings[0].data.severity]
         else:
-            current_severity = gcm.Severity[am.data.get('severity')]
+            current_severity = gcm.Severity[am.data.severity]
 
         sprint = sprint_for_finding(
             finding=am,
@@ -365,26 +372,26 @@ def _iter_rescoring_proposals(
             sprints=sprints,
         )
 
-        if am.type == dso.model.Datatype.VULNERABILITY:
-            cve = am.data.get('cve')
-            cvss = dso.cvss.CVSSV3.from_dict(cvss=am.data.get('cvss'))
-            cvss_v3_score = am.data.get('cvss_v3_score')
-            severity = dso.cvss.CVESeverity[am.data.get('severity')]
-            package_name = am.data.get('package_name')
+        if am.meta.type == dso.model.Datatype.VULNERABILITY:
+            cve = am.data.cve
+            cvss = dso.cvss.CVSSV3.from_dict(cvss=am.data.cvss)
+            cvss_v3_score = am.data.cvss_v3_score
+            severity = dso.cvss.CVESeverity[am.data.severity]
+            package_name = am.data.package_name
 
             finding_matching_am = tuple(
                 matching_am for matching_am in matching_artefact_metadata
                 if (
-                    matching_am.data.get('cve') == cve and
-                    matching_am.data.get('package_name') == package_name
+                    matching_am.data.cve == cve and
+                    matching_am.data.package_name == package_name
                 )
             )
             seen_ids.update(tuple(matching_am.id for matching_am in finding_matching_am))
 
             package_versions = tuple(
-                matching_am.data.get('package_version')
+                matching_am.data.package_version
                 for matching_am in finding_matching_am
-                if matching_am.data.get('package_version')
+                if matching_am.data.package_version
             )
 
             filesystem_paths = filesystem_paths_for_finding(
@@ -403,7 +410,7 @@ def _iter_rescoring_proposals(
                         'cve': cve,
                         'cvss_v3_score': cvss_v3_score,
                         'cvss': f'{cvss}',
-                        'summary': am.data.get('summary'),
+                        'summary': am.data.summary,
                         'urls': [f'https://nvd.nist.gov/vuln/detail/{cve}'],
                         'filesystem_paths': filesystem_paths,
                     },
@@ -428,24 +435,24 @@ def _iter_rescoring_proposals(
                 },
             )
 
-        elif am.type == dso.model.Datatype.LICENSE:
-            license = am.data.get('license')
-            severity = am.data.get('severity')
-            package_name = am.data.get('package_name')
+        elif am.meta.type == dso.model.Datatype.LICENSE:
+            license = am.data.license
+            severity = am.data.severity
+            package_name = am.data.package_name
 
             finding_matching_am = tuple(
                 matching_am for matching_am in matching_artefact_metadata
                 if (
-                    matching_am.data.get('license').get('name') == license.get('name') and
-                    matching_am.data.get('package_name') == package_name
+                    matching_am.data.license.name == license.name and
+                    matching_am.data.package_name == package_name
                 )
             )
             seen_ids.update(tuple(matching_am.id for matching_am in finding_matching_am))
 
             package_versions = tuple(
-                matching_am.data.get('package_version')
+                matching_am.data.package_version
                 for matching_am in finding_matching_am
-                if matching_am.data.get('package_version')
+                if matching_am.data.package_version
             )
 
             filesystem_paths = filesystem_paths_for_finding(
