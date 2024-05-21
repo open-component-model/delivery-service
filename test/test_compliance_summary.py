@@ -3,9 +3,10 @@ import pytest
 import unittest.mock
 
 import ci.log
+import dso.model
+import unixutil.model
 
 import compliance_summary as cs
-import deliverydb.model as dm
 
 # surpress warnings due to unknown os-id
 ci.log.configure_default_logging(stdout_level=logging.ERROR)
@@ -94,51 +95,106 @@ def artefact_metadata_cfg_by_type():
     return cs.artefact_metadata_cfg_by_type(artefact_metadata_cfg=cfg_raw)
 
 
-def test_vulnerability():
-    type = 'finding/vulnerability'
+@pytest.fixture
+def component_artefact_id() -> dso.model.ComponentArtefactId:
+    return dso.model.ComponentArtefactId(
+        component_name=None,
+        component_version=None,
+        artefact=dso.model.LocalArtefactId(
+            artefact_name=None,
+            artefact_version=None,
+            artefact_type=None,
+            artefact_extra_id=dict(),
+        ),
+    )
 
-    with pytest.raises(KeyError):
-        cs.severity_for_finding(
-            finding=dm.ArtefactMetaData(
-                type=type,
-                data=dict(),
-            ),
-        )
+
+def test_vulnerability(component_artefact_id):
+    type = 'finding/vulnerability'
+    meta = dso.model.Metadata(
+        datasource=None,
+        type=type,
+    )
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={'severity': 'NONE'},
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.VulnerabilityFinding(
+                package_name=None,
+                package_version=None,
+                base_url=None,
+                report_url=None,
+                product_id=-1,
+                group_id=-1,
+                severity='NONE',
+                cve=None,
+                cvss_v3_score=-1,
+                cvss=dict(),
+                summary=None,
+            ),
         ),
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={'severity': 'CRITICAL'},
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.VulnerabilityFinding(
+                package_name=None,
+                package_version=None,
+                base_url=None,
+                report_url=None,
+                product_id=-1,
+                group_id=-1,
+                severity='CRITICAL',
+                cve=None,
+                cvss_v3_score=-1,
+                cvss=dict(),
+                summary=None,
+            ),
         ),
     ) == cs.ComplianceEntrySeverity.CRITICAL.name
 
 
-def test_malware(artefact_metadata_cfg_by_type):
+def test_malware(
+    artefact_metadata_cfg_by_type,
+    component_artefact_id,
+):
     type = 'malware'
+    meta = dso.model.Metadata(
+        datasource=None,
+        type=type,
+    )
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={'findings': []},
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.MalwareSummary(
+                findings=[],
+                metadata=None,
+            ),
         ),
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={
-                'findings': [
-                    {'name': 'bad_virus'},
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.MalwareSummary(
+                findings=[
+                    dso.model.MalwareFinding(
+                        status=None,
+                        details=None,
+                        malware_status=None,
+                        meta=None,
+                        name='bad_virus',
+                    ),
                 ],
-            },
+                metadata=None,
+            ),
         ),
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
     ) == cs.ComplianceEntrySeverity.BLOCKER.name
@@ -147,86 +203,124 @@ def test_malware(artefact_metadata_cfg_by_type):
 def test_os_id(
     eol_client,
     artefact_metadata_cfg_by_type,
+    component_artefact_id,
 ):
     type = 'os_ids'
+    meta = dso.model.Metadata(
+        datasource=None,
+        type=type,
+    )
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={'os_info': {}},
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.OsID(
+                os_info=unixutil.model.OperatingSystemId(),
+            ),
         ),
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.UNKNOWN.name
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={
-                'os_info': {
-                    'VERSION_ID': '9.99.1',
-                    'ID': 'fooOs',
-            },
-        }),
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.OsID(
+                os_info=unixutil.model.OperatingSystemId(
+                    VERSION_ID='9.99.1',
+                    ID='fooOs',
+                ),
+            ),
+        ),
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.MEDIUM.name
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={
-                'os_info': {
-                    'VERSION_ID': '9.99.9',
-                    'ID': 'fooOs',
-            },
-        }),
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.OsID(
+                os_info=unixutil.model.OperatingSystemId(
+                    VERSION_ID='9.99.9',
+                    ID='fooOs',
+                ),
+            ),
+        ),
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={
-                'os_info': {
-                    'VERSION_ID': '3.11.5',
-                    'ID': 'fooOs',
-                },
-            },
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.OsID(
+                os_info=unixutil.model.OperatingSystemId(
+                    VERSION_ID='3.11.5',
+                    ID='fooOs',
+                ),
+            ),
         ),
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.CRITICAL.name
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={
-                'os_info': {
-                    'VERSION_ID': 'bar--foo',
-                    'ID': 'fooOs',
-                },
-            },
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.OsID(
+                os_info=unixutil.model.OperatingSystemId(
+                    VERSION_ID='bar--foo',
+                    ID='fooOs',
+                ),
+            ),
         ),
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.UNKNOWN.name
 
 
-def test_licenses():
+def test_licenses(component_artefact_id):
     type = 'finding/license'
+    meta = dso.model.Metadata(
+        datasource=None,
+        type=type,
+    )
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={'severity': 'NONE'},
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.LicenseFinding(
+                package_name=None,
+                package_version=None,
+                base_url=None,
+                report_url=None,
+                product_id=-1,
+                group_id=-1,
+                severity='NONE',
+                license=None,
+            ),
         ),
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
     assert cs.severity_for_finding(
-        finding=dm.ArtefactMetaData(
-            type=type,
-            data={'severity': 'BLOCKER'},
+        finding=dso.model.ArtefactMetadata(
+            artefact=component_artefact_id,
+            meta=meta,
+            data=dso.model.LicenseFinding(
+                package_name=None,
+                package_version=None,
+                base_url=None,
+                report_url=None,
+                product_id=-1,
+                group_id=-1,
+                severity='BLOCKER',
+                license=None,
+            ),
         ),
     ) == cs.ComplianceEntrySeverity.BLOCKER.name
