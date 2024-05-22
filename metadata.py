@@ -240,6 +240,10 @@ class ArtefactMetadata:
         body = req.context.media
         entries: list[dict] = body.get('entries')
 
+        if not entries:
+            resp.status = falcon.HTTP_OK
+            return
+
         session: ss.Session = req.context.db_session
 
         artefact_metadata = [
