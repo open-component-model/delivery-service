@@ -30,6 +30,6 @@ RUN mkdir -p $HOME/.config/pip \
 RUN rm -rf /dist
 
 # copy VERSION next to app to keep paths stable
-COPY VERSION /usr/lib/python3.11/site-packages/VERSION
+COPY VERSION /usr/lib/python3.12/site-packages/VERSION
 
 ENTRYPOINT ["python3", "-m", "app"]
