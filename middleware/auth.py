@@ -196,8 +196,10 @@ class OAuth:
         if not feature_authentication:
             return
 
-        resp.media = [oauth_cfg_to_dict(oauth_cfg) for oauth_cfg
-            in self.get_auth_cfg(feature_authentication)]
+        resp.media = [
+            oauth_cfg_to_dict(oauth_cfg)
+            for oauth_cfg in self.get_auth_cfg(feature_authentication)
+        ]
 
     def on_get(self, req: falcon.Request, resp: falcon.Response):
         resp, feature_authentication = self.check_if_oauth_feature_available(resp)
