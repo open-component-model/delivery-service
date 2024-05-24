@@ -326,7 +326,10 @@ def main():
     backup_retention_count = backup_cfg.get('backup_retention_count')
 
     delivery_service_client = delivery.client.DeliveryServiceClient(
-        routes=delivery.client.DeliveryServiceRoutes(delivery_service_url)
+        routes=delivery.client.DeliveryServiceRoutes(
+            base_url=delivery_service_url,
+        ),
+        cfg_factory=cfg_factory,
     )
 
     greatest_version = delivery_service_client.greatest_component_versions(

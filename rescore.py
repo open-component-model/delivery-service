@@ -688,7 +688,6 @@ class Rescore:
 
         resp.status = falcon.HTTP_CREATED
 
-    @middleware.auth.noauth
     def on_get(self, req: falcon.Request, resp: falcon.Response):
         '''
         calculates vulnerabilities rescorings based on cve-categorisation and cve-rescoring-ruleset.

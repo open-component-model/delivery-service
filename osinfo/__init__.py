@@ -9,7 +9,6 @@ import yaml
 import delivery.model as dm
 
 import eol
-import middleware.auth
 import osinfo.alpine
 import osinfo.paths
 import util
@@ -89,7 +88,6 @@ def os_release_infos(
     )
 
 
-@middleware.auth.noauth
 class OsInfoRoutes:
     def __init__(
         self,

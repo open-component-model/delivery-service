@@ -23,7 +23,6 @@ import gci.componentmodel as cm
 import version as versionutil
 
 import components
-import middleware.auth
 
 logger = logging.getLogger(__name__)
 changes_by_dependencies_cache = dict()
@@ -743,7 +742,6 @@ def create_response_object(
     )
 
 
-@middleware.auth.noauth
 class DoraMetrics:
     def __init__(
         self,

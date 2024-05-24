@@ -585,7 +585,8 @@ def main():
     delivery_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
             base_url=delivery_service_url,
-        )
+        ),
+        cfg_factory=cfg_factory,
     )
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
