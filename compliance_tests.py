@@ -67,6 +67,9 @@ class DownloadTestResults:
             logger.debug(f'add test file {asset.name}')
             with gh_api._get(
                 asset.download_url,
+                headers={
+                    'Accept': 'application/octet-stream',
+                },
                 allow_redirects=True,
             ) as assetResp:
 
