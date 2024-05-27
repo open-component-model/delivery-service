@@ -10,7 +10,6 @@ import cachetools.keys
 import dacite.exceptions
 import dateutil.parser
 import falcon
-import falcon.asgi
 import falcon.media.validators
 import requests
 import sqlalchemy as sa
@@ -144,7 +143,7 @@ def greatest_version_if_none(
 
 
 def _component_descriptor(
-    req: falcon.asgi.Request,
+    req: falcon.Request,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     version_lookup: cnudie.retrieve.VersionLookupByComponent,
     version_filter: features.VersionFilter,
@@ -207,7 +206,7 @@ class Component:
         self._version_filter_callback = version_filter_callback
         self._invalid_semver_ok = invalid_semver_ok
 
-    def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    def on_get(self, req: falcon.Request, resp: falcon.Response):
         resp.media = _component_descriptor(
             req=req,
             component_descriptor_lookup=self._component_descriptor_lookup,
@@ -231,7 +230,7 @@ class ComponentDependencies:
         self._version_filter_callback = version_filter_callback
         self._invalid_semver_ok = invalid_semver_ok
 
-    def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    def on_get(self, req: falcon.Request, resp: falcon.Response):
         component_name = req.get_param('component_name', True)
 
         populate = req.get_param(
@@ -325,7 +324,7 @@ class ComponentResponsibles:
         self._version_filter_callback = version_filter_callback
         self._invalid_semver_ok = invalid_semver_ok
 
-    def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    def on_get(self, req: falcon.Request, resp: falcon.Response):
         '''
         returns a list of user-identities responsible for the given component or resource
 
@@ -633,7 +632,7 @@ class GreatestComponentVersions:
         self._version_filter_callback = version_filter_callback
         self._invalid_semver_ok = invalid_semver_ok
 
-    def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    def on_get(self, req: falcon.Request, resp: falcon.Response):
         component_name = req.get_param('component_name', True)
         max_version = req.get_param('max', False, default=5)
         version = req.get_param('version', False, default=None)
@@ -913,7 +912,7 @@ class ComponentDescriptorDiff:
     ):
         self._component_descriptor_lookup = component_descriptor_lookup
 
-    def on_post(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    def on_post(self, req: falcon.Request, resp: falcon.Response):
         diff_request = ComponentDiffRequest.from_dict(req.media)
 
         left_component_ref: ComponentRef = diff_request.left_component

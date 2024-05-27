@@ -8,7 +8,6 @@ import urllib.parse
 import yaml
 
 import falcon
-import falcon.asgi
 import jsonschema
 import jsonschema.exceptions
 import jwt
@@ -130,7 +129,7 @@ class OAuth:
     ):
         self.parsed_arguments = parsed_arguments
 
-    def check_if_oauth_feature_available(self, resp: falcon.asgi.Response):
+    def check_if_oauth_feature_available(self, resp: falcon.Response):
         # Use this function instead of feature checking middleware to prevent
         # circular module imports between middleware.auth.py and features.py
         import features
@@ -159,7 +158,7 @@ class OAuth:
             auth_cfgs.append(*[model.delivery.OAuth(cfg) for cfg in additional_cfgs])
         return auth_cfgs
 
-    def on_get_cfgs(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    def on_get_cfgs(self, req: falcon.Request, resp: falcon.Response):
         def oauth_cfg_to_dict(oauth_cfg):
             cfg_factory = ctx_util.cfg_factory()
             github_cfg = cfg_factory.github(oauth_cfg.github_cfg())
@@ -203,7 +202,7 @@ class OAuth:
         resp.media = [oauth_cfg_to_dict(oauth_cfg) for oauth_cfg
             in self.get_auth_cfg(feature_authentication)]
 
-    def on_get(self, req, resp: falcon.asgi.Response):
+    def on_get(self, req: falcon.Request, resp: falcon.Response):
         resp, feature_authentication = self.check_if_oauth_feature_available(resp)
 
         if not feature_authentication:
@@ -297,7 +296,7 @@ class OAuth:
 
         resp.media = token
 
-    def on_get_logout(self, req, resp: falcon.asgi.Response):
+    def on_get_logout(self, req: falcon.Request, resp: falcon.Response):
         resp, feature_authentication = self.check_if_oauth_feature_available(resp)
 
         if not feature_authentication:
@@ -315,7 +314,7 @@ class Auth:
         self.default_auth = default_auth
         self.signing_cfgs = signing_cfgs
 
-    def process_resource(self, req: falcon.asgi.Request, resp, resource, params):
+    def process_resource(self, req: falcon.Request, resp: falcon.Response, resource, params):
         if req.method == 'OPTIONS':
             return
 
@@ -494,7 +493,7 @@ def validate_jwt_payload(decoded_jwt: typing.Mapping):
         raise falcon.HTTPBadRequest(description='token version does not match')
 
 
-def get_token_from_request(req) -> str:
+def get_token_from_request(req: falcon.Request) -> str:
     if req.auth:
         token = _get_token_from_auth_header(req.auth)
     else:
@@ -503,7 +502,7 @@ def get_token_from_request(req) -> str:
     return token
 
 
-def _get_token_from_cookie(req: falcon.asgi.Request) -> str:
+def _get_token_from_cookie(req: falcon.Request) -> str:
     if (cookie_list := req.get_cookie_values('bearer_token')):
         return cookie_list[0]
 

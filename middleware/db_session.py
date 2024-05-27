@@ -1,4 +1,4 @@
-import falcon.asgi
+import falcon
 
 import deliverydb
 import deliverydb.model as dm
@@ -33,8 +33,8 @@ class DBSessionLifecycle:
 
     def process_resource(
         self,
-        req: falcon.asgi.Request,
-        resp: falcon.asgi.Response,
+        req: falcon.Request,
+        resp: falcon.Response,
         resource,
         params,
     ):
@@ -42,8 +42,8 @@ class DBSessionLifecycle:
 
     def process_response(
         self,
-        req: falcon.asgi.Request,
-        resp: falcon.asgi.Response,
+        req: falcon.Request,
+        resp: falcon.Response,
         resource,
         req_succeeded: bool,
     ):

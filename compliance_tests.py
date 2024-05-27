@@ -1,6 +1,5 @@
 import logging
 import falcon
-import falcon.asgi
 
 import zipfile
 import io
@@ -29,8 +28,8 @@ class DownloadTestResults:
 
     def on_get(
         self,
-        req: falcon.asgi.Request,
-        resp: falcon.asgi.Response,
+        req: falcon.Request,
+        resp: falcon.Response,
     ):
         """
         Downloads the zipped test results for the specified component release

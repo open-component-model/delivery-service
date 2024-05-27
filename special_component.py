@@ -1,5 +1,4 @@
 import falcon
-import falcon.asgi
 
 import features
 import middleware.auth
@@ -17,7 +16,7 @@ class CurrentDependencies():
         self.special_component_callback = special_component_callback
         self.github_api_lookup = github_api_lookup
 
-    def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    def on_get(self, req: falcon.Request, resp: falcon.Response):
         component_name = req.get_param('component_name', True)
         component_cfg = self.special_component_callback(component_name=component_name)
 
