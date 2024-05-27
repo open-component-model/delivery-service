@@ -310,6 +310,12 @@ def component_summaries(
                 source=dso.model.Datasource.CHECKMARX,
                 severity=ComplianceEntrySeverity.UNKNOWN,
                 scanStatus=ComplianceScanStatus.NO_DATA,
+            ),
+            dso.model.Datatype.MALWARE_FINDING: ComplianceSummaryEntry(
+                type=dso.model.Datatype.MALWARE_FINDING,
+                source=dso.model.Datasource.CLAMAV,
+                severity=ComplianceEntrySeverity.UNKNOWN,
+                scanStatus=ComplianceScanStatus.NO_DATA,
             )
         },
     ),
@@ -420,6 +426,7 @@ def severity_for_finding(
         dso.model.Datatype.MALWARE,
         dso.model.Datatype.OS_IDS,
         dso.model.Datatype.CODECHECKS_AGGREGATED,
+        dso.model.Datatype.MALWARE_FINDING,
     ),
 ) -> str | None:
     '''
@@ -443,6 +450,7 @@ def severity_for_finding(
     if finding.meta.type in (
         dso.model.Datatype.LICENSE,
         dso.model.Datatype.VULNERABILITY,
+        dso.model.Datatype.MALWARE_FINDING,
     ):
         # these types have the severity already stored in their data field
         # no need to do separate severity mapping
