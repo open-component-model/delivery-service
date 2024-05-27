@@ -1156,6 +1156,7 @@ class ComplianceSummary:
             dso.model.Datatype.MALWARE,
             dso.model.Datatype.OS_IDS,
             dso.model.Datatype.CODECHECKS_AGGREGATED,
+            dso.model.Datatype.MALWARE_FINDING,
         )
 
         findings_query = session.query(dm.ArtefactMetaData).filter(
