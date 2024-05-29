@@ -289,10 +289,17 @@ class OAuth:
             raise falcon.HTTPUnauthorized
 
         delivery_cfg = ctx_util.cfg_factory().delivery(self.parsed_arguments.delivery_cfg)
-        signing_cfg = delivery_cfg.service().signing_cfgs(purpose_label='github_user_signing_key')
+        signing_cfgs: list[model.delivery.SigningCfg] = list(delivery_cfg.service().signing_cfgs())
 
-        if not signing_cfg:
-            raise falcon.HTTPInternalServerError('could not retrieve matching signing cfg')
+        if not signing_cfgs:
+            raise falcon.HTTPInternalServerError('could not retrieve matching signing cfgs')
+
+        # prefer asymmetric signing algorithms before symmetric ones (which don't have a public key)
+        signing_cfgs = sorted(
+            signing_cfgs,
+            key=lambda signing_cfg: 0 if signing_cfg.public_key() else 1,
+        )
+        signing_cfg = signing_cfgs[0]
 
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         time_delta = datetime.timedelta(days=730) # 2 years
