@@ -341,6 +341,59 @@ class OAuth:
         resp.unset_cookie(name=delivery.jwt.JWT_KEY, path='/')
 
 
+@noauth
+class OpenID:
+    '''
+    Implements authentication flow according to OpenID specification (see
+    https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
+    for reference).
+    '''
+    def __init__(
+        self,
+        parsed_arguments,
+    ):
+        self.parsed_arguments = parsed_arguments
+
+    def on_get_configuration(self, req: falcon.Request, resp: falcon.Response):
+        cfg_factory = ctx_util.cfg_factory()
+
+        if self.parsed_arguments.productive:
+            endpoints = cfg_factory.delivery_endpoints(self.parsed_arguments.delivery_endpoints)
+            base_url = f'https://{endpoints.service_host()}'
+        else:
+            base_url = 'http://localhost:5000'
+
+        resp.media = {
+            'issuer': base_url,
+            'jwks_uri': f'{base_url}/openid/v1/jwks',
+            'response_types_supported': [
+                'id_token',
+            ],
+            'subject_types_supported': [
+                'public',
+            ],
+            'id_token_signing_alg_values_supported': [
+                algorithm for algorithm in delivery.jwt.Algorithm
+            ],
+        }
+
+    def on_get_jwks(self, req: falcon.Request, resp: falcon.Response):
+        cfg_factory = ctx_util.cfg_factory()
+
+        delivery_cfg = cfg_factory.delivery(self.parsed_arguments.delivery_cfg)
+        signing_cfgs: tuple[model.delivery.SigningCfg] = tuple(
+            delivery_cfg.service().signing_cfgs()
+        )
+
+        resp.media = {
+            'keys': [
+                delivery.jwt.JSONWebKey.from_signing_cfg(signing_cfg)
+                for signing_cfg in signing_cfgs
+                if signing_cfg.public_key()
+            ],
+        }
+
+
 class Auth:
     def __init__(
         self,
