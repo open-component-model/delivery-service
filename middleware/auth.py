@@ -2,6 +2,7 @@ import dataclasses
 import datetime
 import enum
 import functools
+import logging
 import traceback
 import urllib.parse
 import yaml
@@ -21,6 +22,7 @@ import model.github
 import ctx_util
 import paths
 
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -168,7 +170,6 @@ class OAuth:
                 base_url,
                 'auth',
             ) + '?' + urllib.parse.urlencode({
-                'github_cfg': github_cfg.name(),
                 'client_id': oauth_cfg.client_id(),
             })
 
@@ -182,6 +183,7 @@ class OAuth:
                 'name': oauth_cfg.name(),
                 'github_name': oauth_cfg.github_cfg(),
                 'github_host': github_host,
+                'api_url': github_cfg.api_url(),
                 'oauth_url': oauth_cfg.oauth_url(),
                 'client_id': oauth_cfg.client_id(),
                 'scope': oauth_cfg.scope(),
@@ -205,54 +207,86 @@ class OAuth:
 
         code = req.params.get('code')
         client_id = req.params.get('client_id')
+        access_token = req.params.get('access_token')
+        api_url = req.params.get('api_url')
 
-        if not client_id or not code:
-            raise falcon.HTTPBadRequest(
-                description='Please add the url query params "code" and "client_id"',
+        if not ((access_token and api_url) or (client_id and code)):
+            resp.set_header(
+                name='WWW-Authenticate',
+                value=(
+                    'Add either the url query params "code" and "client_id" '
+                    'or a valid "access_token" with a github "api_url"'
+                ),
             )
+            raise falcon.HTTPUnauthorized
 
-        for oauth_cfg in self.get_auth_cfg(feature_authentication):
-            if oauth_cfg.client_id() == client_id:
-                break
-        else:
-            raise falcon.HTTPBadRequest(f'no such client: {client_id}')
-
-        # exchange code for bearer token
-        github_oauth_url = oauth_cfg.token_url() + '?' + \
-            urllib.parse.urlencode({
-                'client_id': oauth_cfg.client_id(),
-                'client_secret': oauth_cfg.client_secret(),
-                'code': code,
-            })
-
-        res = requests.post(url=github_oauth_url)
-        res.raise_for_status()
-
-        parsed = urllib.parse.parse_qs(res.text)
-
-        access_token = parsed.get('access_token')
+        auth_cfgs = self.get_auth_cfg(feature_authentication)
+        cfg_factory = ctx_util.cfg_factory()
 
         if not access_token:
-            raise falcon.HTTPInternalServerError(
-                description=f'github api did not return an access token. {parsed}',
-            )
+            for oauth_cfg in auth_cfgs:
+                if oauth_cfg.client_id() == client_id:
+                    break
+            else:
+                client_ids = [
+                    oauth_cfg.client_id() for oauth_cfg in feature_authentication.oauth_cfgs
+                ]
+                resp.set_header(
+                    name='WWW-Authenticate',
+                    value=f'no such client: {client_id}; available clients: {client_ids}',
+                )
+                raise falcon.HTTPUnauthorized
 
-        access_token = access_token[0]
+            # exchange code for bearer token
+            github_oauth_url = oauth_cfg.token_url() + '?' + \
+                urllib.parse.urlencode({
+                    'client_id': oauth_cfg.client_id(),
+                    'client_secret': oauth_cfg.client_secret(),
+                    'code': code,
+                })
 
-        cfg_factory = ctx_util.cfg_factory()
-        github_cfg: model.github.GithubConfig = cfg_factory.github(oauth_cfg.github_cfg())
+            res = requests.post(url=github_oauth_url)
+            res.raise_for_status()
 
-        gh_routes = GithubRoutes(api_url=github_cfg.api_url())
+            parsed = urllib.parse.parse_qs(res.text)
+
+            access_token = parsed.get('access_token')
+
+            if not access_token:
+                raise falcon.HTTPInternalServerError(
+                    description=f'GitHub api did not return an access token. {parsed}',
+                )
+
+            access_token = access_token[0]
+
+            github_cfg: model.github.GithubConfig = cfg_factory.github(oauth_cfg.github_cfg())
+            api_url = github_cfg.api_url()
+        else:
+            api_urls = [
+                cfg_factory.github(auth_cfg.github_cfg()).api_url()
+                for auth_cfg in auth_cfgs
+            ]
+
+            if api_url not in api_urls:
+                raise falcon.HTTPUnauthorized
+
+        gh_routes = GithubRoutes(api_url=api_url)
         gh_api = GithubApi(
             routes=gh_routes,
             oauth_token=access_token,
         )
 
-        user = gh_api.current_user()
-        team_names = [
-            t['organization']['login'] + '/' + t['name']
-            for t in gh_api.current_user_teams()
-        ]
+        github_host = urllib.parse.urlparse(api_url).hostname.lower()
+
+        try:
+            user = gh_api.current_user()
+            team_names = [
+                '/'.join((github_host, t['organization']['login'], t['name']))
+                for t in gh_api.current_user_teams()
+            ]
+        except Exception as e:
+            logger.warning(f'failed to retrieve user info for {api_url=}: {e}')
+            raise falcon.HTTPUnauthorized
 
         delivery_cfg = ctx_util.cfg_factory().delivery(self.parsed_arguments.delivery_cfg)
         signing_cfg = delivery_cfg.service().signing_cfgs(purpose_label='github_user_signing_key')
@@ -260,7 +294,7 @@ class OAuth:
         if not signing_cfg:
             raise falcon.HTTPInternalServerError('could not retrieve matching signing cfg')
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         time_delta = datetime.timedelta(days=730) # 2 years
 
         token = {
@@ -269,7 +303,7 @@ class OAuth:
             'iss': 'delivery_service',
             'iat': int(now.timestamp()),
             'github_oAuth': {
-                'host': urllib.parse.urlparse(oauth_cfg.token_url()).hostname,
+                'host': github_host,
                 'team_names': team_names,
                 'email_address': user.get('email'),
             },
