@@ -3,7 +3,6 @@ import datetime
 import enum
 import functools
 import traceback
-import typing
 import urllib.parse
 import yaml
 
@@ -385,7 +384,7 @@ def get_permissions_for_github_oAuth(github_oAuth: dict) -> set[str]:
 
 def get_user_permissions(
     user_name: str,
-    raise_if_absent: typing.Type[falcon.HTTPError] = falcon.HTTPUnauthorized,
+    raise_if_absent: falcon.HTTPError = falcon.HTTPUnauthorized,
 ) -> set[str]:
     def permissions(user_dict):
         for role_name in user_dict['roles']:
@@ -403,7 +402,7 @@ def get_user_permissions(
 
 def get_signing_cfg_for_key(
     signing_cfgs: list[model.delivery.SigningCfg],
-    key_id: typing.Optional[str],
+    key_id: str | None,
 ) -> model.delivery.SigningCfg:
     if not key_id:
         raise falcon.HTTPUnauthorized(description='please specify a key_id')
@@ -415,7 +414,7 @@ def get_signing_cfg_for_key(
     raise falcon.HTTPUnauthorized(description='key_id is unknown')
 
 
-def decode_jwt(token, signing_cfg=None, verify_signature: bool = True) -> typing.Mapping:
+def decode_jwt(token, signing_cfg=None, verify_signature: bool = True) -> dict:
     if verify_signature and not signing_cfg:
         raise falcon.HTTPInternalServerError('error decoding token')
 
@@ -483,7 +482,7 @@ def check_jwt_header_content(header: dict[str, str]):
         )
 
 
-def validate_jwt_payload(decoded_jwt: typing.Mapping):
+def validate_jwt_payload(decoded_jwt: dict):
     try:
         jsonschema.validate(decoded_jwt, token_payload_schema())
     except jsonschema.exceptions.ValidationError as e:
@@ -525,7 +524,7 @@ def _get_token_from_auth_header(auth_header) -> str:
 
 
 @functools.cache
-def _github_team_mapping(team_name: str, host: str) -> typing.Optional[GithubTeamMapping]:
+def _github_team_mapping(team_name: str, host: str) -> GithubTeamMapping | None:
     for team_dict in _teams_dict():
         if team_dict.get('name') == team_name and host == team_dict.get('host'):
             return GithubTeamMapping(**team_dict)
