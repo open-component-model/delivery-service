@@ -390,6 +390,19 @@ def init_app(
         suffix='cfgs',
     )
 
+    # endpoint according to OpenID provider configuration request
+    # https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
+    app.add_route(
+        '/.well-known/openid-configuration',
+        middleware.auth.OpenID(parsed_arguments),
+        suffix='configuration',
+    )
+    app.add_route(
+        '/openid/v1/jwks',
+        middleware.auth.OpenID(parsed_arguments),
+        suffix='jwks',
+    )
+
     app.add_route(
         '/cnudie/component',
         components.Component(
