@@ -14,17 +14,13 @@ import requests
 import spectree.plugins.falcon_plugin
 
 import ci.util
+import delivery.jwt
 import model.delivery
 import model.github
 
 import ctx_util
 import paths
 
-jwt_key = 'bearer_token'
-
-
-class Algorithm(enum.Enum):
-    HS256 = 'HS256'
 
 
 @dataclasses.dataclass(frozen=True)
@@ -282,7 +278,7 @@ class OAuth:
         }
 
         resp.set_cookie(
-            name=jwt_key,
+            name=delivery.jwt.JWT_KEY,
             value=jwt.encode(
                 token,
                 signing_cfg.secret(),
@@ -301,7 +297,7 @@ class OAuth:
         if not feature_authentication:
             return
 
-        resp.unset_cookie(name=jwt_key, path='/')
+        resp.unset_cookie(name=delivery.jwt.JWT_KEY, path='/')
 
 
 class Auth:
@@ -418,19 +414,16 @@ def decode_jwt(token, signing_cfg=None, verify_signature: bool = True) -> dict:
     if verify_signature and not signing_cfg:
         raise falcon.HTTPInternalServerError('error decoding token')
 
-    if verify_signature:
-        key = signing_cfg.secret()
-        algorithm = signing_cfg.algorithm()
+    if signing_cfg:
+        json_web_key = delivery.jwt.JSONWebKey.from_signing_cfg(signing_cfg)
     else:
-        key = None
-        algorithm = None
+        json_web_key = None
 
     try:
-        return jwt.decode(
-            jwt=token,
-            key=key,
-            algorithms=[algorithm,],
-            options={'verify_signature': verify_signature},
+        return delivery.jwt.decode_jwt(
+            token=token,
+            verify_signature=verify_signature,
+            json_web_key=json_web_key,
             issuer='delivery_service',
         )
     except (ValueError, jwt.exceptions.DecodeError) as e:
@@ -471,7 +464,7 @@ def check_jwt_header_content(header: dict[str, str]):
         )
     if (algorithm := header.get('alg', '')):
         try:
-            Algorithm(value=algorithm.upper())
+            delivery.jwt.Algorithm(value=algorithm.upper())
         except ValueError:
             raise falcon.HTTPNotImplemented(
                 description=f'algorithm {algorithm} is not supported',
