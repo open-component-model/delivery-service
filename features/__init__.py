@@ -810,8 +810,9 @@ def init_features(
         and not parsed_arguments.shortcut_auth:
         middlewares.append(
             middleware.auth.Auth(
-                default_auth=middleware.auth.AuthType.BEARER,
+                parsed_arguments=parsed_arguments,
                 signing_cfgs=feature_authentication.signing_cfgs,
+                default_auth=middleware.auth.AuthType.BEARER,
             )
         )
     feature_cfgs.append(feature_authentication)
