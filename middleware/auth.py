@@ -1,3 +1,4 @@
+import collections.abc
 import dataclasses
 import datetime
 import enum
@@ -16,6 +17,7 @@ import spectree.plugins.falcon_plugin
 
 import ci.util
 import delivery.jwt
+import model
 import model.delivery
 import model.github
 
@@ -118,6 +120,23 @@ def _roles_dict():
     return yaml.safe_load(open(paths.roles_path, 'rb'))['roles']
 
 
+def get_base_url(
+    cfg_factory: model.ConfigFactory=None,
+    is_productive: bool=False,
+    delivery_endpoints: str=None,
+) -> str:
+    if not cfg_factory:
+        cfg_factory = ctx_util.cfg_factory()
+
+    if is_productive:
+        endpoints = cfg_factory.delivery_endpoints(delivery_endpoints)
+        base_url = f'https://{endpoints.service_host()}'
+    else:
+        base_url = 'http://localhost:5000'
+
+    return base_url
+
+
 @noauth
 class OAuth:
     def __init__(
@@ -161,11 +180,12 @@ class OAuth:
             github_cfg = cfg_factory.github(oauth_cfg.github_cfg())
             github_host = urllib.parse.urlparse(github_cfg.api_url()).hostname.lower()
 
-            endpoints = cfg_factory.delivery_endpoints(self.parsed_arguments.delivery_endpoints)
-            if self.parsed_arguments.productive:
-                base_url = f'https://{endpoints.service_host()}'
-            else:
-                base_url = 'http://localhost:5000'
+            base_url = get_base_url(
+                cfg_factory=cfg_factory,
+                is_productive=self.parsed_arguments.productive,
+                delivery_endpoints=self.parsed_arguments.delivery_endpoints,
+            )
+
             redirect_uri = ci.util.urljoin(
                 base_url,
                 'auth',
@@ -306,10 +326,16 @@ class OAuth:
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         time_delta = datetime.timedelta(days=730) # 2 years
 
+        base_url = get_base_url(
+            cfg_factory=cfg_factory,
+            is_productive=self.parsed_arguments.productive,
+            delivery_endpoints=self.parsed_arguments.delivery_endpoints,
+        )
+
         token = {
             'version': 'v1',
             'sub': user['login'],
-            'iss': 'delivery_service',
+            'iss': base_url,
             'iat': int(now.timestamp()),
             'github_oAuth': {
                 'host': github_host,
@@ -357,13 +383,10 @@ class OpenID:
         self.parsed_arguments = parsed_arguments
 
     def on_get_configuration(self, req: falcon.Request, resp: falcon.Response):
-        cfg_factory = ctx_util.cfg_factory()
-
-        if self.parsed_arguments.productive:
-            endpoints = cfg_factory.delivery_endpoints(self.parsed_arguments.delivery_endpoints)
-            base_url = f'https://{endpoints.service_host()}'
-        else:
-            base_url = 'http://localhost:5000'
+        base_url = get_base_url(
+            is_productive=self.parsed_arguments.productive,
+            delivery_endpoints=self.parsed_arguments.delivery_endpoints,
+        )
 
         resp.media = {
             'issuer': base_url,
@@ -399,11 +422,13 @@ class OpenID:
 class Auth:
     def __init__(
         self,
-        signing_cfgs,
+        parsed_arguments,
+        signing_cfgs: collections.abc.Iterable[model.delivery.SigningCfg],
         default_auth: AuthType = AuthType.BEARER,
     ):
-        self.default_auth = default_auth
+        self.parsed_arguments = parsed_arguments
         self.signing_cfgs = signing_cfgs
+        self.default_auth = default_auth
 
     def process_resource(self, req: falcon.Request, resp: falcon.Response, resource, params):
         if req.method == 'OPTIONS':
@@ -434,11 +459,28 @@ class Auth:
 
         check_jwt_header_content(jwt.get_unverified_header(token))
 
-        decoded_jwt = decode_jwt(token=token, verify_signature=False)
+        issuer = get_base_url(
+            is_productive=self.parsed_arguments.productive,
+            delivery_endpoints=self.parsed_arguments.delivery_endpoints,
+        )
 
-        signing_cfg = get_signing_cfg_for_key(self.signing_cfgs, decoded_jwt.get('key_id'))
+        decoded_jwt = decode_jwt(
+            token=token,
+            issuer=issuer,
+            verify_signature=False,
+        )
 
-        decode_jwt(token=token, signing_cfg=signing_cfg, verify_signature=True)
+        signing_cfg = get_signing_cfg_for_key(
+            signing_cfgs=self.signing_cfgs,
+            key_id=decoded_jwt.get('key_id'),
+        )
+
+        decode_jwt(
+            token=token,
+            issuer=issuer,
+            signing_cfg=signing_cfg,
+            verify_signature=True,
+        )
 
         validate_jwt_payload(decoded_jwt)
 
@@ -493,7 +535,7 @@ def get_user_permissions(
 
 
 def get_signing_cfg_for_key(
-    signing_cfgs: list[model.delivery.SigningCfg],
+    signing_cfgs: collections.abc.Iterable[model.delivery.SigningCfg],
     key_id: str | None,
 ) -> model.delivery.SigningCfg:
     if not key_id:
@@ -506,7 +548,12 @@ def get_signing_cfg_for_key(
     raise falcon.HTTPUnauthorized(description='key_id is unknown')
 
 
-def decode_jwt(token, signing_cfg=None, verify_signature: bool = True) -> dict:
+def decode_jwt(
+    token: str,
+    issuer: str,
+    signing_cfg=None,
+    verify_signature: bool = True,
+) -> dict:
     if verify_signature and not signing_cfg:
         raise falcon.HTTPInternalServerError('error decoding token')
 
@@ -520,7 +567,7 @@ def decode_jwt(token, signing_cfg=None, verify_signature: bool = True) -> dict:
             token=token,
             verify_signature=verify_signature,
             json_web_key=json_web_key,
-            issuer='delivery_service',
+            issuer=issuer,
         )
     except (ValueError, jwt.exceptions.DecodeError) as e:
         raise falcon.HTTPUnauthorized(
