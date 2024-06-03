@@ -80,9 +80,16 @@ def parse_args():
 def init(parsed_arguments):
     cfg_factory = ctx_util.cfg_factory()
 
+    base_url = get_base_url(
+        is_productive=parsed_arguments.productive,
+        delivery_endpoints=parsed_arguments.delivery_endpoints,
+        cfg_factory=cfg_factory,
+    )
+
     middlewares = features.init_features(
-        parsed_arguments,
-        cfg_factory,
+        parsed_arguments=parsed_arguments,
+        cfg_factory=cfg_factory,
+        base_url=base_url,
     )
 
     middlewares.extend([
@@ -123,6 +130,7 @@ def init(parsed_arguments):
         version_lookup=version_lookup,
         middlewares=middlewares,
         parsed_arguments=parsed_arguments,
+        base_url=base_url,
     )
 
     with open(paths.version_file, 'r') as f:
@@ -145,6 +153,7 @@ def init_app(
     version_lookup,
     middlewares,
     parsed_arguments,
+    base_url: str,
 ) -> falcon.App:
     es_client = features.get_feature(features.FeatureElasticSearch).get_es_client()
     addressbook_repo_callback = features.get_feature(features.FeatureAddressbook).get_repo
@@ -376,16 +385,25 @@ def init_app(
 
     app.add_route(
         '/auth',
-        middleware.auth.OAuth(parsed_arguments),
+        middleware.auth.OAuth(
+            base_url=base_url,
+            delivery_cfg=parsed_arguments.delivery_cfg,
+        ),
     )
     app.add_route(
         '/auth/logout',
-        middleware.auth.OAuth(parsed_arguments),
+        middleware.auth.OAuth(
+            base_url=base_url,
+            delivery_cfg=parsed_arguments.delivery_cfg,
+        ),
         suffix='logout',
     )
     app.add_route(
         '/auth/configs',
-        middleware.auth.OAuth(parsed_arguments),
+        middleware.auth.OAuth(
+            base_url=base_url,
+            delivery_cfg=parsed_arguments.delivery_cfg,
+        ),
         suffix='cfgs',
     )
 
@@ -393,12 +411,18 @@ def init_app(
     # https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
     app.add_route(
         '/.well-known/openid-configuration',
-        middleware.auth.OpenID(parsed_arguments),
+        middleware.auth.OpenID(
+            base_url=base_url,
+            delivery_cfg=parsed_arguments.delivery_cfg,
+        ),
         suffix='configuration',
     )
     app.add_route(
         '/openid/v1/jwks',
-        middleware.auth.OpenID(parsed_arguments),
+        middleware.auth.OpenID(
+            base_url=base_url,
+            delivery_cfg=parsed_arguments.delivery_cfg,
+        ),
         suffix='jwks',
     )
 
@@ -516,6 +540,23 @@ def init_app(
     )
 
     return app
+
+
+def get_base_url(
+    is_productive: bool,
+    delivery_endpoints: str,
+    cfg_factory=None,
+) -> str:
+    if is_productive:
+        if not cfg_factory:
+            cfg_factory = ctx_util.cfg_factory()
+
+        endpoints = cfg_factory.delivery_endpoints(delivery_endpoints)
+        base_url = f'https://{endpoints.service_host()}'
+    else:
+        base_url = 'http://localhost:5000'
+
+    return base_url
 
 
 def run_app():
