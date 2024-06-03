@@ -162,18 +162,6 @@ class OAuth:
             }
             return (resp, None)
 
-    def get_auth_cfg(self, feature_authentication):
-        auth_cfgs = feature_authentication.oauth_cfgs
-        if self.parsed_arguments.add_local_oauth_cfgs:
-            additional_cfgs = yaml.safe_load(
-                open(
-                    self.parsed_arguments.add_local_oauth_cfgs,
-                    'rb'
-                )
-            )['oauth_cfgs']
-            auth_cfgs.append(*[model.delivery.OAuth(cfg) for cfg in additional_cfgs])
-        return auth_cfgs
-
     def on_get_cfgs(self, req: falcon.Request, resp: falcon.Response):
         def oauth_cfg_to_dict(oauth_cfg):
             cfg_factory = ctx_util.cfg_factory()
@@ -218,7 +206,7 @@ class OAuth:
 
         resp.media = [
             oauth_cfg_to_dict(oauth_cfg)
-            for oauth_cfg in self.get_auth_cfg(feature_authentication)
+            for oauth_cfg in feature_authentication.oauth_cfgs
         ]
 
     def on_get(self, req: falcon.Request, resp: falcon.Response):
@@ -242,11 +230,10 @@ class OAuth:
             )
             raise falcon.HTTPUnauthorized
 
-        auth_cfgs = self.get_auth_cfg(feature_authentication)
         cfg_factory = ctx_util.cfg_factory()
 
         if not access_token:
-            for oauth_cfg in auth_cfgs:
+            for oauth_cfg in feature_authentication.oauth_cfgs:
                 if oauth_cfg.client_id() == client_id:
                     break
             else:
@@ -286,7 +273,7 @@ class OAuth:
         else:
             api_urls = [
                 cfg_factory.github(auth_cfg.github_cfg()).api_url()
-                for auth_cfg in auth_cfgs
+                for auth_cfg in feature_authentication.oauth_cfgs
             ]
 
             if api_url not in api_urls:
