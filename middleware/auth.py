@@ -120,30 +120,15 @@ def _roles_dict():
     return yaml.safe_load(open(paths.roles_path, 'rb'))['roles']
 
 
-def get_base_url(
-    cfg_factory: model.ConfigFactory=None,
-    is_productive: bool=False,
-    delivery_endpoints: str=None,
-) -> str:
-    if not cfg_factory:
-        cfg_factory = ctx_util.cfg_factory()
-
-    if is_productive:
-        endpoints = cfg_factory.delivery_endpoints(delivery_endpoints)
-        base_url = f'https://{endpoints.service_host()}'
-    else:
-        base_url = 'http://localhost:5000'
-
-    return base_url
-
-
 @noauth
 class OAuth:
     def __init__(
         self,
-        parsed_arguments,
+        base_url: str,
+        delivery_cfg: str,
     ):
-        self.parsed_arguments = parsed_arguments
+        self.base_url = base_url
+        self.delivery_cfg = delivery_cfg
 
     def check_if_oauth_feature_available(self, resp: falcon.Response):
         # Use this function instead of feature checking middleware to prevent
@@ -168,14 +153,8 @@ class OAuth:
             github_cfg = cfg_factory.github(oauth_cfg.github_cfg())
             github_host = urllib.parse.urlparse(github_cfg.api_url()).hostname.lower()
 
-            base_url = get_base_url(
-                cfg_factory=cfg_factory,
-                is_productive=self.parsed_arguments.productive,
-                delivery_endpoints=self.parsed_arguments.delivery_endpoints,
-            )
-
             redirect_uri = ci.util.urljoin(
-                base_url,
+                self.base_url,
                 'auth',
             ) + '?' + urllib.parse.urlencode({
                 'client_id': oauth_cfg.client_id(),
@@ -297,7 +276,7 @@ class OAuth:
             logger.warning(f'failed to retrieve user info for {api_url=}: {e}')
             raise falcon.HTTPUnauthorized
 
-        delivery_cfg = ctx_util.cfg_factory().delivery(self.parsed_arguments.delivery_cfg)
+        delivery_cfg = ctx_util.cfg_factory().delivery(self.delivery_cfg)
         signing_cfgs: list[model.delivery.SigningCfg] = list(delivery_cfg.service().signing_cfgs())
 
         if not signing_cfgs:
@@ -313,16 +292,10 @@ class OAuth:
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         time_delta = datetime.timedelta(days=730) # 2 years
 
-        base_url = get_base_url(
-            cfg_factory=cfg_factory,
-            is_productive=self.parsed_arguments.productive,
-            delivery_endpoints=self.parsed_arguments.delivery_endpoints,
-        )
-
         token = {
             'version': 'v1',
             'sub': user['login'],
-            'iss': base_url,
+            'iss': self.base_url,
             'iat': int(now.timestamp()),
             'github_oAuth': {
                 'host': github_host,
@@ -365,19 +338,16 @@ class OpenID:
     '''
     def __init__(
         self,
-        parsed_arguments,
+        base_url: str,
+        delivery_cfg: str,
     ):
-        self.parsed_arguments = parsed_arguments
+        self.base_url = base_url
+        self.delivery_cfg = delivery_cfg
 
     def on_get_configuration(self, req: falcon.Request, resp: falcon.Response):
-        base_url = get_base_url(
-            is_productive=self.parsed_arguments.productive,
-            delivery_endpoints=self.parsed_arguments.delivery_endpoints,
-        )
-
         resp.media = {
-            'issuer': base_url,
-            'jwks_uri': f'{base_url}/openid/v1/jwks',
+            'issuer': self.base_url,
+            'jwks_uri': f'{self.base_url}/openid/v1/jwks',
             'response_types_supported': [
                 'id_token',
             ],
@@ -392,7 +362,7 @@ class OpenID:
     def on_get_jwks(self, req: falcon.Request, resp: falcon.Response):
         cfg_factory = ctx_util.cfg_factory()
 
-        delivery_cfg = cfg_factory.delivery(self.parsed_arguments.delivery_cfg)
+        delivery_cfg = cfg_factory.delivery(self.delivery_cfg)
         signing_cfgs: tuple[model.delivery.SigningCfg] = tuple(
             delivery_cfg.service().signing_cfgs()
         )
@@ -409,11 +379,11 @@ class OpenID:
 class Auth:
     def __init__(
         self,
-        parsed_arguments,
+        base_url: str,
         signing_cfgs: collections.abc.Iterable[model.delivery.SigningCfg],
-        default_auth: AuthType = AuthType.BEARER,
+        default_auth: AuthType=AuthType.BEARER,
     ):
-        self.parsed_arguments = parsed_arguments
+        self.base_url = base_url
         self.signing_cfgs = signing_cfgs
         self.default_auth = default_auth
 
@@ -446,10 +416,7 @@ class Auth:
 
         check_jwt_header_content(jwt.get_unverified_header(token))
 
-        issuer = get_base_url(
-            is_productive=self.parsed_arguments.productive,
-            delivery_endpoints=self.parsed_arguments.delivery_endpoints,
-        )
+        issuer = self.base_url
 
         decoded_jwt = decode_jwt(
             token=token,

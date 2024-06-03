@@ -794,6 +794,7 @@ def watch_for_file_changes(
 def init_features(
     parsed_arguments,
     cfg_factory,
+    base_url: str,
 ) -> typing.Iterable[any]:
     global feature_cfgs
     feature_cfgs = []
@@ -810,7 +811,7 @@ def init_features(
         and not parsed_arguments.shortcut_auth:
         middlewares.append(
             middleware.auth.Auth(
-                parsed_arguments=parsed_arguments,
+                base_url=base_url,
                 signing_cfgs=feature_authentication.signing_cfgs,
                 default_auth=middleware.auth.AuthType.BEARER,
             )
