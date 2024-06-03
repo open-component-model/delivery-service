@@ -58,7 +58,6 @@ def parse_args():
     parser.add_argument('--delivery-db-url', default=None)
     parser.add_argument('--cache-dir', default=default_cache_dir)
     parser.add_argument('--es-config-name', default='sap_internal')
-    parser.add_argument('--add-local-oauth-cfgs', default=None)
     parser.add_argument(
         '--invalid-semver-ok',
         action='store_true',
