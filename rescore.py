@@ -59,10 +59,16 @@ class VulnerabilityFinding(dso.model.Finding):
 
 
 @dataclasses.dataclass(frozen=True)
+class MalwareFinding(dso.model.Finding, dso.model.MalwareFindingDetails):
+    pass
+
+
+@dataclasses.dataclass(frozen=True)
 class RescoringProposal:
     finding: (
         LicenseFinding
         | VulnerabilityFinding
+        | MalwareFinding
     )
     severity: Severity
     matching_rules: list[str]
@@ -398,7 +404,25 @@ def _iter_rescoring_proposals(
         )
         severity = dso.cvss.CVESeverity[am.data.severity]
 
-        if am.meta.type in (
+        if am.meta.type == dso.model.Datatype.MALWARE_FINDING:
+            yield dacite.from_dict(
+                data_class=RescoringProposal,
+                data={
+                    'finding': {
+                        'filename': am.data.finding.filename,
+                        'content_digest': am.data.finding.content_digest,
+                        'malware': am.data.finding.malware,
+                        'severity': severity.name,
+                    },
+                    'severity': severity.name,
+                    'matching_rules': [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY],
+                    'applicable_rescorings': current_rescorings,
+                    'discovery_date': am.discovery_date.isoformat(),
+                    'sprint': sprint,
+                },
+            )
+
+        elif am.meta.type in (
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.LICENSE,
         ):
