@@ -401,27 +401,10 @@ def init_app(
         suffix='jwks',
     )
 
-    app.add_route( # TODO remove after clients have been switched to /ocm/component
-        '/cnudie/component',
-        components.Component(
-            component_descriptor_lookup=component_descriptor_lookup,
-            version_lookup=version_lookup,
-            version_filter_callback=version_filter_callback,
-            invalid_semver_ok=invalid_semver_ok,
-        ),
-    )
     app.add_route(
         '/ocm/component',
         components.Component(
             component_descriptor_lookup=component_descriptor_lookup,
-            version_lookup=version_lookup,
-            version_filter_callback=version_filter_callback,
-            invalid_semver_ok=invalid_semver_ok,
-        ),
-    )
-    app.add_route( # TODO remove after clients have been switched to /ocm/component/versions
-        '/cnudie/component/versions',
-        components.GreatestComponentVersions(
             version_lookup=version_lookup,
             version_filter_callback=version_filter_callback,
             invalid_semver_ok=invalid_semver_ok,
@@ -435,33 +418,11 @@ def init_app(
             invalid_semver_ok=invalid_semver_ok,
         ),
     )
-    app.add_route( # TODO remove after clients have been switched to /ocm/component/dependencies
-        '/cnudie/component/dependencies',
-        components.ComponentDependencies(
-            component_descriptor_lookup=component_descriptor_lookup,
-            version_lookup=version_lookup,
-            version_filter_callback=version_filter_callback,
-            invalid_semver_ok=invalid_semver_ok,
-        ),
-    )
     app.add_route(
         '/ocm/component/dependencies',
         components.ComponentDependencies(
             component_descriptor_lookup=component_descriptor_lookup,
             version_lookup=version_lookup,
-            version_filter_callback=version_filter_callback,
-            invalid_semver_ok=invalid_semver_ok,
-        ),
-    )
-    app.add_route( # TODO remove after clients have been switched to /ocm/component/responsibles
-        '/cnudie/component/responsibles',
-        components.ComponentResponsibles(
-            component_descriptor_lookup=component_descriptor_lookup,
-            version_lookup=version_lookup,
-            github_api_lookup=github_api_lookup,
-            addressbook_repo_callback=addressbook_repo_callback,
-            addressbook_relpath_callback=addressbook_relpath_callback,
-            github_mappings_relpath_callback=github_mappings_relpath_callback,
             version_filter_callback=version_filter_callback,
             invalid_semver_ok=invalid_semver_ok,
         ),
