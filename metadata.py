@@ -320,9 +320,8 @@ class ArtefactMetadata:
                     created_artefacts.append(metadata_entry)
                     continue
 
-                # for compliance snapshots: update state changes in-place
-                if existing_entry.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS:
-                    existing_entry.data = metadata_entry.data
+                # update actual payload
+                existing_entry.data = metadata_entry.data
 
                 # create new dict instead of patching it, otherwise it won't be updated in the db
                 del existing_entry.meta['last_update']
