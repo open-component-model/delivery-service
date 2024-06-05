@@ -155,59 +155,6 @@ class ArtefactMetadata:
             artefact_metadata_cfg_by_type=self.artefact_metadata_cfg_by_type,
         ))
 
-    def on_post(self, req: falcon.Request, resp: falcon.Response):
-        '''
-        store artefact-metadata in delivery-db
-
-        Only one database tuple per artefact and meta.type is kept, on insert existing entry is
-        overwritten. Check https://github.com/gardener/cc-utils/blob/master/dso/model.py for allowed
-        values of meta.type (-> dso.model/Datatype) and meta.datasource (-> dso.model.Datasource).
-
-        **expected body:**
-
-            - entries: <array> of <object> \n
-                - artefact: <object> \n
-                    - component_name: <str> \n
-                    - component_version: <str> \n
-                    - artefact_kind: <str> {`artefact`, `rescoure`, `source`} \n
-                    - artefact: <object> \n
-                        - artefact_name: <str> \n
-                        - artefact_version: <str> \n
-                        - artefact_type: <str> \n
-                        - artefact_extra_id: <object> \n
-                - meta: <object> \n
-                    - type: <str> # one of dso.model/Datatype \n
-                    - datasource: <str> # one of dso.model/Datasource \n
-                - data: <object> # schema depends on meta.type \n
-                - discovery_date: <str of format YYYY-MM-DD> \n
-        '''
-        body = req.context.media
-        entries: list[dict] = body.get('entries')
-
-        session: ss.Session = req.context.db_session
-
-        try:
-            for entry in entries:
-                entry = _fill_default_values(entry)
-
-                metadata_entry = du.to_db_artefact_metadata(
-                    artefact_metadata=dso.model.ArtefactMetadata.from_dict(entry),
-                )
-
-                # only keep latest metadata (purge all existing entries)
-                session.query(dm.ArtefactMetaData).filter(
-                    du.ArtefactMetadataFilters.by_artefact_id_and_type(metadata_entry),
-                ).delete()
-
-                session.add(metadata_entry)
-
-                session.commit()
-        except:
-            session.rollback()
-            raise
-
-        resp.status = falcon.HTTP_CREATED
-
     def on_put(self, req: falcon.Request, resp: falcon.Response):
         '''
         update artefact-metadata in delivery-db
