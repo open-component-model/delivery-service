@@ -8,6 +8,7 @@ import jwt
 import middleware.auth
 
 
+ISSUER = 'delivery_service'
 JWT_KEY = 'foobar'
 JWT_ALGORITHM = 'HS256'
 
@@ -17,7 +18,7 @@ def gen_jwt_payload():
     return {
         'version': 'v1',
         'sub': 'service_user',
-        'iss': 'delivery_service',
+        'iss': ISSUER,
         'iat': int((now-datetime.timedelta(minutes=10)).timestamp()),
         'exp': int((now+datetime.timedelta(minutes=5)).timestamp()),
         'key_id': '1',
@@ -85,6 +86,7 @@ def test_wrong_iss(signing_cfg):
     with pytest.raises(falcon.errors.HTTPUnauthorized):
         middleware.auth.decode_jwt(
             token=token,
+            issuer=ISSUER,
             signing_cfg=signing_cfg,
             verify_signature=True,
         )
@@ -110,6 +112,7 @@ def test_future_iat(signing_cfg):
     with pytest.raises(falcon.errors.HTTPBadRequest):
         middleware.auth.decode_jwt(
             token=token,
+            issuer=ISSUER,
             signing_cfg=signing_cfg,
             verify_signature=True,
         )
@@ -166,6 +169,7 @@ def test_nbf_in_future(signing_cfg):
     with pytest.raises(falcon.errors.HTTPBadRequest):
         middleware.auth.decode_jwt(
             token=token,
+            issuer=ISSUER,
             signing_cfg=signing_cfg,
             verify_signature=True,
         )

@@ -561,7 +561,7 @@ def check_jwt_header_content(header: dict[str, str]):
         )
     if (algorithm := header.get('alg', '')):
         try:
-            delivery.jwt.Algorithm(value=algorithm.upper())
+            delivery.jwt.Algorithm(algorithm.upper())
         except ValueError:
             raise falcon.HTTPNotImplemented(
                 description=f'algorithm {algorithm} is not supported',
