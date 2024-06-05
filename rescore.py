@@ -592,7 +592,6 @@ def create_backlog_items_for_rescored_artefacts(
         )
 
 
-@middleware.auth.noauth
 class Rescore:
     required_features = (features.FeatureDeliveryDB,)
 

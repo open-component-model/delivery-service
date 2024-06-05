@@ -4,7 +4,6 @@ import dateutil.parser
 import falcon
 
 import features
-import middleware.auth
 import yp
 
 
@@ -55,7 +54,6 @@ def current_sprint(
     )
 
 
-@middleware.auth.noauth
 class SprintInfos:
     required_features = (features.FeatureSprints,)
 
