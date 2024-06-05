@@ -10,7 +10,6 @@ import features
 import k8s.backlog
 import k8s.model
 import k8s.util
-import middleware.auth
 
 
 def iter_container_statuses(
@@ -32,7 +31,6 @@ def iter_container_statuses(
             yield k8s.model.ContainerStatus.from_v1_container_status(status)
 
 
-@middleware.auth.noauth
 class ContainerStatuses:
     required_features = (features.FeatureServiceExtensions,)
 
@@ -85,7 +83,6 @@ def iter_log_collections(
         yield log_collection
 
 
-@middleware.auth.noauth
 class LogCollections:
     required_features = (features.FeatureServiceExtensions,)
 
@@ -120,7 +117,6 @@ class LogCollections:
         ))
 
 
-@middleware.auth.noauth
 class ServiceExtensions:
     required_features = (features.FeatureServiceExtensions,)
 
@@ -134,7 +130,6 @@ class ServiceExtensions:
         resp.media = self.service_extensions_callback()
 
 
-@middleware.auth.noauth
 class ScanConfigurations:
     required_features = (features.FeatureServiceExtensions,)
 

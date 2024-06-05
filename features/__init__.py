@@ -883,7 +883,6 @@ def init_features(
     return middlewares
 
 
-@middleware.auth.noauth
 class Features:
     def on_get(self, req: falcon.Request, resp: falcon.Response):
         self.feature_cfgs = tuple(f.serialize() for f in feature_cfgs)

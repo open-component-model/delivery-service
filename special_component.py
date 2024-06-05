@@ -1,10 +1,8 @@
 import falcon
 
 import features
-import middleware.auth
 
 
-@middleware.auth.noauth
 class CurrentDependencies():
     required_features = (features.FeatureSpecialComponents,)
 
