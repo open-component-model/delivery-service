@@ -11,10 +11,13 @@ import cnudie.retrieve
 import gci.componentmodel as cm
 import oci.model as om
 
+import middleware.auth
+
 
 logger = logging.getLogger(__name__)
 
 
+@middleware.auth.noauth
 class Ready:
     def on_get(self, req, resp: falcon.Response):
         resp.status = falcon.HTTP_200

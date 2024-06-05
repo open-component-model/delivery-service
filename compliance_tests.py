@@ -6,6 +6,7 @@ import io
 
 import features
 import lookups
+import middleware.auth
 import ci.log
 
 
@@ -13,6 +14,7 @@ ci.log.configure_default_logging()
 logger = logging.getLogger(__name__)
 
 
+@middleware.auth.noauth
 class DownloadTestResults:
     required_features = (features.FeatureTests,)
 

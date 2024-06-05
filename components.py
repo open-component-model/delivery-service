@@ -35,6 +35,7 @@ import deliverydb.util
 import eol
 import features
 import lookups
+import middleware.auth
 import responsibles
 import responsibles.github_statistics
 import responsibles.labels
@@ -191,6 +192,7 @@ def _component_descriptor(
     return descriptor
 
 
+@middleware.auth.noauth
 class Component:
     def __init__(
         self,
@@ -214,6 +216,7 @@ class Component:
         )
 
 
+@middleware.auth.noauth
 class ComponentDependencies:
     def __init__(
         self,
@@ -299,6 +302,7 @@ class ComponentDependencies:
         resp.media = {'componentDependencies': filtered_component_dependencies}
 
 
+@middleware.auth.noauth
 class ComponentResponsibles:
     def __init__(
         self,
@@ -616,6 +620,7 @@ def greatest_component_versions(
     return versions[-max_versions:]
 
 
+@middleware.auth.noauth
 class GreatestComponentVersions:
     def __init__(
         self,
@@ -713,6 +718,7 @@ def resolve_component_dependencies(
     return components
 
 
+@middleware.auth.noauth
 class UpgradePRs:
     required_features = (features.FeatureUpgradePRs,)
 
@@ -838,6 +844,7 @@ class UpgradePRs:
         resp.media = [upgrade_pr_to_dict(upgrade_pr) for upgrade_pr in upgrade_prs]
 
 
+@middleware.auth.noauth
 class Issues:
     required_features = (features.FeatureIssues,)
 
@@ -897,6 +904,7 @@ class ComponentDiffRequest:
     right_component: ComponentRef
 
 
+@middleware.auth.noauth
 class ComponentDescriptorDiff:
     def __init__(
         self,
@@ -1047,6 +1055,7 @@ def _components(
         ) from e
 
 
+@middleware.auth.noauth
 class ComplianceSummary:
     required_features = (features.FeatureDeliveryDB,)
 
@@ -1198,6 +1207,7 @@ class Select(enum.Enum):
     LATEST = 'latestData'
 
 
+@middleware.auth.noauth
 class ComponentMetadata:
     required_features = (features.FeatureDeliveryDB,)
 

@@ -16,8 +16,10 @@ import deliverydb.model as dm
 import deliverydb.util as du
 import eol
 import features
+import middleware.auth
 
 
+@middleware.auth.noauth
 class ArtefactMetadata:
     required_features = (features.FeatureDeliveryDB,)
 
