@@ -70,6 +70,7 @@ class RescoringProposal:
         | VulnerabilityFinding
         | MalwareFinding
     )
+    finding_type: str
     severity: Severity
     matching_rules: list[str]
     applicable_rescorings: tuple[dso.model.ArtefactMetadata, ...] # "..." for dacite.from_dict
@@ -414,6 +415,7 @@ def _iter_rescoring_proposals(
                         'malware': am.data.finding.malware,
                         'severity': severity.name,
                     },
+                    'finding_type': dso.model.Datatype.MALWARE_FINDING,
                     'severity': severity.name,
                     'matching_rules': [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY],
                     'applicable_rescorings': current_rescorings,
@@ -485,6 +487,7 @@ def _iter_rescoring_proposals(
                             'urls': [f'https://nvd.nist.gov/vuln/detail/{cve}'],
                             'filesystem_paths': filesystem_paths,
                         },
+                        'finding_type': dso.model.Datatype.VULNERABILITY,
                         'severity': _rescore_vulnerabilitiy(
                             rescoring_rules=rescoring_rules,
                             categorisation=categorisation,
@@ -539,6 +542,7 @@ def _iter_rescoring_proposals(
                             'license': license,
                             'filesystem_paths': filesystem_paths,
                         },
+                        'finding_type': dso.model.Datatype.LICENSE,
                         'severity': severity.name,
                         'matching_rules': [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY],
                         'applicable_rescorings': current_rescorings,
