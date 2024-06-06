@@ -157,6 +157,10 @@ class ArtefactMetadata:
             artefact_metadata_cfg_by_type=self.artefact_metadata_cfg_by_type,
         ))
 
+    def on_post(self, req: falcon.Request, resp: falcon.Response):
+        # TODO: remove after clients have been switched to PUT /artefacts/metadata
+        self.on_put(req, resp)
+
     def on_put(self, req: falcon.Request, resp: falcon.Response):
         '''
         update artefact-metadata in delivery-db

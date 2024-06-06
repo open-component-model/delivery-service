@@ -268,6 +268,14 @@ def init_app(
         suffix='query',
     )
 
+    app.add_route( # TODO: remove after clients have been switched to /artefacts/metadata
+        '/artefacts/upload-metadata',
+        metadata.ArtefactMetadata(
+            eol_client=eol_client,
+            artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+        ),
+    )
+
     app.add_route(
         '/components/upgrade-prs',
         components.UpgradePRs(
