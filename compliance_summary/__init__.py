@@ -364,45 +364,42 @@ def calculate_summary(
     on absence fallback to corresponding default.
     '''
     results = {}
-    for type in types:
-        artefact_metadata_cfg = artefact_metadata_cfg_by_type.get(type)
+    for finding_type in types:
+        artefact_metadata_cfg = artefact_metadata_cfg_by_type.get(finding_type)
 
         findings_with_given_type = tuple(
             finding for finding in findings
-            if finding.meta.type == type
+            if finding.meta.type == finding_type
         )
 
         if not findings_with_given_type:
             # check if scan exists and has no findings instead of
             # component is not scanned and thus has no findinngs
-            bdba_types = (
-                dso.model.Datatype.LICENSE,
-                dso.model.Datatype.VULNERABILITY,
-            )
+            datasource = defaults[finding_type].source
 
-            if type in bdba_types:
-                bdba_scan_data = tuple(
-                    finding for finding in findings
-                    if finding.meta.datasource == dso.model.Datasource.BDBA
+            findings_with_matching_datasource = [
+                finding for finding in findings
+                if finding.meta.datasource == datasource
+            ]
+
+            if findings_with_matching_datasource:
+                results[finding_type] = ComplianceSummaryEntry(
+                    type=finding_type,
+                    source=datasource,
+                    severity=ComplianceEntrySeverity.CLEAN,
+                    scanStatus=ComplianceScanStatus.OK,
                 )
-                if bdba_scan_data:
-                    results[type] = ComplianceSummaryEntry(
-                        type=type,
-                        source=dso.model.Datasource.BDBA,
-                        severity=ComplianceEntrySeverity.CLEAN,
-                        scanStatus=ComplianceScanStatus.OK,
-                    )
-                    continue
+                continue
 
-            results[type] = defaults[type]
+            results[finding_type] = defaults[finding_type]
             continue
 
         rescorings_for_type = tuple(
             rescoring for rescoring in rescorings
-            if rescoring.data.referenced_type == type
+            if rescoring.data.referenced_type == finding_type
         )
 
-        results[type] = calculate_summary_entry(
+        results[finding_type] = calculate_summary_entry(
             findings=findings_with_given_type,
             rescorings=rescorings_for_type,
             eol_client=eol_client,
