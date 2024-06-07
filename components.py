@@ -1150,7 +1150,7 @@ class ComplianceSummary:
         session: ss.Session = req.context.db_session
 
         type_filter = (
-            dso.model.Datatype.STRUCTURE_INFO,
+            dso.model.Datatype.ARTEFACT_SCAN_INFO,
             dso.model.Datatype.LICENSE,
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.MALWARE,

@@ -192,7 +192,7 @@ def _iter_findings_for_artefact(
     findings_for_components = delivery_client.query_metadata(
         components=components,
         type=(
-            dso.model.Datatype.STRUCTURE_INFO,
+            dso.model.Datatype.ARTEFACT_SCAN_INFO,
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.LICENSE,
             dso.model.Datatype.MALWARE,
@@ -238,8 +238,8 @@ def _iter_findings_for_artefact(
 
         if rescorings:
             severity = gcm.Severity[rescorings[0].data.severity]
-        elif finding.meta.type != dso.model.Datatype.STRUCTURE_INFO:
-            # structure info does not have any severity but is just retrieved to evaluate
+        elif finding.meta.type != dso.model.Datatype.ARTEFACT_SCAN_INFO:
+            # artefact scan info does not have any severity but is just retrieved to evaluate
             # whether a scan exists for the given artefacts (if no finding is found)
             severity = _severity_for_finding(finding=finding)
         else:
