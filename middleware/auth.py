@@ -393,11 +393,6 @@ class Auth:
 
         auth = getattr(resource, 'auth', self.default_auth)
 
-        # check for req method specific auth type
-        method_function = getattr(resource, f'on_{req.method.lower()}', None)
-        if method_function:
-            auth = getattr(method_function, 'auth', auth)
-
         # auto-generated documentation routes, they are missing the "no-auth" decorator
         if isinstance(
             resource,
