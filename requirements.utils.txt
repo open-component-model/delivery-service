@@ -1,5 +1,5 @@
 dacite
-gardener-cicd-dso==1.2413.0
+gardener-cicd-dso==1.2414.0
 github3.py
 kubernetes
 urllib3
