@@ -218,6 +218,7 @@ class ArtefactMetadata:
                         component_name=artefact.artefact.component_name,
                         artefact_name=artefact.artefact.artefact.artefact_name,
                         type=artefact.meta.type,
+                        datasource=artefact.meta.datasource,
                     ),
                 )
 
