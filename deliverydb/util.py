@@ -129,6 +129,7 @@ class ArtefactMetadataFilters:
             dm.ArtefactMetaData.component_name == artefact_metadata.component_name,
             dm.ArtefactMetaData.artefact_name == artefact_metadata.artefact_name,
             dm.ArtefactMetaData.type == artefact_metadata.type,
+            dm.ArtefactMetaData.datasource == artefact_metadata.datasource,
         )
 
     @staticmethod
