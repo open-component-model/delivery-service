@@ -6,6 +6,7 @@ import logging
 import multiprocessing
 import os
 import platform
+import sys
 import traceback
 
 import falcon
@@ -75,7 +76,13 @@ def parse_args():
         help='specify kubernetes cluster namespace to interact with extensions (and logs)',
     )
 
-    return parser.parse_args()
+    args = sys.argv
+    if args[0].endswith('pytest'):
+        # remove arguments passed to "pytest" from delivery-service arguments
+        args = []
+    else:
+        args = args[1:]
+    return parser.parse_args(args)
 
 
 def init(parsed_arguments):
@@ -619,3 +626,9 @@ def run_app():
 
 if __name__ == '__main__':
     run_app()
+else:
+    # required for uWSGI setup
+    global app
+
+    parsed_arguments = parse_args()
+    app = init(parsed_arguments)
