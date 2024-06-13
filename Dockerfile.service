@@ -21,7 +21,9 @@ RUN apk add --no-cache \
     python3-dev \
     py3-pip \
     py3-numpy \
-    py3-scipy
+    py3-scipy \
+    uwsgi \
+    uwsgi-python3
 
 RUN mkdir -p $HOME/.config/pip \
     && echo -e "[global]\nbreak-system-packages = true" >> $HOME/.config/pip/pip.conf \
@@ -32,4 +34,11 @@ RUN rm -rf /dist
 # copy VERSION next to app to keep paths stable
 COPY VERSION /usr/lib/python3.12/site-packages/VERSION
 
-ENTRYPOINT ["python3", "-m", "app"]
+# set default values for uWSGI setup
+ENV UWSGI_MASTER=1
+ENV UWSGI_PROCESSES=1
+ENV UWSGI_THREADS=20
+ENV UWSGI_WSGI_FILE=/usr/lib/python3.12/site-packages/app.py
+COPY uwsgi.ini /uwsgi.ini
+
+ENTRYPOINT ["uwsgi", "uwsgi.ini"]
