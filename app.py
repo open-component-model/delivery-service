@@ -3,9 +3,10 @@ import argparse
 import functools
 import json
 import logging
-import os
-import traceback
 import multiprocessing
+import os
+import platform
+import traceback
 
 import falcon
 import falcon.media
@@ -585,6 +586,15 @@ def run_app():
 
         def serve():
             bjoern.run(app, host, port, reuse_port=True)
+
+        # Starting the server using `spawn` results in a `PickleError`, which is why it should not
+        # be used here. Currently, `spawn` is the default value for macOS as well as Windows, and
+        # it will also become the default for other POSIX systems in the future, see
+        # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for
+        # reference. That's why, the processes should be started using `fork` instead, which will
+        # work on all POSIX systems but not for Windows.
+        if platform.system() != 'Windows':
+            multiprocessing.set_start_method('fork')
 
         for _ in range(workers - 1):
             proc = multiprocessing.Process(target=serve)
