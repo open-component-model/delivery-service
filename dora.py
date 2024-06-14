@@ -584,7 +584,7 @@ def dora_deployments(
                     commit.commit.author['date']
                 )).total_seconds()
                 for commit in component_dependency_change_with_commits.commits
-            ])
+            ]) if component_dependency_change_with_commits.commits else 0,
         )
 
         deployment_date = components.get_creation_date(
