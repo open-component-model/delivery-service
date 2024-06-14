@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 import concurrent.futures
 import dataclasses
 import datetime
@@ -9,7 +10,6 @@ import statistics
 import typing
 import urllib.parse
 
-import cachetools
 import cachetools.keys
 import dateutil.parser
 import falcon
@@ -22,6 +22,7 @@ import cnudie.util
 import gci.componentmodel as cm
 import version as versionutil
 
+import caching
 import components
 import middleware.auth
 
@@ -187,9 +188,9 @@ def _cache_key_gen_all_versions_sorted(
     )
 
 
-@cachetools.cached(
-    cache=cachetools.TTLCache(maxsize=512, ttl=60*60*24),
-    key=_cache_key_gen_all_versions_sorted
+@caching.cached(
+    cache=caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=128), # 1 day
+    key_func=_cache_key_gen_all_versions_sorted,
 )
 def all_versions_sorted(
     component: cnudie.retrieve.ComponentName,
@@ -300,7 +301,10 @@ def _cache_key_gen_component_vector_and_lookup(
     )
 
 
-@cachetools.cached(cachetools.LFUCache(maxsize=1000), key=_cache_key_gen_component_vector_and_lookup)
+@caching.cached(
+    cache=caching.LFUFilesystemCache(max_total_size_mib=256),
+    key_func=_cache_key_gen_component_vector_and_lookup,
+)
 def commits_for_component_change(
     left_commit: str,
     right_commit: str,
@@ -435,9 +439,9 @@ def _cache_key_gen_dora(
     return cachetools.keys.hashkey(*hashkey_elements)
 
 
-@cachetools.cached(
-    cachetools.LFUCache(maxsize=500),
-    key=_cache_key_gen_dora,
+@caching.cached(
+    cache=caching.LFUFilesystemCache(max_total_size_mib=128),
+    key_func=_cache_key_gen_dora,
 )
 def calculate_change_lead_time(
     component_dependency_changes_with_commits: list[
@@ -478,7 +482,10 @@ def calculate_change_lead_time(
     return datetime.timedelta(seconds=result_in_seconds)
 
 
-@cachetools.cached(cachetools.LFUCache(maxsize=500), key=_cache_key_gen_dora)
+@caching.cached(
+    cache=caching.LFUFilesystemCache(max_total_size_mib=128),
+    key_func=_cache_key_gen_dora,
+)
 def dora_changes_monthly(
     component_dependency_changes_with_commits: list[
         ComponentDependencyChangeWithCommits
@@ -556,9 +563,9 @@ def dora_changes_monthly(
     return by_month_list
 
 
-@cachetools.cached(
-    cachetools.LFUCache(maxsize=500),
-    key=_cache_key_gen_dora,
+@caching.cached(
+    cache=caching.LFUFilesystemCache(max_total_size_mib=128),
+    key_func=_cache_key_gen_dora,
 )
 def dora_deployments(
         component_dependency_changes_with_commits: list[
@@ -869,7 +876,10 @@ def _cache_key_diff_components(
     )
 
 
-@cachetools.cached(cachetools.LFUCache(maxsize=500), key=_cache_key_diff_components)
+@caching.cached(
+    cache=caching.LFUFilesystemCache(max_total_size_mib=256),
+    key_func=_cache_key_diff_components,
+)
 def _diff_components(
     component_vector: components.ComponentVector,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
@@ -954,7 +964,7 @@ def _diff_components(
 
     def find_changed_component(
         old_only_component_version: cm.Component,
-        new_only_component_versions: typing.List[cm.Component],
+        new_only_component_versions: list[cm.Component],
     ):
         for new_only_component_version in new_only_component_versions:
             if new_only_component_version.name == old_only_component_version.name:
