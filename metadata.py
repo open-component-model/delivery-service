@@ -235,6 +235,7 @@ class ArtefactMetadata:
                     if (
                         existing_entry.type != metadata_entry.type
                         or existing_entry.component_name != metadata_entry.component_name
+                        or existing_entry.artefact_kind != metadata_entry.artefact_kind
                         or existing_entry.artefact_name != metadata_entry.artefact_name
                         or existing_entry.artefact_type != metadata_entry.artefact_type
                     ):

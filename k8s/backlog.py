@@ -60,7 +60,10 @@ class BacklogItem:
             data=backlog_item,
             config=dacite.Config(
                 type_hooks=type_hooks,
-                cast=[BacklogPriorities],
+                cast=[
+                    BacklogPriorities,
+                    dso.model.ArtefactKind,
+                ],
             ),
         )
 
@@ -113,6 +116,9 @@ def iter_existing_backlog_items_for_artefact(
         crd_artefact = dacite.from_dict(
             data_class=dso.model.ComponentArtefactId,
             data=backlog_crd.get('spec').get('artefact'),
+            config=dacite.Config(
+                cast=[dso.model.ArtefactKind],
+            ),
         )
 
         if service is config.Services.BDBA:
