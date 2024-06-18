@@ -20,6 +20,7 @@ def requirements():
 
 def modules():
     return [
+        'caching',
         'config',
         'ctx_util',
         'lookups',
