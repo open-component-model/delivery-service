@@ -41,4 +41,4 @@ ENV UWSGI_THREADS=20
 ENV UWSGI_WSGI_FILE=/usr/lib/python3.12/site-packages/app.py
 COPY uwsgi.ini /uwsgi.ini
 
-ENTRYPOINT ["uwsgi", "uwsgi.ini"]
+ENTRYPOINT ["uwsgi", "uwsgi.ini", "--plugins", "/usr/lib/uwsgi/python"]
