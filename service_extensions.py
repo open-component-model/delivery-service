@@ -280,6 +280,9 @@ class BacklogItems:
             artefact = dacite.from_dict(
                 data_class=dso.model.ComponentArtefactId,
                 data=artefact_raw,
+                config=dacite.Config(
+                    cast=[dso.model.ArtefactKind],
+                ),
             )
 
             k8s.backlog.create_backlog_item(

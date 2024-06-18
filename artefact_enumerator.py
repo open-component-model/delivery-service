@@ -204,11 +204,11 @@ def _iter_artefacts(
         component = artefact_node.component_id
         artefact = artefact_node.artefact
         if isinstance(artefact_node, cnudie.iter.ResourceNode):
-            artefact_kind = 'resource'
+            artefact_kind = dso.model.ArtefactKind.RESOURCE
         elif isinstance(artefact_node, cnudie.iter.SourceNode):
-            artefact_kind = 'source'
+            artefact_kind = dso.model.ArtefactKind.SOURCE
         else:
-            artefact_kind = 'artefact'
+            artefact_kind = dso.model.ArtefactKind.ARTEFACT
 
         # explicitly remove extraIdentity here to only handle one artefact each
         # TODO-Extra-Id uncomment below code once extraIdentities are handled properly
@@ -220,7 +220,6 @@ def _iter_artefacts(
                 artefact_name=artefact.name,
                 artefact_version=artefact.version,
                 artefact_type=artefact.type,
-                artefact_extra_id=dict(),
                 # artefact_extra_id=artefact.extraIdentity,
             )
         )
@@ -260,11 +259,7 @@ def _create_and_update_compliance_snapshots_of_artefact(
         update_is_required = True
 
     if update_is_required:
-        logger.info(
-            f'{artefact.component_name}:{artefact.component_version} '
-            f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version} -> '
-            'created compliance snapshots'
-        )
+        logger.info(f'created compliance snapshots for {artefact=}')
 
     for compliance_snapshot in compliance_snapshots:
         if (
@@ -380,11 +375,7 @@ def _create_backlog_item(
         priority=priority,
     )
     if was_created:
-        logger.info(
-            f'{artefact.component_name}:{artefact.component_version} '
-            f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version} -> '
-            f'created {service} backlog item with {priority=}'
-        )
+        logger.info(f'created {service} backlog item with {priority=} for {artefact=}')
 
     return compliance_snapshots, True
 
@@ -459,18 +450,14 @@ def _process_compliance_snapshots_of_artefact(
 
     if not update_is_required:
         logger.info(
-            f'{artefact.component_name}:{artefact.component_version} '
-            f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version} -> '
             f'{len(compliance_snapshots)} compliance snapshots did not change, '
-            'no need to update in delivery-db'
+            f'no need to update in delivery-db ({artefact=})'
         )
         return
 
     delivery_client.update_metadata(data=compliance_snapshots)
     logger.info(
-        f'{artefact.component_name}:{artefact.component_version} '
-        f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version} -> '
-        f'updated {len(compliance_snapshots)} compliance snapshots in delivery-db'
+        f'updated {len(compliance_snapshots)} compliance snapshots in delivery-db ({artefact=})'
     )
 
 
@@ -523,9 +510,8 @@ def _process_inactive_compliance_snapshots(
         if update_is_required:
             delivery_client.update_metadata(data=compliance_snapshots)
             logger.info(
-                f'{artefact.component_name}:{artefact.component_version} '
-                f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version} -> '
-                f'updated {len(compliance_snapshots)} inactive compliance snapshots in delivery-db'
+                f'updated {len(compliance_snapshots)} inactive compliance snapshots in delivery-db '
+                f'({artefact=})'
             )
 
             if scan_config.issue_replicator_config:
@@ -540,18 +526,15 @@ def _process_inactive_compliance_snapshots(
                 )
                 if was_created:
                     logger.info(
-                        f'{artefact.component_name}:{artefact.component_version} '
-                        f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version} '
-                        f'-> created issue replicator backlog item with {priority=} for inactive '
-                        'artefact'
+                        f'created issue replicator backlog item with {priority=} for inactive '
+                        f'{artefact=}'
                     )
 
         if deletable_compliance_snapshots:
             delivery_client.delete_metadata(data=deletable_compliance_snapshots)
             logger.info(
-                f'{artefact.component_name}:{artefact.component_version} '
-                f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version} -> '
-                f'deleted {len(compliance_snapshots)} inactive compliance snapshots in delivery-db'
+                f'deleted {len(deletable_compliance_snapshots)} inactive compliance snapshots in '
+                f'delivery-db ({artefact=})'
             )
 
 

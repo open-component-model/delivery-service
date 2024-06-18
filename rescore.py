@@ -2,7 +2,6 @@ import collections.abc
 import dataclasses
 import datetime
 import logging
-import typing
 
 import dacite
 import falcon
@@ -93,11 +92,13 @@ def _find_artefact_node(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     component: cm.Component,
     artefact: dso.model.ComponentArtefactId,
-) -> typing.Union[cnudie.iter.Node, cnudie.iter.ArtefactNode] | None:
-    if artefact.artefact_kind == 'source':
+) -> cnudie.iter.Node | cnudie.iter.ArtefactNode | None:
+    if artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
         node_filter = cnudie.iter.Filter.sources
-    else:
+    elif artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
         node_filter = cnudie.iter.Filter.resources
+    else:
+        raise ValueError(artefact.artefact_kind)
 
     artefact_ref = artefact.artefact
 
@@ -119,7 +120,7 @@ def _find_artefact_node(
 def _find_artefact_node_or_raise(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     artefact: dso.model.ComponentArtefactId,
-) -> typing.Union[cnudie.iter.Node, cnudie.iter.ArtefactNode]:
+) -> cnudie.iter.Node | cnudie.iter.ArtefactNode:
     component = util.retrieve_component_descriptor(
         cm.ComponentIdentity(
             name=artefact.component_name,
@@ -148,7 +149,7 @@ def _find_artefact_node_or_raise(
 
 
 def _find_cve_label(
-    artefact_node: typing.Union[cnudie.iter.Node, cnudie.iter.ArtefactNode],
+    artefact_node: cnudie.iter.Node | cnudie.iter.ArtefactNode,
 ) -> dso.cvss.CveCategorisation | None:
     label_name = dso.labels.CveCategorisationLabel.name
     artefact = artefact_node.artefact
@@ -164,24 +165,17 @@ def _find_cve_label(
 
 def _find_artefact_metadata(
     session: ss.Session,
-    artefact_node: typing.Union[cnudie.iter.Node, cnudie.iter.ArtefactNode],
+    artefact: dso.model.ComponentArtefactId,
     type_filter: list[str]=[],
 ) -> tuple[dso.model.ArtefactMetadata]:
-    if isinstance(artefact_node, cnudie.iter.ResourceNode):
-        artefact_kind = 'resource'
-    elif isinstance(artefact_node, cnudie.iter.SourceNode):
-        artefact_kind = 'source'
-    else:
-        artefact_kind = 'artefact'
-
     query = session.query(dm.ArtefactMetaData).filter(
         sa.and_(
-            dm.ArtefactMetaData.component_name == artefact_node.component.name,
-            dm.ArtefactMetaData.component_version == artefact_node.component.version,
-            dm.ArtefactMetaData.artefact_kind == artefact_kind,
-            dm.ArtefactMetaData.artefact_name == artefact_node.artefact.name,
-            dm.ArtefactMetaData.artefact_version == artefact_node.artefact.version,
-            dm.ArtefactMetaData.artefact_type == artefact_node.artefact.type,
+            dm.ArtefactMetaData.component_name == artefact.component_name,
+            dm.ArtefactMetaData.component_version == artefact.component_version,
+            dm.ArtefactMetaData.artefact_kind == artefact.artefact_kind,
+            dm.ArtefactMetaData.artefact_name == artefact.artefact.artefact_name,
+            dm.ArtefactMetaData.artefact_version == artefact.artefact.artefact_version,
+            dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
             dm.ArtefactMetaData.type != dso.model.Datatype.RESCORING,
             sa.or_(
                 not type_filter,
@@ -199,38 +193,31 @@ def _find_artefact_metadata(
 
 def _find_rescorings(
     session: ss.Session,
-    artefact_node: typing.Union[cnudie.iter.Node, cnudie.iter.ArtefactNode],
+    artefact: dso.model.ComponentArtefactId,
     type_filter: list[str]=[],
 ) -> tuple[dso.model.ArtefactMetadata]:
-    if isinstance(artefact_node, cnudie.iter.ResourceNode):
-        artefact_kind = 'resource'
-    elif isinstance(artefact_node, cnudie.iter.SourceNode):
-        artefact_kind = 'source'
-    else:
-        artefact_kind = 'artefact'
-
     rescorings_query = session.query(dm.ArtefactMetaData).filter(
         sa.and_(
             dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
             sa.or_(
                 # regular `not` or `is None` not working with sqlalchemy
                 dm.ArtefactMetaData.component_name == sa.null(),
-                dm.ArtefactMetaData.component_name == artefact_node.component.name,
+                dm.ArtefactMetaData.component_name == artefact.component_name,
             ),
             sa.or_(
                 dm.ArtefactMetaData.component_version == sa.null(),
-                dm.ArtefactMetaData.component_version == artefact_node.component.version
+                dm.ArtefactMetaData.component_version == artefact.component_version
             ),
             sa.or_(
                 dm.ArtefactMetaData.artefact_name == sa.null(),
-                dm.ArtefactMetaData.artefact_name == artefact_node.artefact.name,
+                dm.ArtefactMetaData.artefact_name == artefact.artefact.artefact_name,
             ),
             sa.or_(
                 dm.ArtefactMetaData.artefact_version == sa.null(),
-                dm.ArtefactMetaData.artefact_version == artefact_node.artefact.version,
+                dm.ArtefactMetaData.artefact_version == artefact.artefact.artefact_version,
             ),
-            dm.ArtefactMetaData.artefact_kind == artefact_kind,
-            dm.ArtefactMetaData.artefact_type == artefact_node.artefact.type,
+            dm.ArtefactMetaData.artefact_kind == artefact.artefact_kind,
+            dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
         )
     )
 
@@ -835,6 +822,8 @@ class Rescore:
             cve_rescoring_rule_set_name=cve_rescoring_rule_set_name,
         )
 
+        artefact_kind = dso.model.ArtefactKind(artefact_kind)
+
         artefact = dso.model.ComponentArtefactId(
             component_name=component_name,
             component_version=component_version,
@@ -847,22 +836,25 @@ class Rescore:
             ),
         )
 
-        artefact_node = _find_artefact_node_or_raise(
-            component_descriptor_lookup=self.component_descriptor_lookup,
-            artefact=artefact,
-        )
+        if dso.model.Datatype.VULNERABILITY in type_filter:
+            artefact_node = _find_artefact_node_or_raise(
+                component_descriptor_lookup=self.component_descriptor_lookup,
+                artefact=artefact,
+            )
 
-        categorisation = _find_cve_label(artefact_node=artefact_node)
+            categorisation = _find_cve_label(artefact_node=artefact_node)
+        else:
+            categorisation = None
 
         artefact_metadata = _find_artefact_metadata(
             session=session,
-            artefact_node=artefact_node,
+            artefact=artefact,
             type_filter=type_filter,
         )
 
         rescorings = _find_rescorings(
             session=session,
-            artefact_node=artefact_node,
+            artefact=artefact,
             type_filter=type_filter,
         )
 

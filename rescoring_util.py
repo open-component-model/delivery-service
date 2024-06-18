@@ -95,10 +95,10 @@ def _specificity_of_rescoring(
         return RescoringSpecificity.GLOBAL
 
     if not rescoring.artefact.artefact.artefact_name:
-       return RescoringSpecificity.COMPONENT
+        return RescoringSpecificity.COMPONENT
 
     if not rescoring.artefact.component_version:
-       return RescoringSpecificity.ARTEFACT
+        return RescoringSpecificity.ARTEFACT
 
     return RescoringSpecificity.SINGLE
 
