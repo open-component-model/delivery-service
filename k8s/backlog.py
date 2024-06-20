@@ -234,6 +234,7 @@ def get_backlog_crd_and_claim(
     cfg_name: str,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
+    shortcut_claim: bool=False,
 ) -> dict | None:
     labels = {
         k8s.model.LABEL_SERVICE: service,
@@ -259,9 +260,14 @@ def get_backlog_crd_and_claim(
     )
 
     backlog_crd = backlog_crds[0]
+
+    if shortcut_claim:
+        return backlog_crd
+
     metadata = backlog_crd.get('metadata')
 
     labels = metadata.get('labels')
+
     labels[LABEL_CLAIMED] = 'True'
     metadata['labels'] = labels
 
