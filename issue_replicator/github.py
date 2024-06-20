@@ -396,6 +396,57 @@ def _vulnerability_template_vars(
     }
 
 
+def _malware_template_vars(
+    issue_replicator_config: config.IssueReplicatorConfig,
+    artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
+    findings_by_versions: dict[str, tuple[AggregatedFinding]],
+    summary: str,
+    sprint_name: str=None,
+) -> dict[str, str]:
+
+    def iter_findings(
+        aggregated_findings: tuple[AggregatedFinding],
+    ) -> collections.abc.Generator[tuple[str, str, str], None, None]:
+        for af in aggregated_findings:
+            finding_details: dso.model.MalwareFindingDetails = af.finding.data.finding
+            yield finding_details.malware, finding_details.filename, finding_details.content_digest
+
+    summary += '# Summary of found Malware'
+
+    for version_key, findings in sorted(
+        findings_by_versions.items(),
+        key=lambda version: version[0],
+    ):
+        for artefact in artefacts:
+            if f'{artefact.component_id.version}:{artefact.artefact.version}' == version_key:
+                break
+        else:
+            raise ValueError(version_key) # this line should never be reached
+
+        summary += f'\n### {_artefact_to_str(artefact=artefact)}\n'
+
+        if issue_replicator_config.delivery_dashboard_url:
+            delivery_dashboard_url = _delivery_dashboard_url(
+                base_url=issue_replicator_config.delivery_dashboard_url,
+                component=artefact.component,
+                sprint_name=sprint_name,
+            )
+            summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+
+        summary += (
+            '\n| Malware | Filename | Content Digest |'
+            '\n| --- | --- | --- |'
+        ) + ''.join(
+            f'\n| {malware} | {filename} | {content_digest} |'
+            for malware, filename, content_digest in iter_findings(findings)
+        )
+        summary += '\n---'
+
+    return {
+        'summary': summary,
+    }
+
+
 def _license_template_vars(
     issue_replicator_config: config.IssueReplicatorConfig,
     artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
@@ -612,6 +663,14 @@ def _template_vars(
         )
     elif issue_type == gci._label_licenses:
         template_variables |= _license_template_vars(
+            issue_replicator_config=issue_replicator_config,
+            artefacts=artefacts,
+            findings_by_versions=findings_by_versions,
+            summary=summary,
+            sprint_name=sprint_name,
+        )
+    elif issue_type == gci._label_malware:
+        template_variables |= _malware_template_vars(
             issue_replicator_config=issue_replicator_config,
             artefacts=artefacts,
             findings_by_versions=findings_by_versions,

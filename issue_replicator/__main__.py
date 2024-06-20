@@ -195,7 +195,7 @@ def _iter_findings_for_artefact(
             dso.model.Datatype.ARTEFACT_SCAN_INFO,
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.LICENSE,
-            dso.model.Datatype.MALWARE,
+            dso.model.Datatype.MALWARE_FINDING,
         ),
     )
 
@@ -205,20 +205,9 @@ def _iter_findings_for_artefact(
         referenced_type=(
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.LICENSE,
-            dso.model.Datatype.MALWARE,
+            dso.model.Datatype.MALWARE_FINDING,
         ),
     )
-
-    def _severity_for_finding(
-        finding: dso.model.ArtefactMetadata,
-    ) -> gcm.Severity:
-        if finding.meta.type == dso.model.Datatype.MALWARE:
-            if not (severity := finding.data.severity):
-                return gcm.Severity.BLOCKER
-
-            return gcm.Severity[severity]
-
-        return gcm.Severity[finding.data.severity]
 
     for finding in findings_for_components:
         if not (
@@ -241,7 +230,7 @@ def _iter_findings_for_artefact(
         elif finding.meta.type != dso.model.Datatype.ARTEFACT_SCAN_INFO:
             # artefact scan info does not have any severity but is just retrieved to evaluate
             # whether a scan exists for the given artefacts (if no finding is found)
-            severity = _severity_for_finding(finding=finding)
+            severity = gcm.Severity[finding.data.severity]
         else:
             severity = None
 
@@ -318,7 +307,7 @@ def _findings_by_type_and_date(
     datasource_for_datatype = {
         dso.model.Datatype.VULNERABILITY: dso.model.Datasource.BDBA,
         dso.model.Datatype.LICENSE: dso.model.Datasource.BDBA,
-        dso.model.Datatype.MALWARE: dso.model.Datasource.CLAMAV,
+        dso.model.Datatype.MALWARE_FINDING: dso.model.Datasource.CLAMAV,
     }
 
     for latest_processing_date in latest_processing_dates:
@@ -445,6 +434,12 @@ def replicate_issue(
             and finding_source == dso.model.Datasource.BDBA
         ):
             return gci._label_licenses
+
+        elif (
+            finding_type == dso.model.Datatype.MALWARE_FINDING
+            and finding_source == dso.model.Datasource.CLAMAV
+        ):
+            return gci._label_malware
 
         else:
             raise NotImplementedError(f'{finding_type=} is not supported for {finding_source=}')
