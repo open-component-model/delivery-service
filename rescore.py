@@ -382,8 +382,6 @@ def _iter_rescoring_proposals(
         ):
             continue
 
-        seen_ids.add(am.id)
-
         current_rescorings, sprint = _rescorings_and_sprint(
             artefact_metadatum=am,
             rescorings=rescorings,
@@ -537,6 +535,8 @@ def _iter_rescoring_proposals(
                         'sprint': sprint,
                     },
                 )
+
+        seen_ids.add(am.id)
 
 
 def iter_matching_artefacts(
