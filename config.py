@@ -81,11 +81,14 @@ class ClamAVConfig:
         age in days an existing scan has to exceed to trigger rescan
     :param str aws_cfg_name
         cfg-element used to create s3 client to retrieve artefacts
+    :param tuple[str] artefact_types:
+        list of artefact types which should be scanned, other artefact types are skipped
     '''
     delivery_service_url: str
     lookup_new_backlog_item_interval: int
     virus_db_max_age_days: int
     aws_cfg_name: str
+    artefact_types: tuple[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -394,11 +397,22 @@ def deserialise_clamav_config(
         on_absent_message='artefacts of access type s3 will not be scanned'
     )
 
+    artefact_types = tuple(deserialise_config_property(
+        config=clamav_config,
+        property_key='artefact_types',
+        default_config=default_config,
+        default_value=(
+            cm.ArtefactType.OCI_IMAGE,
+            'application/tar+vm-image-rootfs',
+        ),
+    ))
+
     return ClamAVConfig(
         delivery_service_url=delivery_service_url,
         lookup_new_backlog_item_interval=lookup_new_backlog_item_interval,
         virus_db_max_age_days=virus_db_max_age_days,
         aws_cfg_name=aws_cfg_name,
+        artefact_types=artefact_types,
     )
 
 
