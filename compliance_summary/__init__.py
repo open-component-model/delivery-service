@@ -2,7 +2,6 @@ import collections.abc
 import dataclasses
 import enum
 import logging
-import re
 import typing
 
 import awesomeversion
@@ -81,28 +80,6 @@ class CodecheckSeverityNamesMapping(SeverityMappingBase):
         for risk_severity_name in self.codecheckSeverityNames:
             if findings[risk_severity_name]:
                 return self.severityName
-
-        return None
-
-
-@dataclasses.dataclass(frozen=True)
-class MalwareNamesMapping(SeverityMappingBase):
-    malwareNames: list[str]
-
-    def match(
-        self,
-        finding: dso.model.ArtefactMetadata,
-        **kwargs,
-    ) -> str | None:
-        malware_findings = finding.data.findings
-
-        if not malware_findings:
-            return ComplianceEntrySeverity.CLEAN.name
-
-        for malware_name in self.malwareNames:
-            for malware_finding in malware_findings:
-                if re.fullmatch(malware_name, malware_finding.name):
-                    return self.severityName
 
         return None
 
@@ -206,7 +183,6 @@ class ArtefactMetadataCfg:
     type: str
     severityMappings: typing.Optional[list[
         typing.Union[
-            MalwareNamesMapping,
             OsStatusMapping,
             CodecheckSeverityNamesMapping,
         ]
