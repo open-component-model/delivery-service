@@ -293,12 +293,6 @@ def component_summaries(
                 severity=ComplianceEntrySeverity.UNKNOWN,
                 scanStatus=ComplianceScanStatus.NO_DATA,
             ),
-            dso.model.Datatype.MALWARE: ComplianceSummaryEntry(
-                type=dso.model.Datatype.MALWARE,
-                source=dso.model.Datasource.CLAMAV,
-                severity=ComplianceEntrySeverity.UNKNOWN,
-                scanStatus=ComplianceScanStatus.NO_DATA,
-            ),
             dso.model.Datatype.OS_IDS: ComplianceSummaryEntry(
                 type=dso.model.Datatype.OS_IDS,
                 source=dso.model.Datasource.CC_UTILS,
@@ -423,7 +417,6 @@ def severity_for_finding(
     known_artefact_metadata_types: tuple[str] = (
         dso.model.Datatype.VULNERABILITY,
         dso.model.Datatype.LICENSE,
-        dso.model.Datatype.MALWARE,
         dso.model.Datatype.OS_IDS,
         dso.model.Datatype.CODECHECKS_AGGREGATED,
         dso.model.Datatype.MALWARE_FINDING,
