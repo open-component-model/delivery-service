@@ -42,20 +42,6 @@ def artefact_metadata_cfg_by_type():
     cfg_raw = {
         'artefactMetadataCfg': [
             {
-                'type': 'malware',
-                'categories': [
-                    'compliance',
-                ],
-                'severityMappings': [
-                    {
-                        'severityName': 'BLOCKER',
-                        'malwareNames': [
-                            '.*',
-                        ],
-                    },
-                ]
-            },
-            {
                 'type': 'os_ids',
                 'categories': [
                     'compliance',
@@ -157,11 +143,8 @@ def test_vulnerability(component_artefact_id):
     ) == cs.ComplianceEntrySeverity.CRITICAL.name
 
 
-def test_malware(
-    artefact_metadata_cfg_by_type,
-    component_artefact_id,
-):
-    type = 'malware'
+def test_malware(component_artefact_id):
+    type = 'finding/malware'
     meta = dso.model.Metadata(
         datasource=None,
         type=type,
@@ -171,32 +154,34 @@ def test_malware(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.MalwareSummary(
-                findings=[],
-                metadata=None,
+            data=dso.model.ClamAVMalwareFinding(
+                finding=dso.model.MalwareFindingDetails(
+                    filename='sha256:xxx|foo/bar',
+                    content_digest='sha256:foo',
+                    malware='very-bad-virus',
+                ),
+                octets_count=1024,
+                scan_duration_seconds=1.0,
+                severity='NONE',
             ),
         ),
-        artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
     assert cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.MalwareSummary(
-                findings=[
-                    dso.model.MalwareFinding(
-                        status=None,
-                        details=None,
-                        malware_status=None,
-                        meta=None,
-                        name='bad_virus',
-                    ),
-                ],
-                metadata=None,
+            data=dso.model.ClamAVMalwareFinding(
+                finding=dso.model.MalwareFindingDetails(
+                    filename='sha256:xxx|foo/bar',
+                    content_digest='sha256:foo',
+                    malware='very-bad-virus',
+                ),
+                octets_count=1024,
+                scan_duration_seconds=1.0,
+                severity='BLOCKER',
             ),
         ),
-        artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
     ) == cs.ComplianceEntrySeverity.BLOCKER.name
 
 

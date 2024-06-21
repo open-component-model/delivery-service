@@ -13,13 +13,6 @@ artefactMetadataCfg:
   - severityName: CLEAN
     codecheckSeverityNames:
     - info
-- type: malware
-  categories:
-  - compliance
-  severityMappings:
-  - severityName: BLOCKER
-    malwareNames:
-    - '.*'
 - type: os_ids
   categories:
   - compliance
