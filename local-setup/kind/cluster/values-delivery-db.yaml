@@ -1,0 +1,15 @@
+fullnameOverride: delivery-db
+
+postgresqlPassword: password-123
+
+image:
+  tag: 16.0.0
+
+# configuration of custom persistent volume claim (pvc) required to ensure a stable pvc name across
+# cluster re-creations (-> this allows using a stable host file mount on the host)
+persistence:
+  existingClaim: pvc-delivery-db-0
+
+# required for the delivery-db pod to have write access to the custom pvc
+volumePermissions:
+  enabled: true

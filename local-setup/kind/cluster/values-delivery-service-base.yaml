@@ -1,0 +1,163 @@
+replicas: 1
+
+ingress:
+  class: nginx
+  hosts:
+    - delivery-service
+
+additionalVolumes:
+  - name: sprints
+    configMap:
+      name: sprints
+      optional: true
+  - name: addressbook
+    configMap:
+      name: addressbook
+      optional: true
+  - name: github_mappings
+    configMap:
+      name: github-mappings
+      optional: true
+
+additionalVolumeMounts:
+  - name: sprints
+    mountPath: "/sprints"
+  - name: addressbook
+    mountPath: "/addressbook"
+  - name: github_mappings
+    mountPath: "/github_mappings"
+
+envVars:
+  CFG_FACTORY_SECRET_PATH: ./../cfg_factory/cfg_factory
+  FEATURES_CFG_PATH: ./../features_cfg/features_cfg
+  K8S_TARGET_NAMESPACE: delivery
+
+# override of default entrypoint is required if setup with uWSGI is not working on local machine
+# -> fallback to bjoern WSGI server
+command:
+  - python3
+  - -m
+  - app
+
+args:
+  - --productive
+  - --delivery-cfg
+  - local
+  - --delivery-db-cfg
+  - local
+  - --delivery-endpoints
+  - local
+  - --service-extensions
+  - artefactEnumerator
+  - backlogController
+  - bdba
+  - clamav
+  - deliveryDbBackup
+  - issueReplicator
+
+createCfgFactorySecret: true
+
+featuresCfg:
+  ocmRepoMappings:
+    - prefix: ocm.software/ocmcli
+      repository: ghcr.io/open-component-model/ocm
+    - prefix: ''
+      repository: europe-docker.pkg.dev/gardener-project/releases
+  specialComponents:
+    - id: 0
+      name: ocm.software/delivery-gear
+      displayName: OCM Gear
+      type: OCM Gear
+      version: greatest
+      icon: home
+      dependencies: []
+    - id: 1
+      name: ocm.software/ocmcli
+      displayName: OCM Cli
+      type: OCM Core
+      version: greatest
+      icon: home
+      dependencies: []
+  rescoring:
+    defaultRuleSetName: example-rescoring-v1
+    rescoringRuleSets:
+      - name: example-rescoring-v1
+        description: https://github.com/pages/open-component-model/compliance-reporting-example/cvss-rescoring.html#rescoring-rules
+        rule_set:
+          - category_value: network_exposure:public
+            name: network-exposure-public
+            rules:
+              - cve_values:
+                  - AV:N
+                rescore: no-change
+              - cve_values:
+                  - AV:A
+                rescore: reduce
+              - cve_values:
+                  - AV:L
+                  - AV:P
+                rescore: not-exploitable
+          - category_value: network_exposure:protected
+            name: network-exposure-protected
+            rules:
+              - cve_values:
+                  - AV:N
+                rescore: reduce
+              - cve_values:
+                  - AV:A
+                  - AV:L
+                  - AV:P
+                rescore: not-exploitable
+          - category_value: network_exposure:private
+            name: network-exposure-private
+            rules:
+              - cve_values:
+                  - AV:N
+                  - AV:A
+                  - AV:L
+                  - AV:P
+                rescore: not-exploitable
+          - category_value: authentication_enforced:true
+            name: authentication-enforced
+            rules:
+              - cve_values:
+                  - PR:L
+                  - PR:H
+                rescore: reduce
+          - category_value: user_interaction:gardener-operator
+            name: user-interaction-gardener-operator
+            rules:
+              - cve_values:
+                  - UI:R
+                rescore: reduce
+          - category_value: confidentiality_requirement:none
+            name: confidentiality-requirement-none
+            rules:
+              - cve_values:
+                  - C:H
+                  - C:L
+                rescore: reduce
+          - category_value: integrity_requirement:none
+            name: integrity-requirement-none
+            rules:
+              - cve_values:
+                  - I:H
+                  - I:L
+                rescore: reduce
+          - category_value: availability_requirement:none
+            name: availability-requirement-none
+            rules:
+              - cve_values:
+                  - A:H
+                  - A:L
+                rescore: reduce
+    cveCategorisationLabelUrl: https://pages.github.com/open-component-model/compliance-reporting-example/cvss-rescoring.html#cvss-categorisation
+    cveSeverityUrl: https://ocm.software/example/cve-severity-slas
+  addressbook:
+    addressbookRelpath: ./../addressbook/addressbook
+    githubMappingsRelpath: ./../github_mappings/github_mappings
+  sprints:
+    sprintsRelpath: ./../sprints/sprints
+    sprintDateNameMappings:
+      - dateName: release_decision
+        displayName: Release Decision

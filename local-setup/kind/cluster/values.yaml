@@ -1,0 +1,3 @@
+image: kindest/node:v1.30.0
+
+workers: 1

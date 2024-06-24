@@ -1,0 +1,19 @@
+github_com:
+  apiUrl: https://api.github.com
+  available_protocols:
+    - ssh
+    - https
+  disable_tls_validation: false
+  httpUrl: https://github.com
+  purpose_labels:
+    - ci
+  sshUrl: ssh://git@github.com
+  technical_users:
+    - emailAddress: ...
+      username: ...
+      authToken: ...
+      password: ...
+      privateKey: |-
+        -----BEGIN RSA PRIVATE KEY-----
+        ...
+        -----END RSA PRIVATE KEY-----
