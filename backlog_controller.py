@@ -120,6 +120,13 @@ def parse_args():
         default=os.environ.get('K8S_CFG_NAME'),
     )
     parser.add_argument(
+        '--kubeconfig',
+        help='''
+            specify kubernetes cluster to interact with extensions (and logs); if both
+            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
+        ''',
+    )
+    parser.add_argument(
         '--k8s-namespace',
         help='specify kubernetes cluster namespace to watch',
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
@@ -146,7 +153,9 @@ def main():
         kubernetes_cfg = cfg_factory.kubernetes(parsed_arguments.k8s_cfg_name)
         kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
     else:
-        kubernetes_api = k8s.util.kubernetes_api()
+        kubernetes_api = k8s.util.kubernetes_api(
+            kubeconfig_path=parsed_arguments.kubeconfig,
+        )
 
     k8s.logging.init_logging_thread(
         service=config.Services.BACKLOG_CONTROLLER,

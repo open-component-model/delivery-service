@@ -336,6 +336,7 @@ class FeatureServiceExtensions(FeatureBase):
     services: tuple[str] = tuple()
     namespace: str = None
     kubernetes_cfg_name: str = None
+    kubeconfig_path: str = None
 
     def get_services(self) -> tuple[str]:
         return self.services
@@ -345,7 +346,7 @@ class FeatureServiceExtensions(FeatureBase):
 
     def get_kubernetes_api(self) -> str:
         if not self.kubernetes_cfg_name:
-            return k8s.util.kubernetes_api()
+            return k8s.util.kubernetes_api(kubeconfig_path=self.kubeconfig_path)
 
         cfg_factory = ctx_util.cfg_factory()
         kubernetes_cfg = cfg_factory.kubernetes(self.kubernetes_cfg_name)
@@ -857,6 +858,8 @@ def init_features(
         if not k8s_cfg_name:
             k8s_cfg_name = os.environ.get('K8S_CFG_NAME')
 
+        kubeconfig_path = parsed_arguments.kubeconfig
+
         k8s_namespace = parsed_arguments.k8s_namespace
         if not k8s_namespace:
             k8s_namespace = os.environ.get('K8S_TARGET_NAMESPACE')
@@ -867,6 +870,7 @@ def init_features(
                 services=tuple(services),
                 namespace=k8s_namespace,
                 kubernetes_cfg_name=k8s_cfg_name,
+                kubeconfig_path=kubeconfig_path,
             )
         else:
             logger.warning(
