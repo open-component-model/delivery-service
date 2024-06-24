@@ -72,6 +72,13 @@ def parse_args():
         help='specify kubernetes cluster to interact with extensions (and logs)',
     )
     parser.add_argument(
+        '--kubeconfig',
+        help='''
+            specify kubernetes cluster to interact with extensions (and logs); if both
+            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
+        ''',
+    )
+    parser.add_argument(
         '--k8s-namespace',
         help='specify kubernetes cluster namespace to interact with extensions (and logs)',
     )

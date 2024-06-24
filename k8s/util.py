@@ -35,9 +35,13 @@ class KubernetesApi:
 @functools.cache
 def kubernetes_api(
     kubernetes_cfg: model.kubernetes.KubernetesConfig=None,
+    kubeconfig_path: str=None,
 ) -> KubernetesApi:
     if kubernetes_cfg:
         api_client = kubernetes.config.new_client_from_config_dict(kubernetes_cfg.kubeconfig())
+    elif kubeconfig_path:
+        kubeconfig = yaml.safe_load(open(kubeconfig_path))
+        api_client = kubernetes.config.new_client_from_config_dict(kubeconfig)
     else:
         kubernetes.config.load_incluster_config()
         api_client = kc.ApiClient()
