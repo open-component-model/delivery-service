@@ -147,10 +147,10 @@ class ScanConfigurations:
         self.kubernetes_api_callback = kubernetes_api_callback
 
     def on_get(self, req: falcon.Request, resp: falcon.Response):
-        resp.media = tuple(k8s.util.iter_scan_configurations(
+        resp.media = k8s.util.iter_scan_configurations(
             namespace=self.namespace_callback(),
             kubernetes_api=self.kubernetes_api_callback(),
-        ))
+        )
 
 
 def iter_backlog_items(

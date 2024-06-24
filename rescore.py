@@ -607,10 +607,10 @@ def create_backlog_items_for_rescored_artefacts(
     session: ss.Session,
     rescorings: tuple[dso.model.ComponentArtefactId],
 ):
-    scan_configs = tuple(k8s.util.iter_scan_configurations(
+    scan_configs = k8s.util.iter_scan_configurations(
         namespace=namespace,
         kubernetes_api=kubernetes_api,
-    ))
+    )
 
     # only if there is one scan config we can assume for sure that this config should be used
     if len(scan_configs) != 1:
@@ -858,10 +858,10 @@ class Rescore:
             type_filter=type_filter,
         )
 
-        scan_configs = tuple(k8s.util.iter_scan_configurations(
+        scan_configs = k8s.util.iter_scan_configurations(
             namespace=self.namespace_callback(),
             kubernetes_api=self.kubernetes_api_callback(),
-        ))
+        )
 
         # only if there is one scan config we can assume for sure that this config should be used
         if len(scan_configs) != 1:

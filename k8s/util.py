@@ -226,15 +226,16 @@ def scale_replica_set(
 def iter_scan_configurations(
     namespace: str,
     kubernetes_api: KubernetesApi,
-) -> collections.abc.Generator[k8s.model.ScanConfiguration, None, None]:
-    scan_configurations = kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(
+) -> list[k8s.model.ScanConfiguration]:
+    scan_configurations_raw = kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(
         group=k8s.model.ScanConfigurationCrd.DOMAIN,
         version=k8s.model.ScanConfigurationCrd.VERSION,
         plural=k8s.model.ScanConfigurationCrd.PLURAL_NAME,
         namespace=namespace,
     ).get('items')
 
-    for scan_configuration in scan_configurations:
+    scan_configurations = []
+    for scan_configuration in scan_configurations_raw:
         spec = scan_configuration.get('spec')
 
         if bdba_config := spec.get('bdba'):
@@ -260,7 +261,9 @@ def iter_scan_configurations(
                 mpd = gcm.MaxProcessingTimesDays()
                 issue_replicator_config['max_processing_days'] = dataclasses.asdict(mpd)
 
-        yield k8s.model.ScanConfiguration(
+        scan_configurations.append(k8s.model.ScanConfiguration(
             name=scan_configuration.get('metadata').get('name'),
             config=spec,
-        )
+        ))
+
+    return scan_configurations
