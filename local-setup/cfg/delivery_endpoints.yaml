@@ -1,0 +1,3 @@
+local:
+  service_host: localhost:5000
+  dashboard_host: localhost

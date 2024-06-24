@@ -1,0 +1,9 @@
+replicas: 1
+
+ingress:
+  class: nginx
+  hosts:
+    - localhost
+
+envVars:
+  REACT_APP_DELIVERY_SERVICE_API_URL: http://localhost:5000

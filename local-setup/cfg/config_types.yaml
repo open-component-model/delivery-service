@@ -1,0 +1,54 @@
+bdba:
+  src:
+    - file: bdba.yaml
+  model:
+    factory_method: bdba
+    cfg_type_name: bdba
+    type: ProtecodeConfig
+
+cfg_set:
+  src:
+    - file: configs.yaml
+  model:
+    factory_method: cfg_set
+    cfg_type_name: cfg_set
+    type: ConfigurationSet
+
+container_registry:
+  src:
+    - file: container_registry.yaml
+  model:
+    factory_method: container_registry
+    cfg_type_name: container_registry
+    type: ContainerRegistryConfig
+
+delivery:
+  src:
+    - file: delivery.yaml
+  model:
+    cfg_type_name: delivery
+    factory_method: delivery
+    type: DeliveryConfig
+delivery_db:
+  src:
+    - file: delivery_db.yaml
+  model:
+    cfg_type_name: delivery_db
+    factory_method: delivery_db
+    type: DeliveryDbConfig
+
+delivery_endpoints:
+  src:
+    - file: delivery_endpoints.yaml
+  model:
+    cfg_type_name: delivery_endpoints
+    factory_method: delivery_endpoints
+    type: DeliveryEndpointsCfg
+
+github:
+  src:
+    - file: github.yaml
+  model:
+    factory_method: github
+    cfg_type_name: github
+    type: GithubConfig

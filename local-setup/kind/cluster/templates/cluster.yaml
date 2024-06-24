@@ -1,0 +1,18 @@
+apiVersion: kind.x-k8s.io/v1alpha4
+kind: Cluster
+nodes:
+- role: control-plane
+  image: {{ .Values.image }}
+  extraPortMappings:
+{{ include "extraPortMappings.delivery-dashboard" . | indent 2 }}
+  kubeadmConfigPatches:
+{{ include "kubeadmConfigPatches" . | indent 2 }}
+
+{{- range $i, $e := until (.Values.workers | int) }}
+- role: worker
+  image: {{ $.Values.image }}
+  extraMounts:
+{{ include "extraMounts.delivery-db" $ | indent 2 }}
+  kubeadmConfigPatches:
+{{ include "kubeadmConfigPatches" . | indent 2 }}
+{{- end }}

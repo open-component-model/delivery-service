@@ -1,0 +1,317 @@
+artefact-enumerator:
+  enabled: false
+  envVars:
+    CFG_FACTORY_SECRET_PATH: ./../cfg_factory/cfg_factory
+    FEATURES_CFG_PATH: ./../features_cfg/features_cfg
+    K8S_TARGET_NAMESPACE: delivery
+  configuration: {}
+
+backlog-controller:
+  enabled: false
+  envVars:
+    CFG_FACTORY_SECRET_PATH: ./../cfg_factory/cfg_factory
+    FEATURES_CFG_PATH: ./../features_cfg/features_cfg
+    K8S_TARGET_NAMESPACE: delivery
+  scanConfigurations:
+    - local
+  namespace: delivery
+
+delivery-db-backup:
+  enabled: false
+  configurations:
+    - DELIVERY_GEAR_CFG_NAME: local
+      SCHEDULE: '0 0 * * *' # every day at 12:00 AM
+      SUCCESSFUL_JOBS_HISTORY_LIMIT: 1
+      FAILED_JOBS_HISTORY_LIMIT: 1
+      CFG_FACTORY_SECRET_PATH: ./../cfg_factory/cfg_factory
+      FEATURES_CFG_PATH: ./../features_cfg/features_cfg
+      K8S_TARGET_NAMESPACE: delivery
+
+freshclam:
+  enabled: false
+
+configuration:
+  scanConfigurations:
+    - name: local
+      spec: {}
+        # artefactEnumerator:
+        #   delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
+        #   artefact_types:
+        #     - ociImage
+        #     - application/tar+vm-image-rootfs
+        #   components:
+        #     - component_name: ocm.software/delivery-gear
+        #     - component_name: ocm.software/ocmcli
+        #   sprints_relative_time_range:
+        #     days_from: -90
+        #     days_to: 150
+
+        # bdba:
+        #   delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
+        #   rescan_interval: 3600 # 1h
+        #   cfg_name: local
+        #   group_id: ...
+        #   artefact_types:
+        #     - ociImage
+        #     - application/tar+vm-image-rootfs
+        #   auto_assess_max_severity: MEDIUM
+        #   cve_rescoring_rules:
+        #     - category_value: network_exposure:public
+        #       rules:
+        #         - cve_values:
+        #             - AV:N
+        #           rescore: no-change
+        #         - cve_values:
+        #             - AV:A
+        #           rescore: reduce
+        #         - cve_values:
+        #             - AV:L
+        #             - AV:P
+        #           rescore: not-exploitable
+        #     - category_value: network_exposure:protected
+        #       rules:
+        #         - cve_values:
+        #             - AV:N
+        #           rescore: reduce
+        #         - cve_values:
+        #             - AV:A
+        #             - AV:L
+        #             - AV:P
+        #           rescore: not-exploitable
+        #     - category_value: network_exposure:private
+        #       rules:
+        #         - cve_values:
+        #             - AV:N
+        #             - AV:A
+        #             - AV:L
+        #             - AV:P
+        #           rescore: not-exploitable
+        #     - category_value: authentication_enforced:true
+        #       rules:
+        #         - cve_values:
+        #             - PR:L
+        #             - PR:H
+        #           rescore: reduce
+        #     - category_value: user_interaction:gardener-operator
+        #       rules:
+        #         - cve_values:
+        #             - UI:R
+        #           rescore: reduce
+        #     - category_value: confidentiality_requirement:none
+        #       rules:
+        #         - cve_values:
+        #             - C:H
+        #             - C:L
+        #           rescore: reduce
+        #     - category_value: integrity_requirement:none
+        #       rules:
+        #         - cve_values:
+        #             - I:H
+        #             - I:L
+        #           rescore: reduce
+        #     - category_value: availability_requirement:none
+        #       rules:
+        #         - cve_values:
+        #             - A:H
+        #             - A:L
+        #           rescore: reduce
+        #   prohibited_licenses:
+        #     - AGPL
+        #     - AGPLv3
+        #     - APSL.*
+        #     - CC-BY-NC-1.0
+        #     - CC-BY-NC-2.0
+        #     - CC-BY-NC-2.5
+        #     - CC-BY-NC-3.0
+        #     - CC-BY-NC-4.0
+        #     - CC-BY-NC-ND-1.0
+        #     - CC-BY-NC-ND-2.0
+        #     - CC-BY-NC-ND-2.5
+        #     - CC-BY-NC-ND-3.0
+        #     - CC-BY-NC-ND-4.0
+        #     - CC-BY-NC-SA-1.0
+        #     - CC-BY-NC-SA-2.0
+        #     - CC-BY-NC-SA-2.5
+        #     - CC-BY-NC-SA-3.0
+        #     - CC-BY-NC-SA-4.0
+        #     - CC-BY-SA-1.0
+        #     - CC-BY-SA-2.0
+        #     - CC-BY-SA-2.5
+        #     - CC-BY-SA-3.0
+        #     - CC-BY-SA-4.0
+        #     - CC-NC-1.0
+        #     - CC-NC-SA-1.0
+        #     - CC-ND-NC-1.0
+        #     - CC-SA-1.0
+        #     - EUPL-1.0
+        #     - EUPL-1.1
+        #     - OSL
+        #     - RPL-1.5
+        #     - sleepycat
+        #   delete_inactive_products_after_seconds: 1209600 # 2 weeks
+
+        # clamav:
+        #   delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
+        #   rescan_interval: 14400 # 4h
+
+        # deliveryDbBackup:
+        #   delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
+        #   delivery_db_cfg_name: local
+        #   component_name: ...
+        #   ocm_repo: ...
+        #   extra_pg_dump_args: []
+        #   backup_retention_count: 14
+
+        # issueReplicator:
+        #   delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
+        #   delivery_dashboard_url: http://localhost
+        #   replication_interval: 3600 # 1h
+        #   cve_rescoring_rules:
+        #     - category_value: network_exposure:public
+        #       rules:
+        #         - cve_values:
+        #             - AV:N
+        #           rescore: no-change
+        #         - cve_values:
+        #             - AV:A
+        #           rescore: reduce
+        #         - cve_values:
+        #             - AV:L
+        #             - AV:P
+        #           rescore: not-exploitable
+        #     - category_value: network_exposure:protected
+        #       rules:
+        #         - cve_values:
+        #             - AV:N
+        #           rescore: reduce
+        #         - cve_values:
+        #             - AV:A
+        #             - AV:L
+        #             - AV:P
+        #           rescore: not-exploitable
+        #     - category_value: network_exposure:private
+        #       rules:
+        #         - cve_values:
+        #             - AV:N
+        #             - AV:A
+        #             - AV:L
+        #             - AV:P
+        #           rescore: not-exploitable
+        #     - category_value: authentication_enforced:true
+        #       rules:
+        #         - cve_values:
+        #             - PR:L
+        #             - PR:H
+        #           rescore: reduce
+        #     - category_value: user_interaction:gardener-operator
+        #       rules:
+        #         - cve_values:
+        #             - UI:R
+        #           rescore: reduce
+        #     - category_value: confidentiality_requirement:none
+        #       rules:
+        #         - cve_values:
+        #             - C:H
+        #             - C:L
+        #           rescore: reduce
+        #     - category_value: integrity_requirement:none
+        #       rules:
+        #         - cve_values:
+        #             - I:H
+        #             - I:L
+        #           rescore: reduce
+        #     - category_value: availability_requirement:none
+        #       rules:
+        #         - cve_values:
+        #             - A:H
+        #             - A:L
+        #           rescore: reduce
+        #   prohibited_licenses:
+        #     - AGPL
+        #     - AGPLv3
+        #     - APSL.*
+        #     - CC-BY-NC-1.0
+        #     - CC-BY-NC-2.0
+        #     - CC-BY-NC-2.5
+        #     - CC-BY-NC-3.0
+        #     - CC-BY-NC-4.0
+        #     - CC-BY-NC-ND-1.0
+        #     - CC-BY-NC-ND-2.0
+        #     - CC-BY-NC-ND-2.5
+        #     - CC-BY-NC-ND-3.0
+        #     - CC-BY-NC-ND-4.0
+        #     - CC-BY-NC-SA-1.0
+        #     - CC-BY-NC-SA-2.0
+        #     - CC-BY-NC-SA-2.5
+        #     - CC-BY-NC-SA-3.0
+        #     - CC-BY-NC-SA-4.0
+        #     - CC-BY-SA-1.0
+        #     - CC-BY-SA-2.0
+        #     - CC-BY-SA-2.5
+        #     - CC-BY-SA-3.0
+        #     - CC-BY-SA-4.0
+        #     - CC-NC-1.0
+        #     - CC-NC-SA-1.0
+        #     - CC-ND-NC-1.0
+        #     - CC-SA-1.0
+        #     - EUPL-1.0
+        #     - EUPL-1.1
+        #     - OSL
+        #     - RPL-1.5
+        #     - sleepycat
+        #   artefact_types:
+        #     - ociImage
+        #     - application/tar+vm-image-rootfs
+        #   finding_type_issue_replication_configs:
+        #   - finding_type: finding/vulnerability
+        #     enable_issue_assignees: False
+        #     cve_threshold: 4
+        #   - finding_type: finding/license
+        #     enable_issue_assignees: False
+        #   - finding_type: finding/malware
+        #     enable_issue_assignees: False
+        #   github_issues_target_repository_url: ...
+        #   github_issue_templates:
+        #     - type: licenses/bdba
+        #       body: |
+        #         {summary}
+
+        #         ## Issue Life-Cycle
+
+        #         This issue will be updated automatically. Do not close manually (if you do, a new
+        #         issue will be created upon next scan).
+        #     - type: vulnerabilities/bdba
+        #       body: |
+        #         {summary}
+
+        #         **Action Item**
+
+        #         Please take appropriate action. Choose either of:
+
+        #         - **assess** findings
+        #         - **upgrade** {resource_type} version
+        #         - **minimise** image
+
+        #         ## Issue Life-Cycle
+
+        #         This issue will be updated automatically. Do not close manually (if you do, a new
+        #         issue will be created upon next scan).
+        #     - type: malware/clamav
+        #       body: |
+        #         {summary}
+
+        #         **Action Item**
+
+        #         Please take appropriate action. Choose either of:
+
+        #         - **assess** findings
+        #         - **upgrade** {resource_type} version
+        #         - **minimise** image
+
+        #         ## Issue Life-Cycle
+
+        #         This issue will be updated automatically. Do not close manually (if you do, a new
+        #         issue will be created upon next scan).
+        #   github_issue_labels_to_preserve:
+        #     - pending.*
+        #   number_included_closed_issues: 100

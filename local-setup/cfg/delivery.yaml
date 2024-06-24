@@ -1,0 +1,25 @@
+local:
+  auth:
+    oauth_cfgs:
+      - name: GitHub
+        type: github
+        github_cfg: github_com
+        oauth_url: https://github.com/login/oauth/authorize
+        token_url: https://github.com/login/oauth/access_token
+        client_id: ...
+        client_secret: ...
+  dashboard:
+    deployment_name: delivery-dashboard
+  service:
+    deployment_name: delivery-service
+    signing:
+    - id: id-0
+      algorithm: RS256
+      secret: |-
+        -----BEGIN RSA PRIVATE KEY-----
+        ...
+        -----END RSA PRIVATE KEY-----
+      public_key: |-
+        -----BEGIN PUBLIC KEY-----
+        ...
+        -----END PUBLIC KEY-----
