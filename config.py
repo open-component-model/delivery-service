@@ -77,8 +77,8 @@ class ClamAVConfig:
     :param str delivery_service_url
     :param int lookup_new_backlog_item_interval:
         time to wait in case no backlog item was found before searching for new backlog item again
-    :param int virus_db_max_age_days
-        age in days an existing scan has to exceed to trigger rescan
+    :param int rescan_interval:
+        time after which an artefact must be re-scanned at latest
     :param str aws_cfg_name
         cfg-element used to create s3 client to retrieve artefacts
     :param tuple[str] artefact_types:
@@ -86,7 +86,7 @@ class ClamAVConfig:
     '''
     delivery_service_url: str
     lookup_new_backlog_item_interval: int
-    virus_db_max_age_days: int
+    rescan_interval: int
     aws_cfg_name: str
     artefact_types: tuple[str]
 
@@ -383,11 +383,10 @@ def deserialise_clamav_config(
         default_value=60,
     )
 
-    virus_db_max_age_days = deserialise_config_property(
+    rescan_interval = deserialise_config_property(
         config=clamav_config,
-        property_key='virus_db_max_age_days',
-        default_config=default_config,
-        default_value=5,
+        property_key='rescan_interval',
+        default_value=86400, # daily
     )
 
     aws_cfg_name = deserialise_config_property(
@@ -410,7 +409,7 @@ def deserialise_clamav_config(
     return ClamAVConfig(
         delivery_service_url=delivery_service_url,
         lookup_new_backlog_item_interval=lookup_new_backlog_item_interval,
-        virus_db_max_age_days=virus_db_max_age_days,
+        rescan_interval=rescan_interval,
         aws_cfg_name=aws_cfg_name,
         artefact_types=artefact_types,
     )
