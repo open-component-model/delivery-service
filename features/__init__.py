@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 import enum
 import logging
 import os
@@ -8,8 +9,10 @@ import watchdog.events
 import watchdog.observers.polling
 
 import dacite
+import dateutil.parser
 import falcon
 import github3.repos
+import yaml
 
 import ci.util
 import cnudie.retrieve
@@ -25,7 +28,11 @@ import lookups
 import middleware.auth
 import middleware.db_session
 import paths
+import yp
 
+
+own_dir = os.path.abspath(os.path.dirname(__file__))
+repo_dir = os.path.abspath(os.path.join(own_dir, os.pardir))
 
 logger = logging.getLogger(__name__)
 feature_cfgs = []
@@ -212,18 +219,48 @@ class FeatureBase:
 @dataclasses.dataclass(frozen=True)
 class FeatureAddressbook(FeatureBase):
     name: str = 'addressbook'
-    repo: github3.repos.Repository = None
     addressbook_relpath: str = None
     github_mappings_relpath: str = None
+    github_repo: github3.repos.Repository | None = None
 
-    def get_repo(self) -> github3.repos.Repository:
-        return self.repo
+    def get_source(self) -> str:
+        if self.github_repo:
+            return self.github_repo.url
 
-    def get_addressbook_relpath(self) -> str:
-        return self.addressbook_relpath
+        return 'local-configuration'
 
-    def get_github_mappings_relpath(self) -> str:
-        return self.github_mappings_relpath
+    def _get_content(self, relpath: str) -> dict:
+        if self.github_repo:
+            content = self.github_repo.file_contents(
+                path=relpath,
+                ref=self.github_repo.default_branch,
+            ).decoded
+        else:
+            # read file from local repository
+            content = open(os.path.join(repo_dir, relpath))
+
+        return yaml.safe_load(content)
+
+    def get_addressbook_entries(self) -> list[yp.AddressbookEntry]:
+        entries_raw = self._get_content(
+            relpath=self.addressbook_relpath,
+        )
+
+        return [
+            dacite.from_dict(
+                data_class=yp.AddressbookEntry,
+                data=entry_raw,
+            )
+            for entry_raw in entries_raw
+            if entry_raw.get('github')
+        ]
+
+    def get_github_mappings(self) -> list[dict]:
+        github_mappings = self._get_content(
+            relpath=self.github_mappings_relpath,
+        )['github_instances']
+
+        return github_mappings
 
     def serialize(self) -> dict[str, any]:
         return {
@@ -425,15 +462,48 @@ class FeatureRescoring(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureSprints(FeatureBase):
     name: str = 'sprints'
-    repo: github3.repos.Repository = None
     sprints_relpath: str = None
     sprint_date_display_name_mappings: tuple[SprintDateNameMapping] = tuple()
+    github_repo: github3.repos.Repository | None = None
 
-    def get_repo(self) -> github3.repos.Repository:
-        return self.repo
+    def _get_content(self, relpath: str) -> dict:
+        if self.github_repo:
+            content = self.github_repo.file_contents(
+                path=relpath,
+                ref=self.github_repo.default_branch,
+            ).decoded
+        else:
+            # read file from local repository
+            content = open(os.path.join(repo_dir, relpath))
 
-    def get_sprints_relpath(self) -> str:
-        return self.sprints_relpath
+        return yaml.safe_load(content)
+
+    def get_sprints_metadata(self) -> yp.SprintMetadata:
+        meta_raw = self._get_content(
+            relpath=self.sprints_relpath,
+        )['meta']
+
+        return dacite.from_dict(
+            data_class=yp.SprintMetadata,
+            data=meta_raw,
+        )
+
+    def get_sprints(self) -> list[yp.Sprint]:
+        sprints_raw = self._get_content(
+            relpath=self.sprints_relpath,
+        )['sprints']
+
+        return [
+            dacite.from_dict(
+                data_class=yp.Sprint,
+                data=sprint_raw,
+                config=dacite.Config(
+                    type_hooks={
+                        datetime.datetime: lambda date: dateutil.parser.isoparse(date),
+                    },
+                ),
+            ) for sprint_raw in sprints_raw
+        ]
 
     def get_sprint_date_display_name(self, sprint_date_name: str) -> str:
         for sprint_date_display_name_mapping in self.sprint_date_display_name_mappings:
@@ -492,17 +562,21 @@ def deserialise_addressbook(addressbook_raw: dict) -> FeatureAddressbook:
     if not (github_mappings_relpath := addressbook_raw.get('githubMappingsRelpath')):
         return FeatureAddressbook(FeatureStates.UNAVAILABLE)
 
-    repo_lookup = lookups.github_repo_lookup(
-        lookups.github_api_lookup(
-            cfg_factory=ctx_util.cfg_factory(),
-        ),
-    )
+    if github_repo_url := addressbook_raw.get('repoUrl'):
+        github_repo_lookup = lookups.github_repo_lookup(
+            lookups.github_api_lookup(
+                cfg_factory=ctx_util.cfg_factory(),
+            ),
+        )
+        github_repo = github_repo_lookup(github_repo_url)
+    else:
+        github_repo = None
 
     return FeatureAddressbook(
         FeatureStates.AVAILABLE,
-        repo=repo_lookup(addressbook_raw.get('repoUrl')),
         addressbook_relpath=addressbook_relpath,
         github_mappings_relpath=github_mappings_relpath,
+        github_repo=github_repo,
     )
 
 
@@ -602,17 +676,21 @@ def deserialise_sprints(sprints_raw: dict) -> FeatureSprints:
     if not (sprints_relpath := sprints_raw.get('sprintsRelpath')):
         return FeatureSprints(FeatureStates.UNAVAILABLE)
 
-    repo_lookup = lookups.github_repo_lookup(
-        lookups.github_api_lookup(
-            cfg_factory=ctx_util.cfg_factory(),
-        ),
-    )
+    if github_repo_url := sprints_raw.get('repoUrl'):
+        github_repo_lookup = lookups.github_repo_lookup(
+            lookups.github_api_lookup(
+                cfg_factory=ctx_util.cfg_factory(),
+            ),
+        )
+        github_repo = github_repo_lookup(github_repo_url)
+    else:
+        github_repo = None
 
     return FeatureSprints(
         FeatureStates.AVAILABLE,
-        repo=repo_lookup(sprints_raw.get('repoUrl')),
         sprints_relpath=sprints_relpath,
         sprint_date_display_name_mappings=deserialise_sprint_date_display_name_mappings(),
+        github_repo=github_repo,
     )
 
 

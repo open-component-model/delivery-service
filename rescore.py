@@ -661,16 +661,14 @@ class Rescore:
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
         namespace_callback,
         kubernetes_api_callback,
-        sprints_repo_callback,
-        sprints_relpath_callback,
+        sprints: collections.abc.Iterable[yp.Sprint],
     ):
         self.cve_rescoring_rule_set_lookup = cve_rescoring_rule_set_lookup
         self.default_rule_set_callback = default_rule_set_callback
         self.component_descriptor_lookup = component_descriptor_lookup
         self.namespace_callback = namespace_callback
         self.kubernetes_api_callback = kubernetes_api_callback
-        self.sprints_repo_callback = sprints_repo_callback
-        self.sprints_relpath_callback = sprints_relpath_callback
+        self.sprints = sprints
 
     def on_post(self, req: falcon.Request, resp: falcon.Response):
         '''
@@ -866,7 +864,6 @@ class Rescore:
         # only if there is one scan config we can assume for sure that this config should be used
         if len(scan_configs) != 1:
             max_processing_days = None
-            sprints = []
         else:
             scan_config = scan_configs[0]
             issue_replicator_config = config.deserialise_issue_replicator_config(
@@ -877,24 +874,13 @@ class Rescore:
             else:
                 max_processing_days = gcm.MaxProcessingTimesDays()
 
-            if (
-                (repo := self.sprints_repo_callback())
-                and (relpath := self.sprints_relpath_callback())
-            ):
-                sprints = yp._sprints(
-                    repo=repo,
-                    sprints_file_relpath=relpath,
-                )
-            else:
-                sprints = []
-
         rescoring_proposals = _iter_rescoring_proposals(
             artefact_metadata=artefact_metadata,
             rescorings=rescorings,
             rescoring_rules=cve_rescoring_rule_set.rules if cve_rescoring_rule_set else None,
             categorisation=categorisation,
             max_processing_days=max_processing_days,
-            sprints=sprints,
+            sprints=self.sprints,
         )
 
         resp.media = tuple(rescoring_proposals)

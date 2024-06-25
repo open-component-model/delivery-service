@@ -305,18 +305,18 @@ class ComponentResponsibles:
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
         version_lookup: cnudie.retrieve.VersionLookupByComponent,
         github_api_lookup,
-        addressbook_repo_callback,
-        addressbook_relpath_callback,
-        github_mappings_relpath_callback,
+        addressbook_source: str | None,
+        addressbook_entries: list[yp.AddressbookEntry],
+        addressbook_github_mappings: list[dict],
         version_filter_callback,
         invalid_semver_ok: bool=False,
     ):
         self._component_descriptor_lookup = component_descriptor_lookup
         self._version_lookup = version_lookup
         self.github_api_lookup = github_api_lookup
-        self.addressbook_repo_callback = addressbook_repo_callback
-        self.addressbook_relpath_callback = addressbook_relpath_callback
-        self.github_mappings_relpath_callback = github_mappings_relpath_callback
+        self.addressbook_source = addressbook_source
+        self.addressbook_entries = addressbook_entries
+        self.addressbook_github_mappings = addressbook_github_mappings
         self._version_filter_callback = version_filter_callback
         self._invalid_semver_ok = invalid_semver_ok
 
@@ -467,17 +467,12 @@ class ComponentResponsibles:
             resp.status = falcon.HTTP_ACCEPTED
             return
 
-        addressbook_entries = yp.addressbook_entries(
-            repo=self.addressbook_repo_callback(),
-            relpath=self.addressbook_relpath_callback(),
-        )
-
         user_identities = [
             yp.inject(
-                addressbook_entries=addressbook_entries,
+                addressbook_source=self.addressbook_source,
+                addressbook_entries=self.addressbook_entries,
+                addressbook_github_mappings=self.addressbook_github_mappings,
                 user_id=user_id,
-                repo=self.addressbook_repo_callback(),
-                mappingfile_relpath=self.github_mappings_relpath_callback(),
             ).identifiers
             for user_id in user_identities
         ]

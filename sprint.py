@@ -1,3 +1,4 @@
+import collections.abc
 import datetime
 import dateutil.parser
 
@@ -59,31 +60,22 @@ class SprintInfos:
 
     def __init__(
         self,
-        sprints_repo_callback,
-        sprints_relpath_callback,
+        sprints_metadata: yp.SprintMetadata,
+        sprints: collections.abc.Iterable[yp.Sprint],
         sprint_date_display_name_callback,
     ):
-        self.sprints_repo_callback = sprints_repo_callback
-        self.sprints_relpath_callback = sprints_relpath_callback
+        self.sprint_metadata = sprints_metadata
+        self.sprints = sprints
         self.sprint_date_display_name_callback = sprint_date_display_name_callback
 
     def on_get(self, req, resp):
-        sprints = yp._sprints(
-            repo=self.sprints_repo_callback(),
-            sprints_file_relpath=self.sprints_relpath_callback(),
-        )
-        sprints_meta = yp._sprints_metadata(
-            repo=self.sprints_repo_callback(),
-            sprints_file_relpath=self.sprints_relpath_callback(),
-        )
-
         resp.media = {
             'sprints': [
                 sprint.asdict(
                     sprint_date_display_name_callback=self.sprint_date_display_name_callback,
-                    meta=sprints_meta,
+                    meta=self.sprint_metadata,
                 )
-                for sprint in sprints
+                for sprint in self.sprints
             ]
         }
 
@@ -114,15 +106,6 @@ class SprintInfos:
               display_name: <str> e.g. "Release To Customer" \n
               value: <iso8601-date-str> \n
         '''
-        sprints = yp._sprints(
-            repo=self.sprints_repo_callback(),
-            sprints_file_relpath=self.sprints_relpath_callback(),
-        )
-        sprints_meta = yp._sprints_metadata(
-            repo=self.sprints_repo_callback(),
-            sprints_file_relpath=self.sprints_relpath_callback(),
-        )
-
         offset = req.get_param_as_int('offset', default=0)
         before = req.get_param('before')
         if before:
@@ -133,12 +116,12 @@ class SprintInfos:
                 raise falcon.HTTPBadRequest(title='invalid date format')
 
         current = current_sprint(
-            sprints=sprints,
+            sprints=self.sprints,
             offset=offset,
             ref_date=before,
         )
 
         resp.media = current.asdict(
             sprint_date_display_name_callback=self.sprint_date_display_name_callback,
-            meta=sprints_meta,
+            meta=self.sprint_metadata,
         )
