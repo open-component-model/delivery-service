@@ -20,6 +20,11 @@ For delivery-service, use `app.py` as entry point. Check online-help (app.py --h
 instructions. Note that most features of delivery-service are optional (features are disabled by
 default unless explicitly enabled through additional configuration).
 
+## Getting Started using Kind
+If you wish to deploy the OCM-Gear (Delivery-Service, Delivery-Dashboard, Delivery-DB, Extensions)
+in a local kubernetes cluster using kind, please refer to
+[this guide](https://github.com/open-component-model/delivery-service/blob/master/local-setup/local-setup.md).
+
 ## Getting Started
 1. Install development dependencies
 ```
