@@ -613,7 +613,16 @@ def deserialise_issue_replicator_config(
         cfg_factory=ctx_util.cfg_factory(),
     )
     github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
-    github_issues_repository = github_repo_lookup(github_issues_target_repository_url)
+    try:
+        github_issues_repository = github_repo_lookup(github_issues_target_repository_url)
+    except Exception as e:
+        # repo is only required for issue replicator -> ignore error here to allow other services
+        # to run (issue replicator will fail soon enough)
+        logger.warning(
+            'failed to access GitHub issue repository (note: this error can be safely ignored by '
+            f'all extensions except the issue replicator); {e}'
+        )
+        github_issues_repository = None
 
     github_issue_templates = deserialise_config_property(
         config=issue_replicator_config,
