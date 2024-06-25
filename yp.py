@@ -1,13 +1,6 @@
+import collections.abc
 import datetime
-import dateutil.parser
 import dataclasses
-import functools
-import typing
-
-import cachetools
-import dacite
-import github3.repos
-import yaml
 
 import delivery.model
 
@@ -21,22 +14,10 @@ pragmatically hardcoding a lot.
 '''
 
 
-def parse_yaml_file(
-    relpath: str,
-    repo: github3.repos.Repository,
-) -> dict:
-    contents = repo.file_contents(
-        path=relpath,
-        ref=repo.default_branch,
-    ).decoded
-
-    return yaml.safe_load(contents)
-
-
 @dataclasses.dataclass
 class SprintOffsets:
     name: str
-    comment: typing.Optional[str]
+    comment: str | None
     offset_days: int
 
 
@@ -55,7 +36,7 @@ class Sprint:
         self,
         sprint_date_display_name_callback,
         meta: SprintMetadata=None,
-    ) -> typing.Generator[delivery.model.SprintDate, None, None]:
+    ) -> collections.abc.Generator[delivery.model.SprintDate, None, None]:
 
         yield delivery.model.SprintDate(
             value=self.end_date.isoformat(),
@@ -89,74 +70,9 @@ class Sprint:
         }
 
 
-@cachetools.cached(cachetools.TTLCache(ttl=12 * 60 * 60, maxsize=2)) # 12h
-def _sprints_raw(
-    repo: github3.repos.Repository,
-    sprints_file_relpath: str,
-) -> dict:
-    sprints_raw = parse_yaml_file(
-        relpath=sprints_file_relpath,
-        repo=repo,
-    )
-
-    return sprints_raw
-
-
-@cachetools.cached(cachetools.TTLCache(ttl=12 * 60 * 60, maxsize=2)) # 12h
-def _sprints_metadata(
-    repo: github3.repos.Repository,
-    sprints_file_relpath: str,
-) -> SprintMetadata:
-    meta_raw = _sprints_raw(
-        repo=repo,
-        sprints_file_relpath=sprints_file_relpath,
-    )['meta']
-
-    return dacite.from_dict(
-        data_class=SprintMetadata,
-        data=meta_raw,
-    )
-
-
-@cachetools.cached(cachetools.TTLCache(ttl=12 * 60 * 60, maxsize=2)) # 12h
-def _sprints(
-    repo: github3.repos.Repository,
-    sprints_file_relpath: str,
-) -> list[Sprint]:
-    sprints_raw = _sprints_raw(
-        repo=repo,
-        sprints_file_relpath=sprints_file_relpath,
-    )['sprints']
-
-    return [
-        dacite.from_dict(
-            data_class=Sprint,
-            data=raw,
-            config=dacite.Config(
-                type_hooks={datetime.datetime: lambda d: dateutil.parser.isoparse(d)},
-            )
-        ) for raw in sprints_raw
-    ]
-
-
-@functools.cache
-def _github_mappings(
-    repo: github3.repos.Repository,
-    mappingfile_relpath: str,
-) -> list[dict]:
-    gh_mappings = parse_yaml_file(
-        relpath=mappingfile_relpath,
-        repo=repo,
-    )['github_instances']
-
-    return gh_mappings
-
-
-@functools.cache
 def _github_url(
     github_name: str,
-    repo: github3.repos.Repository,
-    mappingfile_relpath: str,
+    addressbook_github_mappings: collections.abc.Iterable[dict],
 ):
     '''
     looks up the github-url maintained in `repo`'s github mapping file for the logical
@@ -164,7 +80,7 @@ def _github_url(
 
     If not such mapping is found, None is returned.
     '''
-    for entry in _github_mappings(repo=repo, mappingfile_relpath=mappingfile_relpath):
+    for entry in addressbook_github_mappings:
         # expected attrs: name, api_url
         if entry['name'] == github_name:
             return entry['api_url']
@@ -172,14 +88,12 @@ def _github_url(
     return None # no matching entry was found
 
 
-@functools.cache
 def _github_name(
     github_url: str,
-    repo: github3.repos.Repository,
-    mappingfile_relpath: str,
+    addressbook_github_mappings: collections.abc.Iterable[dict],
 ):
     normalised_gh_domain = util.normalise_url_to_second_and_tld(url=github_url)
-    for entry in _github_mappings(repo=repo, mappingfile_relpath=mappingfile_relpath):
+    for entry in addressbook_github_mappings:
         normalised_entry_domain = util.normalise_url_to_second_and_tld(url=entry['api_url'])
         if normalised_entry_domain == normalised_gh_domain:
             return entry['name']
@@ -191,34 +105,14 @@ def _github_name(
 class AddressbookEntry:
     name: str # firstname lastname (space-separated)
     email: str # email-addr
-    github: typing.Dict[str, typing.Optional[str]] # github-name: username
-
-
-@cachetools.cached(cachetools.TTLCache(maxsize=2, ttl=60 * 60)) # cache for 1h (60 * 60s)
-def addressbook_entries(
-    repo: github3.repos.Repository,
-    relpath: str,
-) -> tuple[AddressbookEntry]:
-    if not repo or not relpath:
-        return tuple()
-
-    raw_entries = parse_yaml_file(
-        relpath=relpath,
-        repo=repo,
-    )
-    return tuple((
-        dacite.from_dict(data_class=AddressbookEntry, data=raw)
-        for raw in raw_entries
-        if raw.get('github')
-    ))
+    github: dict[str, str | None] # github-name: username
 
 
 def find_addressbook_entry(
-    addressbook_entries: typing.Sequence[AddressbookEntry],
+    addressbook_entries: collections.abc.Iterable[AddressbookEntry],
+    addressbook_github_mappings: collections.abc.Iterable[dict],
     user_id: responsibles.user_model.UserIdentity,
-    repo: github3.repos.Repository,
-    mappingfile_relpath: str,
-) -> typing.Optional[AddressbookEntry]:
+) -> AddressbookEntry | None:
     '''
     looks up first matching entry from given addressbook-entries (assumption: there is at most
     one addressbook entry per actual user)
@@ -236,8 +130,7 @@ def find_addressbook_entry(
                 user_info: responsibles.user_model.GithubUser
                 if not (github_name := _github_name(
                     github_url=user_info.github_hostname,
-                    repo=repo,
-                    mappingfile_relpath=mappingfile_relpath,
+                    addressbook_github_mappings=addressbook_github_mappings,
                 )):
                     continue
                 github_name_from_addressbook_entry = addressbook_entry.github.get(github_name)
@@ -253,10 +146,10 @@ def find_addressbook_entry(
 
 
 def inject_personal_name(
-    addressbook_entries: typing.Sequence[AddressbookEntry],
+    addressbook_source: str | None,
+    addressbook_entries: collections.abc.Iterable[AddressbookEntry],
+    addressbook_github_mappings: collections.abc.Iterable[dict],
     user_id: responsibles.user_model.UserIdentity,
-    repo: github3.repos.Repository,
-    mappingfile_relpath: str,
 ) -> responsibles.user_model.UserIdentity:
     '''
     injects personalName looked-up in passed addressbook-entries into the
@@ -264,9 +157,8 @@ def inject_personal_name(
     '''
     addressbook_entry = find_addressbook_entry(
         addressbook_entries=addressbook_entries,
+        addressbook_github_mappings=addressbook_github_mappings,
         user_id=user_id,
-        repo=repo,
-        mappingfile_relpath=mappingfile_relpath,
     )
 
     if not addressbook_entry:
@@ -282,7 +174,7 @@ def inject_personal_name(
         if not has_name:
             nameparts = addressbook_entry.name.rsplit(' ', 1)
             yield responsibles.user_model.PersonalName(
-                source=repo.url,
+                source=addressbook_source,
                 firstName=nameparts[0],
                 lastName=nameparts[1],
             )
@@ -294,10 +186,10 @@ def inject_personal_name(
 
 
 def inject_github_users(
-    addressbook_entries: typing.Sequence[AddressbookEntry],
+    addressbook_source: str | None,
+    addressbook_entries: collections.abc.Iterable[AddressbookEntry],
+    addressbook_github_mappings: collections.abc.Iterable[dict],
     user_id: responsibles.user_model.UserIdentity,
-    repo: github3.repos.Repository,
-    mappingfile_relpath: str,
 ) -> responsibles.user_model.UserIdentity:
     '''
     injects additional known github-user-IDs looked-up in passed addressbook-entries into the
@@ -306,9 +198,8 @@ def inject_github_users(
     '''
     addressbook_entry = find_addressbook_entry(
         addressbook_entries=addressbook_entries,
+        addressbook_github_mappings=addressbook_github_mappings,
         user_id=user_id,
-        repo=repo,
-        mappingfile_relpath=mappingfile_relpath,
     )
 
     if not addressbook_entry:
@@ -330,8 +221,7 @@ def inject_github_users(
             gh_hostname = util.normalise_url_to_second_and_tld(
                 _github_url(
                     github_name=gh_name,
-                    repo=repo,
-                    mappingfile_relpath=mappingfile_relpath,
+                    addressbook_github_mappings=addressbook_github_mappings,
                 )
             )
             if gh_hostname in seen_github_hostnames:
@@ -341,7 +231,7 @@ def inject_github_users(
             seen_github_hostnames.add(gh_hostname)
 
             yield responsibles.user_model.GithubUser(
-                source=repo.url,
+                source=addressbook_source,
                 github_hostname=gh_hostname,
                 username=username,
             )
@@ -353,21 +243,21 @@ def inject_github_users(
 
 
 def inject(
-    addressbook_entries: typing.Sequence[AddressbookEntry],
+    addressbook_source: str | None,
+    addressbook_entries: collections.abc.Iterable[AddressbookEntry],
+    addressbook_github_mappings: collections.abc.Iterable[dict],
     user_id: responsibles.user_model.UserIdentity,
-    repo: github3.repos.Repository,
-    mappingfile_relpath: str,
 ) -> responsibles.user_model.UserIdentity:
     user_id = inject_github_users(
+        addressbook_source=addressbook_source,
         addressbook_entries=addressbook_entries,
+        addressbook_github_mappings=addressbook_github_mappings,
         user_id=user_id,
-        repo=repo,
-        mappingfile_relpath=mappingfile_relpath,
     )
     user_id = inject_personal_name(
+        addressbook_source=addressbook_source,
         addressbook_entries=addressbook_entries,
+        addressbook_github_mappings=addressbook_github_mappings,
         user_id=user_id,
-        repo=repo,
-        mappingfile_relpath=mappingfile_relpath,
     )
     return user_id

@@ -171,18 +171,6 @@ def init_app(
     base_url: str,
 ) -> falcon.App:
     es_client = features.get_feature(features.FeatureElasticSearch).get_es_client()
-    addressbook_repo_callback = features.get_feature(features.FeatureAddressbook).get_repo
-    addressbook_relpath_callback = features.get_feature(
-        features.FeatureAddressbook,
-    ).get_addressbook_relpath
-    github_mappings_relpath_callback = features.get_feature(
-        features.FeatureAddressbook,
-    ).get_github_mappings_relpath
-    sprints_repo_callback = features.get_feature(features.FeatureSprints).get_repo
-    sprints_relpath_callback = features.get_feature(features.FeatureSprints).get_sprints_relpath
-    sprint_date_display_name_callback = features.get_feature(
-        features.FeatureSprints,
-    ).get_sprint_date_display_name
     cve_rescoring_rule_set_lookup = features.get_feature(
         features.FeatureRescoring,
     ).find_rule_set_by_name
@@ -206,6 +194,30 @@ def init_app(
     ).get_kubernetes_api
     version_filter_callback = features.get_feature(features.FeatureVersionFilter).get_version_filter
     invalid_semver_ok = parsed_arguments.invalid_semver_ok
+
+    addressbook_feature = features.get_feature(features.FeatureAddressbook)
+    if addressbook_feature.state is features.FeatureStates.AVAILABLE:
+        addressbook_feature: features.FeatureAddressbook
+
+        addressbook_source = addressbook_feature.get_source()
+        addressbook_entries = addressbook_feature.get_addressbook_entries()
+        addressbook_github_mappings = addressbook_feature.get_github_mappings()
+    else:
+        addressbook_source = None
+        addressbook_entries = []
+        addressbook_github_mappings = []
+
+    sprints_feature = features.get_feature(features.FeatureSprints)
+    if sprints_feature.state is features.FeatureStates.AVAILABLE:
+        sprints_feature: features.FeatureSprints
+
+        sprints_metadata = sprints_feature.get_sprints_metadata()
+        sprints = sprints_feature.get_sprints()
+        sprint_date_display_name_callback = sprints_feature.get_sprint_date_display_name
+    else:
+        sprints_metadata = None
+        sprints = []
+        sprint_date_display_name_callback = None
 
     def handle_exception(req, resp, ex, params, ws=None):
         stacktrace = traceback.format_exc()
@@ -350,16 +362,16 @@ def init_app(
     app.add_route(
         '/delivery/sprint-infos',
         sprint.SprintInfos(
-            sprints_repo_callback=sprints_repo_callback,
-            sprints_relpath_callback=sprints_relpath_callback,
+            sprints_metadata=sprints_metadata,
+            sprints=sprints,
             sprint_date_display_name_callback=sprint_date_display_name_callback,
         ),
     )
     app.add_route(
         '/delivery/sprint-infos/current',
         sprint.SprintInfos(
-            sprints_repo_callback=sprints_repo_callback,
-            sprints_relpath_callback=sprints_relpath_callback,
+            sprints_metadata=sprints_metadata,
+            sprints=sprints,
             sprint_date_display_name_callback=sprint_date_display_name_callback,
         ),
         suffix='current',
@@ -440,9 +452,9 @@ def init_app(
             component_descriptor_lookup=component_descriptor_lookup,
             version_lookup=version_lookup,
             github_api_lookup=github_api_lookup,
-            addressbook_repo_callback=addressbook_repo_callback,
-            addressbook_relpath_callback=addressbook_relpath_callback,
-            github_mappings_relpath_callback=github_mappings_relpath_callback,
+            addressbook_source=addressbook_source,
+            addressbook_entries=addressbook_entries,
+            addressbook_github_mappings=addressbook_github_mappings,
             version_filter_callback=version_filter_callback,
             invalid_semver_ok=invalid_semver_ok,
         ),
@@ -462,8 +474,7 @@ def init_app(
             component_descriptor_lookup=component_descriptor_lookup,
             namespace_callback=namespace_callback,
             kubernetes_api_callback=kubernetes_api_callback,
-            sprints_repo_callback=sprints_repo_callback,
-            sprints_relpath_callback=sprints_relpath_callback,
+            sprints=sprints,
         ),
     )
 
