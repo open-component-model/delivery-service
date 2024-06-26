@@ -18,12 +18,12 @@ import github3.issues.milestone
 
 import ci.util
 import cnudie.iter
+import cnudie.retrieve
 import delivery.client
 import delivery.model
 import dso.cvss
 import dso.labels
 import dso.model
-import gci.componentmodel as cm
 import github.compliance.issue as gci
 import github.compliance.milestone as gcmi
 import github.compliance.model as gcm
@@ -34,6 +34,7 @@ import github.util
 import version as version_util
 
 import config
+import k8s.util
 
 
 logger = logging.getLogger(__name__)
@@ -124,15 +125,16 @@ def _all_issues(
 def _issue_assignees(
     issue_replicator_config: config.IssueReplicatorConfig,
     delivery_client: delivery.client.DeliveryServiceClient,
-    artefact: cnudie.iter.Node | cnudie.iter.ArtefactNode,
+    artefact: dso.model.ComponentArtefactId,
 ) -> tuple[set[str], set[delivery.model.Status]]:
     assignees: set[str] = set()
     statuses: set[delivery.model.Status] = set()
 
     try:
         responsibles, statuses = delivery_client.component_responsibles(
-            component=artefact.component,
-            artifact=artefact.artefact,
+            name=artefact.component_name,
+            version=artefact.component_version,
+            artifact=artefact.artefact.artefact_name,
         )
         statuses = set(statuses)
 
@@ -155,7 +157,10 @@ def _issue_assignees(
         )
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
-            logger.warning(f'delivery service returned 404 for {artefact.artefact=}')
+            logger.warning(
+                f'delivery service returned 404 for {artefact.component_name=}, '
+                f'{artefact.component_version=}, {artefact.artefact.artefact_name=}'
+            )
         else:
             raise
 
@@ -200,7 +205,7 @@ def _issue_milestone(
 
 def _issue_title(
     issue_type: str,
-    artefact: cnudie.iter.Node | cnudie.iter.ArtefactNode,
+    artefact: dso.model.ComponentArtefactId,
     milestone: github3.issues.milestone.Milestone,
 ) -> str:
     title = f'[{issue_type}]'
@@ -208,19 +213,20 @@ def _issue_title(
     if milestone:
         title += f' - [{milestone.title}]'
 
-    return title + f' - {artefact.component_id.name}:{artefact.artefact.name}'
+    return title + f' - {artefact.component_name}:{artefact.artefact.artefact_name}'
 
 
-def _artefact_to_str(artefact: cnudie.iter.Node | cnudie.iter.ArtefactNode) -> str:
+def _artefact_to_str(artefact: dso.model.ComponentArtefactId) -> str:
     return (
-        f'{artefact.component_id.name}:{artefact.component_id.version}:'
-        f'{artefact.artefact.name}:{artefact.artefact.version}'
+        f'{artefact.component_name}:{artefact.component_version}:'
+        f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version}'
     )
 
 
 def _delivery_dashboard_url(
     base_url: str,
-    component: cm.Component,
+    component_name: str,
+    component_version: str,
     sprint_name: str=None,
 ):
     url = ci.util.urljoin(
@@ -229,8 +235,8 @@ def _delivery_dashboard_url(
     )
 
     query_params = {
-        'name': component.name,
-        'version': component.version,
+        'name': component_name,
+        'version': component_version,
         'view': 'bom',
         'rootExpanded': True,
     }
@@ -247,25 +253,25 @@ def _delivery_dashboard_url(
 
 def _vulnerability_template_vars(
     issue_replicator_config: config.IssueReplicatorConfig,
-    artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
+    ocm_nodes: collections.abc.Iterable[cnudie.iter.ResourceNode | cnudie.iter.SourceNode],
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
     summary: str,
     sprint_name: str=None,
 ) -> dict[str, str]:
     # find artefact with greatest version to use its label
     greatest_version = version_util.greatest_version(
-        versions=set(artefact.component_id.version for artefact in artefacts)
+        versions=set(ocm_node.component_id.version for ocm_node in ocm_nodes)
     )
-    for artefact in artefacts:
-        if artefact.component_id.version == greatest_version:
+    for ocm_node in ocm_nodes:
+        if ocm_node.component_id.version == greatest_version:
             break
 
     cve_rescoring_rules = issue_replicator_config.cve_rescoring_rules
-    rescore_label = artefact.artefact.find_label(
+    rescore_label = ocm_node.artefact.find_label(
         name=dso.labels.CveCategorisationLabel.name,
     )
     if not rescore_label:
-        rescore_label = artefact.component.find_label(
+        rescore_label = ocm_node.component.find_label(
             name=dso.labels.CveCategorisationLabel.name,
         )
 
@@ -348,18 +354,22 @@ def _vulnerability_template_vars(
         findings_by_versions.items(),
         key=lambda version: version[0],
     ):
-        for artefact in artefacts:
-            if f'{artefact.component_id.version}:{artefact.artefact.version}' == version_key:
+        for ocm_node in ocm_nodes:
+            if f'{ocm_node.component.version}:{ocm_node.artefact.version}' == version_key:
                 break
         else:
             raise ValueError(version_key) # this line should never be reached
 
-        summary += f'\n### {_artefact_to_str(artefact=artefact)}\n'
+        summary += f'\n### {(
+            f'{ocm_node.component.name}:{ocm_node.component.version}:'
+            f'{ocm_node.artefact.name}:{ocm_node.artefact.version}'
+        )}\n'
 
         if issue_replicator_config.delivery_dashboard_url:
             delivery_dashboard_url = _delivery_dashboard_url(
                 base_url=issue_replicator_config.delivery_dashboard_url,
-                component=artefact.component,
+                component_name=ocm_node.component.name,
+                component_version=ocm_node.component.version,
                 sprint_name=sprint_name,
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
@@ -398,7 +408,7 @@ def _vulnerability_template_vars(
 
 def _malware_template_vars(
     issue_replicator_config: config.IssueReplicatorConfig,
-    artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
+    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
     summary: str,
     sprint_name: str=None,
@@ -418,7 +428,7 @@ def _malware_template_vars(
         key=lambda version: version[0],
     ):
         for artefact in artefacts:
-            if f'{artefact.component_id.version}:{artefact.artefact.version}' == version_key:
+            if f'{artefact.component_version}:{artefact.artefact.artefact_version}' == version_key:
                 break
         else:
             raise ValueError(version_key) # this line should never be reached
@@ -428,7 +438,8 @@ def _malware_template_vars(
         if issue_replicator_config.delivery_dashboard_url:
             delivery_dashboard_url = _delivery_dashboard_url(
                 base_url=issue_replicator_config.delivery_dashboard_url,
-                component=artefact.component,
+                component_name=artefact.component_name,
+                component_version=artefact.component_version,
                 sprint_name=sprint_name,
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
@@ -449,7 +460,7 @@ def _malware_template_vars(
 
 def _license_template_vars(
     issue_replicator_config: config.IssueReplicatorConfig,
-    artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
+    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
     summary: str,
     sprint_name: str=None,
@@ -503,7 +514,7 @@ def _license_template_vars(
         key=lambda version: version[0],
     ):
         for artefact in artefacts:
-            if f'{artefact.component_id.version}:{artefact.artefact.version}' == version_key:
+            if f'{artefact.component_version}:{artefact.artefact.artefact_version}' == version_key:
                 break
         else:
             raise ValueError(version_key) # this line should never be reached
@@ -513,7 +524,8 @@ def _license_template_vars(
         if issue_replicator_config.delivery_dashboard_url:
             delivery_dashboard_url = _delivery_dashboard_url(
                 base_url=issue_replicator_config.delivery_dashboard_url,
-                component=artefact.component,
+                component_name=artefact.component_name,
+                component_version=artefact.component_version,
                 sprint_name=sprint_name,
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
@@ -549,23 +561,25 @@ def _license_template_vars(
 
 def _template_vars(
     issue_replicator_config: config.IssueReplicatorConfig,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
-    artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
+    artefacts: tuple[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     latest_processing_date: datetime.date,
     sprint_name: str=None,
 ) -> dict:
-    # retrieve all distinct component- and resource-versions and store information whether their
+    # retrieve all distinct component- and artefact-versions and store information whether their
     # artefact has findings or not (required for explicit depiction afterwards)
     findings_by_versions: dict[str, tuple[dso.model.ArtefactMetadata]] = dict()
 
     c_versions_have_findings: dict[str, bool] = dict()
     a_versions_have_findings: dict[str, bool] = dict()
     artefact_urls: set[str] = set()
+    ocm_nodes: list[cnudie.iter.ResourceNode | cnudie.iter.SourceNode] = []
 
     for artefact in artefacts:
-        c_version = artefact.component_id.version
-        a_version = artefact.artefact.version
+        c_version = artefact.component_version
+        a_version = artefact.artefact.artefact_version
 
         filtered_findings = tuple(
             finding for finding in findings
@@ -575,7 +589,14 @@ def _template_vars(
             )
         )
 
-        artefact_urls.add(gcr._artifact_url(artifact=artefact.artefact))
+        ocm_node = k8s.util.get_ocm_node(
+            component_descriptor_lookup=component_descriptor_lookup,
+            artefact=artefact,
+        )
+        if ocm_node:
+            artefact_urls.add(gcr._artifact_url(artifact=ocm_node.artefact))
+            ocm_nodes.append(ocm_node)
+
         if filtered_findings:
             findings_by_versions[f'{c_version}:{a_version}'] = filtered_findings
 
@@ -585,23 +606,31 @@ def _template_vars(
             c_versions_have_findings[c_version] = c_versions_have_findings.get(c_version, False)
             a_versions_have_findings[a_version] = a_versions_have_findings.get(a_version, False)
 
-    c_versions = tuple(version for version in c_versions_have_findings.keys())
+    c_versions = tuple(
+        version for version
+        in c_versions_have_findings.keys()
+        if version
+    )
     c_versions_str = ', '.join(sorted(c_versions))
 
     c_versions_with_findings = tuple(
         version for version, has_findings
         in c_versions_have_findings.items()
-        if has_findings
+        if version and has_findings
     )
     c_versions_with_findings_str = ', '.join(sorted(c_versions_with_findings))
 
-    a_versions = tuple(version for version in a_versions_have_findings.keys())
+    a_versions = tuple(
+        version for version
+        in a_versions_have_findings.keys()
+        if version
+    )
     a_versions_str = ', '.join(sorted(a_versions))
 
     a_versions_with_findings = tuple(
         version for version, has_findings
         in a_versions_have_findings.items()
-        if has_findings
+        if version and has_findings
     )
     a_versions_with_findings_str = ', '.join(sorted(a_versions_with_findings))
 
@@ -614,19 +643,19 @@ def _template_vars(
 
         |    |    |
         | -- | -- |
-        | Component | {artefact.component_id.name} |
+        | Component | {artefact.component_name} |
         | {gcr._pluralise('Component-Version', len(c_versions))} | {c_versions_str} |
         | {gcr._pluralise(
             prefix='Component-Version',
             count=len(c_versions_with_findings),
         )} with Findings | {c_versions_with_findings_str} |
-        | Artefact  | {artefact.artefact.name} |
+        | Artefact  | {artefact.artefact.artefact_name} |
         | {gcr._pluralise('Artefact-Version', len(a_versions))} | {a_versions_str} |
         | {gcr._pluralise(
             prefix='Artefact-Version',
             count=len(a_versions_with_findings),
         )} with Findings | {a_versions_with_findings_str} |
-        | Artefact-Type | {artefact.artefact.type} |
+        | Artefact-Type | {artefact.artefact.artefact_type} |
         | {gcr._pluralise('URL', len(artefact_urls))} | {a_urls_str} |
         | Latest Processing Date | {latest_processing_date} |
     ''')
@@ -634,19 +663,19 @@ def _template_vars(
     if findings:
         summary += (
             '\nThe aforementioned '
-            f'{gcr._pluralise(artefact.artefact.type, len(a_versions_with_findings))} '
+            f'{gcr._pluralise(artefact.artefact.artefact_type, len(a_versions_with_findings))} '
             'yielded findings relevant for future release decisions.\n'
         )
 
     template_variables = {
-        'component_name': artefact.component_id.name,
+        'component_name': artefact.component_name,
         'component_version': c_versions_with_findings_str,
-        'resource_name': artefact.artefact.name,
+        'resource_name': artefact.artefact.artefact_name,
         'resource_version': a_versions_with_findings_str,
-        'resource_type': artefact.artefact.type,
-        'artifact_name': artefact.artefact.name,
+        'resource_type': artefact.artefact.artefact_type,
+        'artifact_name': artefact.artefact.artefact_name,
         'artifact_version': a_versions_with_findings_str,
-        'artifact_type': artefact.artefact.type,
+        'artifact_type': artefact.artefact.artefact_type,
     }
 
     if not findings:
@@ -656,7 +685,7 @@ def _template_vars(
     elif issue_type == gci._label_bdba:
         template_variables |= _vulnerability_template_vars(
             issue_replicator_config=issue_replicator_config,
-            artefacts=artefacts,
+            ocm_nodes=ocm_nodes,
             findings_by_versions=findings_by_versions,
             summary=summary,
             sprint_name=sprint_name,
@@ -739,9 +768,10 @@ def create_or_update_or_close_issue(
     cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
     finding_type_issue_replication_cfg: config.FindingTypeIssueReplicationCfgBase,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
     issue_type: str,
-    artefacts: tuple[cnudie.iter.Node | cnudie.iter.ArtefactNode],
+    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     correlation_id: str,
     latest_processing_date: datetime.date,
@@ -762,6 +792,8 @@ def create_or_update_or_close_issue(
                 if re.fullmatch(pattern=pattern, string=label.name):
                     yield label.name
                     break
+
+    artefacts = tuple(artefacts)
 
     labels = {
         correlation_id,
@@ -844,6 +876,7 @@ def create_or_update_or_close_issue(
 
     template_variables = _template_vars(
         issue_replicator_config=issue_replicator_config,
+        component_descriptor_lookup=component_descriptor_lookup,
         issue_type=issue_type,
         artefacts=artefacts,
         findings=findings,
