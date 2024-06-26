@@ -695,7 +695,7 @@ def main():
     types = (
         dso.model.Datatype.VULNERABILITY,
         dso.model.Datatype.LICENSE,
-        dso.model.Datatype.MALWARE,
+        dso.model.Datatype.MALWARE_FINDING,
     )
 
     for cfg_name, scan_config in scan_configs_for_cfg_name:
