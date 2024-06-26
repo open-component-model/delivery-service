@@ -28,6 +28,7 @@ import ctx_util
 import k8s.backlog
 import k8s.logging
 import k8s.model
+import k8s.runtime_artefacts
 import k8s.util
 import lookups
 
@@ -143,7 +144,7 @@ def create_compliance_snapshot(
     )
 
 
-def _iter_artefact_nodes(
+def _iter_ocm_artefact_nodes(
     components: tuple[config.Component],
     artefact_types: tuple[str],
     node_filter: typing.Callable[[cnudie.iter.Node], bool],
@@ -185,16 +186,14 @@ def _iter_artefact_nodes(
             )
 
 
-def _iter_artefacts(
+def _iter_ocm_artefacts(
     components: tuple[config.Component],
     artefact_types: tuple[str],
     node_filter: typing.Callable[[cnudie.iter.Node], bool],
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:
-    seen_artefact_refs = set()
-
-    for artefact_node in _iter_artefact_nodes(
+    for artefact_node in _iter_ocm_artefact_nodes(
         components=components,
         artefact_types=artefact_types,
         node_filter=node_filter,
@@ -223,10 +222,6 @@ def _iter_artefacts(
                 # artefact_extra_id=artefact.extraIdentity,
             )
         )
-
-        if artefact_ref in seen_artefact_refs:
-            continue
-        seen_artefact_refs.add(artefact_ref)
 
         yield artefact_ref
 
@@ -548,15 +543,16 @@ def enumerate_artefacts(
     types: tuple[dso.model.Datatype],
 ):
     '''
-    retrieves first of all the unique artefacts referenced by the configured components as well
-    as all compliance snapshots belonging to the given `cfg_name`. These compliance snapshots are
-    differentiated between "active" (still referenced by one of the before retrieved artefacts)
-    and "inactive" (not referenced anymore). While iterating the artefacts, the active compliance
-    snapshots are being created/updated (status change) and based on this, it is evaluated if a
-    new backlog item must be created (and if yes, it will be created). The inactive compliance
-    snapshots are also being updated (status change) and if the configured grace period has passed,
-    they are deleted from the delivery-db. Also, for each artefact becoming inactive, a backlog item
-    for the issue replicator must be created.
+    retrieves first of all the unique artefacts referenced by the configured components and the
+    available runtime artefacts from the respective custom resources as well as all compliance
+    snapshots belonging to the given `cfg_name`. These compliance snapshots are differentiated
+    between "active" (still referenced by one of the before retrieved artefacts) and "inactive"
+    (not referenced anymore). While iterating the artefacts, the active compliance snapshots are
+    being created/updated (status change) and based on this, it is evaluated if a new backlog item
+    must be created (and if yes, it will be created). The inactive compliance snapshots are also
+    being updated (status change) and if the configured grace period has passed, they are deleted
+    from the delivery-db. Also, for each artefact becoming inactive, a backlog item for the issue
+    replicator must be created.
     '''
     # store current date + time to ensure they are consistent for whole enumeration
     now = datetime.datetime.now()
@@ -570,13 +566,25 @@ def enumerate_artefacts(
     )
     logger.info(f'{len(sprints)=}')
 
-    artefacts = set(_iter_artefacts(
+    ocm_artefacts = set(_iter_ocm_artefacts(
         components=scan_config.artefact_enumerator_config.components,
         artefact_types=scan_config.artefact_enumerator_config.artefact_types,
         node_filter=scan_config.artefact_enumerator_config.node_filter,
         delivery_client=delivery_client,
         component_descriptor_lookup=component_descriptor_lookup,
     ))
+    logger.info(f'{len(ocm_artefacts)=}')
+
+    runtime_artefacts = {
+        runtime_artefact.artefact
+        for runtime_artefact in k8s.runtime_artefacts.iter_runtime_artefacts(
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+        )
+    }
+    logger.info(f'{len(runtime_artefacts)=}')
+
+    artefacts = ocm_artefacts | runtime_artefacts
     logger.info(f'{len(artefacts)=}')
 
     compliance_snapshots = delivery_client.query_metadata(
