@@ -14,6 +14,7 @@ import ci.log
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
+import dso.model
 import oci.client
 import protecode.client
 import protecode.scanning
@@ -89,9 +90,15 @@ def scan(
     oci_client: oci.client.Client,
     s3_client: 'botocore.client.S3',
 ):
-    resource_node = k8s.backlog.get_resource_node(
-        backlog_item=backlog_item,
+    if backlog_item.artefact.artefact_kind is not dso.model.ArtefactKind.RESOURCE:
+        logger.warning(
+            f'found unsupported artefact kind {backlog_item.artefact.artefact_kind}, skipping...'
+        )
+        return
+
+    resource_node = k8s.util.get_ocm_node(
         component_descriptor_lookup=component_descriptor_lookup,
+        artefact=backlog_item.artefact,
     )
     groups = [[resource_node]]
 

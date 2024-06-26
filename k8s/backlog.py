@@ -13,9 +13,7 @@ import dacite
 import kubernetes.client.rest
 
 import ci.util
-import cnudie.iter
 import dso.model
-import gci.componentmodel as cm
 
 import config
 import k8s.model
@@ -409,43 +407,3 @@ def delete_backlog_crd(
         # this case can occur if two bdba worker processed the same backlog item (edge case)
         if e.status != http.HTTPStatus.NOT_FOUND:
             raise e
-
-
-def get_resource_node(
-    backlog_item: BacklogItem,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-) -> cnudie.iter.ResourceNode:
-    component = component_descriptor_lookup(cm.ComponentIdentity(
-        name=backlog_item.artefact.component_name,
-        version=backlog_item.artefact.component_version,
-    )).component
-
-    for resource in component.resources:
-        if resource.name != backlog_item.artefact.artefact.artefact_name:
-            continue
-        if resource.version != backlog_item.artefact.artefact.artefact_version:
-            continue
-        if resource.type != backlog_item.artefact.artefact.artefact_type:
-            continue
-        # currently, we do not set the extraIdentity in the backlog items
-        # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-        # if dso.model.normalise_artefact_extra_id(
-        #     artefact_extra_id=resource.extraIdentity,
-        #     artefact_version=resource.version,
-        # ) != backlog_item.artefact.artefact.normalised_artefact_extra_id(
-        #     remove_duplicate_version=True,
-        # ):
-        #     continue
-        break # found resource of backlog item in component's resources
-    else:
-        logger.error(
-            f'could not find {backlog_item.artefact.artefact.artefact_name}:'
-            f'{backlog_item.artefact.artefact.artefact_version} in resources of '
-            f'{component.name}:{component.version}'
-        )
-        raise ValueError(resource)
-
-    return cnudie.iter.ResourceNode(
-        path=(cnudie.iter.NodePathEntry(component),),
-        resource=resource,
-    )

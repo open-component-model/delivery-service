@@ -13,6 +13,10 @@ import kubernetes.client.rest
 import kubernetes.config
 import urllib3.exceptions
 
+import cnudie.iter
+import cnudie.retrieve
+import dso.model
+import gci.componentmodel as cm
 import github.compliance.model as gcm
 import model.kubernetes
 
@@ -271,3 +275,61 @@ def iter_scan_configurations(
         ))
 
     return scan_configurations
+
+
+def get_ocm_node(
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    artefact: dso.model.ComponentArtefactId,
+) -> cnudie.iter.ResourceNode | cnudie.iter.SourceNode | None:
+    if not dso.model.is_ocm_artefact(artefact.artefact_kind):
+        return None
+
+    component: cm.Component = component_descriptor_lookup(cm.ComponentIdentity(
+        name=artefact.component_name,
+        version=artefact.component_version,
+    )).component
+
+    if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+        artefacts = component.resources
+    elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+        artefacts = component.sources
+    else:
+        raise RuntimeError('this line should never be reached')
+
+    for a in artefacts:
+        if a.name != artefact.artefact.artefact_name:
+            continue
+        if a.version != artefact.artefact.artefact_version:
+            continue
+        if a.type != artefact.artefact.artefact_type:
+            continue
+        # currently, we do not set the extraIdentity in the backlog items
+        # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
+        # if dso.model.normalise_artefact_extra_id(
+        #     artefact_extra_id=a.extraIdentity,
+        #     artefact_version==a.version,
+        # ) != artefact.artefact.normalised_artefact_extra_id(
+        #     remove_duplicate_version=True,
+        # ):
+        #     continue
+
+        # found artefact of backlog item in component's artefacts
+        if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+            return cnudie.iter.ResourceNode(
+                path=(cnudie.iter.NodePathEntry(component),),
+                resource=a,
+            )
+        elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+            return cnudie.iter.SourceNode(
+                path=(cnudie.iter.NodePathEntry(component),),
+                source=a,
+            )
+        else:
+            raise RuntimeError('this line should never be reached')
+    else:
+        logger.error(
+            f'could not find {artefact.artefact.artefact_name}:'
+            f'{artefact.artefact.artefact_version} in artefacts of '
+            f'{component.name}:{component.version}'
+        )
+        raise ValueError(artefact)
