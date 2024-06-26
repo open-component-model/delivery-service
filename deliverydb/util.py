@@ -78,6 +78,7 @@ def to_db_artefact_metadata(
         datasource=meta.datasource,
         cfg_name=cfg_name,
         referenced_type=referenced_type,
+        creation_date=meta.creation_date,
         discovery_date=artefact_metadata.discovery_date,
     )
 
