@@ -163,6 +163,9 @@ def test_malware(component_artefact_id):
                 octets_count=1024,
                 scan_duration_seconds=1.0,
                 severity='NONE',
+                clamav_version_str=None,
+                signature_version=None,
+                virus_definition_timestamp=None,
             ),
         ),
     ) == cs.ComplianceEntrySeverity.CLEAN.name
@@ -180,6 +183,9 @@ def test_malware(component_artefact_id):
                 octets_count=1024,
                 scan_duration_seconds=1.0,
                 severity='BLOCKER',
+                clamav_version_str=None,
+                signature_version=None,
+                virus_definition_timestamp=None,
             ),
         ),
     ) == cs.ComplianceEntrySeverity.BLOCKER.name
