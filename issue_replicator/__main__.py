@@ -105,82 +105,6 @@ def deserialise_issue_replicator_configuration(
     return issue_replicator_config
 
 
-def _artefacts_for_backlog_item_and_components(
-    issue_replicator_config: config.IssueReplicatorConfig,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    backlog_item: k8s.backlog.BacklogItem,
-    components: set[cm.ComponentIdentity],
-) -> collections.abc.Generator[cnudie.iter.Node | cnudie.iter.ArtefactNode, None, None]:
-    '''
-    yields all artefact nodes which can be found in the given `components` and which are
-    referenced by the `backlog_item` (independent of the supplied version since the issue
-    will span all versions). Also, filters provided by the `issue_replicator_config` will
-    be applied.
-    '''
-    seen_version_pairs = set()
-
-    artefact_kind = backlog_item.artefact.artefact_kind
-
-    for component in components:
-        component = component_descriptor_lookup(cm.ComponentIdentity(
-            name=component.name,
-            version=component.version
-        )).component
-
-        if artefact_kind is dso.model.ArtefactKind.RESOURCE:
-            artefacts = component.resources
-        elif artefact_kind is dso.model.ArtefactKind.SOURCE:
-            artefacts = component.sources
-        else:
-            raise NotImplementedError(artefact_kind)
-
-        # ignore version since we consider all versions for the same ticket
-        for artefact in artefacts:
-            if artefact.name != backlog_item.artefact.artefact.artefact_name:
-                continue
-            if artefact.type != backlog_item.artefact.artefact.artefact_type:
-                continue
-            # currently, we do not set the extraIdentity in the backlog items
-            # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # if dso.model.normalise_artefact_extra_id(
-            #     artefact_extra_id=artefact.extraIdentity,
-            #     artefact_version=artefact.version,
-            # ) != backlog_item.artefact.artefact.normalised_artefact_extra_id(
-            #     remove_duplicate_version=True,
-            # ):
-            #     continue
-
-            # found artefact of backlog item in component's artefact
-            if artefact_kind is dso.model.ArtefactKind.RESOURCE:
-                artefact_node = cnudie.iter.ResourceNode(
-                    path=(cnudie.iter.NodePathEntry(component),),
-                    resource=artefact,
-                )
-            elif artefact_kind is dso.model.ArtefactKind.SOURCE:
-                artefact_node = cnudie.iter.SourceNode(
-                    path=(cnudie.iter.NodePathEntry(component),),
-                    source=artefact,
-                )
-            else:
-                raise RuntimeError('this line should never be reached')
-
-            if not artefact_node.resource.type in issue_replicator_config.artefact_types:
-                continue
-
-            if not issue_replicator_config.node_filter(artefact_node):
-                continue
-
-            # check if pair of component version and artefact version was already handled
-            # -> this is the case, if the same artefact exists with different extra identities
-            # (which we are not able to handle properly yet and thus only handle once)
-            version_pair = f'{component.version}:{artefact.version}'
-            if version_pair in seen_version_pairs:
-                continue
-            seen_version_pairs.add(version_pair)
-
-            yield artefact_node
-
-
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefact: dso.model.ComponentArtefactId,
@@ -398,18 +322,19 @@ def replicate_issue(
         correlation_id = compliance_snapshot.data.correlation_id
         correlation_ids_by_latest_processing_date[date] = correlation_id
 
-    components = set(cm.ComponentIdentity(
-        name=compliance_snapshot.artefact.component_name,
-        version=compliance_snapshot.artefact.component_version,
-    ) for compliance_snapshot in active_compliance_snapshots_for_artefact)
+    components = {
+        cm.ComponentIdentity(
+            name=compliance_snapshot.artefact.component_name,
+            version=compliance_snapshot.artefact.component_version,
+        ) for compliance_snapshot in active_compliance_snapshots_for_artefact
+    }
     logger.info(f'{len(components)=}')
 
-    artefacts = tuple(_artefacts_for_backlog_item_and_components(
-        issue_replicator_config=issue_replicator_config,
-        component_descriptor_lookup=component_descriptor_lookup,
-        backlog_item=backlog_item,
-        components=components,
-    ))
+    artefacts = {
+        compliance_snapshot.artefact
+        for compliance_snapshot in active_compliance_snapshots_for_artefact
+    }
+    logger.info(f'{len(artefacts)=}')
 
     findings_by_type_and_date = _findings_by_type_and_date(
         issue_replicator_config=issue_replicator_config,
@@ -476,6 +401,7 @@ def replicate_issue(
             cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
             finding_type_issue_replication_cfg=finding_type_issue_replication_cfg,
+            component_descriptor_lookup=component_descriptor_lookup,
             delivery_client=delivery_client,
             issue_type=issue_type,
             artefacts=artefacts,
