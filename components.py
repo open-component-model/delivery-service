@@ -1144,7 +1144,6 @@ class ComplianceSummary:
             dso.model.Datatype.ARTEFACT_SCAN_INFO,
             dso.model.Datatype.LICENSE,
             dso.model.Datatype.VULNERABILITY,
-            dso.model.Datatype.MALWARE,
             dso.model.Datatype.OS_IDS,
             dso.model.Datatype.CODECHECKS_AGGREGATED,
             dso.model.Datatype.MALWARE_FINDING,
