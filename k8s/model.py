@@ -40,6 +40,12 @@ class BacklogItemCrd(Crd):
 
 
 @dataclasses.dataclass(frozen=True)
+class RuntimeArtefactCrd(Crd):
+    KIND = 'RuntimeArtefact'
+    PLURAL_NAME = 'runtimeartefacts'
+
+
+@dataclasses.dataclass(frozen=True)
 class ScanConfiguration:
     name: str
     config: dict
