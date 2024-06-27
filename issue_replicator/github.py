@@ -565,6 +565,7 @@ def _template_vars(
     issue_type: str,
     artefacts: tuple[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
+    artefact_versions_without_scan: set[str],
     latest_processing_date: datetime.date,
     sprint_name: str=None,
 ) -> dict:
@@ -633,6 +634,7 @@ def _template_vars(
         if version and has_findings
     )
     a_versions_with_findings_str = ', '.join(sorted(a_versions_with_findings))
+    a_versions_without_scan_str = ', '.join(sorted(artefact_versions_without_scan))
 
     a_urls_str = '<br/>'.join(sorted(artefact_urls))
 
@@ -655,6 +657,10 @@ def _template_vars(
             prefix='Artefact-Version',
             count=len(a_versions_with_findings),
         )} with Findings | {a_versions_with_findings_str} |
+        | {gcr._pluralise(
+            prefix='Artefact-Version',
+            count=len(a_versions_with_findings),
+        )} without Scan | {a_versions_without_scan_str} |
         | Artefact-Type | {artefact.artefact.artefact_type} |
         | {gcr._pluralise('URL', len(artefact_urls))} | {a_urls_str} |
         | Latest Processing Date | {latest_processing_date} |
@@ -776,7 +782,7 @@ def create_or_update_or_close_issue(
     correlation_id: str,
     latest_processing_date: datetime.date,
     is_in_bom: bool,
-    is_scanned: bool,
+    artefact_versions_without_scan: set[str],
 ):
     def labels_to_preserve(
         issue: github3.issues.issue.ShortIssue,
@@ -794,6 +800,7 @@ def create_or_update_or_close_issue(
                     break
 
     artefacts = tuple(artefacts)
+    is_scanned = len(artefact_versions_without_scan) == 0
 
     labels = {
         correlation_id,
@@ -880,6 +887,7 @@ def create_or_update_or_close_issue(
         issue_type=issue_type,
         artefacts=artefacts,
         findings=findings,
+        artefact_versions_without_scan=artefact_versions_without_scan,
         latest_processing_date=latest_processing_date,
         sprint_name=sprint_name,
     )
