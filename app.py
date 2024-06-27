@@ -516,6 +516,13 @@ def init_app(
         ),
     )
     app.add_route(
+        '/service-extensions/runtime-artefacts',
+        service_extensions.RuntimeArtefacts(
+            namespace_callback=namespace_callback,
+            kubernetes_api_callback=kubernetes_api_callback,
+        ),
+    )
+    app.add_route(
         '/dora/dora-metrics',
         dora.DoraMetrics(
             component_descriptor_lookup=component_descriptor_lookup,

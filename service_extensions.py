@@ -9,6 +9,7 @@ import dso.model
 import features
 import k8s.backlog
 import k8s.model
+import k8s.runtime_artefacts
 import k8s.util
 
 
@@ -297,6 +298,129 @@ class BacklogItems:
         for name in names:
             k8s.util.delete_custom_resource(
                 crd=k8s.model.BacklogItemCrd,
+                name=name,
+                namespace=self.namespace_callback(),
+                kubernetes_api=self.kubernetes_api_callback(),
+            )
+
+        resp.status = falcon.HTTP_NO_CONTENT
+
+
+def iter_runtime_artefacts(
+    namespace: str,
+    kubernetes_api: k8s.util.KubernetesApi,
+    labels: dict[str, str]={},
+) -> collections.abc.Generator[dict, None, None]:
+    label_selector = k8s.util.create_label_selector(labels=labels)
+
+    runtime_artefacts = kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(
+        group=k8s.model.RuntimeArtefactCrd.DOMAIN,
+        version=k8s.model.RuntimeArtefactCrd.VERSION,
+        plural=k8s.model.RuntimeArtefactCrd.PLURAL_NAME,
+        namespace=namespace,
+        label_selector=label_selector,
+    ).get('items')
+
+    for runtime_artefact in runtime_artefacts:
+        yield {
+            'metadata': {
+                'name': runtime_artefact.get('metadata').get('name'),
+                'uid': runtime_artefact.get('metadata').get('uid'),
+                'labels': runtime_artefact.get('metadata').get('labels'),
+                'annotations': runtime_artefact.get('metadata').get('annotations'),
+                'creationTimestamp': runtime_artefact.get('metadata').get('creationTimestamp'),
+            },
+            'spec': runtime_artefact.get('spec'),
+        }
+
+
+class RuntimeArtefacts:
+    required_features = (features.FeatureServiceExtensions,)
+
+    def __init__(
+        self,
+        namespace_callback,
+        kubernetes_api_callback,
+    ):
+        self.namespace_callback = namespace_callback
+        self.kubernetes_api_callback = kubernetes_api_callback
+
+    def on_get(self, req: falcon.Request, resp: falcon.Response):
+        '''
+        retrieve existing runtime artefacts, optionally pre-filtered using the `label_selector`
+
+        **expected query parameters:**
+
+            - label (optional): `<key>:<value>` formatted label to use as filter \n
+        '''
+        labels_raw = req.get_param_as_list('label', default=[])
+        labels = dict([
+            label_raw.split(':') for label_raw in labels_raw
+        ])
+
+        resp.media = tuple(iter_runtime_artefacts(
+            namespace=self.namespace_callback(),
+            kubernetes_api=self.kubernetes_api_callback(),
+            labels=labels,
+        ))
+
+    def on_put(self, req: falcon.Request, resp: falcon.Response):
+        '''
+        create a runtime artefact with the specified spec
+
+        **expected query parameters:**
+
+            - label (optional): `<key>:<value>` formatted label to add to the custom resource \n
+
+        **expected body:**
+
+            artefacts: <array> of <object> \n
+            - component_name: <str> \n
+              component_version: <str> \n
+              artefact_kind: <str> \n
+              artefact: <object> \n
+                artefact_name: <str> \n
+                artefact_version: <str> \n
+                artefact_type: <str> \n
+                artefact_extra_id: <object> \n
+              references: <array> of <Self> \n
+        '''
+        labels_raw = req.get_param_as_list('label', default=[])
+        labels = dict([
+            label_raw.split(':') for label_raw in labels_raw
+        ])
+
+        for runtime_artefact_raw in req.media.get('artefacts'):
+            runtime_artefact = dacite.from_dict(
+                data_class=dso.model.ComponentArtefactId,
+                data=runtime_artefact_raw,
+                config=dacite.Config(
+                    cast=[dso.model.ArtefactKind],
+                ),
+            )
+
+            k8s.runtime_artefacts.create_unique_runtime_artefact(
+                namespace=self.namespace_callback(),
+                kubernetes_api=self.kubernetes_api_callback(),
+                artefact=runtime_artefact,
+                labels=labels,
+            )
+
+        resp.status = falcon.HTTP_CREATED
+
+    def on_delete(self, req: falcon.Request, resp: falcon.Response):
+        '''
+        delete one or more runtime artefacts by their kubernetes resource `name`
+
+        **expected query parameters:**
+
+            - name (required) \n
+        '''
+        names = req.get_param_as_list('name', required=True)
+
+        for name in names:
+            k8s.util.delete_custom_resource(
+                crd=k8s.model.RuntimeArtefactCrd,
                 name=name,
                 namespace=self.namespace_callback(),
                 kubernetes_api=self.kubernetes_api_callback(),
