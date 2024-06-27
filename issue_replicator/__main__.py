@@ -165,42 +165,10 @@ def _iter_findings_for_artefact(
         )
 
 
-def _findings_for_type_and_date(
-    issue_replicator_config: config.IssueReplicatorConfig,
-    latest_processing_date: datetime.date,
-    sprints: tuple[datetime.date],
-    type: str,
-    source: str,
-    findings: tuple[issue_replicator.github.AggregatedFinding],
-) -> tuple[tuple[issue_replicator.github.AggregatedFinding], bool]:
-    '''
-    filters the provided `findings` by `type`, `source` and also by `latest_processing_date` and
-    returns whether a scan of the artefacts exists for the given source
-    '''
-    findings_for_source = tuple(
-        finding for finding in findings
-        if finding.finding.meta.datasource == source
-    )
-
-    filtered_findings = tuple(
-        finding for finding in findings_for_source
-        if (
-            finding.finding.meta.type == type and
-            finding.calculate_latest_processing_date(
-                sprints=sprints,
-                max_processing_days=issue_replicator_config.max_processing_days,
-            ) == latest_processing_date
-        )
-    )
-
-    return filtered_findings, len(findings_for_source) > 0
-
-
-def _findings_by_type_and_date(
+def _group_findings_by_type_and_date(
     issue_replicator_config: config.IssueReplicatorConfig,
     delivery_client: delivery.client.DeliveryServiceClient,
-    artefact: dso.model.ComponentArtefactId,
-    components: set[cm.ComponentIdentity],
+    findings: collections.abc.Iterable[issue_replicator.github.AggregatedFinding],
     latest_processing_dates: set[str],
 ) -> collections.abc.Generator[
     tuple[
@@ -208,24 +176,14 @@ def _findings_by_type_and_date(
         dso.model.Datasource,
         datetime.date, # latest processing date
         tuple[issue_replicator.github.AggregatedFinding], # findings
-        bool, # scan exists
     ],
     None,
     None,
 ]:
     '''
-    yields all findings (of configured types) of the given `artefact` in `components`, grouped by
-    finding type and latest processing date. Also, it yields the information whether the artefact
-    was scanned at all which is determined based on if there is a "dummy finding". Thresholds
-    provided by configuration are applied on the findings before yielding.
+    Groups all findings by finding type and latest processing date. Also, thresholds provided by
+    configuration are applied on the findings before yielding.
     '''
-    findings = tuple(_iter_findings_for_artefact(
-        delivery_client=delivery_client,
-        artefact=artefact,
-        components=components,
-    ))
-    logger.info(f'{len(findings)=}')
-
     sprints = sprint_dates(delivery_client=delivery_client)
 
     datasource_for_datatype = {
@@ -241,13 +199,16 @@ def _findings_by_type_and_date(
             finding_type = finding_type_cfg.finding_type
             finding_source = datasource_for_datatype.get(finding_type)
 
-            filtered_findings, is_scanned = _findings_for_type_and_date(
-                issue_replicator_config=issue_replicator_config,
-                latest_processing_date=date,
-                sprints=sprints,
-                type=finding_type,
-                source=finding_source,
-                findings=findings,
+            filtered_findings = tuple(
+                finding for finding in findings
+                if (
+                    finding.finding.meta.type == finding_type and
+                    finding.finding.meta.datasource == finding_source and
+                    finding.calculate_latest_processing_date(
+                        sprints=sprints,
+                        max_processing_days=issue_replicator_config.max_processing_days,
+                    ) == date
+                )
             )
 
             if (
@@ -264,7 +225,6 @@ def _findings_by_type_and_date(
                 finding_source,
                 date,
                 filtered_findings,
-                is_scanned,
             )
 
 
@@ -336,11 +296,29 @@ def replicate_issue(
     }
     logger.info(f'{len(artefacts)=}')
 
-    findings_by_type_and_date = _findings_by_type_and_date(
-        issue_replicator_config=issue_replicator_config,
+    findings = tuple(_iter_findings_for_artefact(
         delivery_client=delivery_client,
         artefact=artefact,
         components=components,
+    ))
+    logger.info(f'{len(findings)=}')
+
+    artefact_versions = {
+        artefact.artefact.artefact_version for artefact in artefacts
+    }
+
+    scanned_artefact_versions = {
+        finding.finding.artefact.artefact.artefact_version
+        for finding in findings
+        if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO
+    }
+
+    artefact_versions_without_scan = artefact_versions - scanned_artefact_versions
+
+    findings_by_type_and_date = _group_findings_by_type_and_date(
+        issue_replicator_config=issue_replicator_config,
+        delivery_client=delivery_client,
+        findings=findings,
         latest_processing_dates=correlation_ids_by_latest_processing_date.keys(),
     )
 
@@ -384,7 +362,7 @@ def replicate_issue(
         return ValueError(f'no finding-type specific cfg found for {finding_type=}')
 
     is_in_bom = len(active_compliance_snapshots_for_artefact) > 0
-    for finding_type, finding_source, date, findings, is_scanned in findings_by_type_and_date:
+    for finding_type, finding_source, date, findings in findings_by_type_and_date:
         correlation_id = correlation_ids_by_latest_processing_date.get(date.isoformat())
 
         finding_type_issue_replication_cfg = _find_finding_type_issue_replication_cfg(
@@ -409,7 +387,7 @@ def replicate_issue(
             correlation_id=correlation_id,
             latest_processing_date=date,
             is_in_bom=is_in_bom,
-            is_scanned=is_scanned,
+            artefact_versions_without_scan=artefact_versions_without_scan,
         )
 
     logger.info(
