@@ -321,14 +321,18 @@ def user_identities_from_responsibles_label(
     component_identity: cm.ComponentIdentity,
     github_api_lookup,
 ) -> typing.Iterable[responsibles.user_model.UserIdentity]:
-    repo_url = source.access.repoUrl
-    github_api = github_api_lookup(repo_url)
-    github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
-    github_repo = github_repo_lookup(repo_url)
+    github_api = None
+    github_repo = None
 
     for responsible in responsibles_label.value:
         # delegate to existing method that returns UserIdentity from responsibles
         if isinstance(responsible, responsibles.labels.CodeownersResponsible):
+            if not (github_api and github_repo):
+                repo_url = source.access.repoUrl
+                github_api = github_api_lookup(repo_url)
+                github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
+                github_repo = github_repo_lookup(repo_url)
+
             yield from user_identities_from_github_repo(
                 github_api=github_api,
                 github_repo=github_repo,
