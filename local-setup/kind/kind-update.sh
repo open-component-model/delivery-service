@@ -47,6 +47,7 @@ helm upgrade delivery-db oci://eu.gcr.io/gardener-project/test/delivery-charts/p
 python3 ${REPO_ROOT}/local-setup/cfg/serialise_cfg.py
 python3 ${CHART}/delivery-service-mounts/render_sprints.py
 kubectl apply -f "${CHART}/delivery-service-mounts/addressbook.yaml" --namespace $NAMESPACE
+kubectl apply -f "${CHART}/delivery-service-mounts/github_mappings.yaml" --namespace $NAMESPACE
 kubectl apply -f "${CHART}/delivery-service-mounts/sprints.yaml" --namespace $NAMESPACE
 helm upgrade delivery-service oci://${HELM_REPO}/delivery-service \
     --namespace $NAMESPACE \
@@ -54,12 +55,7 @@ helm upgrade delivery-service oci://${HELM_REPO}/delivery-service \
     --values ${CHART}/values-delivery-service.yaml
 rm ${CHART}/values-delivery-service.yaml ${CHART}/delivery-service-mounts/sprints.yaml # are created every time from base file
 kubectl rollout restart deployment delivery-service # required to use updated configuration
-echo "Waiting for delivery-service to become ready, this can take up to 3 minutes..."
-kubectl wait \
-    --namespace $NAMESPACE \
-    --for=condition=ready pod \
-    --selector=app=delivery-service \
-    --timeout=180s
+kubectl rollout status deployment delivery-service
 
 # Upgrade delivery-dashboard
 helm upgrade delivery-dashboard oci://${HELM_REPO}/delivery-dashboard \

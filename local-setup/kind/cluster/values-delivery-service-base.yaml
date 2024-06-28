@@ -14,7 +14,7 @@ additionalVolumes:
     configMap:
       name: addressbook
       optional: true
-  - name: github_mappings
+  - name: github-mappings
     configMap:
       name: github-mappings
       optional: true
@@ -24,7 +24,7 @@ additionalVolumeMounts:
     mountPath: "/sprints"
   - name: addressbook
     mountPath: "/addressbook"
-  - name: github_mappings
+  - name: github-mappings
     mountPath: "/github_mappings"
 
 envVars:
@@ -154,10 +154,10 @@ featuresCfg:
     cveCategorisationLabelUrl: https://pages.github.com/open-component-model/compliance-reporting-example/cvss-rescoring.html#cvss-categorisation
     cveSeverityUrl: https://ocm.software/example/cve-severity-slas
   addressbook:
-    addressbookRelpath: ./../addressbook/addressbook
-    githubMappingsRelpath: ./../github_mappings/github_mappings
+    addressbookRelpath: ./../../../../addressbook/addressbook
+    githubMappingsRelpath: ./../../../../github_mappings/github_mappings
   sprints:
-    sprintsRelpath: ./../sprints/sprints
+    sprintsRelpath: ./../../../../sprints/sprints
     sprintDateNameMappings:
       - dateName: release_decision
         displayName: Release Decision

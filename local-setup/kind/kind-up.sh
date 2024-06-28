@@ -66,6 +66,7 @@ helm install delivery-db oci://eu.gcr.io/gardener-project/test/delivery-charts/p
 python3 ${REPO_ROOT}/local-setup/cfg/serialise_cfg.py
 python3 ${CHART}/delivery-service-mounts/render_sprints.py
 kubectl apply -f "${CHART}/delivery-service-mounts/addressbook.yaml" --namespace $NAMESPACE
+kubectl apply -f "${CHART}/delivery-service-mounts/github_mappings.yaml" --namespace $NAMESPACE
 kubectl apply -f "${CHART}/delivery-service-mounts/sprints.yaml" --namespace $NAMESPACE
 helm install delivery-service oci://${HELM_REPO}/delivery-service \
     --namespace $NAMESPACE \
