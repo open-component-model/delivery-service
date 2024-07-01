@@ -9,7 +9,6 @@ import time
 import botocore.client
 
 import ccc.aws
-import ccc.oci
 import ccc.protecode
 import ci.log
 import cnudie.iter
@@ -253,7 +252,9 @@ def main():
         cfg_factory=cfg_factory,
     )
 
-    oci_client = ccc.oci.oci_client(cfg_factory=cfg_factory)
+    oci_client = lookups.semver_sanitised_oci_client(
+        cfg_factory=cfg_factory,
+    )
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
         cache_dir=parsed_arguments.cache_dir,

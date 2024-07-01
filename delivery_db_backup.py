@@ -8,7 +8,6 @@ import subprocess
 import tarfile
 import typing
 
-import ccc.oci
 import ci.log
 import ci.util
 import cnudie.iter
@@ -28,6 +27,7 @@ import config
 import ctx_util
 import k8s.logging
 import k8s.util
+import lookups
 
 
 logger = logging.getLogger(__name__)
@@ -229,6 +229,8 @@ def delete_old_backup_versions(
 
     oci_client = oci.client.Client(
         credentials_lookup=oci_cfg_lookup,
+        tag_preprocessing_callback=cnudie.util.sanitise_version,
+        tag_postprocessing_callback=cnudie.util.desanitise_version,
     )
 
     lookup = cnudie.retrieve.oci_component_descriptor_lookup(oci_client=oci_client)
@@ -369,7 +371,9 @@ def main():
         ocm_repository=ocm_repo,
     )
 
-    oci_client = ccc.oci.oci_client(cfg_factory=cfg_factory)
+    oci_client = lookups.semver_sanitised_oci_client(
+        cfg_factory=cfg_factory,
+    )
 
     size = os.path.getsize(outfile)
 

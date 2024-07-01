@@ -13,7 +13,6 @@ import falcon
 import falcon.media
 import spectree
 
-import ccc.oci
 import ci.log
 import ci.util
 
@@ -122,7 +121,9 @@ def init(parsed_arguments):
         )
         middlewares.append(rfc.ShortcutRoutesWithUnavailableFeatures(unavailable_features))
 
-    oci_client = ccc.oci.oci_client(cfg_factory=cfg_factory)
+    oci_client = lookups.semver_sanitised_oci_client(
+        cfg_factory=cfg_factory,
+    )
 
     version_lookup = lookups.init_version_lookup(
         oci_client=oci_client,

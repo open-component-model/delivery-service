@@ -16,7 +16,6 @@ import sqlalchemy as sa
 import sqlalchemy.orm.query as sq
 import sqlalchemy.orm.session as ss
 
-import ccc.oci
 import ci.util
 import cnudie.iter
 import cnudie.util
@@ -29,7 +28,6 @@ import oci.model as om
 import version as versionutil
 
 import compliance_summary as cs
-import ctx_util
 import deliverydb.model as dm
 import deliverydb.util
 import eol
@@ -497,7 +495,7 @@ def component_versions(
             raise NotImplementedError(ocm_repo)
 
         if not oci_client:
-            oci_client = ccc.oci.oci_client(cfg_factory=ctx_util.cfg_factory())
+            oci_client = lookups.semver_sanitised_oci_client()
 
         try:
             return cnudie.retrieve.component_versions(

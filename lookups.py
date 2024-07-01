@@ -15,6 +15,19 @@ import ctx_util
 import paths
 
 
+def semver_sanitised_oci_client(
+    cfg_factory=None,
+) -> oci.client.Client:
+    if not cfg_factory:
+        cfg_factory = ctx_util.cfg_factory()
+
+    return ccc.oci.oci_client(
+        cfg_factory=cfg_factory,
+        tag_preprocessing_callback=cnudie.util.sanitise_version,
+        tag_postprocessing_callback=cnudie.util.desanitise_version,
+    )
+
+
 @functools.cache
 def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
     if features_cfg_path := paths.features_cfg_path():
@@ -61,7 +74,7 @@ def init_component_descriptor_lookup(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = ccc.oci.oci_client(cfg_factory=ctx_util.cfg_factory())
+        oci_client = semver_sanitised_oci_client()
 
     lookups = [cnudie.retrieve.in_memory_cache_component_descriptor_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
@@ -100,7 +113,7 @@ def init_version_lookup(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = ccc.oci.oci_client(cfg_factory=ctx_util.cfg_factory())
+        oci_client = semver_sanitised_oci_client()
 
     return cnudie.retrieve.version_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
