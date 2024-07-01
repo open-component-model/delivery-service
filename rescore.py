@@ -480,7 +480,8 @@ def _iter_rescoring_proposals(
                             severity=severity,
                         ).name,
                         'matching_rules': [
-                            rule.name for rule in dso.cvss.matching_rescore_rules(
+                            rule.name if rule.name else rule.category_value
+                            for rule in dso.cvss.matching_rescore_rules(
                                 rescoring_rules=rescoring_rules,
                                 categorisation=categorisation,
                                 cvss=cvss,
