@@ -102,7 +102,6 @@ def iter_existing_backlog_items_for_artefact(
         k8s.model.LABEL_CFG_NAME: cfg_name,
     }
     label_selector = k8s.util.create_label_selector(labels=labels)
-    label_selector += f', {LABEL_CLAIMED}!=True'
 
     backlog_crds = kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(
         group=k8s.model.BacklogItemCrd.DOMAIN,
