@@ -387,23 +387,3 @@ def update_backlog_crd(
         # and must not be updated anymore
         if e.status != http.HTTPStatus.NOT_FOUND:
             raise e
-
-
-def delete_backlog_crd(
-    name: str,
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
-):
-    try:
-        kubernetes_api.custom_kubernetes_api.delete_namespaced_custom_object(
-            group=k8s.model.BacklogItemCrd.DOMAIN,
-            version=k8s.model.BacklogItemCrd.VERSION,
-            plural=k8s.model.BacklogItemCrd.PLURAL_NAME,
-            namespace=namespace,
-            name=name,
-        )
-    except kubernetes.client.rest.ApiException as e:
-        # if the http status is 404 it is fine because the object should be deleted anyway
-        # this case can occur if two bdba worker processed the same backlog item (edge case)
-        if e.status != http.HTTPStatus.NOT_FOUND:
-            raise e
