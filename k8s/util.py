@@ -333,3 +333,23 @@ def get_ocm_node(
             f'{component.name}:{component.version}'
         )
         raise ValueError(artefact)
+
+
+def delete_custom_resource(
+    crd: k8s.model.Crd,
+    name: str,
+    namespace: str,
+    kubernetes_api: KubernetesApi,
+):
+    try:
+        kubernetes_api.custom_kubernetes_api.delete_namespaced_custom_object(
+            group=crd.DOMAIN,
+            version=crd.VERSION,
+            plural=crd.PLURAL_NAME,
+            namespace=namespace,
+            name=name,
+        )
+    except kubernetes.client.rest.ApiException as e:
+        # if the http status is 404 it is fine because the resource should be deleted anyway
+        if e.status != http.HTTPStatus.NOT_FOUND:
+            raise e

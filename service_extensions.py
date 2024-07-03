@@ -295,7 +295,8 @@ class BacklogItems:
         names = req.get_param_as_list('name', required=True)
 
         for name in names:
-            k8s.backlog.delete_backlog_crd(
+            k8s.util.delete_custom_resource(
+                crd=k8s.model.BacklogItemCrd,
                 name=name,
                 namespace=self.namespace_callback(),
                 kubernetes_api=self.kubernetes_api_callback(),

@@ -640,7 +640,8 @@ def main():
             backlog_item=backlog_item,
         )
 
-        k8s.backlog.delete_backlog_crd(
+        k8s.util.delete_custom_resource(
+            crd=k8s.model.BacklogItemCrd,
             name=name,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
