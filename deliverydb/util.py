@@ -6,6 +6,8 @@ import sqlalchemy as sa
 import sqlalchemy.sql.elements as sqle
 
 import ci.util
+import cnudie.iter
+import cnudie.retrieve
 import dso.model
 import gci.componentmodel as cm
 
@@ -170,10 +172,103 @@ class ArtefactMetadataFilters:
 
 class ArtefactMetadataQueries:
     @staticmethod
-    def component_queries(
-        components: tuple[cm.ComponentIdentity],
+    def artefact_queries(
+        artefacts: collections.abc.Iterable[cm.Resource | cm.Source]=None,
+        component: cm.ComponentIdentity=None,
+        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById=None,
         none_ok: bool=False,
     ) -> collections.abc.Generator[sqle.BooleanClauseList, None, None]:
+        '''
+        Generates single SQL expressions which check for equality with one artefact of `artefacts`.
+        If `artefacts` is not specified, `component` and `component_descriptor_lookup` _must_ be
+        both specified to retrieve all artefacts of the given `component`.
+
+        Intended to be concatenated using an `OR` expression which semantically checks a database
+        entry to be one of `artefacts`.
+
+        If a property mismatches but one of the compared values is `None` and `none_ok` is set to
+        `True`, the predecate evaluates to `True` anyways.
+        '''
+        if not (artefacts or (component and component_descriptor_lookup)):
+            raise ValueError(
+                'either `artefacts` or `component` and `component_descriptor_lookup` '
+                'must be specified'
+            )
+
+        if not artefacts:
+            if component.version:
+                component: cm.Component = component_descriptor_lookup(component).component
+
+                artefacts = tuple(
+                    artefact_node.artefact for artefact_node in cnudie.iter.iter(
+                    component=component,
+                    lookup=component_descriptor_lookup,
+                    node_filter=cnudie.iter.Filter.artefacts,
+                ))
+            else:
+                # if no component version is specified, artefact specific querying must be
+                # taken care of by the caller
+                yield True
+                return
+
+        for artefact in artefacts:
+            yield sa.and_(
+                # if name or version is missing and `none_ok` is set, set predicate to `True`
+                sa.or_(
+                    sa.and_(
+                        none_ok,
+                        dm.ArtefactMetaData.artefact_name == None,
+                    ),
+                    dm.ArtefactMetaData.artefact_name == artefact.name,
+                ),
+                sa.or_(
+                    sa.and_(
+                        none_ok,
+                        dm.ArtefactMetaData.artefact_version == None,
+                    ),
+                    dm.ArtefactMetaData.artefact_version == artefact.version,
+                ),
+                sa.or_(
+                    sa.and_(
+                        none_ok,
+                        dm.ArtefactMetaData.artefact_type == None,
+                    ),
+                    dm.ArtefactMetaData.artefact_type == artefact.type,
+                ),
+                sa.or_(
+                    sa.and_(
+                        none_ok,
+                        dm.ArtefactMetaData.artefact_extra_id_normalised == None,
+                    ),
+                    dm.ArtefactMetaData.artefact_extra_id_normalised
+                        == dso.model.normalise_artefact_extra_id(
+                        artefact_extra_id=artefact.extraIdentity,
+                    ),
+                ),
+            )
+
+    @staticmethod
+    def component_queries(
+        components: tuple[cm.Component | cm.ComponentIdentity],
+        none_ok: bool=False,
+        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById=None,
+    ) -> collections.abc.Generator[sqle.BooleanClauseList, None, None]:
+        '''
+        Generates single SQL expressions which check for equality with one component of `components`
+        by name and version.
+
+        Intended to be concatenated using an `OR` expression which semantically checks a database
+        entry to be one of `components`.
+
+        If a property mismatches but one of the compared values is `None` and `none_ok` is set to
+        `True`, the predecate evaluates to `True` anyways.
+
+        If the component version of a database entry is not specified and `none_ok` is not `True`,
+        it is checked whether the component in question contains an artefact version which matches
+        the database entry. This is especially useful for retrieving BDBA scan results which don't
+        contain a component version (for deduplication), to only query scan results for artefact
+        versions which are included in the specified component versions.
+        '''
         for component in components:
             yield sa.and_(
                 # if name or version is missing and `none_ok` is set, set predicate to `True`
@@ -185,10 +280,17 @@ class ArtefactMetadataQueries:
                     dm.ArtefactMetaData.component_name == component.name,
                 ),
                 sa.or_(
+                    dm.ArtefactMetaData.component_version == component.version,
                     sa.and_(
                         none_ok,
                         dm.ArtefactMetaData.component_version == None,
                     ),
-                    dm.ArtefactMetaData.component_version == component.version,
+                    sa.and_(
+                        dm.ArtefactMetaData.component_version == None,
+                        sa.or_(ArtefactMetadataQueries.artefact_queries(
+                            component=component,
+                            component_descriptor_lookup=component_descriptor_lookup,
+                        )),
+                    ),
                 ),
             )
