@@ -252,7 +252,7 @@ class SummaryConfig:
 def component_summaries(
     findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    component_ids: tuple[cm.ComponentIdentity],
+    components: tuple[cm.Component],
     eol_client: eol.EolClient,
     artefact_metadata_cfg_by_type: dict,
     cfg: SummaryConfig = SummaryConfig(
@@ -295,27 +295,53 @@ def component_summaries(
     for each `data_type`.
     On absence of flaw per data_type, corresponding `default_entry` is taken.
     '''
-    for component_id in component_ids:
-        filtered_findings = tuple(
-            finding for finding in findings
-            if (
-                component_id.name == finding.artefact.component_name
-                and component_id.version == finding.artefact.component_version
-            )
-        )
+    for component in components:
+        filtered_findings = []
+        for finding in findings:
+            if component.name != finding.artefact.component_name:
+                continue
+
+            if (version := finding.artefact.component_version) and component.version != version:
+                continue
+
+            for artefact in component.resources + component.sources:
+                if artefact.name != finding.artefact.artefact.artefact_name:
+                    continue
+
+                if artefact.version != finding.artefact.artefact.artefact_version:
+                    continue
+
+                if artefact.type != finding.artefact.artefact.artefact_type:
+                    continue
+
+                if dso.model.normalise_artefact_extra_id(
+                    artefact_extra_id=artefact.extraIdentity,
+                ) != finding.artefact.artefact.normalised_artefact_extra_id():
+                    continue
+
+                # artefact of finding is referenced in current component
+                filtered_findings.append(finding)
+                break
+            else:
+                # artefact of finding is not referenced in current component -> skip
+                continue
+
         filtered_rescorings = tuple(
             rescoring for rescoring in rescorings
             if (
                 not rescoring.artefact.component_name or
-                rescoring.artefact.component_name == component_id.name
+                rescoring.artefact.component_name == component.name
             ) and (
                 not rescoring.artefact.component_version or
-                rescoring.artefact.component_version == component_id.version
+                rescoring.artefact.component_version == component.version
             )
         )
 
         yield ComplianceSummary(
-            componentId=component_id,
+            componentId=cm.ComponentIdentity(
+                name=component.name,
+                version=component.version,
+            ),
             entries=list(calculate_summary(
                 artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
                 findings=filtered_findings,

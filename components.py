@@ -1124,11 +1124,9 @@ class ComplianceSummary:
             ctx_repo=ocm_repo,
         )
 
-        component_ids = tuple(
-            cm.ComponentIdentity(
-                name=component.component.name,
-                version=component.component.version,
-            ) for component in components_dependencies
+        components = tuple(
+            component_node.component
+            for component_node in components_dependencies
         )
 
         session: ss.Session = req.context.db_session
@@ -1144,15 +1142,17 @@ class ComplianceSummary:
 
         findings_query = session.query(dm.ArtefactMetaData).filter(
             sa.or_(deliverydb.util.ArtefactMetadataQueries.component_queries(
-                components=component_ids,
+                components=components,
+                component_descriptor_lookup=self._component_descriptor_lookup,
             )),
             dm.ArtefactMetaData.type.in_(type_filter),
         )
         rescorings_query = session.query(dm.ArtefactMetaData).filter(
             dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
             sa.or_(deliverydb.util.ArtefactMetadataQueries.component_queries(
-                components=component_ids,
+                components=components,
                 none_ok=True,
+                component_descriptor_lookup=self._component_descriptor_lookup,
             )),
             deliverydb.util.ArtefactMetadataFilters.filter_for_rescoring_type(type_filter),
         )
@@ -1178,7 +1178,7 @@ class ComplianceSummary:
                 for summary in cs.component_summaries(
                     findings=findings,
                     rescorings=rescorings,
-                    component_ids=component_ids,
+                    components=components,
                     eol_client=self.eol_client,
                     artefact_metadata_cfg_by_type=self.artefact_metadata_cfg_by_type,
                 )

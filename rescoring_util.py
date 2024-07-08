@@ -33,6 +33,7 @@ def _iter_rescorings_for_finding(
 
         if (
             rescoring.artefact.component_version
+            and finding.artefact.component_version
             and rescoring.artefact.component_version != finding.artefact.component_version
         ):
             continue
@@ -107,7 +108,7 @@ def _specificity_of_rescoring(
     if not rescoring.artefact.artefact.artefact_name:
         return RescoringSpecificity.COMPONENT
 
-    if not rescoring.artefact.component_version:
+    if not rescoring.artefact.artefact.artefact_version:
         return RescoringSpecificity.ARTEFACT
 
     return RescoringSpecificity.SINGLE

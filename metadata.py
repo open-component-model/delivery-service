@@ -8,6 +8,7 @@ import sqlalchemy as sa
 import sqlalchemy.orm.session as ss
 
 import ci.util
+import cnudie.retrieve
 import dso.model
 import gci.componentmodel as cm
 
@@ -25,9 +26,11 @@ class ArtefactMetadata:
         self,
         eol_client: eol.EolClient,
         artefact_metadata_cfg_by_type: dict,
+        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ):
         self.eol_client = eol_client
         self.artefact_metadata_cfg_by_type = artefact_metadata_cfg_by_type
+        self.component_descriptor_lookup = component_descriptor_lookup
 
     def on_post_query(self, req: falcon.Request, resp: falcon.Response):
         '''
@@ -84,6 +87,7 @@ class ArtefactMetadata:
                 findings_query = findings_query.filter(
                     sa.or_(du.ArtefactMetadataQueries.component_queries(
                         components=component_ids,
+                        component_descriptor_lookup=self.component_descriptor_lookup,
                     )),
                 )
             else:
@@ -97,10 +101,12 @@ class ArtefactMetadata:
                             sa.or_(du.ArtefactMetadataQueries.component_queries(
                                 components=component_ids,
                                 none_ok=True,
+                                component_descriptor_lookup=self.component_descriptor_lookup,
                             )),
                         ),
                         sa.or_(du.ArtefactMetadataQueries.component_queries(
                             components=component_ids,
+                            component_descriptor_lookup=self.component_descriptor_lookup,
                         )),
                     ),
                 )

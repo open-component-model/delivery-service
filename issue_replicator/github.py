@@ -585,8 +585,11 @@ def _template_vars(
         filtered_findings = tuple(
             finding for finding in findings
             if (
-                finding.finding.artefact.component_version == c_version and
                 finding.finding.artefact.artefact.artefact_version == a_version
+                and (
+                    not finding.finding.artefact.component_version
+                    or finding.finding.artefact.component_version == c_version
+                )
             )
         )
 
