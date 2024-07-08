@@ -171,7 +171,10 @@ def _find_artefact_metadata(
     query = session.query(dm.ArtefactMetaData).filter(
         sa.and_(
             dm.ArtefactMetaData.component_name == artefact.component_name,
-            dm.ArtefactMetaData.component_version == artefact.component_version,
+            sa.or_(
+                dm.ArtefactMetaData.component_version == sa.null(),
+                dm.ArtefactMetaData.component_version == artefact.component_version,
+            ),
             dm.ArtefactMetaData.artefact_kind == artefact.artefact_kind,
             dm.ArtefactMetaData.artefact_name == artefact.artefact.artefact_name,
             dm.ArtefactMetaData.artefact_version == artefact.artefact.artefact_version,

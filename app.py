@@ -285,6 +285,7 @@ def init_app(
         metadata.ArtefactMetadata(
             eol_client=eol_client,
             artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+            component_descriptor_lookup=component_descriptor_lookup,
         ),
     )
     app.add_route(
@@ -292,6 +293,7 @@ def init_app(
         metadata.ArtefactMetadata(
             eol_client=eol_client,
             artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+            component_descriptor_lookup=component_descriptor_lookup,
         ),
         suffix='query',
     )
