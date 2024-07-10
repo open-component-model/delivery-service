@@ -15,7 +15,7 @@ import k8s.util
 
 logger = logging.getLogger(__name__)
 
-supported_log_levels = {logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR}
+supported_log_levels = {logging.INFO, logging.WARNING, logging.ERROR}
 
 
 def log_filename_for_level(level: int) -> str:
@@ -248,8 +248,8 @@ def continuously_log_to_crd(
     service: config.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    loop_interval: int=60,
-    retry_interval: int=30,
+    loop_interval: int=120,
+    retry_interval: int=60,
 ):
     while True:
         try:
@@ -260,7 +260,7 @@ def continuously_log_to_crd(
             )
             time.sleep(loop_interval)
         except Exception:
-            logger.error(traceback.format_exc())
+            logger.warning(traceback.format_exc())
             logger.warning(f'caught error while looping func, will retry after {retry_interval}s')
             time.sleep(retry_interval)
 
