@@ -664,6 +664,7 @@ def resolve_component_dependencies(
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ctx_repo: cm.OcmRepository=None,
+    recursion_depth: int=-1,
 ) -> list[cnudie.iter.ComponentNode]:
     descriptor = util.retrieve_component_descriptor(
         cm.ComponentIdentity(
@@ -681,6 +682,7 @@ def resolve_component_dependencies(
             component_version=component.version,
             component_descriptor_lookup=component_descriptor_lookup,
             ctx_repo=ctx_repo,
+            recursion_depth=recursion_depth,
         ))
     except dacite.exceptions.MissingValueError as e:
         raise falcon.HTTPFailedDependency(title=str(e))
@@ -1013,6 +1015,7 @@ def _components(
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ctx_repo: cm.OcmRepository=None,
+    recursion_depth: int=-1,
 ) -> tuple[Component]:
     component_descriptor = util.retrieve_component_descriptor(
         cm.ComponentIdentity(
@@ -1027,6 +1030,7 @@ def _components(
         return tuple(cnudie.iter.iter(
             component=component_descriptor,
             lookup=component_descriptor_lookup,
+            recursion_depth=recursion_depth,
             prune_unique=False,
             node_filter=lambda node: isinstance(node, cnudie.iter.ComponentNode),
         ))
@@ -1059,7 +1063,7 @@ class ComplianceSummary:
         self._version_filter_callback = version_filter_callback
         self._invalid_semver_ok = invalid_semver_ok
 
-    def on_get(self, req, resp):
+    def on_get(self, req: falcon.Request, resp: falcon.Response):
         '''
         returns most critical severity for artefact-metadata types, for all component-dependencies
 
@@ -1070,7 +1074,8 @@ class ComplianceSummary:
             - component_name (required) \n
             - version (required) \n
             - version_filter (optional) \n
-            - ctx_repo_url (optional)
+            - ctx_repo_url (optional) \n
+            - recursion_depth (optional) \n
 
         **response:**
 
@@ -1107,6 +1112,8 @@ class ComplianceSummary:
         )
         util.get_enum_value_or_raise(version_filter, features.VersionFilter)
 
+        recursion_depth = req.get_param_as_int('recursion_depth', default=-1)
+
         if version == 'greatest':
             version = greatest_version_if_none(
                 component_name=component_name,
@@ -1122,6 +1129,7 @@ class ComplianceSummary:
             component_version=version,
             component_descriptor_lookup=self._component_descriptor_lookup,
             ctx_repo=ocm_repo,
+            recursion_depth=recursion_depth,
         )
 
         components = tuple(
