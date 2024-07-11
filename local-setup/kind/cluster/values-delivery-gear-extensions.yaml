@@ -265,11 +265,17 @@ configuration:
         #   finding_type_issue_replication_configs:
         #   - finding_type: finding/vulnerability
         #     enable_issue_assignees: False
+        #     enable_issue_per_finding: False
         #     cve_threshold: 4
         #   - finding_type: finding/license
         #     enable_issue_assignees: False
+        #     enable_issue_per_finding: False
         #   - finding_type: finding/malware
         #     enable_issue_assignees: False
+        #     enable_issue_per_finding: False
+        #   - finding_type: finding/diki
+        #     enable_issue_assignees: False
+        #     enable_issue_per_finding: True
         #   github_issues_target_repository_url: ...
         #   github_issue_templates:
         #     - type: licenses/bdba

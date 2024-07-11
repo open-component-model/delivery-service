@@ -126,6 +126,7 @@ def _iter_findings_for_artefact(
                 dso.model.Datatype.VULNERABILITY,
                 dso.model.Datatype.LICENSE,
                 dso.model.Datatype.MALWARE_FINDING,
+                dso.model.Datatype.DIKI_FINDING,
             ),
         ))
 
@@ -189,6 +190,7 @@ def _group_findings_by_type_and_date(
         dso.model.Datatype.VULNERABILITY: dso.model.Datasource.BDBA,
         dso.model.Datatype.LICENSE: dso.model.Datasource.BDBA,
         dso.model.Datatype.MALWARE_FINDING: dso.model.Datasource.CLAMAV,
+        dso.model.Datatype.DIKI_FINDING: dso.model.Datasource.DIKI,
     }
 
     for latest_processing_date in latest_processing_dates:
@@ -334,6 +336,12 @@ def replicate_issue(
             and finding_source == dso.model.Datasource.CLAMAV
         ):
             return gci._label_malware
+
+        elif (
+            finding_type == dso.model.Datatype.DIKI_FINDING
+            and finding_source == dso.model.Datasource.DIKI
+        ):
+            return gci._label_diki
 
         else:
             raise NotImplementedError(f'{finding_type=} is not supported for {finding_source=}')

@@ -147,9 +147,14 @@ class FindingTypeIssueReplicationCfgBase:
         finding type this configuration should be applied for
         (see cc-utils dso/model.py for available "Datatype"s)
     :param bool enable_issue_assignees
+    :param bool enable_issue_per_finding:
+        when set to true issues are created per finding for a
+        specific artefact as oppsed to a single issue with
+        all findings
     '''
     finding_type: str
     enable_issue_assignees: bool
+    enable_issue_per_finding: bool
 
 
 @dataclasses.dataclass(frozen=True)
