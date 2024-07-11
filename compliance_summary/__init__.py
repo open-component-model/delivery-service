@@ -15,6 +15,7 @@ import unixutil.model as um
 import delivery.model
 import delivery.util as du
 import eol
+import ocm_util
 import osinfo
 import rescoring_util
 
@@ -239,9 +240,16 @@ class ComplianceSummaryEntry:
 
 
 @dataclasses.dataclass(frozen=True)
-class ComplianceSummary:
+class ArtefactComplianceSummary:
+    artefact: dso.model.ComponentArtefactId
+    entries: list[ComplianceSummaryEntry]
+
+
+@dataclasses.dataclass(frozen=True)
+class ComponentComplianceSummary:
     componentId: cm.ComponentIdentity
     entries: list[ComplianceSummaryEntry]
+    artefacts: list[ArtefactComplianceSummary]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -289,55 +297,38 @@ def component_summaries(
             )
         },
     ),
-) -> collections.abc.Generator[ComplianceSummary, None, None]:
+) -> collections.abc.Generator[ComponentComplianceSummary, None, None]:
     '''
-    yields compliance summaries per component containing most critical flaw
-    for each `data_type`.
+    yields compliance summaries per component and per artefact containing most
+    critical flaw for each `data_type`.
     On absence of flaw per data_type, corresponding `default_entry` is taken.
     '''
     for component in components:
-        filtered_findings = []
-        for finding in findings:
-            if component.name != finding.artefact.component_name:
-                continue
-
-            if (version := finding.artefact.component_version) and component.version != version:
-                continue
-
-            for artefact in component.resources + component.sources:
-                if artefact.name != finding.artefact.artefact.artefact_name:
-                    continue
-
-                if artefact.version != finding.artefact.artefact.artefact_version:
-                    continue
-
-                if artefact.type != finding.artefact.artefact.artefact_type:
-                    continue
-
-                if dso.model.normalise_artefact_extra_id(
-                    artefact_extra_id=artefact.extraIdentity,
-                ) != finding.artefact.artefact.normalised_artefact_extra_id():
-                    continue
-
-                # artefact of finding is referenced in current component
-                filtered_findings.append(finding)
-                break
-            else:
-                # artefact of finding is not referenced in current component -> skip
-                continue
-
-        filtered_rescorings = tuple(
-            rescoring for rescoring in rescorings
-            if (
-                not rescoring.artefact.component_name or
-                rescoring.artefact.component_name == component.name
-            ) and (
-                not rescoring.artefact.component_version or
-                rescoring.artefact.component_version == component.version
+        if len(components) == 1:
+            # findings were already pre-filtered by query
+            filtered_findings = findings
+            filtered_rescorings = rescorings
+        else:
+            filtered_findings = tuple(
+                finding for finding in findings
+                if ocm_util.find_artefact_of_component_or_none(
+                    component=component,
+                    artefact=finding.artefact,
+                )
             )
-        )
 
-        yield ComplianceSummary(
+            filtered_rescorings = tuple(
+                rescoring for rescoring in rescorings
+                if (
+                    not rescoring.artefact.component_name or
+                    rescoring.artefact.component_name == component.name
+                ) and (
+                    not rescoring.artefact.component_version or
+                    rescoring.artefact.component_version == component.version
+                )
+            )
+
+        yield ComponentComplianceSummary(
             componentId=cm.ComponentIdentity(
                 name=component.name,
                 version=component.version,
@@ -349,8 +340,72 @@ def component_summaries(
                 defaults=cfg.default_entries,
                 types=tuple(type for type in cfg.default_entries.keys()),
                 eol_client=eol_client,
-            ))
+            )),
+            artefacts=list(calculate_artefact_summary(
+                component=component,
+                artefact=artefact,
+                findings=filtered_findings,
+                rescorings=filtered_rescorings,
+                defaults=cfg.default_entries,
+                eol_client=eol_client,
+                artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+            ) for artefact in component.resources + component.sources),
         )
+
+
+def calculate_artefact_summary(
+    component: cm.Component,
+    artefact: cm.Resource | cm.Source,
+    findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    defaults: dict[ComplianceSummaryEntry],
+    eol_client: eol.EolClient,
+    artefact_metadata_cfg_by_type: dict[str, ArtefactMetadataCfg],
+) -> ArtefactComplianceSummary:
+    if isinstance(artefact, cm.Resource):
+        artefact_kind = dso.model.ArtefactKind.RESOURCE
+    elif isinstance(artefact, cm.Source):
+        artefact_kind = dso.model.ArtefactKind.SOURCE
+    else:
+        raise ValueError(artefact)
+
+    artefact_type = artefact.type.value if isinstance(artefact.type, enum.Enum) else artefact.type
+
+    findings_for_artefact = tuple(
+        finding for finding in findings
+        if (
+            finding.artefact.artefact_kind == artefact_kind
+            and finding.artefact.artefact.artefact_name == artefact.name
+            and finding.artefact.artefact.artefact_version == artefact.version
+            and finding.artefact.artefact.artefact_type == artefact_type
+            and finding.artefact.artefact.normalised_artefact_extra_id()
+                == dso.model.normalise_artefact_extra_id(
+                    artefact_extra_id=artefact.extraIdentity,
+                )
+        )
+    )
+
+    return ArtefactComplianceSummary(
+        artefact=dso.model.ComponentArtefactId(
+            component_name=component.name,
+            component_version=component.version,
+            artefact_kind=artefact_kind.value,
+            artefact=dso.model.LocalArtefactId(
+                artefact_name=artefact.name,
+                artefact_version=artefact.version,
+                artefact_type=artefact_type,
+                artefact_extra_id=artefact.extraIdentity,
+            ),
+        ),
+        entries=list(calculate_summary(
+            artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+            findings=findings_for_artefact,
+            rescorings=rescorings,
+            defaults=defaults,
+            types=tuple(type for type in defaults.keys()),
+            eol_client=eol_client,
+        )),
+    )
 
 
 def calculate_summary(
