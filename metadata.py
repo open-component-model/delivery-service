@@ -2,6 +2,7 @@ import collections.abc
 import dataclasses
 import datetime
 
+import dacite
 import falcon
 import falcon.media.validators.jsonschema
 import sqlalchemy as sa
@@ -50,23 +51,104 @@ class ArtefactMetadata:
 
         **expected body:**
 
-            - components: <array> of <object> \n
-                - componentName: <str> \n
-                - componentVersion: <str> \n
+            - entries: <array> of <object> \n
+                - component_name: <str> \n
+                - component_version: <str> \n
+                - artefact: <object> \n
+                    - artefact_name: <str> \n
+                    - artefact_version: <str> \n
+                    - artefact_type: <str> \n
+                    - artefact_extra_id: <object> \n
         '''
         body = req.context.media
-        component_filter: list[dict] = body.get('components')
-        component_ids = tuple(
-            cm.ComponentIdentity(
-                name=component.get('componentName'),
-                version=component.get('componentVersion'),
-            ) for component in component_filter
-        )
-
-        session: ss.Session = req.context.db_session
+        entries: list[dict] = body.get('entries')
 
         type_filter = req.get_param_as_list('type', required=False)
         referenced_type_filter = req.get_param_as_list('referenced_type', required=False)
+
+        session: ss.Session = req.context.db_session
+
+        artefact_refs = [
+            dacite.from_dict(
+                data_class=dso.model.ComponentArtefactId,
+                data=entry,
+                config=dacite.Config(
+                    cast=[dso.model.ArtefactKind],
+                ),
+            ) for entry in entries
+        ]
+
+        def artefact_queries(artefact_ref: dso.model.ComponentArtefactId):
+            # when filtering for metadata of type `rescorings`, entries without a component
+            # name or version should also be considered a "match" (caused by different rescoring
+            # scopes)
+            none_ok = not type_filter or dso.model.Datatype.RESCORING in type_filter
+
+            yield from du.ArtefactMetadataQueries.component_queries(
+                components=[cm.ComponentIdentity(
+                    name=artefact_ref.component_name,
+                    version=artefact_ref.component_version,
+                )],
+                none_ok=none_ok,
+                component_descriptor_lookup=self.component_descriptor_lookup,
+            )
+
+            if not artefact_ref.artefact:
+                return
+
+            if (
+                artefact_ref.artefact
+                and (artefact_name := artefact_ref.artefact.artefact_name)
+            ):
+                yield sa.or_(
+                    sa.and_(
+                        none_ok,
+                        dm.ArtefactMetaData.artefact_name == None,
+                    ),
+                    dm.ArtefactMetaData.artefact_name == artefact_name,
+                )
+
+            if (
+                artefact_ref.artefact
+                and (artefact_version := artefact_ref.artefact.artefact_version)
+            ):
+                yield sa.or_(
+                    sa.and_(
+                        none_ok,
+                        dm.ArtefactMetaData.artefact_version == None,
+                    ),
+                    dm.ArtefactMetaData.artefact_version == artefact_version,
+                )
+
+            if (
+                artefact_ref.artefact
+                and (artefact_type := artefact_ref.artefact.artefact_type)
+            ):
+                yield sa.or_(
+                    sa.and_(
+                        none_ok,
+                        dm.ArtefactMetaData.artefact_type == None,
+                    ),
+                    dm.ArtefactMetaData.artefact_type == artefact_type,
+                )
+
+            if (
+                artefact_ref.artefact
+                and (artefact_extra_id := artefact_ref.artefact.normalised_artefact_extra_id())
+            ):
+                yield sa.or_(
+                    sa.and_(
+                        none_ok,
+                        dm.ArtefactMetaData.artefact_extra_id_normalised == None,
+                    ),
+                    dm.ArtefactMetaData.artefact_extra_id_normalised == artefact_extra_id,
+                )
+
+        def artefact_refs_queries(artefact_refs: list[dso.model.ComponentArtefactId]):
+            for artefact_ref in artefact_refs:
+                yield sa.and_(
+                    artefact_queries(artefact_ref=artefact_ref),
+                )
 
         findings_query = session.query(dm.ArtefactMetaData)
 
@@ -82,34 +164,12 @@ class ArtefactMetadata:
                 ),
             )
 
-        if component_filter:
-            if type_filter and dso.model.Datatype.RESCORING not in type_filter:
-                findings_query = findings_query.filter(
-                    sa.or_(du.ArtefactMetadataQueries.component_queries(
-                        components=component_ids,
-                        component_descriptor_lookup=self.component_descriptor_lookup,
-                    )),
-                )
-            else:
-                # when filtering for metadata of type `rescorings`, entries without a component
-                # name or version should also be considered a "match" (caused by different rescoring
-                # scopes)
-                findings_query = findings_query.filter(
-                    sa.or_(
-                        sa.and_(
-                            dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
-                            sa.or_(du.ArtefactMetadataQueries.component_queries(
-                                components=component_ids,
-                                none_ok=True,
-                                component_descriptor_lookup=self.component_descriptor_lookup,
-                            )),
-                        ),
-                        sa.or_(du.ArtefactMetadataQueries.component_queries(
-                            components=component_ids,
-                            component_descriptor_lookup=self.component_descriptor_lookup,
-                        )),
-                    ),
-                )
+        if artefact_refs:
+            findings_query = findings_query.filter(
+                sa.or_(
+                    artefact_refs_queries(artefact_refs=artefact_refs),
+                ),
+            )
 
         findings_raw = findings_query.all()
         findings = [
@@ -176,7 +236,7 @@ class ArtefactMetadata:
                 - artefact: <object> \n
                     - component_name: <str> \n
                     - component_version: <str> \n
-                    - artefact_kind: <str> {`artefact`, `rescoure`, `source`} \n
+                    - artefact_kind: <str> {`artefact`, `rescoure`, `source`, `runtime`} \n
                     - artefact: <object> \n
                         - artefact_name: <str> \n
                         - artefact_version: <str> \n
