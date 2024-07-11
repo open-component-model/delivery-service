@@ -24,6 +24,7 @@ def modules():
         'config',
         'ctx_util',
         'lookups',
+        'ocm_util',
         'paths',
         'rescoring_util',
     ]

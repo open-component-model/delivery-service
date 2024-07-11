@@ -1088,6 +1088,21 @@ class ComplianceSummary:
                     source: ... \n
                     severity: ... \n
                     scanStatus: ... \n
+                artefacts: \n
+                  - artefact: \n
+                        component_name: ... \n
+                        component_version: ... \n
+                        artefact_kind: ... \n
+                        artefact: \n
+                            artefact_name: ... \n
+                            artefact_version: ... \n
+                            artefact_type: ... \n
+                            artefact_extra_id: ... \n
+                    entries: \n
+                      - type: artefact-metadata type, e.g. finding/vulnerability \n
+                        source: ... \n
+                        severity: ... \n
+                        scanStatus: ... \n
         '''
 
         component_name = req.get_param('component_name', True)
