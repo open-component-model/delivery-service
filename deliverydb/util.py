@@ -186,8 +186,8 @@ class ArtefactMetadataQueries:
         Intended to be concatenated using an `OR` expression which semantically checks a database
         entry to be one of `artefacts`.
 
-        If a property mismatches but one of the compared values is `None` and `none_ok` is set to
-        `True`, the predecate evaluates to `True` anyways.
+        If a property mismatches but the value stored in the database is `None` and `none_ok` is set
+        to `True`, the predecate evaluates to `True` anyways.
         '''
         if not (artefacts or (component and component_descriptor_lookup)):
             raise ValueError(
@@ -260,8 +260,8 @@ class ArtefactMetadataQueries:
         Intended to be concatenated using an `OR` expression which semantically checks a database
         entry to be one of `components`.
 
-        If a property mismatches but one of the compared values is `None` and `none_ok` is set to
-        `True`, the predecate evaluates to `True` anyways.
+        If a property mismatches but the value stored in the database is `None` and `none_ok` is set
+        to `True`, the predecate evaluates to `True` anyways.
 
         If the component version of a database entry is not specified and `none_ok` is not `True`,
         it is checked whether the component in question contains an artefact version which matches
