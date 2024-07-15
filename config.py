@@ -740,7 +740,7 @@ def deserialise_issue_replicator_config(
     finding_type_issue_replication_cfgs = tuple(
         deserialise_finding_type_issue_replication_cfg(
             finding_type_issue_replication_cfg=finding_type_issue_replication_cfg_raw,
-            )
+        )
         for finding_type_issue_replication_cfg_raw in finding_type_issue_replication_cfgs_raw
     )
 
