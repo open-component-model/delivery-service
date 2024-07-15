@@ -569,10 +569,10 @@ def _diki_template_vars(
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
     summary: str,
 ) -> dict[str, str]:
-    findings_list = list(findings_by_versions.items())
+    findings_list = list(findings_by_versions.values())
 
     for findings in findings_list:
-        for finding in findings[1]:
+        for finding in findings:
 
             finging_rule = finding.finding.data
             summary += '\n'
@@ -876,7 +876,7 @@ def _create_or_update_issue(
         # if that's the case, re-use the latest issue (greatest id)
         open_issues = tuple(issue for issue in issues if issue.state == 'open')
         if len(open_issues) > 1:
-            logger.warning(f'more than one open issue found with labels {labels}')
+            logger.warning(f'more than one open issue found for {labels=}')
             return
         issue = sorted(issues, key=lambda issue: issue.id, reverse=True)[0]
     elif issues_count == 1:
@@ -941,7 +941,7 @@ def _create_or_update_issue(
     )
 
 
-def _create_or_update_or_close_issues_per_finding(
+def _create_or_update_or_close_issue_per_finding(
     issue_replicator_config: config.IssueReplicatorConfig,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
@@ -1085,7 +1085,7 @@ def create_or_update_or_close_issue(
         sprint_name = None
 
     if finding_type_issue_replication_cfg.enable_issue_per_finding:
-        return _create_or_update_or_close_issues_per_finding(
+        return _create_or_update_or_close_issue_per_finding(
             issue_replicator_config=issue_replicator_config,
             component_descriptor_lookup=component_descriptor_lookup,
             issue_type=issue_type,
