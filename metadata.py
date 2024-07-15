@@ -63,6 +63,16 @@ class ArtefactMetadata:
         body = req.context.media
         entries: list[dict] = body.get('entries')
 
+        # TODO: remove once all clients have been adjusted to use `entries` instead of `components`
+        if not entries:
+            components: list[dict] = body.get('components')
+            entries = tuple(
+                {
+                    'component_name': component.get('componentName'),
+                    'component_version': component.get('componentVersion'),
+                } for component in components
+            )
+
         type_filter = req.get_param_as_list('type', required=False)
         referenced_type_filter = req.get_param_as_list('referenced_type', required=False)
 
