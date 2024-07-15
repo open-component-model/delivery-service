@@ -559,6 +559,53 @@ def deserialise_bdba_config(
     )
 
 
+def deserialise_finding_type_issue_replication_cfg(
+    finding_type_issue_replication_cfg: dict,
+) -> FindingTypeIssueReplicationCfgBase | VulnerabilityIssueReplicationCfg:
+    finding_type = deserialise_config_property(
+        config=finding_type_issue_replication_cfg,
+        property_key='finding_type',
+    )
+
+    enable_issue_assignees = deserialise_config_property(
+        config=finding_type_issue_replication_cfg,
+        property_key='enable_issue_assignees',
+        default_value=False,
+    )
+
+    enable_issue_per_finding = deserialise_config_property(
+        config=finding_type_issue_replication_cfg,
+        property_key='enable_issue_per_finding',
+        default_value=False,
+    )
+
+    match finding_type:
+        case dso.model.Datatype.LICENSE, dso.model.Datatype.DIKI_FINDING:
+            return FindingTypeIssueReplicationCfgBase(
+                finding_type=finding_type,
+                enable_issue_assignees=enable_issue_assignees,
+                enable_issue_per_finding=enable_issue_per_finding,
+            )
+        case dso.model.Datatype.VULNERABILITY:
+            cve_threshold = deserialise_config_property(
+                config=finding_type_issue_replication_cfg,
+                property_key='cve_threshold',
+            )
+                
+            return VulnerabilityIssueReplicationCfg(
+                finding_type=finding_type,
+                enable_issue_assignees=enable_issue_assignees,
+                enable_issue_per_finding=enable_issue_per_finding,
+                cve_threshold=cve_threshold,
+            )
+        case _:
+            return FindingTypeIssueReplicationCfgBase(
+                finding_type=finding_type,
+                enable_issue_assignees=enable_issue_assignees,
+                enable_issue_per_finding=enable_issue_per_finding,
+            )
+
+
 def deserialise_issue_replicator_config(
     spec_config: dict,
 ) -> IssueReplicatorConfig:
@@ -690,19 +737,10 @@ def deserialise_issue_replicator_config(
         default_value=[],
     )
 
-    model_class_for_finding_type = {
-        dso.model.Datatype.VULNERABILITY: VulnerabilityIssueReplicationCfg,
-        dso.model.Datatype.LICENSE: FindingTypeIssueReplicationCfgBase,
-    }
-
     finding_type_issue_replication_cfgs = tuple(
-        dacite.from_dict(
-            data_class=model_class_for_finding_type.get(
-                finding_type_issue_replication_cfg_raw['finding_type'],
-                FindingTypeIssueReplicationCfgBase,
-            ),
-            data=finding_type_issue_replication_cfg_raw,
-        )
+        deserialise_finding_type_issue_replication_cfg(
+            finding_type_issue_replication_cfg=finding_type_issue_replication_cfg_raw,
+            )
         for finding_type_issue_replication_cfg_raw in finding_type_issue_replication_cfgs_raw
     )
 
