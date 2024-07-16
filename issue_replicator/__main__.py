@@ -112,37 +112,44 @@ def _iter_findings_for_artefact(
     if not artefacts:
         return tuple()
 
-    findings_for_components = delivery_client.query_metadata(
-        artefacts=artefacts,
-        type=(
-            dso.model.Datatype.ARTEFACT_SCAN_INFO,
-            dso.model.Datatype.VULNERABILITY,
-            dso.model.Datatype.LICENSE,
-            dso.model.Datatype.MALWARE_FINDING,
-        ),
-    )
+    findings: list[dso.model.ArtefactMetadata] = []
+    rescorings: list[dso.model.ArtefactMetadata] = []
 
-    rescorings_for_components = delivery_client.query_metadata(
-        artefacts=artefacts,
-        type=dso.model.Datatype.RESCORING,
-        referenced_type=(
-            dso.model.Datatype.VULNERABILITY,
-            dso.model.Datatype.LICENSE,
-            dso.model.Datatype.MALWARE_FINDING,
-        ),
-    )
+    chunk_size = 10
+    for idx in range(0, len(artefacts), chunk_size):
+        chunked_artefacts = artefacts[idx:min(idx + chunk_size, len(artefacts))]
 
-    for finding in findings_for_components:
+        findings.extend(delivery_client.query_metadata(
+            artefacts=chunked_artefacts,
+            type=(
+                dso.model.Datatype.ARTEFACT_SCAN_INFO,
+                dso.model.Datatype.VULNERABILITY,
+                dso.model.Datatype.LICENSE,
+                dso.model.Datatype.MALWARE_FINDING,
+            ),
+        ))
+
+        rescorings.extend(delivery_client.query_metadata(
+            artefacts=chunked_artefacts,
+            type=dso.model.Datatype.RESCORING,
+            referenced_type=(
+                dso.model.Datatype.VULNERABILITY,
+                dso.model.Datatype.LICENSE,
+                dso.model.Datatype.MALWARE_FINDING,
+            ),
+        ))
+
+    for finding in findings:
         if not artefact_kind is finding.artefact.artefact_kind:
             continue
 
-        rescorings = rescoring_util.rescorings_for_finding_by_specificity(
+        filtered_rescorings = rescoring_util.rescorings_for_finding_by_specificity(
             finding=finding,
-            rescorings=rescorings_for_components,
+            rescorings=rescorings,
         )
 
-        if rescorings:
-            severity = gcm.Severity[rescorings[0].data.severity]
+        if filtered_rescorings:
+            severity = gcm.Severity[filtered_rescorings[0].data.severity]
         elif finding.meta.type != dso.model.Datatype.ARTEFACT_SCAN_INFO:
             # artefact scan info does not have any severity but is just retrieved to evaluate
             # whether a scan exists for the given artefacts (if no finding is found)
@@ -153,7 +160,7 @@ def _iter_findings_for_artefact(
         yield issue_replicator.github.AggregatedFinding(
             finding=finding,
             severity=severity,
-            rescorings=rescorings,
+            rescorings=filtered_rescorings,
         )
 
 
