@@ -106,7 +106,7 @@ def deserialise_issue_replicator_configuration(
 
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
-    artefacts: set[dso.model.ComponentArtefactId],
+    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     artefact_kind: dso.model.ArtefactKind,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding]:
     if not artefacts:
@@ -281,10 +281,10 @@ def replicate_issue(
         correlation_id = compliance_snapshot.data.correlation_id
         correlation_ids_by_latest_processing_date[date] = correlation_id
 
-    artefacts = {
+    artefacts = tuple({
         compliance_snapshot.artefact
         for compliance_snapshot in active_compliance_snapshots_for_artefact
-    }
+    })
     logger.info(f'{len(artefacts)=}')
 
     findings = tuple(_iter_findings_for_artefact(

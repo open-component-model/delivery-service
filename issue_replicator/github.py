@@ -802,7 +802,6 @@ def create_or_update_or_close_issue(
                     yield label.name
                     break
 
-    artefacts = tuple(artefacts)
     is_scanned = len(artefact_versions_without_scan) == 0
 
     labels = {
