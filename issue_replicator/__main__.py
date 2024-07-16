@@ -307,13 +307,13 @@ def replicate_issue(
         artefact.artefact.artefact_version for artefact in artefacts
     }
 
-    scanned_artefact_versions = {
-        finding.finding.artefact.artefact.artefact_version
-        for finding in findings
+    scanned_artefact_versions_by_datasource = {
+        (
+            finding.finding.meta.datasource,
+            finding.finding.artefact.artefact.artefact_version,
+        ) for finding in findings
         if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO
     }
-
-    artefact_versions_without_scan = artefact_versions - scanned_artefact_versions
 
     findings_by_type_and_date = _group_findings_by_type_and_date(
         issue_replicator_config=issue_replicator_config,
@@ -374,6 +374,13 @@ def replicate_issue(
             finding_type=finding_type,
             finding_source=finding_source,
         )
+
+        scanned_artefact_versions = set()
+        for datasource, scanned_artefact_version in scanned_artefact_versions_by_datasource:
+            if datasource == finding_source:
+                scanned_artefact_versions.add(scanned_artefact_version)
+
+        artefact_versions_without_scan = artefact_versions - scanned_artefact_versions
 
         issue_replicator.github.create_or_update_or_close_issue(
             cfg_name=cfg_name,
