@@ -61,11 +61,10 @@ class ArtefactMetadata:
                     - artefact_extra_id: <object> \n
         '''
         body = req.context.media
-        entries: list[dict] = body.get('entries')
+        entries: list[dict] = body.get('entries', [])
 
         # TODO: remove once all clients have been adjusted to use `entries` instead of `components`
-        if not entries:
-            components: list[dict] = body.get('components')
+        if not entries and (components := body.get('components')):
             entries = tuple(
                 {
                     'component_name': component.get('componentName'),
@@ -106,10 +105,7 @@ class ArtefactMetadata:
             if not artefact_ref.artefact:
                 return
 
-            if (
-                artefact_ref.artefact
-                and (artefact_name := artefact_ref.artefact.artefact_name)
-            ):
+            if artefact_name := artefact_ref.artefact.artefact_name:
                 yield sa.or_(
                     sa.and_(
                         none_ok,
@@ -118,10 +114,7 @@ class ArtefactMetadata:
                     dm.ArtefactMetaData.artefact_name == artefact_name,
                 )
 
-            if (
-                artefact_ref.artefact
-                and (artefact_version := artefact_ref.artefact.artefact_version)
-            ):
+            if artefact_version := artefact_ref.artefact.artefact_version:
                 yield sa.or_(
                     sa.and_(
                         none_ok,
@@ -130,10 +123,7 @@ class ArtefactMetadata:
                     dm.ArtefactMetaData.artefact_version == artefact_version,
                 )
 
-            if (
-                artefact_ref.artefact
-                and (artefact_type := artefact_ref.artefact.artefact_type)
-            ):
+            if artefact_type := artefact_ref.artefact.artefact_type:
                 yield sa.or_(
                     sa.and_(
                         none_ok,
@@ -142,10 +132,7 @@ class ArtefactMetadata:
                     dm.ArtefactMetaData.artefact_type == artefact_type,
                 )
 
-            if (
-                artefact_ref.artefact
-                and (artefact_extra_id := artefact_ref.artefact.normalised_artefact_extra_id())
-            ):
+            if artefact_extra_id := artefact_ref.artefact.normalised_artefact_extra_id():
                 yield sa.or_(
                     sa.and_(
                         none_ok,
