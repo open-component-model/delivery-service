@@ -15,7 +15,6 @@ import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import dso.model
-import gci.componentmodel as cm
 import github.compliance.issue as gci
 import github.compliance.model as gcm
 
@@ -107,14 +106,14 @@ def deserialise_issue_replicator_configuration(
 
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
-    artefact: dso.model.ComponentArtefactId,
-    components: set[cm.ComponentIdentity],
+    artefacts: set[dso.model.ComponentArtefactId],
+    artefact_kind: dso.model.ArtefactKind,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding]:
-    if not components:
+    if not artefacts:
         return tuple()
 
     findings_for_components = delivery_client.query_metadata(
-        components=components,
+        artefacts=artefacts,
         type=(
             dso.model.Datatype.ARTEFACT_SCAN_INFO,
             dso.model.Datatype.VULNERABILITY,
@@ -124,7 +123,7 @@ def _iter_findings_for_artefact(
     )
 
     rescorings_for_components = delivery_client.query_metadata(
-        components=components,
+        artefacts=artefacts,
         type=dso.model.Datatype.RESCORING,
         referenced_type=(
             dso.model.Datatype.VULNERABILITY,
@@ -134,14 +133,7 @@ def _iter_findings_for_artefact(
     )
 
     for finding in findings_for_components:
-        if not (
-            finding.artefact.artefact_kind == artefact.artefact_kind
-            and finding.artefact.artefact.artefact_name == artefact.artefact.artefact_name
-            and finding.artefact.artefact.artefact_type == artefact.artefact.artefact_type
-            # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # and finding.artefact.artefact.normalised_artefact_extra_id()
-            #     == artefact.artefact.normalised_artefact_extra_id()
-        ):
+        if not artefact_kind is finding.artefact.artefact_kind:
             continue
 
         rescorings = rescoring_util.rescorings_for_finding_by_specificity(
@@ -282,14 +274,6 @@ def replicate_issue(
         correlation_id = compliance_snapshot.data.correlation_id
         correlation_ids_by_latest_processing_date[date] = correlation_id
 
-    components = {
-        cm.ComponentIdentity(
-            name=compliance_snapshot.artefact.component_name,
-            version=compliance_snapshot.artefact.component_version,
-        ) for compliance_snapshot in active_compliance_snapshots_for_artefact
-    }
-    logger.info(f'{len(components)=}')
-
     artefacts = {
         compliance_snapshot.artefact
         for compliance_snapshot in active_compliance_snapshots_for_artefact
@@ -298,8 +282,8 @@ def replicate_issue(
 
     findings = tuple(_iter_findings_for_artefact(
         delivery_client=delivery_client,
-        artefact=artefact,
-        components=components,
+        artefacts=artefacts,
+        artefact_kind=artefact.artefact_kind,
     ))
     logger.info(f'{len(findings)=}')
 
