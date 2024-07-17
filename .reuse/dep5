@@ -1,9 +1,0 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: OCM Delivery Service
-Upstream-Contact: Christian Cwienk <christian.cwienk@sap.com>
-Source: https://github.com/open-component-model/delivery-service
-
-Files: **
-Copyright: 2024 SAP SE or an SAP affiliate company and Open Component Model contributors \
-  <christian.cwienk@sap.com>
-License: Apache-2.0
