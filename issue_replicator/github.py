@@ -207,13 +207,19 @@ def _issue_title(
     issue_type: str,
     artefact: dso.model.ComponentArtefactId,
     milestone: github3.issues.milestone.Milestone,
+    extra: str,
 ) -> str:
     title = f'[{issue_type}]'
 
     if milestone:
         title += f' - [{milestone.title}]'
 
-    return title + f' - {artefact.component_name}:{artefact.artefact.artefact_name}'
+    title += f' - {artefact.component_name}:{artefact.artefact.artefact_name}'
+
+    if extra:
+        title += f' - [{extra}]'
+
+    return title
 
 
 def _artefact_to_str(artefact: dso.model.ComponentArtefactId) -> str:
@@ -559,6 +565,60 @@ def _license_template_vars(
     }
 
 
+def _diki_template_vars(
+    findings_by_versions: dict[str, tuple[AggregatedFinding]],
+    summary: str,
+) -> dict[str, str]:
+    findings_list = list(findings_by_versions.values())
+
+    for findings in findings_list:
+        for finding in findings:
+
+            finging_rule = finding.finding.data
+            summary += '\n'
+            summary += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
+            summary += f' rule with ID {finging_rule.rule_id}\n'
+            summary += '\n'
+            summary += '### Failed checks:\n'
+
+            for check in finging_rule.checks:
+                summary += '\n'
+                summary += f'Message: {check.message}\n'
+                summary += 'Targets:\n'
+                summary += '\n'
+
+                unique_keys = set()
+                for t in check.targets:
+                    unique_keys.update(t.keys())
+                unique_keys = list(unique_keys)
+
+                unique_keys.sort()
+                if "details" in unique_keys:
+                    unique_keys.remove("details")
+                    unique_keys.append("details")
+
+                column_titles = "|"
+                column_separation = "|"
+                for key in unique_keys:
+                    column_titles += f' {key} |'
+                    column_separation += ":-:|"
+
+                summary += f'{column_titles}\n'
+                summary += f'{column_separation}\n'
+                for t in check.targets:
+                    current_row = "|"
+                    for key in unique_keys:
+                        if key in t:
+                            current_row += f' {t[key]} |'
+                        else:
+                            current_row += ' |'
+                    summary += f'{current_row}\n'
+
+    return {
+        'summary': summary,
+    }
+
+
 def _template_vars(
     issue_replicator_config: config.IssueReplicatorConfig,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
@@ -715,6 +775,11 @@ def _template_vars(
             summary=summary,
             sprint_name=sprint_name,
         )
+    elif issue_type == gci._label_diki:
+        template_variables |= _diki_template_vars(
+            findings_by_versions=findings_by_versions,
+            summary=summary,
+        )
 
     return template_variables
 
@@ -773,19 +838,23 @@ def update_issue(
     )
 
 
-def create_or_update_or_close_issue(
-    cfg_name: str,
+def _create_or_update_issue(
     issue_replicator_config: config.IssueReplicatorConfig,
-    finding_type_issue_replication_cfg: config.FindingTypeIssueReplicationCfgBase,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
     issue_type: str,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts: tuple[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
-    correlation_id: str,
+    issues: tuple[github3.issues.issue.ShortIssue],
+    milestone: github3.issues.milestone.Milestone,
+    failed_milestones: None | list[github3.issues.milestone.Milestone],
     latest_processing_date: datetime.date,
-    is_in_bom: bool,
+    is_scanned: bool,
     artefact_versions_without_scan: set[str],
+    extra_title: str=None,
+    sprint_name: str=None,
+    assignees: set[str]=set(),
+    assignees_statuses: set[str]=set(),
+    labels: set[str]=set(),
 ):
     def labels_to_preserve(
         issue: github3.issues.issue.ShortIssue,
@@ -802,35 +871,13 @@ def create_or_update_or_close_issue(
                     yield label.name
                     break
 
-    is_scanned = len(artefact_versions_without_scan) == 0
-
-    labels = {
-        correlation_id,
-        f'{gci._label_prefix_ctx}/{cfg_name}',
-    }
-
-    known_issues = _all_issues(
-        repository=issue_replicator_config.github_issues_repository,
-        state='open',
-    ) | _all_issues(
-        repository=issue_replicator_config.github_issues_repository,
-        state='closed',
-        number=issue_replicator_config.number_included_closed_issues,
-    )
-
-    issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
-        known_issues=known_issues,
-        issue_type=issue_type,
-        extra_labels=labels,
-    ))
-
     if (issues_count := len(issues)) > 1:
         # it is possible, that multiple _closed_ issues exist for one correlation id
         # if that's the case, re-use the latest issue (greatest id)
         open_issues = tuple(issue for issue in issues if issue.state == 'open')
         if len(open_issues) > 1:
-            raise RuntimeError(f'more than one open issue found for {issue_type=} {correlation_id=}')
-
+            logger.warning(f'more than one open issue found for {labels=}')
+            return
         issue = sorted(issues, key=lambda issue: issue.id, reverse=True)[0]
     elif issues_count == 1:
         issue = issues[0]
@@ -838,50 +885,12 @@ def create_or_update_or_close_issue(
     else:
         issue = None
 
-    if not is_in_bom:
-        return close_issue_if_present(
-            issue_replicator_config=issue_replicator_config,
-            issue=issue,
-            closing_reason=IssueComments.NOT_IN_BOM,
-        )
-
-    if is_scanned and not findings:
-        return close_issue_if_present(
-            issue_replicator_config=issue_replicator_config,
-            issue=issue,
-            closing_reason=IssueComments.NO_FINDINGS,
-        )
-
-    if not is_scanned and (not issue or issue.state != 'open'):
-        # not scanned yet but no open issue found either -> nothing to do
-        return
-
-    if finding_type_issue_replication_cfg.enable_issue_assignees:
-        assignees, assignees_statuses = _issue_assignees(
-            issue_replicator_config=issue_replicator_config,
-            delivery_client=delivery_client,
-            artefact=artefacts[0],
-        )
-    else:
-        assignees = set()
-        assignees_statuses = set()
-
-    milestone, failed_milestones = _issue_milestone(
-        issue_replicator_config=issue_replicator_config,
-        delivery_client=delivery_client,
-        latest_processing_date=latest_processing_date,
-    )
-
     title = _issue_title(
         issue_type=issue_type,
         artefact=artefacts[0],
         milestone=milestone,
+        extra=extra_title,
     )
-
-    if milestone:
-        sprint_name = milestone.title.lstrip('sprint-')
-    else:
-        sprint_name = None
 
     template_variables = _template_vars(
         issue_replicator_config=issue_replicator_config,
@@ -929,4 +938,185 @@ def create_or_update_or_close_issue(
         assignees_statuses=assignees_statuses,
         milestone=milestone,
         failed_milestones=failed_milestones,
+    )
+
+
+def _create_or_update_or_close_issue_per_finding(
+    issue_replicator_config: config.IssueReplicatorConfig,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    issue_type: str,
+    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    findings: tuple[AggregatedFinding],
+    issues: tuple[github3.issues.issue.ShortIssue],
+    milestone: github3.issues.milestone.Milestone,
+    failed_milestones: None | list[github3.issues.milestone.Milestone],
+    latest_processing_date: datetime.date,
+    is_scanned: bool,
+    artefact_versions_without_scan: set[str],
+    sprint_name: str=None,
+    assignees: set[str]=set(),
+    assignees_statuses: set[str]=set(),
+    labels: set[str]=set(),
+):
+    processed_issues = set()
+    for finding in findings:
+
+        data = finding.finding.data
+        finding_labels = labels | {
+            data.key,
+        }
+
+        finding_issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
+            known_issues=issues,
+            issue_type=issue_type,
+            extra_labels=finding_labels,
+        ))
+        processed_issues.update(finding_issues)
+
+        _create_or_update_issue(
+            issue_replicator_config=issue_replicator_config,
+            component_descriptor_lookup=component_descriptor_lookup,
+            issue_type=issue_type,
+            artefacts=artefacts,
+            findings=(finding,),
+            issues=finding_issues,
+            milestone=milestone,
+            failed_milestones=failed_milestones,
+            latest_processing_date=latest_processing_date,
+            is_scanned=is_scanned,
+            artefact_versions_without_scan=artefact_versions_without_scan,
+            extra_title=data.key,
+            sprint_name=sprint_name,
+            assignees=assignees,
+            assignees_statuses=assignees_statuses,
+            labels=finding_labels,
+        )
+
+    for issue in issues:
+        if issue not in processed_issues and issue.state == 'open':
+            close_issue_if_present(
+                issue_replicator_config=issue_replicator_config,
+                issue=issue,
+                closing_reason=IssueComments.NO_FINDINGS,
+            )
+
+
+def create_or_update_or_close_issue(
+    cfg_name: str,
+    issue_replicator_config: config.IssueReplicatorConfig,
+    finding_type_issue_replication_cfg: config.FindingTypeIssueReplicationCfgBase,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_client: delivery.client.DeliveryServiceClient,
+    issue_type: str,
+    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    findings: tuple[AggregatedFinding],
+    correlation_id: str,
+    latest_processing_date: datetime.date,
+    is_in_bom: bool,
+    artefact_versions_without_scan: set[str],
+):
+    is_scanned = len(artefact_versions_without_scan) == 0
+
+    labels = {
+        correlation_id,
+        f'{gci._label_prefix_ctx}/{cfg_name}',
+    }
+
+    known_issues = _all_issues(
+        repository=issue_replicator_config.github_issues_repository,
+        state='open',
+    ) | _all_issues(
+        repository=issue_replicator_config.github_issues_repository,
+        state='closed',
+        number=issue_replicator_config.number_included_closed_issues,
+    )
+
+    issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
+        known_issues=known_issues,
+        issue_type=issue_type,
+        extra_labels=labels,
+    ))
+
+    if not is_in_bom:
+        for issue in issues:
+            close_issue_if_present(
+                issue_replicator_config=issue_replicator_config,
+                issue=issue,
+                closing_reason=IssueComments.NOT_IN_BOM,
+            )
+        return
+
+    if is_scanned and not findings:
+        for issue in issues:
+            close_issue_if_present(
+                issue_replicator_config=issue_replicator_config,
+                issue=issue,
+                closing_reason=IssueComments.NO_FINDINGS,
+            )
+        return
+
+    if not is_scanned:
+        for issue in issues:
+            if issue.state == 'open':
+                break
+        else:
+            # not scanned yet but no open issue found either -> nothing to do
+            return
+
+    if finding_type_issue_replication_cfg.enable_issue_assignees:
+        assignees, assignees_statuses = _issue_assignees(
+            issue_replicator_config=issue_replicator_config,
+            delivery_client=delivery_client,
+            artefact=artefacts[0],
+        )
+    else:
+        assignees = set()
+        assignees_statuses = set()
+
+    milestone, failed_milestones = _issue_milestone(
+        issue_replicator_config=issue_replicator_config,
+        delivery_client=delivery_client,
+        latest_processing_date=latest_processing_date,
+    )
+
+    if milestone:
+        sprint_name = milestone.title.lstrip('sprint-')
+    else:
+        sprint_name = None
+
+    if finding_type_issue_replication_cfg.enable_issue_per_finding:
+        return _create_or_update_or_close_issue_per_finding(
+            issue_replicator_config=issue_replicator_config,
+            component_descriptor_lookup=component_descriptor_lookup,
+            issue_type=issue_type,
+            artefacts=artefacts,
+            findings=findings,
+            issues=issues,
+            milestone=milestone,
+            failed_milestones=failed_milestones,
+            latest_processing_date=latest_processing_date,
+            is_scanned=is_scanned,
+            artefact_versions_without_scan=artefact_versions_without_scan,
+            sprint_name=sprint_name,
+            assignees=assignees,
+            assignees_statuses=assignees_statuses,
+            labels=labels,
+        )
+
+    return _create_or_update_issue(
+        issue_replicator_config=issue_replicator_config,
+        component_descriptor_lookup=component_descriptor_lookup,
+        issue_type=issue_type,
+        artefacts=artefacts,
+        findings=findings,
+        issues=issues,
+        milestone=milestone,
+        failed_milestones=failed_milestones,
+        latest_processing_date=latest_processing_date,
+        is_scanned=is_scanned,
+        artefact_versions_without_scan=artefact_versions_without_scan,
+        sprint_name=sprint_name,
+        assignees=assignees,
+        assignees_statuses=assignees_statuses,
+        labels=labels,
     )
