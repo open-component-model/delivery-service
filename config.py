@@ -591,7 +591,7 @@ def deserialise_finding_type_issue_replication_cfg(
                 config=finding_type_issue_replication_cfg,
                 property_key='cve_threshold',
             )
-                
+
             return VulnerabilityIssueReplicationCfg(
                 finding_type=finding_type,
                 enable_issue_assignees=enable_issue_assignees,
