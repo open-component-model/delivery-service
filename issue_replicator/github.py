@@ -576,27 +576,27 @@ def _diki_template_vars(
     def _targets_table(
         targets: list[dict],
     ) -> str:
-        table = ""
+        table = ''
         unique_keys = set()
         for t in targets:
             unique_keys.update(t.keys())
         unique_keys = list(unique_keys)
 
         unique_keys.sort()
-        if "details" in unique_keys:
-            unique_keys.remove("details")
-            unique_keys.append("details")
+        if 'details' in unique_keys:
+            unique_keys.remove('details')
+            unique_keys.append('details')
 
-        column_titles = "|"
-        column_separation = "|"
+        column_titles = '|'
+        column_separation = '|'
         for key in unique_keys:
             column_titles += f' {key} |'
-            column_separation += ":-:|"
+            column_separation += ':-:|'
 
         table += f'{column_titles}\n'
         table += f'{column_separation}\n'
         for t in targets:
-            current_row = "|"
+            current_row = '|'
             for key in unique_keys:
                 if key in t:
                     current_row += f' {t[key]} |'
@@ -646,14 +646,9 @@ def _diki_template_vars(
                     case _:
                         raise TypeError(check.targets) # this line should never be reached
 
-    if len(summary) <= MAX_SUMMARY_SIZE:
-        return {
-            'summary': summary,
-        }
-    else:
-        return {
-            'summary': shortened_summary,
-        }
+    return {
+        'summary': summary if len(summary) <= MAX_SUMMARY_SIZE else shortened_summary,
+    }
 
 
 def _template_vars(
