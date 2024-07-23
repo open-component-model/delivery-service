@@ -569,53 +569,85 @@ def _diki_template_vars(
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
     summary: str,
 ) -> dict[str, str]:
+    # GitHub has a maximum character limit of 65,536
+    MAX_SUMMARY_SIZE = 60000
     findings_list = list(findings_by_versions.values())
 
+    def _targets_table(
+        targets: list[dict],
+    ) -> str:
+        table = ''
+        unique_keys = set()
+        for t in targets:
+            unique_keys.update(t.keys())
+        unique_keys = list(unique_keys)
+
+        unique_keys.sort()
+        if 'details' in unique_keys:
+            unique_keys.remove('details')
+            unique_keys.append('details')
+
+        column_titles = '|'
+        column_separation = '|'
+        for key in unique_keys:
+            column_titles += f' {key} |'
+            column_separation += ':-:|'
+
+        table += f'{column_titles}\n'
+        table += f'{column_separation}\n'
+        for t in targets:
+            current_row = '|'
+            for key in unique_keys:
+                if key in t:
+                    current_row += f' {t[key]} |'
+                else:
+                    current_row += ' |'
+            table += f'{current_row}\n'
+        return table
+
+    shortened_summary = summary
     for findings in findings_list:
         for finding in findings:
 
             finging_rule = finding.finding.data
-            summary += '\n'
-            summary += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
-            summary += f' rule with ID {finging_rule.rule_id}\n'
-            summary += '\n'
-            summary += '### Failed checks:\n'
+            finding_str = '\n'
+            finding_str += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
+            finding_str += f' rule with ID {finging_rule.rule_id}\n'
+            finding_str += '\n'
+            finding_str += '### Failed checks:\n'
+
+            summary += finding_str
+            shortened_summary += finding_str
 
             for check in finging_rule.checks:
-                summary += '\n'
-                summary += f'Message: {check.message}\n'
-                summary += 'Targets:\n'
-                summary += '\n'
+                check_msg_str = '\n'
+                check_msg_str += f'Message: {check.message}\n'
+                check_msg_str += 'Targets:\n'
+                check_msg_str += '\n'
 
-                unique_keys = set()
-                for t in check.targets:
-                    unique_keys.update(t.keys())
-                unique_keys = list(unique_keys)
+                summary += check_msg_str
+                shortened_summary += check_msg_str
 
-                unique_keys.sort()
-                if "details" in unique_keys:
-                    unique_keys.remove("details")
-                    unique_keys.append("details")
-
-                column_titles = "|"
-                column_separation = "|"
-                for key in unique_keys:
-                    column_titles += f' {key} |'
-                    column_separation += ":-:|"
-
-                summary += f'{column_titles}\n'
-                summary += f'{column_separation}\n'
-                for t in check.targets:
-                    current_row = "|"
-                    for key in unique_keys:
-                        if key in t:
-                            current_row += f' {t[key]} |'
-                        else:
-                            current_row += ' |'
-                    summary += f'{current_row}\n'
+                match check.targets:
+                    # process merged checks
+                    case dict():
+                        for key, value in check.targets.items():
+                            shortened_summary += f'{key}: {len(value)} targets\n'
+                            summary += '<details>\n'
+                            summary += f'<summary>{key}:</summary>\n'
+                            summary += '\n'
+                            summary += _targets_table(value)
+                            summary += '</details>\n'
+                            summary += '\n'
+                    # process single checks
+                    case list():
+                        shortened_summary += f'{len(check.targets)} targets\n'
+                        summary += _targets_table(check.targets)
+                    case _:
+                        raise TypeError(check.targets) # this line should never be reached
 
     return {
-        'summary': summary,
+        'summary': summary if len(summary) <= MAX_SUMMARY_SIZE else shortened_summary,
     }
 
 
