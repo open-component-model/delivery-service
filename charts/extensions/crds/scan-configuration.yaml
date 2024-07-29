@@ -1,0 +1,307 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: scanconfigurations.delivery-gear.gardener.cloud
+spec:
+  group: delivery-gear.gardener.cloud
+  scope: Namespaced
+  names:
+    singular: scanconfiguration
+    plural: scanconfigurations
+    kind: ScanConfiguration
+    shortNames:
+      - scfg
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              # enable additional properties not being pruned to allow adding
+              # of new properties in the future as helm won't upgrade crds
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+              properties:
+                description:
+                  type: string
+                defaults:
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  properties:
+                    delivery_service_url:
+                      type: string
+                    delivery_dashboard_url:
+                      type: string
+                    lookup_new_backlog_item_interval:
+                      type: integer
+                    artefact_types:
+                      type: array
+                      items:
+                        type: string
+                    matching_configs:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          rules:
+                            type: array
+                            items:
+                              x-kubernetes-preserve-unknown-fields: true
+                              type: object
+                              properties:
+                                target:
+                                  type: string
+                                expression:
+                                  type: string
+                                matching_semantics:
+                                  type: string
+                    cve_rescoring_rules:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          category_value:
+                            type: string
+                          rules:
+                            type: array
+                            items:
+                              x-kubernetes-preserve-unknown-fields: true
+                              type: object
+                              properties:
+                                cve_values:
+                                  type: array
+                                  items:
+                                    type: string
+                                rescore:
+                                  type: string
+                artefactEnumerator:
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  properties:
+                    delivery_service_url:
+                      type: string
+                    compliance_snapshot_grace_period:
+                      type: integer
+                    artefact_types:
+                      type: array
+                      items:
+                        type: string
+                    matching_configs:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          rules:
+                            type: array
+                            items:
+                              x-kubernetes-preserve-unknown-fields: true
+                              type: object
+                              properties:
+                                target:
+                                  type: string
+                                expression:
+                                  type: string
+                                matching_semantics:
+                                  type: string
+                    components:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          component_name:
+                            type: string
+                          version:
+                            type: string
+                          version_filter:
+                            type: string
+                          max_versions_limit:
+                            type: integer
+                          ocm_repo:
+                            type: string
+                    sprints_relative_time_range:
+                      x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                      properties:
+                        days_from:
+                          type: integer
+                        days_to:
+                          type: integer
+                bdba:
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  properties:
+                    delivery_service_url:
+                      type: string
+                    rescan_interval:
+                      type: integer
+                    lookup_new_backlog_item_interval:
+                      type: integer
+                    cfg_name:
+                      type: string
+                    group_id:
+                      type: integer
+                    reference_group_ids:
+                      type: array
+                      items:
+                        type: integer
+                    cvss_version:
+                      type: string
+                    aws_cfg_set_name:
+                      type: string
+                    processing_mode:
+                      type: string
+                    artefact_types:
+                      type: array
+                      items:
+                        type: string
+                    matching_configs:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          rules:
+                            type: array
+                            items:
+                              x-kubernetes-preserve-unknown-fields: true
+                              type: object
+                              properties:
+                                target:
+                                  type: string
+                                expression:
+                                  type: string
+                                matching_semantics:
+                                  type: string
+                    cve_rescoring_rules:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          category_value:
+                            type: string
+                          rules:
+                            type: array
+                            items:
+                              x-kubernetes-preserve-unknown-fields: true
+                              type: object
+                              properties:
+                                cve_values:
+                                  type: array
+                                  items:
+                                    type: string
+                                rescore:
+                                  type: string
+                    auto_assess_max_severity:
+                      type: string
+                    delete_inactive_products_after_seconds:
+                      type: integer
+                issue_replicator:
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  properties:
+                    delivery_service_url:
+                      type: string
+                    delivery_dashboard_url:
+                      type: string
+                    replication_interval:
+                      type: integer
+                    lookup_new_backlog_item_interval:
+                      type: integer
+                    cve_threshold:
+                      type: integer
+                    prohibited_licenses:
+                      type: array
+                      items:
+                        type: string
+                    max_processing_days:
+                      x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                      properties:
+                        low:
+                          type: integer
+                        medium:
+                          type: integer
+                        high:
+                          type: integer
+                        very_high_or_greater:
+                          type: integer
+                        blocker:
+                          type: integer
+                    github_issues_target_repository_url:
+                      type: string
+                    github_issue_templates:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                          body:
+                            type: string
+                    github_issue_labels_to_preserve:
+                      type: array
+                      items:
+                        type: string
+                    number_included_closed_issues:
+                      type: integer
+                    enable_issue_assignees:
+                      type: boolean
+                    artefact_types:
+                      type: array
+                      items:
+                        type: string
+                    matching_configs:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          rules:
+                            type: array
+                            items:
+                              x-kubernetes-preserve-unknown-fields: true
+                              type: object
+                              properties:
+                                target:
+                                  type: string
+                                expression:
+                                  type: string
+                                matching_semantics:
+                                  type: string
+                    cve_rescoring_rules:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          category_value:
+                            type: string
+                          rules:
+                            type: array
+                            items:
+                              x-kubernetes-preserve-unknown-fields: true
+                              type: object
+                              properties:
+                                cve_values:
+                                  type: array
+                                  items:
+                                    type: string
+                                rescore:
+                                  type: string

@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: delivery-service
+  {{- if default dict (.Values.ingress).annotations }}
+  annotations:
+  {{- range $annotation, $value := .Values.ingress.annotations }}
+    {{ $annotation }}: {{ $value }}
+  {{- end }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.class }}
+  rules:
+  {{- range $host := .Values.ingress.hosts }}
+  - host: {{ $host }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: delivery-service
+            port:
+              number: {{ default 8080 $.Values.servicePort }}
+  {{- end }}
+  {{- if default dict .Values.ingress.tlsHostNames }}
+  tls:
+  - hosts:
+    {{- range $host := .Values.ingress.tlsHostNames }}
+    - "{{ $host }}"
+    {{- end }}
+    secretName: delivery-service-tls
+  {{- end }}

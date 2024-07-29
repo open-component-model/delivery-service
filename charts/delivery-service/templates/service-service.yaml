@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery-service
+  labels:
+    app: delivery-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ default 8080 .Values.servicePort }}
+    targetPort: {{ default 5000 .Values.containerPort }}
+    name: default
+  selector:
+    app: delivery-service

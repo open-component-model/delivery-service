@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: artefact-enumerator
+spec:
+  schedule: {{ default "*/5 * * * *" .Values.configuration.schedule | quote }} # schedule may contain asterisks, quote to avoid yaml parser errors
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ default 1 .Values.configuration.successful_jobs_history_limit }}
+  failedJobsHistoryLimit: {{ default 1 .Values.configuration.failed_jobs_history_limit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: artefact-enumerator
+        spec:
+          containers:
+          - name: artefact-enumerator
+            image: {{ include "image" .Values.image }}
+            imagePullPolicy: IfNotPresent
+            command:
+            - python3
+            - -m
+            - artefact_enumerator
+            {{- if default dict .Values.envVars }}
+            env:
+            {{- range $key, $value := .Values.envVars }}
+            - name: {{ $key }}
+              value: {{ $value }}
+            {{- end }}
+            {{- end }}
+            volumeMounts:
+            - name: cfg-factory
+              mountPath: "/cfg_factory"
+              readOnly: true
+            - name: features-cfg
+              mountPath: "/features_cfg"
+              readOnly: true
+            resources:
+              requests:
+                memory: 150Mi
+                cpu: 500m
+              limits:
+                memory: 300Mi
+                cpu: 1000m
+          volumes:
+            - name: cfg-factory
+              secret:
+                secretName: cfg-factory-secret
+                optional: true
+            - name: features-cfg
+              secret:
+                secretName: features-cfg
+                optional: true
+          restartPolicy: Never

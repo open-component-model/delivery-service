@@ -1,0 +1,47 @@
+{{- range $index, $value := .Values.configurations }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: delivery-db-backup-{{ $value.DELIVERY_GEAR_CFG_NAME }}
+spec:
+  schedule: {{ $value.SCHEDULE | quote }} # schedule may contain asterisks, quote to avoid yaml parser errors
+  successfulJobsHistoryLimit: {{ $value.SUCCESSFUL_JOBS_HISTORY_LIMIT }}
+  failedJobsHistoryLimit: {{ $value.FAILED_JOBS_HISTORY_LIMIT }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: delivery-db-backup
+        spec:
+          containers:
+          - name: delivery-db-backup-{{ $value.DELIVERY_GEAR_CFG_NAME }}
+            image: {{ include "image" .Values.image }}
+            imagePullPolicy: IfNotPresent
+            command:
+            - python3
+            - -m
+            - delivery_db_backup
+            env:
+            - name: DELIVERY_GEAR_CFG_NAME
+              value: {{ $value.DELIVERY_GEAR_CFG_NAME }}
+            - name: CFG_FACTORY_SECRET_PATH
+              value: {{ $value.CFG_FACTORY_SECRET_PATH }}
+            - name: K8S_TARGET_NAMESPACE
+              value: {{ $value.K8S_TARGET_NAMESPACE }}
+            {{- if $value.K8S_CFG_NAME }}
+            - name: K8S_CFG_NAME
+              value: {{ $value.K8S_CFG_NAME }}
+            {{- end }}
+            volumeMounts:
+            - name: cfg-factory
+              mountPath: "/cfg_factory"
+              readOnly: true
+          volumes:
+            - name: cfg-factory
+              secret:
+                secretName: cfg-factory-secret
+                optional: true
+          restartPolicy: Never
+---
+{{- end }}

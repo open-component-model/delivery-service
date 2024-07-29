@@ -1,0 +1,30 @@
+artefact-enumerator:
+  enabled: false
+  image: # image property will be set during release
+    repository: ~
+    tag: ~
+backlog-controller:
+  enabled: false
+  backlog-controller:
+    image: # image property will be set during release
+      repository: ~
+      tag: ~
+  bdba:
+    image: # image property will be set during release
+      repository: ~
+      tag: ~
+  clamav:
+    image: # image property will be set during release
+      repository: ~
+      tag: ~
+  issue-replicator:
+    image: # image property will be set during release
+      repository: ~
+      tag: ~
+delivery-db-backup:
+  enabled: false
+  image: # image property will be set during release
+    repository: ~
+    tag: ~
+freshclam:
+  enabled: false

@@ -1,0 +1,18 @@
+apiVersion: v2
+name: extensions
+version: 0.1.0
+dependencies:
+  - name: configuration
+    repository: file://charts/configuration
+  - name: artefact-enumerator
+    repository: file://charts/artefact-enumerator
+    condition: artefact-enumerator.enabled
+  - name: backlog-controller
+    repository: file://charts/backlog-controller
+    condition: backlog-controller.enabled
+  - name: delivery-db-backup
+    repository: file://charts/delivery-db-backup
+    condition: delivery-db-backup.enabled
+  - name: freshclam
+    repository: file://charts/freshclam
+    condition: freshclam.enabled

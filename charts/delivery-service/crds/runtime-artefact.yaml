@@ -1,0 +1,59 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: runtimeartefacts.delivery-gear.gardener.cloud
+spec:
+  group: delivery-gear.gardener.cloud
+  scope: Namespaced
+  names:
+    singular: runtimeartefact
+    plural: runtimeartefacts
+    kind: RuntimeArtefact
+    shortNames:
+      - ra
+      - runtime
+      - runtimes
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              # enable additional properties not being pruned to allow adding
+              # of new properties in the future as helm won't upgrade crds
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+              properties:
+                creation_date:
+                  type: string
+                artefact:
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  properties:
+                    component_name:
+                      type: string
+                    component_version:
+                      type: string
+                    artefact_kind:
+                      type: string
+                    artefact:
+                      x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                      properties:
+                        artefact_name:
+                          type: string
+                        artefact_version:
+                          type: string
+                        artefact_type:
+                          type: string
+                        artefact_extra_id:
+                          x-kubernetes-preserve-unknown-fields: true
+                          type: object
+                    references:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object

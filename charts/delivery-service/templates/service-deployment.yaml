@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery-service
+spec:
+  replicas: {{ default 5 .Values.replicas }}
+  selector:
+    matchLabels:
+      app: delivery-service
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      {{- if default dict (.Values.pod).annotations }}
+      annotations:
+      {{- range $annotation, $value := .Values.pod.annotations }}
+        {{ $annotation }}: {{ $value }}
+      {{- end }}
+      {{- end }}
+      labels:
+        app: delivery-service
+      {{- if default dict (.Values.pod).labels }}
+      {{- range $annotation, $value := .Values.pod.labels }}
+        {{ $annotation }}: {{ $value }}
+      {{- end }}
+      {{- end }}
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: delivery-service
+      containers:
+        - name: delivery-service
+          image: {{ include "image" .Values.image }}
+          imagePullPolicy: IfNotPresent
+          {{- if .Values.command }}
+          command:
+          {{- range $command := .Values.command }}
+          - {{ $command }}
+          {{- end }}
+          {{- end }}
+          args:
+          {{- if not .Values.command }} # if default entrypoint is overriden, uWSGI may not be used
+            - --pyargv
+            - --productive {{ join " " .Values.args }}
+          {{ else }}
+            - --productive
+          {{- range $arg := default list .Values.args }}
+            - {{ $arg }}
+          {{- end }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          ports:
+            - containerPort: {{ default 5000 .Values.containerPort }}
+              name: default
+          {{- if default dict .Values.envVars }}
+          env:
+          {{- range $key, $value := .Values.envVars }}
+          - name: {{ $key }}
+            value: {{ $value }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: cfg-factory
+              mountPath: "/cfg_factory"
+            - name: features-cfg
+              mountPath: "/features_cfg"
+          {{- if .Values.additionalVolumeMounts }}
+            {{- toYaml .Values.additionalVolumeMounts | nindent 12 }}
+          {{- end }}
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 100m
+            limits:
+              memory: 5Gi
+              cpu: 500m
+      volumes:
+        - name: cfg-factory
+          secret:
+            secretName: cfg-factory-secret
+            optional: true
+        - name: features-cfg
+          secret:
+            secretName: features-cfg
+            optional: true
+      {{- if .Values.additionalVolumes }}
+        {{- toYaml .Values.additionalVolumes | nindent 8 }}
+      {{- end }}

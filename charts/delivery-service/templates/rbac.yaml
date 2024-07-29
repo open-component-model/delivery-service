@@ -1,0 +1,40 @@
+{{- if or (not .Values.envVars) (not .Values.envVars.K8S_CFG_NAME) }}
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ocm-gear
+rules:
+  - apiGroups:
+      - ""
+      - apps
+      - delivery-gear.gardener.cloud
+    resources:
+      - backlogitems
+      - logcollections
+      - pods
+      - replicasets
+      - runtimeartefacts
+      - scanconfigurations
+    verbs:
+      - create
+      - get
+      - list
+      - update
+      - patch
+      - delete
+      - watch
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ocm-gear
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: ocm-gear
+  namespace: {{ .Release.Namespace }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

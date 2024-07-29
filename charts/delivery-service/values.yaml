@@ -1,0 +1,4 @@
+# image property will be set during release
+image:
+  repository: ~
+  tag: ~

@@ -1,0 +1,10 @@
+{{- range .Values.scanConfigurations }}
+apiVersion: delivery-gear.gardener.cloud/v1
+kind: ScanConfiguration
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.namespace }}
+spec:
+  {{ toYaml .spec | nindent 2 }}
+---
+{{- end }}
