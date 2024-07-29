@@ -38,7 +38,7 @@ kubectl config set-context --current --namespace=$NAMESPACE
 # Upgrade delivery-db
 # First, install custom pv and pvc to allow re-usage of host's filesystem mount
 kubectl apply -f "${CHART}/delivery-db-pv" --namespace $NAMESPACE
-helm upgrade delivery-db oci://eu.gcr.io/gardener-project/test/delivery-charts/postgresql \
+helm upgrade delivery-db oci://europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-charts/postgresql \
     --namespace $NAMESPACE \
     --version $POSTGRES_VERSION \
     --values ${CHART}/values-delivery-db.yaml
