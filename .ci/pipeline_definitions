@@ -103,6 +103,43 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+          helmcharts:
+          - name: delivery-service
+            dir: charts/delivery-service
+            registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/ocm-gear
+            mappings:
+            - ref: ocm-resource:delivery-service.repository
+              attribute: image.repository
+            - ref: ocm-resource:delivery-service.tag
+              attribute: image.tag
+          - name: extensions
+            dir: charts/extensions
+            registry: europe-docker.pkg.dev/gardener-project/snapshots/charts/ocm-gear
+            mappings:
+            - ref: ocm-resource:delivery-gear-extensions.repository
+              attribute: artefact-enumerator.image.repository
+            - ref: ocm-resource:delivery-gear-extensions.tag
+              attribute: artefact-enumerator.image.tag
+            - ref: ocm-resource:delivery-gear-extensions.repository
+              attribute: backlog-controller.backlog-controller.image.repository
+            - ref: ocm-resource:delivery-gear-extensions.tag
+              attribute: backlog-controller.backlog-controller.image.tag
+            - ref: ocm-resource:delivery-gear-extensions.repository
+              attribute: backlog-controller.bdba.image.repository
+            - ref: ocm-resource:delivery-gear-extensions.tag
+              attribute: backlog-controller.bdba.image.tag
+            - ref: ocm-resource:delivery-gear-extension-clamav.repository
+              attribute: backlog-controller.clamav.image.repository
+            - ref: ocm-resource:delivery-gear-extension-clamav.tag
+              attribute: backlog-controller.clamav.image.tag
+            - ref: ocm-resource:delivery-gear-extensions.repository
+              attribute: backlog-controller.issue-replicator.image.repository
+            - ref: ocm-resource:delivery-gear-extensions.tag
+              attribute: backlog-controller.issue-replicator.image.tag
+            - ref: ocm-resource:delivery-gear-extensions.repository
+              attribute: delivery-db-backup.image.repository
+            - ref: ocm-resource:delivery-gear-extensions.tag
+              attribute: delivery-db-backup.image.tag
         release:
           nextversion: bump_minor
           release_notes_policy: disabled
