@@ -2,6 +2,8 @@
 
 import os
 
+import yaml
+
 import ci.util
 
 
@@ -9,6 +11,8 @@ repo_dir = os.path.abspath(ci.util.check_env('MAIN_REPO_DIR'))
 CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
 FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
 REQUIREMENTS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
+EXTENSIONS_CHART_DIR = os.path.join(repo_dir, 'charts', 'extensions')
+FRESHCLAM_CHART_DIR = os.path.join(EXTENSIONS_CHART_DIR, 'charts', 'freshclam')
 
 dependency_name = ci.util.check_env('DEPENDENCY_NAME')
 dependency_version = ci.util.check_env('DEPENDENCY_VERSION')
@@ -17,6 +21,15 @@ dependency_version = ci.util.check_env('DEPENDENCY_VERSION')
 def write_component_version_to_file(file_path: str):
     with open(file_path, 'w') as version_file:
         version_file.write(dependency_version.strip())
+
+
+def write_component_version_to_chart(chart_path: str):
+    with open(os.path.join(chart_path, 'values.yaml'), 'r+') as values_file:
+        values = yaml.safe_load(values_file)
+        values['image']['tag'] = dependency_version.strip()
+        values_file.seek(0)
+        values_file.write(yaml.safe_dump(values))
+        values_file.truncate()
 
 
 def add_package_version(
@@ -53,6 +66,7 @@ def main():
 
     elif dependency_name == 'ocm.software/delivery-gear/freshclam':
         write_component_version_to_file(FRESHCLAM_VERSIONFILE)
+        write_component_version_to_chart(FRESHCLAM_CHART_DIR)
 
     else:
         raise RuntimeError(f"Don't know how to upgrade dependency: {dependency_name}")
