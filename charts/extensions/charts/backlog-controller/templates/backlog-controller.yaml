@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: backlog-controller
-          image: {{ include "image" .Values.backlog-controller.image }}
+          image: {{ include "image" (index .Values "backlog-controller" "image") }} # indexing required since `-` is not allowed in variable names
           imagePullPolicy: IfNotPresent
           command:
           - python3
