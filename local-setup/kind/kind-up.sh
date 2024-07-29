@@ -87,7 +87,7 @@ helm install delivery-dashboard oci://${HELM_REPO}/delivery-dashboard \
     --values ${CHART}/values-delivery-dashboard.yaml
 
 # Install extensions
-helm install delivery-gear-extensions oci://${HELM_REPO}/delivery-gear-extensions \
+helm install delivery-gear-extensions oci://${HELM_REPO}/extensions \
     --namespace $NAMESPACE \
     --version $OCM_GEAR_VERSION \
     --values ${CHART}/values-delivery-gear-extensions.yaml

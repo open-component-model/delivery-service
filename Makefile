@@ -1,5 +1,5 @@
 REGISTRY  := europe-docker.pkg.dev/gardener-project/releases
-HELM_REPO := $(REGISTRY)/delivery-gear/delivery-charts
+HELM_REPO := $(REGISTRY)/charts/ocm-gear
 REPO_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 kind-up kind-down: export CLUSTER_NAME = ocm-gear-local
