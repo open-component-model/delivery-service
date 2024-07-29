@@ -27,7 +27,7 @@ spec:
       terminationGracePeriodSeconds: 1800 # 30 min
       containers:
         - name: clamav
-          image: {{ include "image" .Values.clamav.image }}
+          image: {{ include "image" $.Values.clamav.image }}
           imagePullPolicy: IfNotPresent
           env:
           - name: CFG_NAME

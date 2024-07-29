@@ -27,7 +27,7 @@ spec:
       terminationGracePeriodSeconds: 1800 # 30 min
       containers:
         - name: bdba
-          image: {{ include "image" .Values.bdba.image }}
+          image: {{ include "image" $.Values.bdba.image }}
           imagePullPolicy: IfNotPresent
           command:
           - python3

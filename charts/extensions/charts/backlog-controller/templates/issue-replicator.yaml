@@ -20,7 +20,7 @@ spec:
       terminationGracePeriodSeconds: 300 # 5 min
       containers:
         - name: issue-replicator
-          image: {{ include "image" (index .Values "issue-replicator" "image") }} # indexing required since `-` is not allowed in variable names
+          image: {{ include "image" (index $.Values "issue-replicator" "image") }} # indexing required since `-` is not allowed in variable names
           imagePullPolicy: IfNotPresent
           command:
           - python3
