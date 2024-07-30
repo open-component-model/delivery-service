@@ -40,7 +40,7 @@ configuration:
         #     - ociImage
         #     - application/tar+vm-image-rootfs
         #   components:
-        #     - component_name: ocm.software/delivery-gear
+        #     - component_name: ocm.software/ocm-gear
         #     - component_name: ocm.software/ocmcli
         #   sprints_relative_time_range:
         #     days_from: -90

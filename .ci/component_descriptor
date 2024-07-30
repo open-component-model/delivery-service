@@ -45,7 +45,7 @@ def main():
 
     freshclam_cref = gci.componentmodel.ComponentReference(
         name='freshclam',
-        componentName='ocm.software/delivery-gear/freshclam',
+        componentName='ocm.software/ocm-gear/freshclam',
         version=version_from_file(FRESHCLAM_VERSIONFILE),
         labels=[],
     )

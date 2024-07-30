@@ -30,8 +30,8 @@ NAMESPACE="${NAMESPACE:-delivery}"
 
 kubectl config set-context --current --namespace=ingress-nginx
 
-OCM_GEAR_VERSION="${OCM_GEAR_VERSION:-$(ocm show versions europe-docker.pkg.dev/gardener-project/releases//ocm.software/delivery-gear | tail -1)}"
-echo "Installing delivery-gear with version $OCM_GEAR_VERSION"
+OCM_GEAR_VERSION="${OCM_GEAR_VERSION:-$(ocm show versions europe-docker.pkg.dev/gardener-project/releases//ocm.software/ocm-gear | tail -1)}"
+echo "Installing OCM-Gear with version $OCM_GEAR_VERSION"
 
 kubectl config set-context --current --namespace=$NAMESPACE
 
@@ -64,10 +64,10 @@ helm upgrade delivery-dashboard oci://${HELM_REPO}/delivery-dashboard \
     --values ${CHART}/values-delivery-dashboard.yaml
 
 # Upgrade extensions
-helm upgrade delivery-gear-extensions oci://${HELM_REPO}/delivery-gear-extensions \
+helm upgrade extensions oci://${HELM_REPO}/extensions \
     --namespace $NAMESPACE \
     --version $OCM_GEAR_VERSION \
-    --values ${CHART}/values-delivery-gear-extensions.yaml
+    --values ${CHART}/values-extensions.yaml
 
 # port-forward to the new delivery-service pods
 lsof -i tcp:5000 | grep kubectl | awk 'NR!=1 {print $2}' | xargs kill

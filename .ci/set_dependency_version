@@ -64,7 +64,7 @@ def main():
         write_component_version_to_file(CC_UTILS_VERSIONFILE)
         write_package_version_to_requirements_file(package_name, REQUIREMENTS_FILE)
 
-    elif dependency_name == 'ocm.software/delivery-gear/freshclam':
+    elif dependency_name == 'ocm.software/ocm-gear/freshclam':
         write_component_version_to_file(FRESHCLAM_VERSIONFILE)
         write_component_version_to_chart(FRESHCLAM_CHART_DIR)
 

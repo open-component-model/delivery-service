@@ -3,6 +3,8 @@ ocmRepoMappings:
   repository: ghcr.io/open-component-model/ocm
 - prefix: ocm.software/delivery-gear
   repository: europe-docker.pkg.dev/gardener-project/releases
+- prefix: ocm.software/ocm-gear
+  repository: europe-docker.pkg.dev/gardener-project/releases
 specialComponents: []
 rescoring:
   defaultRuleSetName: example-rescoring-v1

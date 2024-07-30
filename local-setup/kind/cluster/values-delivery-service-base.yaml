@@ -65,7 +65,7 @@ featuresCfg:
       repository: europe-docker.pkg.dev/gardener-project/releases
   specialComponents:
     - id: 0
-      name: ocm.software/delivery-gear
+      name: ocm.software/ocm-gear
       displayName: OCM Gear
       type: OCM Gear
       version: greatest

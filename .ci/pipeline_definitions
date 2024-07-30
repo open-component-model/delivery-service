@@ -3,13 +3,13 @@ delivery-service:
     check-steps: &check-steps
       steps: &steps
         smoke_test:
-          image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
+          image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service:latest
           execute: ../smoke_test.py
         lint:
-          image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
+          image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service:latest
           execute: lint
         test:
-          image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service:latest
+          image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service:latest
           execute: test
 
   base_definition:
@@ -18,7 +18,7 @@ delivery-service:
     traits:
       version: ~
       component_descriptor:
-        component_name: ocm.software/delivery-gear/delivery-service
+        component_name: ocm.software/ocm-gear/delivery-service
         ocm_repository: europe-docker.pkg.dev/gardener-project/releases
         ocm_repository_mappings:
         - repository: europe-docker.pkg.dev/gardener-project/releases
@@ -83,21 +83,21 @@ delivery-service:
         publish:
           dockerimages:
             delivery-service:
-              image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-service
+              image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service
               dockerfile: Dockerfile.service
               tag_as_latest: True
               inputs:
                 steps:
                   build_python_packages: ~
-            delivery-gear-extensions:
-              image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-gear-extensions
+            extensions:
+              image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extensions
               dockerfile: Dockerfile.extensions
               tag_as_latest: True
               inputs:
                 steps:
                   build_python_packages: ~
-            delivery-gear-extension-clamav:
-              image: europe-docker.pkg.dev/gardener-project/releases/delivery-gear/delivery-gear-extension-clamav
+            extension-clamav:
+              image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-clamav
               dockerfile: Dockerfile.extensions.clamav
               tag_as_latest: True
               inputs:
@@ -116,29 +116,29 @@ delivery-service:
             dir: charts/extensions
             registry: europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear
             mappings:
-            - ref: ocm-resource:delivery-gear-extensions.repository
+            - ref: ocm-resource:extensions.repository
               attribute: artefact-enumerator.image.repository
-            - ref: ocm-resource:delivery-gear-extensions.tag
+            - ref: ocm-resource:extensions.tag
               attribute: artefact-enumerator.image.tag
-            - ref: ocm-resource:delivery-gear-extensions.repository
+            - ref: ocm-resource:extensions.repository
               attribute: backlog-controller.backlog-controller.image.repository
-            - ref: ocm-resource:delivery-gear-extensions.tag
+            - ref: ocm-resource:extensions.tag
               attribute: backlog-controller.backlog-controller.image.tag
-            - ref: ocm-resource:delivery-gear-extensions.repository
+            - ref: ocm-resource:extensions.repository
               attribute: backlog-controller.bdba.image.repository
-            - ref: ocm-resource:delivery-gear-extensions.tag
+            - ref: ocm-resource:extensions.tag
               attribute: backlog-controller.bdba.image.tag
-            - ref: ocm-resource:delivery-gear-extension-clamav.repository
+            - ref: ocm-resource:extension-clamav.repository
               attribute: backlog-controller.clamav.image.repository
-            - ref: ocm-resource:delivery-gear-extension-clamav.tag
+            - ref: ocm-resource:extension-clamav.tag
               attribute: backlog-controller.clamav.image.tag
-            - ref: ocm-resource:delivery-gear-extensions.repository
+            - ref: ocm-resource:extensions.repository
               attribute: backlog-controller.issue-replicator.image.repository
-            - ref: ocm-resource:delivery-gear-extensions.tag
+            - ref: ocm-resource:extensions.tag
               attribute: backlog-controller.issue-replicator.image.tag
-            - ref: ocm-resource:delivery-gear-extensions.repository
+            - ref: ocm-resource:extensions.repository
               attribute: delivery-db-backup.image.repository
-            - ref: ocm-resource:delivery-gear-extensions.tag
+            - ref: ocm-resource:extensions.tag
               attribute: delivery-db-backup.image.tag
         release:
           nextversion: bump_minor

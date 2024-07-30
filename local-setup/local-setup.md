@@ -59,7 +59,7 @@ storage, you have to delete the `/var/delivery-db` directory.
 OCM-Gear extensions can be dynamically added to your installation. However, some
 extensions require the presence of another extension or extra configuration to
 work properly. The basic configuration of the extensions is done via the
-[`values-delivery-gear-extensions.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-delivery-gear-extensions.yaml).
+[`values-extensions.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-extensions.yaml).
 
 ### Artefact Enumerator
 > Requires: -

@@ -40,8 +40,8 @@ kubectl create ns ingress-nginx
 kubectl create ns $NAMESPACE
 kubectl config set-context --current --namespace=ingress-nginx
 
-OCM_GEAR_VERSION="${OCM_GEAR_VERSION:-$(ocm show versions europe-docker.pkg.dev/gardener-project/releases//ocm.software/delivery-gear | tail -1)}"
-echo "Installing delivery-gear with version $OCM_GEAR_VERSION"
+OCM_GEAR_VERSION="${OCM_GEAR_VERSION:-$(ocm show versions europe-docker.pkg.dev/gardener-project/releases//ocm.software/ocm-gear | tail -1)}"
+echo "Installing OCM-Gear with version $OCM_GEAR_VERSION"
 
 # Install ingress nginx controller
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
@@ -87,9 +87,9 @@ helm install delivery-dashboard oci://${HELM_REPO}/delivery-dashboard \
     --values ${CHART}/values-delivery-dashboard.yaml
 
 # Install extensions
-helm install delivery-gear-extensions oci://${HELM_REPO}/extensions \
+helm install extensions oci://${HELM_REPO}/extensions \
     --namespace $NAMESPACE \
     --version $OCM_GEAR_VERSION \
-    --values ${CHART}/values-delivery-gear-extensions.yaml
+    --values ${CHART}/values-extensions.yaml
 
 kubectl port-forward service/delivery-service 5000:8080 > /dev/null &
