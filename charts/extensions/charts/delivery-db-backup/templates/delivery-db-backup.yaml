@@ -16,7 +16,7 @@ spec:
         spec:
           containers:
           - name: delivery-db-backup-{{ $value.DELIVERY_GEAR_CFG_NAME }}
-            image: {{ include "image" .Values.image }}
+            image: {{ include "image" $.Values.image }}
             imagePullPolicy: IfNotPresent
             command:
             - python3
