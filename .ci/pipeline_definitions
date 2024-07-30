@@ -61,6 +61,8 @@ delivery-service:
           depends:
             - component_descriptor
       traits:
+        component_descriptor:
+          ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
         notifications:
           cicd-team:
             on_error:
