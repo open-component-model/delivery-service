@@ -8,7 +8,6 @@ import dacite
 import github3
 import github3.repos
 
-import concourse.model.traits.filter as filter
 import concourse.model.traits.image_scan as image_scan
 import cnudie.iter
 import dso.cvss
@@ -17,6 +16,7 @@ import gci.componentmodel as cm
 import github.compliance.model
 import protecode.model
 
+import config_filter
 import ctx_util
 import lookups
 
@@ -321,10 +321,10 @@ def deserialise_artefact_enumerator_config(
         default_config=default_config,
         default_value=[],
     )
-    matching_configs = filter.matching_configs_from_dicts(
+    matching_configs = config_filter.matching_configs_from_dicts(
         dicts=matching_configs_raw,
     )
-    node_filter = filter.filter_for_matching_configs(
+    node_filter = config_filter.filter_for_matching_configs(
         configs=matching_configs,
     )
 
@@ -499,10 +499,10 @@ def deserialise_bdba_config(
         default_config=default_config,
         default_value=[],
     )
-    matching_configs = filter.matching_configs_from_dicts(
+    matching_configs = config_filter.matching_configs_from_dicts(
         dicts=matching_configs_raw,
     )
-    node_filter = filter.filter_for_matching_configs(
+    node_filter = config_filter.filter_for_matching_configs(
         configs=matching_configs,
     )
 
@@ -715,10 +715,10 @@ def deserialise_issue_replicator_config(
         default_config=default_config,
         default_value=[],
     )
-    matching_configs = filter.matching_configs_from_dicts(
+    matching_configs = config_filter.matching_configs_from_dicts(
         dicts=matching_configs_raw,
     )
-    node_filter = filter.filter_for_matching_configs(
+    node_filter = config_filter.filter_for_matching_configs(
         configs=matching_configs,
     )
 
