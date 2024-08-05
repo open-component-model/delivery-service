@@ -3,7 +3,6 @@
 set -euo pipefail
 
 CHART=""
-HELM_REPO=""
 REPO_ROOT=""
 
 parse_flags() {
@@ -11,9 +10,6 @@ parse_flags() {
     case "$1" in
     --path-cluster-chart)
       shift; CHART="$1"
-      ;;
-    --helm-repo)
-      shift; HELM_REPO="$1"
       ;;
     --repo-root)
       shift; REPO_ROOT="$1"
