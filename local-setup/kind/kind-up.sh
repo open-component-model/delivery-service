@@ -40,8 +40,15 @@ kubectl create ns ingress-nginx
 kubectl create ns $NAMESPACE
 kubectl config set-context --current --namespace=ingress-nginx
 
-OCM_GEAR_VERSION="${OCM_GEAR_VERSION:-$(ocm show versions europe-docker.pkg.dev/gardener-project/releases//ocm.software/ocm-gear | tail -1)}"
+OCM_GEAR_COMPONENT_REF="europe-docker.pkg.dev/gardener-project/releases//ocm.software/ocm-gear"
+OCM_GEAR_VERSION="${OCM_GEAR_VERSION:-$(ocm show versions ${OCM_GEAR_COMPONENT_REF} | tail -1)}"
+COMPONENT_DESCRIPTORS=$(ocm get cv ${OCM_GEAR_COMPONENT_REF}:${OCM_GEAR_VERSION} -o yaml -r)
 echo "Installing OCM-Gear with version $OCM_GEAR_VERSION"
+
+DELIVERY_SERVICE_CHART=$(echo "${COMPONENT_DESCRIPTORS}" | yq eval '.component.resources.[] | select(.name == "delivery-service" and .type == "helmChart/v1") | .access.imageReference')
+DELIVERY_DASHBOARD_CHART=$(echo "${COMPONENT_DESCRIPTORS}" | yq eval '.component.resources.[] | select(.name == "delivery-dashboard" and .type == "helmChart/v1") | .access.imageReference')
+EXTENSIONS_CHART=$(echo "${COMPONENT_DESCRIPTORS}" | yq eval '.component.resources.[] | select(.name == "extensions" and .type == "helmChart/v1") | .access.imageReference')
+DELIVERY_DATABASE_CHART=$(echo "${COMPONENT_DESCRIPTORS}" | yq eval '.component.resources.[] | select(.name == "postgresql" and .type == "helmChart/v1") | .access.imageReference')
 
 # Install ingress nginx controller
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
@@ -54,42 +61,40 @@ kubectl wait \
 
 kubectl config set-context --current --namespace=$NAMESPACE
 
-# Install delivery-db
+echo ">>> Installing delivery-database from ${DELIVERY_DATABASE_CHART}"
 # First, install custom pv and pvc to allow re-usage of host's filesystem mount
 kubectl apply -f "${CHART}/delivery-db-pv" --namespace $NAMESPACE
-helm install delivery-db oci://${HELM_REPO}/postgresql \
+helm install delivery-db oci://${DELIVERY_DATABASE_CHART%:*} \
     --namespace $NAMESPACE \
-    --version $POSTGRES_VERSION \
+    --version ${DELIVERY_DATABASE_CHART#*:} \
     --values ${CHART}/values-delivery-db.yaml
 
-# Install delivery-service
+echo ">>> Installing delivery-service from ${DELIVERY_SERVICE_CHART}"
 python3 ${REPO_ROOT}/local-setup/cfg/serialise_cfg.py
 python3 ${CHART}/delivery-service-mounts/render_sprints.py
 kubectl apply -f "${CHART}/delivery-service-mounts/addressbook.yaml" --namespace $NAMESPACE
 kubectl apply -f "${CHART}/delivery-service-mounts/github_mappings.yaml" --namespace $NAMESPACE
 kubectl apply -f "${CHART}/delivery-service-mounts/sprints.yaml" --namespace $NAMESPACE
-helm install delivery-service oci://${HELM_REPO}/delivery-service \
+helm install delivery-service oci://${DELIVERY_SERVICE_CHART%:*} \
     --namespace $NAMESPACE \
-    --version $OCM_GEAR_VERSION \
+    --version ${DELIVERY_SERVICE_CHART#*:} \
     --values ${CHART}/values-delivery-service.yaml
 rm ${CHART}/values-delivery-service.yaml ${CHART}/delivery-service-mounts/sprints.yaml # are created every time from base file
 echo "Waiting for delivery-service to become ready, this can take up to 3 minutes..."
-kubectl wait \
+kubectl rollout status deployment delivery-service \
     --namespace $NAMESPACE \
-    --for=condition=ready pod \
-    --selector=app=delivery-service \
     --timeout=180s
 
-# Install delivery-dashboard
-helm install delivery-dashboard oci://${HELM_REPO}/delivery-dashboard \
+echo ">>> Installing delivery-dashboard from ${DELIVERY_DASHBOARD_CHART}"
+helm install delivery-dashboard oci://${DELIVERY_DASHBOARD_CHART%:*} \
     --namespace $NAMESPACE \
-    --version $OCM_GEAR_VERSION \
+    --version ${DELIVERY_DASHBOARD_CHART#*:} \
     --values ${CHART}/values-delivery-dashboard.yaml
 
-# Install extensions
-helm install extensions oci://${HELM_REPO}/extensions \
+echo ">>> Installing extensions from ${EXTENSIONS_CHART}"
+helm install extensions oci://${EXTENSIONS_CHART%:*} \
     --namespace $NAMESPACE \
-    --version $OCM_GEAR_VERSION \
+    --version ${EXTENSIONS_CHART#*:} \
     --values ${CHART}/values-extensions.yaml
 
 kubectl port-forward service/delivery-service 5000:8080 > /dev/null &
