@@ -861,7 +861,7 @@ def update_issue(
     if not issue.assignees and assignees:
         kwargs['assignees'] = assignees
 
-    if milestone and not issue.milestone:
+    if milestone and (not issue.milestone or issue.state == 'closed'):
         kwargs['milestone'] = milestone.number
 
     issue.edit(
