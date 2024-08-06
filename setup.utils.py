@@ -22,6 +22,7 @@ def modules():
     return [
         'caching',
         'config',
+        'config_filter',
         'ctx_util',
         'lookups',
         'ocm_util',
