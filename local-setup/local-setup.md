@@ -12,7 +12,7 @@ To get started, you first of all need to install the required toolchain:
 - [helm](https://helm.sh/docs/intro/install)
 - [ocm cli](https://github.com/open-component-model/ocm-cli) (only required if
 no specific version is set using the environment variable `OCM_GEAR_VERSION`)
-- Gardener CI/CD utilities `pip3 install gardener-cicd-dso`
+- Gardener CI/CD utilities `pip3 install gardener-cicd-libs`
 
 ## Configuration
 To customize the OCM-Gear according to your needs, you have to adjust the
