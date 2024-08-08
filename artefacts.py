@@ -112,7 +112,16 @@ class ArtefactBlob:
             absent_ok=True,
         )
 
-        fname = f'{component.name}_{component.version}_{artefact.name}'
+        if access.mediaType == 'application/pdf':
+            file_ending = '.pdf'
+        elif access.mediaType == 'application/tar+gzip':
+            file_ending = '.tar.gz'
+        elif access.mediaType == 'application/tar':
+            file_ending = '.tar'
+        else:
+            file_ending = ''
+
+        fname = f'{component.name}_{component.version}_{artefact.name}{file_ending}'
 
         # required to allow download from delivery-dashboard (CORS):
         # https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a#attributes
