@@ -421,7 +421,7 @@ async def initialise_app():
         description='API definition',
         title='Delivery-Service by Gardener CICD',
         definitions=api_definitions,
-    )
+   )
 
     return app
 

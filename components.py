@@ -76,6 +76,16 @@ async def check_if_component_exists(
     return False
 
 
+def ensure_utc(ts: datetime.datetime) -> datetime.datetime:
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=datetime.timezone.utc)
+    else:
+        if ts.tzinfo != datetime.timezone.utc:
+            ts = ts.astimezone(datetime.timezone.utc)
+
+    return ts
+
+
 def get_creation_date(component: ocm.Component) -> datetime.datetime:
     '''
     Trys to extract creation date from creationTime attribute and if not set from label with name
@@ -84,7 +94,7 @@ def get_creation_date(component: ocm.Component) -> datetime.datetime:
     '''
 
     if (creationTime := component.creationTime):
-        return dateutil.parser.isoparse(creationTime)
+        return ensure_utc(dateutil.parser.isoparse(creationTime))
 
     creation_label: ocm.Label | None = component.find_label('cloud.gardener/ocm/creation-date')
 
