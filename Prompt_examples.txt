@@ -1,0 +1,9 @@
+Does gardener version v1.95.1 has some dependencies with vulnerabilities?
+
+Check which components are affected by the CVE-2020-29511 vulnerability.
+
+Which direct dependencies has the components gardener version v1.96.3 and which of them have vulnerabilities?
+
+Check which components of my landscape are affected by the CVE-2020-29511 vulnerability.
+
+Which dependencies of gardener version v1.96.3 use debien or alpine as os?

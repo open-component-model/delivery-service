@@ -16,6 +16,7 @@ import spectree
 import ci.log
 import ci.util
 
+import ai.ai
 import artefacts
 import compliance_tests
 import compliance_summary as cs
@@ -531,6 +532,17 @@ def init_app(
             component_version_lookup=version_lookup,
             github_api_lookup=github_api_lookup,
         ),
+    )
+    
+    app.add_route(
+        '/ai',
+        ai.ai.AiEndpoint(
+            component_descriptor_lookup=component_descriptor_lookup,
+            component_version_lookup=version_lookup,
+            github_api_lookup=github_api_lookup,
+            invalid_semver_ok=invalid_semver_ok,
+            eol_client=eol_client,
+        )
     )
 
     app.resp_options.media_handlers[falcon.MEDIA_JSON] = falcon.media.JSONHandler(
