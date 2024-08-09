@@ -610,17 +610,19 @@ def create_backlog_items_for_rescored_artefacts(
     kubernetes_api: k8s.util.KubernetesApi,
     session: ss.Session,
     rescorings: tuple[dso.model.ComponentArtefactId],
+    scan_config_name: str=None,
 ):
-    scan_configs = k8s.util.iter_scan_configurations(
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
+    if not scan_config_name:
+        scan_configs = k8s.util.iter_scan_configurations(
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+        )
 
-    # only if there is one scan config we can assume for sure that this config should be used
-    if len(scan_configs) != 1:
-        return
+        # only if there is one scan config we can assume for sure that this config should be used
+        if len(scan_configs) != 1:
+            return
 
-    scan_config_name = scan_configs[0].name
+        scan_config_name = scan_configs[0].name
 
     compliance_snapshots_raw = session.query(dm.ArtefactMetaData).filter(
         dm.ArtefactMetaData.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
@@ -636,7 +638,7 @@ def create_backlog_items_for_rescored_artefacts(
 
     active_compliance_snapshots = tuple(
         cs for cs in compliance_snapshots
-         if cs.data.current_state().status == dso.model.ComplianceSnapshotStatuses.ACTIVE
+        if cs.data.current_state().status == dso.model.ComplianceSnapshotStatuses.ACTIVE
     )
 
     artefacts = iter_matching_artefacts(
@@ -678,6 +680,10 @@ class Rescore:
         '''
         applies rescoring to delivery-db, only for authenticated users
 
+        **expected query parameters:**
+
+            - scanConfigName (optional) <string> \n
+
         **expected request body:**
             entries: <array> of <object> \n
             - artefact: <object> \n
@@ -704,6 +710,8 @@ class Rescore:
 
         user: middleware.auth.GithubUser = req.context['github_user']
         session: ss.Session = req.context.db_session
+
+        scan_config_name = req.get_param('scanConfigName', required=False)
 
         def iter_rescorings(
             rescorings_raw: list[dict],
@@ -745,6 +753,7 @@ class Rescore:
             kubernetes_api=self.kubernetes_api_callback(),
             session=session,
             rescorings=rescorings,
+            scan_config_name=scan_config_name,
         )
 
         resp.status = falcon.HTTP_CREATED
@@ -767,6 +776,7 @@ class Rescore:
             - artefactType (required) \n
             - artefactExtraId (optional) \n
             - type (optional) \n
+            - scanConfigName (optional) \n
             - cveRescoringRuleSetName (optional): defaults to global default cveRescoringRuleSet \n
 
         **response:**
@@ -808,6 +818,7 @@ class Rescore:
         artefact_type = req.get_param('artefactType', required=True)
         artefact_extra_id = req.get_param('artefactExtraId', required=False, default=dict())
         type_filter = req.get_param_as_list('type', required=False)
+        scan_config_name = req.get_param('scanConfigName', required=False)
 
         # also filter for structure info to enrich findings
         type_filter.append(dso.model.Datatype.STRUCTURE_INFO)
@@ -865,11 +876,26 @@ class Rescore:
             kubernetes_api=self.kubernetes_api_callback(),
         )
 
-        # only if there is one scan config we can assume for sure that this config should be used
-        if len(scan_configs) != 1:
-            max_processing_days = None
+        if scan_config_name:
+            for scan_config in scan_configs:
+                if scan_config.name == scan_config_name:
+                    break
+            else:
+                raise falcon.HTTPBadRequest(f'did not find scan config with {scan_config_name=}')
+        elif scan_configs:
+            if len(scan_configs) == 1:
+                scan_config = scan_configs[0]
+            else:
+                # workaround: at this point, we actually don't know which scan configuration to use
+                # to lookup the configuration for allowed processing times. Currently, however, all
+                # scan configurations contain the same configuration for allowed processing times,
+                # hence we can just use the first scan configuration
+                # TODO: do a more elaborated approach once configuration management is re-worked
+                scan_config = scan_configs[0]
         else:
-            scan_config = scan_configs[0]
+            max_processing_days = None
+
+        if scan_config:
             issue_replicator_config = config.deserialise_issue_replicator_config(
                 spec_config=scan_config.config,
             )
@@ -896,10 +922,12 @@ class Rescore:
         **expected query parameters:**
 
             - id (required) <array> of <int> \n
+            - scanConfigName (optional) <string> \n
         '''
         session: ss.Session = req.context.db_session
 
         ids = req.get_param_as_list('id', required=True)
+        scan_config_name = req.get_param('scanConfigName', required=False)
 
         try:
             query = session.query(dm.ArtefactMetaData).filter(
@@ -922,6 +950,7 @@ class Rescore:
                 kubernetes_api=self.kubernetes_api_callback(),
                 session=session,
                 rescorings=rescorings,
+                scan_config_name=scan_config_name,
             )
         except:
             session.rollback()
