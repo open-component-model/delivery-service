@@ -230,6 +230,7 @@ def _artefact_to_str(artefact: dso.model.ComponentArtefactId) -> str:
 
 
 def _delivery_dashboard_url(
+    cfg_name: str,
     base_url: str,
     component_name: str,
     component_version: str,
@@ -245,6 +246,7 @@ def _delivery_dashboard_url(
         'version': component_version,
         'view': 'bom',
         'rootExpanded': True,
+        'scanConfigName': cfg_name,
     }
 
     if sprint_name:
@@ -258,6 +260,7 @@ def _delivery_dashboard_url(
 
 
 def _vulnerability_template_vars(
+    cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
     ocm_nodes: collections.abc.Iterable[cnudie.iter.ResourceNode | cnudie.iter.SourceNode],
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
@@ -373,6 +376,7 @@ def _vulnerability_template_vars(
 
         if issue_replicator_config.delivery_dashboard_url:
             delivery_dashboard_url = _delivery_dashboard_url(
+                cfg_name=cfg_name,
                 base_url=issue_replicator_config.delivery_dashboard_url,
                 component_name=ocm_node.component.name,
                 component_version=ocm_node.component.version,
@@ -413,6 +417,7 @@ def _vulnerability_template_vars(
 
 
 def _malware_template_vars(
+    cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
@@ -443,6 +448,7 @@ def _malware_template_vars(
 
         if issue_replicator_config.delivery_dashboard_url:
             delivery_dashboard_url = _delivery_dashboard_url(
+                cfg_name=cfg_name,
                 base_url=issue_replicator_config.delivery_dashboard_url,
                 component_name=artefact.component_name,
                 component_version=artefact.component_version,
@@ -465,6 +471,7 @@ def _malware_template_vars(
 
 
 def _license_template_vars(
+    cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings_by_versions: dict[str, tuple[AggregatedFinding]],
@@ -529,6 +536,7 @@ def _license_template_vars(
 
         if issue_replicator_config.delivery_dashboard_url:
             delivery_dashboard_url = _delivery_dashboard_url(
+                cfg_name=cfg_name,
                 base_url=issue_replicator_config.delivery_dashboard_url,
                 component_name=artefact.component_name,
                 component_version=artefact.component_version,
@@ -652,6 +660,7 @@ def _diki_template_vars(
 
 
 def _template_vars(
+    cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
@@ -785,6 +794,7 @@ def _template_vars(
         }
     elif issue_type == gci._label_bdba:
         template_variables |= _vulnerability_template_vars(
+            cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
             ocm_nodes=ocm_nodes,
             findings_by_versions=findings_by_versions,
@@ -793,6 +803,7 @@ def _template_vars(
         )
     elif issue_type == gci._label_licenses:
         template_variables |= _license_template_vars(
+            cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
             artefacts=artefacts,
             findings_by_versions=findings_by_versions,
@@ -801,6 +812,7 @@ def _template_vars(
         )
     elif issue_type == gci._label_malware:
         template_variables |= _malware_template_vars(
+            cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
             artefacts=artefacts,
             findings_by_versions=findings_by_versions,
@@ -871,6 +883,7 @@ def update_issue(
 
 
 def _create_or_update_issue(
+    cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
@@ -925,6 +938,7 @@ def _create_or_update_issue(
     )
 
     template_variables = _template_vars(
+        cfg_name=cfg_name,
         issue_replicator_config=issue_replicator_config,
         component_descriptor_lookup=component_descriptor_lookup,
         issue_type=issue_type,
@@ -974,6 +988,7 @@ def _create_or_update_issue(
 
 
 def _create_or_update_or_close_issue_per_finding(
+    cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
@@ -1006,6 +1021,7 @@ def _create_or_update_or_close_issue_per_finding(
         processed_issues.update(finding_issues)
 
         _create_or_update_issue(
+            cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
             component_descriptor_lookup=component_descriptor_lookup,
             issue_type=issue_type,
@@ -1118,6 +1134,7 @@ def create_or_update_or_close_issue(
 
     if finding_type_issue_replication_cfg.enable_issue_per_finding:
         return _create_or_update_or_close_issue_per_finding(
+            cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
             component_descriptor_lookup=component_descriptor_lookup,
             issue_type=issue_type,
@@ -1136,6 +1153,7 @@ def create_or_update_or_close_issue(
         )
 
     return _create_or_update_issue(
+        cfg_name=cfg_name,
         issue_replicator_config=issue_replicator_config,
         component_descriptor_lookup=component_descriptor_lookup,
         issue_type=issue_type,
