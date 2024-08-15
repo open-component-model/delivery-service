@@ -13,6 +13,7 @@ import cnudie.iter
 import dso.cvss
 import dso.model
 import gci.componentmodel as cm
+import github.compliance.milestone as gcmi
 import github.compliance.model
 import protecode.model
 
@@ -211,6 +212,7 @@ class IssueReplicatorConfig:
     node_filter: typing.Callable[[cnudie.iter.Node], bool]
     cve_rescoring_rules: tuple[dso.cvss.RescoringRule]
     finding_type_issue_replication_cfgs: tuple[FindingTypeIssueReplicationCfgBase]
+    milestone_cfg: gcmi.MilestoneConfiguration
 
 
 @dataclasses.dataclass(frozen=True)
@@ -606,6 +608,56 @@ def deserialise_finding_type_issue_replication_cfg(
             )
 
 
+def deserialise_milestone_cfg(
+    milestone_cfg_raw: dict | None,
+) -> gcmi.MilestoneConfiguration:
+    if not milestone_cfg_raw:
+        return gcmi.MilestoneConfiguration()
+
+    milestone_title_cfg = milestone_cfg_raw.get('title')
+    milestone_due_date_cfg = milestone_cfg_raw.get('due_date')
+
+    if milestone_title_cfg:
+        title_prefix = milestone_title_cfg.get('prefix')
+        title_suffix = milestone_title_cfg.get('suffix')
+        title_sprint_cfg = milestone_title_cfg.get('sprint')
+    else:
+        title_prefix = gcmi.MilestoneConfiguration.title_prefix
+        title_suffix = gcmi.MilestoneConfiguration.title_suffix
+        title_sprint_cfg = None
+
+    if title_sprint_cfg:
+        sprint_value_type = title_sprint_cfg.get('value_type')
+
+        if sprint_value_type == 'name':
+            title_callback = lambda sprint: sprint.name
+
+        elif sprint_value_type == 'date':
+            name = title_sprint_cfg.get('date_name', 'end_date')
+            str_format = title_sprint_cfg.get('date_string_format', '%Y-%m-%d')
+
+            title_callback = lambda sprint: sprint.find_sprint_date(name).value.strftime(str_format)
+
+        else:
+            raise ValueError(f'invalid milestone sprint value type {sprint_value_type}')
+
+    else:
+        title_callback = gcmi.MilestoneConfiguration.title_callback
+
+    if milestone_due_date_cfg:
+        name = milestone_due_date_cfg.get('date_name')
+        due_date_callback = lambda sprint: sprint.find_sprint_date(name).value
+    else:
+        due_date_callback = gcmi.MilestoneConfiguration.due_date_callback
+
+    return gcmi.MilestoneConfiguration(
+        title_callback=title_callback,
+        title_prefix=title_prefix,
+        title_suffix=title_suffix,
+        due_date_callback=due_date_callback,
+    )
+
+
 def deserialise_issue_replicator_config(
     spec_config: dict,
 ) -> IssueReplicatorConfig:
@@ -744,6 +796,16 @@ def deserialise_issue_replicator_config(
         for finding_type_issue_replication_cfg_raw in finding_type_issue_replication_cfgs_raw
     )
 
+    milestone_cfg_raw = deserialise_config_property(
+        config=issue_replicator_config,
+        property_key='milestones',
+        absent_ok=True,
+    )
+
+    milestone_cfg = deserialise_milestone_cfg(
+        milestone_cfg_raw=milestone_cfg_raw,
+    )
+
     return IssueReplicatorConfig(
         delivery_service_url=delivery_service_url,
         delivery_dashboard_url=delivery_dashboard_url,
@@ -760,6 +822,7 @@ def deserialise_issue_replicator_config(
         node_filter=node_filter,
         cve_rescoring_rules=cve_rescoring_rules,
         finding_type_issue_replication_cfgs=finding_type_issue_replication_cfgs,
+        milestone_cfg=milestone_cfg,
     )
 
 

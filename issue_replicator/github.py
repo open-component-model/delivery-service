@@ -200,6 +200,7 @@ def _issue_milestone(
     return gcmi.find_or_create_sprint_milestone(
         repo=issue_replicator_config.github_issues_repository,
         sprints=sprints,
+        milestone_cfg=issue_replicator_config.milestone_cfg,
     )
 
 
