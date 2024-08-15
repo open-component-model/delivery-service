@@ -321,3 +321,13 @@ configuration:
         #   github_issue_labels_to_preserve:
         #     - pending.*
         #   number_included_closed_issues: 100
+        #   milestones:
+        #     title:
+        #       prefix: week-
+        #       suffix: ~
+        #       sprint:
+        #         value_type: date
+        #         date_name: release_decision
+        #         date_string_format: '%V'
+        #     due_date:
+        #       date_name: release_decision
