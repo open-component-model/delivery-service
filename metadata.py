@@ -418,6 +418,16 @@ def reuse_discovery_date_if_possible(
             # resource-/package-version, so we must re-use its discovery date
             return old_metadata.discovery_date
 
+    elif new_metadata.type == dso.model.Datatype.DIKI_FINDING:
+        if (
+            new_metadata.data.get('provider_id') == old_metadata.data.get('provider_id')
+            and new_metadata.data.get('ruleset_id') == old_metadata.data.get('ruleset_id')
+            and new_metadata.data.get('rule_id') == old_metadata.data.get('rule_id')
+        ):
+            # found the same finding in existing entry, independent of the component-/
+            # resource-/package-version, so we must re-use its discovery date
+            return old_metadata.discovery_date
+
     return None
 
 
