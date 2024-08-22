@@ -425,7 +425,7 @@ def reuse_discovery_date_if_possible(
             and new_metadata.data.get('rule_id') == old_metadata.data.get('rule_id')
         ):
             # found the same finding in existing entry, independent of the component-/
-            # resource-/package-version, so we must re-use its discovery date
+            # resource-/ruleset-version, so we must re-use its discovery date
             return old_metadata.discovery_date
 
     return None
