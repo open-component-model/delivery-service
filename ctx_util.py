@@ -31,7 +31,7 @@ def watch_for_file_changes(
 ):
     if not event_handler:
         event_handler = FileChangeEventHandler()
-    observer = watchdog.observers.polling.PollingObserver(60)
+    observer = watchdog.observers.polling.PollingObserver(timeout=60)
     observer.schedule(event_handler, path)
     observer.start()
 

@@ -863,7 +863,7 @@ def watch_for_file_changes(
     path: str,
 ):
     try:
-        observer = watchdog.observers.polling.PollingObserver(60)
+        observer = watchdog.observers.polling.PollingObserver(timeout=60)
         observer.schedule(event_handler, path)
         observer.start()
     except FileNotFoundError:
