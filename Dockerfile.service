@@ -1,12 +1,14 @@
 FROM europe-docker.pkg.dev/gardener-project/snapshots/cicd/alpine-sap
 
 # makes debugging easier
-COPY VERSION /VERSION
-COPY CC_UTILS_VERSION /CC_UTILS_VERSION
-COPY requirements.utils.txt /requirements.utils.txt
-COPY requirements.service.txt /requirements.txt
-
+COPY uwsgi.ini VERSION CC_UTILS_VERSION requirements.utils.txt requirements.service.txt /
 COPY /dist /dist
+
+# set default values for uWSGI setup
+ENV UWSGI_MASTER=1
+ENV UWSGI_PROCESSES=1
+ENV UWSGI_THREADS=20
+ENV UWSGI_WSGI_FILE=/usr/lib/python3.12/site-packages/app.py
 
 # cannot install numpy, scipy via pypi
 RUN apk add --no-cache \
@@ -23,22 +25,18 @@ RUN apk add --no-cache \
     py3-numpy \
     py3-scipy \
     uwsgi \
-    uwsgi-python3
-
-RUN mkdir -p $HOME/.config/pip \
-    && echo -e "[global]\nbreak-system-packages = true" >> $HOME/.config/pip/pip.conf \
-    && pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service
-
-RUN rm -rf /dist
-
-# copy VERSION next to app to keep paths stable
-COPY VERSION /usr/lib/python3.12/site-packages/VERSION
-
-# set default values for uWSGI setup
-ENV UWSGI_MASTER=1
-ENV UWSGI_PROCESSES=1
-ENV UWSGI_THREADS=20
-ENV UWSGI_WSGI_FILE=/usr/lib/python3.12/site-packages/app.py
-COPY uwsgi.ini /uwsgi.ini
+    uwsgi-python3 \
+&& mkdir -p $HOME/.config/pip \
+&& echo -e "[global]\nbreak-system-packages = true" >> $HOME/.config/pip/pip.conf \
+&& pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service
+&& rm -rf /dist \
+&& apk del --no-cache \
+    libc-dev \
+    libev-dev \
+    libffi-dev \
+    python3-dev \
+&& ln -sf /etc/ssl/certs/ca-certificates.crt "$(python3 -m certifi)" \
+&& ln /VERSION /usr/lib/python3.12/site-packages/VERSION
+# TODO: placing VERSION-file here is quite an ugly hack/workaround. should be cleaned-up
 
 ENTRYPOINT ["uwsgi", "uwsgi.ini", "--plugins", "/usr/lib/uwsgi/python"]
