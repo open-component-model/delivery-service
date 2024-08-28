@@ -2,7 +2,7 @@
 
 set -eu
 
-repo_dir="$(readlink -f "$(dirname "$0")/..")"
+repo_dir="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
 out_dir="$(readlink -f "${repo_dir}/../${PACKAGES_PATH:-}/dist")"
 mkdir "${out_dir}"
 
