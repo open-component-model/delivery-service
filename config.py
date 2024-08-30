@@ -123,6 +123,8 @@ class BDBAConfig:
         required to differentiate between allowed and prohibited licenses
     :param int delete_inactive_products_after_seconds:
         time after which a bdba product is deleted if the scanned artefact is not active anymore
+    :param set[str] blacklist_finding_types:
+        finding types which are provided by BDBA but should _not_ be populated into the delivery-db
     '''
     delivery_service_url: str
     rescan_interval: int
@@ -139,6 +141,7 @@ class BDBAConfig:
     auto_assess_max_severity: dso.cvss.CVESeverity
     license_cfg: image_scan.LicenseCfg
     delete_inactive_products_after_seconds: int
+    blacklist_finding_types: set[str]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -542,6 +545,22 @@ def deserialise_bdba_config(
         on_absent_message='inactive bdba products will not be deleted',
     )
 
+    blacklist_finding_types = deserialise_config_property(
+        config=bdba_config,
+        property_key='blacklist_finding_types',
+        default_value=[],
+    )
+
+    if isinstance(blacklist_finding_types, str):
+        blacklist_finding_types = [blacklist_finding_types]
+
+    blacklist_finding_types = set(blacklist_finding_types)
+
+    if dso.model.Datatype.VULNERABILITY in blacklist_finding_types:
+        # BDBA only supports rescorings (i.e. triages) for vulnerabilites, hence we do not have to
+        # store them if vulnerabilities are blacklisted anyways
+        blacklist_finding_types.add(dso.model.Datatype.RESCORING)
+
     return BDBAConfig(
         delivery_service_url=delivery_service_url,
         rescan_interval=rescan_interval,
@@ -558,6 +577,7 @@ def deserialise_bdba_config(
         auto_assess_max_severity=auto_assess_max_severity,
         license_cfg=license_cfg,
         delete_inactive_products_after_seconds=delete_inactive_products_after_seconds,
+        blacklist_finding_types=blacklist_finding_types,
     )
 
 

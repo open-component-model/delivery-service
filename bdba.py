@@ -121,7 +121,7 @@ def scan(
         oci_client=oci_client,
     )
 
-    scan_results = tuple(processor.process(
+    scan_results = processor.process(
         resource_node=resource_node,
         processing_mode=bdba_config.processing_mode,
         known_scan_results=known_scan_results,
@@ -132,9 +132,14 @@ def scan(
         auto_assess_max_severity=bdba_config.auto_assess_max_severity,
         use_product_cache=False,
         delete_inactive_products_after_seconds=bdba_config.delete_inactive_products_after_seconds,
-    ))
+    )
 
-    delivery_client.update_metadata(data=scan_results)
+    filtered_scan_results = tuple(
+        scan_result for scan_result in scan_results
+        if scan_result.meta.type not in bdba_config.blacklist_finding_types
+    )
+
+    delivery_client.update_metadata(data=filtered_scan_results)
 
     logger.info(
         f'finished scan of artefact {backlog_item.artefact.artefact.artefact_name}:'
