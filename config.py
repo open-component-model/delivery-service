@@ -1,8 +1,8 @@
+import collections.abc
 import dataclasses
 import datetime
 import enum
 import logging
-import typing
 
 import dacite
 import github3
@@ -67,7 +67,7 @@ class ArtefactEnumeratorConfig:
     delivery_service_url: str
     compliance_snapshot_grace_period: int
     artefact_types: tuple[str]
-    node_filter: typing.Callable[[cnudie.iter.Node], bool]
+    node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
     components: tuple[Component]
     sprints_time_range: TimeRange
 
@@ -134,7 +134,7 @@ class BDBAConfig:
     aws_cfg_set_name: str
     processing_mode: protecode.model.ProcessingMode
     artefact_types: tuple[str]
-    node_filter: typing.Callable[[cnudie.iter.Node], bool]
+    node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
     cve_rescoring_rules: tuple[dso.cvss.RescoringRule]
     auto_assess_max_severity: dso.cvss.CVESeverity
     license_cfg: image_scan.LicenseCfg
@@ -203,13 +203,13 @@ class IssueReplicatorConfig:
     lookup_new_backlog_item_interval: int
     license_cfg: image_scan.LicenseCfg
     max_processing_days: github.compliance.model.MaxProcessingTimesDays
-    github_api_lookup: typing.Callable[[str], github3.GitHub]
+    github_api_lookup: collections.abc.Callable[[str], github3.GitHub]
     github_issues_repository: github3.repos.Repository
     github_issue_template_cfgs: tuple[image_scan.GithubIssueTemplateCfg]
     github_issue_labels_to_preserve: set[str]
     number_included_closed_issues: int
     artefact_types: tuple[str]
-    node_filter: typing.Callable[[cnudie.iter.Node], bool]
+    node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
     cve_rescoring_rules: tuple[dso.cvss.RescoringRule]
     finding_type_issue_replication_cfgs: tuple[FindingTypeIssueReplicationCfgBase]
     milestone_cfg: gcmi.MilestoneConfiguration
