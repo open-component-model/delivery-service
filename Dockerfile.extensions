@@ -1,7 +1,7 @@
 FROM europe-docker.pkg.dev/gardener-project/snapshots/cicd/alpine-sap
 
 # makes debugging easier
-COPY VERSION CC_UTILS_VERSION requirements.util.txt requirements.extensions.txt  /
+COPY VERSION CC_UTILS_VERSION requirements.utils.txt requirements.extensions.txt  /
 COPY /dist /dist
 
 RUN apk add --no-cache \
@@ -15,7 +15,7 @@ RUN apk add --no-cache \
     py3-pip \
 &&  mkdir -p $HOME/.config/pip \
 && echo -e "[global]\nbreak-system-packages = true" >> $HOME/.config/pip/pip.conf \
-&& pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-extensions \
+&& pip3 install --upgrade --no-cache-dir --find-links /dist ocm-gear-extensions \
 && rm -rf /dist \
 && apk del --no-cache \
     libc-dev \

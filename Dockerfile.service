@@ -28,7 +28,7 @@ RUN apk add --no-cache \
     uwsgi-python3 \
 && mkdir -p $HOME/.config/pip \
 && echo -e "[global]\nbreak-system-packages = true" >> $HOME/.config/pip/pip.conf \
-&& pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service
+&& pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service \
 && rm -rf /dist \
 && apk del --no-cache \
     libc-dev \
