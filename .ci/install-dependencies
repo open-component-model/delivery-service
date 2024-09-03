@@ -24,7 +24,7 @@ apk add --no-cache \
   gcc \
   libev-dev
 
-pip3 install --no-cache \
+pip3 install --no-cache --upgrade \
   --find-links "${pkg_dir}" \
   -r "${repo_root}/requirements.service.txt" \
   -r "${repo_root}/requirements.utils.txt" \
