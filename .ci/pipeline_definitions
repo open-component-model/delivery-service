@@ -3,13 +3,10 @@ delivery-service:
     check-steps: &check-steps
       steps: &steps
         smoke_test:
-          image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service:latest
           execute: ../smoke_test.py
         lint:
-          image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service:latest
           execute: lint
         test:
-          image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service:latest
           execute: test
 
   base_definition:
@@ -146,13 +143,6 @@ delivery-service:
           nextversion: bump_minor
           release_notes_policy: disabled
           release_commit_publishing_policy: tag_and_merge_back
-
-    manual-release-bypass-ci:
-      steps:
-        build_python_packages:
-          output_dir: packages
-      traits:
-        <<: *release-traits
 
     head-update:
       steps:
