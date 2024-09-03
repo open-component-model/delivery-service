@@ -35,7 +35,6 @@ RUN apk add --no-cache \
     libev-dev \
     libffi-dev \
     python3-dev \
-&& ln -sf /etc/ssl/certs/ca-certificates.crt "$(python3 -m certifi)" \
 && ln /VERSION /usr/lib/python3.12/site-packages/VERSION
 # TODO: placing VERSION-file here is quite an ugly hack/workaround. should be cleaned-up
 
