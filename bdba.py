@@ -100,7 +100,6 @@ def scan(
         component_descriptor_lookup=component_descriptor_lookup,
         artefact=backlog_item.artefact,
     )
-    groups = [[resource_node]]
 
     if not resource_node.resource.type in bdba_config.artefact_types:
         return
@@ -108,10 +107,10 @@ def scan(
     if not bdba_config.node_filter(resource_node):
         return
 
-    known_scan_results = protecode.scanning._retrieve_existing_scan_results(
+    known_scan_results = protecode.scanning.retrieve_existing_scan_results(
         protecode_client=bdba_client,
         group_id=bdba_config.group_id,
-        resource_groups=groups,
+        resource_node=resource_node,
         oci_client=oci_client,
     )
 
@@ -123,7 +122,7 @@ def scan(
     )
 
     scan_results = tuple(processor.process(
-        resource_group=groups[0],
+        resource_node=resource_node,
         processing_mode=bdba_config.processing_mode,
         known_scan_results=known_scan_results,
         s3_client=s3_client,
