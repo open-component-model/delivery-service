@@ -14,25 +14,7 @@ if ! which pip3 &> /dev/null; then
   exit 1
 fi
 
-cc_utils_version="$(cat "${repo_root}/CC_UTILS_VERSION")"
-pkg_dir=packages
-mkdir -p "${pkg_dir}"
-ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
-
-for resource in gardener-cicd-libs gardener-oci; do
-  echo "downloading ${resource}:${cc_utils_version}"
-  ocm download resources \
-    "OCIRegistry::${ocm_repo}//github.com/gardener/cc-utils:${cc_utils_version}" \
-    "${resource}" \
-    -O - | tar xJ -C"${pkg_dir}"
-done
-
-pip3 install \
-  --find-links "${pkg_dir}" \
-  -r "${repo_root}/requirements.utils.txt" \
-  -r "${repo_root}/requirements.service.txt" \
-  -r "${repo_root}/requirements.extensions.txt"
-
+"${repo_root}/.ci/install-dependencies"
 
 if PYTHONPATH="${repo_root}:${PYTHONPATH:-}" pytest "${repo_root}" "${@}"; then
     echo 'Unittest executions succeeded'

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -eu
+
+repo_root="$(dirname "${BASH_SOURCE[0]}")/.."
+
+cc_utils_version="$(cat "${repo_root}/CC_UTILS_VERSION")"
+pkg_dir=packages
+mkdir -p "${pkg_dir}"
+ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
+
+for resource in gardener-cicd-libs gardener-oci; do
+  echo "downloading ${resource}:${cc_utils_version}"
+  ocm download resources \
+    "OCIRegistry::${ocm_repo}//github.com/gardener/cc-utils:${cc_utils_version}" \
+    "${resource}" \
+    -O - | tar xJ -C"${pkg_dir}"
+done
+
+apk add --no-cache \
+  libc-dev \
+  libffi-dev \
+  python3-dev \
+  gcc \
+  libev-dev
+
+pip3 install --no-cache \
+  --find-links "${pkg_dir}" \
+  -r "${repo_root}/requirements.service.txt" \
+  -r "${repo_root}/requirements.utils.txt" \
+  -r "${repo_root}/requirements.extensions.txt"

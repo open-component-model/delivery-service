@@ -2,8 +2,8 @@ delivery-service:
   inherit:
     check-steps: &check-steps
       steps: &steps
-        smoke_test:
-          execute: ../smoke_test.py
+        smoke-test:
+          execute: smoke-test
         lint:
           execute: lint
         test:

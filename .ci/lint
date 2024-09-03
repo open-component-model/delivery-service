@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-set -e
+set -eu
 
 # usage: $1: <src-dir>
 
-src_dir="${1:-"$(readlink -f "$(dirname "${0}")/..")"}"
+src_dir="${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}"
+
+"${src_dir}/.ci/install-dependencies"
 
 echo 'Running flake8 for all python modules..'
 error=0
@@ -36,4 +38,3 @@ echo 'running pylama for all modules (errors only)'
 )
 
 exit $?
-
