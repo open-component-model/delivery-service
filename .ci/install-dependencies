@@ -18,12 +18,13 @@ for resource in gardener-cicd-libs gardener-oci; do
 done
 
 apk add --no-cache \
-  libc-dev \
-  libffi-dev \
-  python3-dev \
   gcc \
+  libc-dev \
   libev-dev \
-  py3-numpy
+  libffi-dev \
+  py3-numpy \
+  py3-scipy \
+  python3-dev
 
 pip3 install --no-cache --upgrade \
   --find-links "${pkg_dir}" \
