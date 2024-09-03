@@ -84,21 +84,21 @@ delivery-service:
           inject_effective_version: True
         publish:
           dockerimages:
-            delivery-service:
+            delivery-service: &delivery-service-image
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service
               dockerfile: Dockerfile.service
               tag_as_latest: True
               inputs:
                 steps:
                   build_python_packages: ~
-            extensions:
+            extensions: &extensions-image
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extensions
               dockerfile: Dockerfile.extensions
               tag_as_latest: True
               inputs:
                 steps:
                   build_python_packages: ~
-            extension-clamav:
+            extension-clamav: &extension-clamav-image
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-clamav
               dockerfile: Dockerfile.extensions.clamav
               tag_as_latest: True
@@ -155,7 +155,10 @@ delivery-service:
         <<: *release-traits
 
     head-update:
-      <<: *check-steps
+      steps:
+        <<: *steps
+        build_python_packages:
+          output_dir: packages
       traits:
         version: ~
         notifications:
@@ -164,3 +167,17 @@ delivery-service:
               triggering_policy: only_first
         component_descriptor:
           ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
+        publish:
+          dockerimages:
+            delivery-service:
+              <<: *delivery-service-image
+              tag_as_latest: False
+              image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/delivery-service
+            extensions:
+              <<: *extensions-image
+              tag_as_latest: False
+              image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/extensions
+            extension-clamav:
+              <<: *extension-clamav-image
+              tag_as_latest: False
+              image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/extension-clamav
