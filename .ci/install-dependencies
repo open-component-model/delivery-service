@@ -22,7 +22,8 @@ apk add --no-cache \
   libffi-dev \
   python3-dev \
   gcc \
-  libev-dev
+  libev-dev \
+  py3-numpy
 
 pip3 install --no-cache --upgrade \
   --find-links "${pkg_dir}" \
