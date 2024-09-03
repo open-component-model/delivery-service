@@ -1,6 +1,8 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
 
-set -e
+set -eu
+
+repo_root="$(dirname "${BASH_SOURCE[0]}")/.."
 
 if ! which pytest &>/dev/null; then
   echo "pytest is required (install with pip(3) install pytest)"
@@ -12,14 +14,27 @@ if ! which pip3 &> /dev/null; then
   exit 1
 fi
 
-src_dir="${1:-"$(readlink -f "$(dirname "${0}")/..")"}"
+cc_utils_version="$(cat "${repo_root}/CC_UTILS_VERSION")"
+pkg_dir=packages
+mkdir -p "${pkg_dir}"
+ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
 
-pip3 install -r "${src_dir}/requirements.utils.txt"
-pip3 install -r "${src_dir}/requirements.service.txt"
-pip3 install -r "${src_dir}/requirements.extensions.txt"
+for resource in gardener-cicd-libs gardener-oci; do
+  echo "downloading ${resource}:${cc_utils_version}"
+  ocm download resources \
+    "OCIRegistry::${ocm_repo}//github.com/gardener/cc-utils:${cc_utils_version}" \
+    "${resource}" \
+    -O - | tar xJ -C"${pkg_dir}"
+done
+
+pip3 install \
+  --find-links "${pkg_dir}" \
+  -r "${repo_root}/requirements.utils.txt" \
+  -r "${repo_root}/requirements.service.txt" \
+  -r "${repo_root}/requirements.extensions.txt"
 
 
-if PYTHONPATH="${src_dir}:${PYTHONPATH:-}" pytest "${src_dir}" "${@}"; then
+if PYTHONPATH="${repo_root}:${PYTHONPATH:-}" pytest "${repo_root}" "${@}"; then
     echo 'Unittest executions succeeded'
     exit 0
 else
