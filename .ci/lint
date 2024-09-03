@@ -23,7 +23,7 @@ echo 'running pylama for all modules (errors only)'
         ((error|=1))
     fi
 
-    if "${src_dir}/.ci/lint-flake8"; then
+    if ".ci/lint-flake8"; then
         echo 'pyflake8 succeeded'
     else
         ((error|=1))
