@@ -4,6 +4,11 @@ set -eu
 
 repo_root="$(dirname "${BASH_SOURCE[0]}")/.."
 
+if ! which pip3 &> /dev/null; then
+  echo "pip3 is required"
+  exit 1
+fi
+
 cc_utils_version="$(cat "${repo_root}/CC_UTILS_VERSION")"
 pkg_dir=packages
 mkdir -p "${pkg_dir}"

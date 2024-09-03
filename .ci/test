@@ -9,17 +9,20 @@ if ! which pytest &>/dev/null; then
   exit 1
 fi
 
-if ! which pip3 &> /dev/null; then
-  echo "pip3 is required"
-  exit 1
+if [ -n "${CC_ROOT_DIR:-}" ]; then
+  running_in_pipeline=true
+else
+  running_in_pipeline=false
 fi
 
-"${repo_root}/.ci/install-dependencies"
+if ${running_in_pipeline}; then
+  "${repo_root}/.ci/install-dependencies"
+fi
 
 if PYTHONPATH="${repo_root}:${PYTHONPATH:-}" pytest "${repo_root}" "${@}"; then
-    echo 'Unittest executions succeeded'
-    exit 0
+  echo 'Unittest executions succeeded'
+  exit 0
 else
-    echo 'Errors were found whilst executing unittests (see above)'
-    exit 1
+  echo 'Errors were found whilst executing unittests (see above)'
+  exit 1
 fi
