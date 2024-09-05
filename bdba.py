@@ -13,6 +13,7 @@ import ccc.protecode
 import ci.log
 import cnudie.iter
 import cnudie.retrieve
+import cnudie.util
 import delivery.client
 import dso.model
 import oci.client
@@ -123,9 +124,13 @@ def scan(
 
     scan_results = processor.process(
         resource_node=resource_node,
+        resource_content=cnudie.util.resource_content(
+            resource=resource_node.resource,
+            oci_client=oci_client,
+            s3_client=s3_client,
+        ),
         processing_mode=bdba_config.processing_mode,
         known_scan_results=known_scan_results,
-        s3_client=s3_client,
         delivery_client=delivery_client,
         license_cfg=bdba_config.license_cfg,
         cve_rescoring_rules=bdba_config.cve_rescoring_rules,
