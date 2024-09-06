@@ -159,7 +159,7 @@ def _component_descriptor(
     else:
         ocm_repo = None
 
-    version = req.get_param('version', True)
+    version = req.get_param('version', default='greatest')
 
     version_filter = req.get_param('version_filter', False, default=version_filter)
     util.get_enum_value_or_raise(version_filter, features.VersionFilter)
@@ -325,7 +325,7 @@ class ComponentResponsibles:
         **expected query parameters:**
 
             - component_name (required) \n
-            - version (required) \n
+            - version (optional) \n
             - version_filter (optional) \n
             - ctx_repo_url (optional, defaults to delivery-service's global default ctx) \n
             - resource_name (optional)
