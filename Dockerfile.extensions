@@ -1,4 +1,4 @@
-FROM europe-docker.pkg.dev/gardener-project/snapshots/cicd/alpine-sap
+FROM ghcr.io/gardener/cc-utils/alpine:3
 
 # makes debugging easier
 COPY VERSION CC_UTILS_VERSION requirements.utils.txt requirements.extensions.txt  /
