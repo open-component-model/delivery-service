@@ -777,6 +777,11 @@ def _template_vars(
             f'{gcr._pluralise(artefact.artefact.artefact_type, len(a_versions_with_findings))} '
             'yielded findings relevant for future release decisions.\n'
         )
+    else:
+        summary += (
+            '**The scan of the recent artefact version is currently pending, '
+            'hence no findings may show up.**'
+        )
 
     template_variables = {
         'component_name': artefact.component_name,
