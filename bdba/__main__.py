@@ -9,17 +9,17 @@ import time
 import botocore.client
 
 import ccc.aws
-import ccc.protecode
 import ci.log
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import dso.model
 import oci.client
-import protecode.client
-import protecode.scanning
-import protecode.util
+import bdba.client
+import bdba.scanning
+import bdba.util
 
+import bdba.client
 import config
 import ctx_util
 import k8s.backlog
@@ -86,7 +86,7 @@ def scan(
     bdba_config: config.BDBAConfig,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-    bdba_client: protecode.client.ProtecodeApi,
+    bdba_client: bdba.client.BDBAApi,
     oci_client: oci.client.Client,
     s3_client: 'botocore.client.S3',
 ):
@@ -107,17 +107,17 @@ def scan(
     if not bdba_config.node_filter(resource_node):
         return
 
-    known_scan_results = protecode.scanning.retrieve_existing_scan_results(
-        protecode_client=bdba_client,
+    known_scan_results = bdba.scanning.retrieve_existing_scan_results(
+        bdba_client=bdba_client,
         group_id=bdba_config.group_id,
         resource_node=resource_node,
         oci_client=oci_client,
     )
 
-    processor = protecode.scanning.ResourceGroupProcessor(
+    processor = bdba.scanning.ResourceGroupProcessor(
         group_id=bdba_config.group_id,
         reference_group_ids=bdba_config.reference_group_ids,
-        protecode_client=bdba_client,
+        bdba_client=bdba_client,
         oci_client=oci_client,
     )
 
@@ -245,8 +245,8 @@ def main():
         # factory method 'bdba' does not exist, fallback to 'protecode'
         bdba_cfg = cfg_factory.protecode(bdba_config.cfg_name)
 
-    bdba_client = ccc.protecode.client(
-        protecode_cfg=bdba_cfg,
+    bdba_client = bdba.client.client(
+        bdba_cfg=bdba_cfg,
         group_id=bdba_config.group_id,
         base_url=bdba_cfg.base_url(),
         cfg_factory=cfg_factory,

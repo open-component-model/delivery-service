@@ -15,7 +15,7 @@ import dso.model
 import gci.componentmodel as cm
 import github.compliance.milestone as gcmi
 import github.compliance.model
-import protecode.model
+import bdba.model
 
 import config_filter
 import ctx_util
@@ -132,9 +132,9 @@ class BDBAConfig:
     cfg_name: str
     group_id: int
     reference_group_ids: tuple[int]
-    cvss_version: protecode.model.CVSSVersion
+    cvss_version: bdba.model.CVSSVersion
     aws_cfg_set_name: str
-    processing_mode: protecode.model.ProcessingMode
+    processing_mode: bdba.model.ProcessingMode
     artefact_types: tuple[str]
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
     cve_rescoring_rules: tuple[dso.cvss.RescoringRule]
@@ -473,7 +473,7 @@ def deserialise_bdba_config(
         property_key='cvss_version',
         default_value='CVSSv3',
     )
-    cvss_version = protecode.model.CVSSVersion(cvss_version_raw)
+    cvss_version = bdba.model.CVSSVersion(cvss_version_raw)
 
     aws_cfg_set_name = deserialise_config_property(
         config=bdba_config,
@@ -484,9 +484,9 @@ def deserialise_bdba_config(
     processing_mode_raw = deserialise_config_property(
         config=bdba_config,
         property_key='processing_mode',
-        default_value=protecode.model.ProcessingMode.RESCAN.value,
+        default_value=bdba.model.ProcessingMode.RESCAN.value,
     )
-    processing_mode = protecode.model.ProcessingMode(processing_mode_raw)
+    processing_mode = bdba.model.ProcessingMode(processing_mode_raw)
 
     artefact_types = tuple(deserialise_config_property(
         config=bdba_config,
