@@ -2,8 +2,12 @@ import dataclasses
 import datetime
 import dataclasses_json
 import enum
+import io
+import json
 import logging
+import tarfile
 import typing
+import yaml
 
 import cachetools
 import cachetools.keys
@@ -22,6 +26,7 @@ import cnudie.util
 import cnudie.retrieve
 import dso.model
 import gci.componentmodel as cm
+import gci.oci
 import github.util
 import oci.client
 import oci.model as om
@@ -160,6 +165,8 @@ def _component_descriptor(
         ocm_repo = None
 
     version = req.get_param('version', default='greatest')
+    raw = req.get_param_as_bool('raw', default=False)
+    ignore_cache = req.get_param_as_bool('ignore_cache', default=False)
 
     version_filter = req.get_param('version_filter', False, default=version_filter)
     util.get_enum_value_or_raise(version_filter, features.VersionFilter)
@@ -174,12 +181,62 @@ def _component_descriptor(
             invalid_semver_ok=invalid_semver_ok,
         )
 
+    component_id = cm.ComponentIdentity(
+        name=component_name,
+        version=version,
+    )
+
+    if ocm_repo_url:
+        ocm_repos = (ocm_repo_url,)
+    else:
+        if not lookups.init_ocm_repository_lookup():
+            raise ValueError('either ctx_repo, or ocm_repository_lookup must be passed')
+
+    ocm_repos = cnudie.retrieve.iter_ocm_repositories(
+        component_id,
+        lookups.init_ocm_repository_lookup(),
+    )
+
+    if raw or ignore_cache:
+        # in both cases fetch directly from oci-registry
+        try:
+            raw = cnudie.retrieve.raw_component_descriptor_from_oci(
+                component_id=component_id,
+                ocm_repos=ocm_repos,
+                oci_client=lookups.semver_sanitised_oci_client(),
+            )
+
+        except om.OciImageNotFoundException as e:
+            err_str = f'component descriptor "{component_id.name}" in version "' \
+            f'{component_id.version}" not found in {ocm_repo=}'
+            raise falcon.HTTPNotFound(
+                title='component descriptor not found',
+                description=err_str,
+            ) from e
+
+        # wrap in fobj
+        blob_fobj = io.BytesIO(raw)
+
+        with tarfile.open(fileobj=blob_fobj, mode='r') as tf:
+            component_descriptor_info = tf.getmember(gci.oci.component_descriptor_fname)
+            component_descriptor_bytes = tf.extractfile(component_descriptor_info).read()
+
+        if raw:
+            component_descriptor = component_descriptor_bytes.decode()
+
+        else:
+            try:
+                component_descriptor = cm.ComponentDescriptor.from_dict(
+                    yaml.safe_load(component_descriptor_bytes),
+                )
+            except dacite.exceptions.MissingValueError as e:
+                raise falcon.HTTPFailedDependency(title=str(e))
+
+        return component_descriptor
+
     try:
         descriptor = util.retrieve_component_descriptor(
-            cm.ComponentIdentity(
-                name=component_name,
-                version=version,
-            ),
+            component_id,
             component_descriptor_lookup=component_descriptor_lookup,
             ctx_repo=ocm_repo,
         )
