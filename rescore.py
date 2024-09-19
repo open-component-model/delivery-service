@@ -13,7 +13,7 @@ import cnudie.retrieve
 import dso.cvss
 import dso.labels
 import dso.model
-import gci.componentmodel as cm
+import ocm
 import github.compliance.model as gcm
 
 import config
@@ -90,7 +90,7 @@ def _find_cve_rescoring_rule_set(
 
 def _find_artefact_node(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    component: cm.Component,
+    component: ocm.Component,
     artefact: dso.model.ComponentArtefactId,
 ) -> cnudie.iter.Node | cnudie.iter.ArtefactNode | None:
     if artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
@@ -122,7 +122,7 @@ def _find_artefact_node_or_raise(
     artefact: dso.model.ComponentArtefactId,
 ) -> cnudie.iter.Node | cnudie.iter.ArtefactNode:
     component = util.retrieve_component_descriptor(
-        cm.ComponentIdentity(
+        ocm.ComponentIdentity(
             name=artefact.component_name,
             version=artefact.component_version,
         ),

@@ -12,7 +12,7 @@ import cnudie.iter
 import concourse.model.traits.image_scan as image_scan
 import delivery.client
 import dso.model
-import gci.componentmodel as cm
+import ocm
 import gci.oci
 import github.compliance.model as gcm
 import github.compliance.report as gcr
@@ -291,9 +291,9 @@ def component_artifact_metadata(
 
     metadata = {'COMPONENT_NAME': component.name}
 
-    if resource.access.type is cm.AccessType.OCI_REGISTRY:
+    if resource.access.type is ocm.AccessType.OCI_REGISTRY:
         metadata['IMAGE_REFERENCE_NAME'] = resource.name
-        metadata['RESOURCE_TYPE'] = cm.ArtefactType.OCI_IMAGE
+        metadata['RESOURCE_TYPE'] = ocm.ArtefactType.OCI_IMAGE
         if not omit_resource_version:
             image_reference = gci.oci.image_ref_with_digest(
                 image_reference=resource.access.imageReference,
@@ -303,14 +303,14 @@ def component_artifact_metadata(
             metadata['IMAGE_REFERENCE'] = image_reference.original_image_reference
             metadata['IMAGE_VERSION'] = resource.version
 
-    elif resource.access.type is cm.AccessType.S3:
+    elif resource.access.type is ocm.AccessType.S3:
         metadata['RESOURCE_TYPE'] = resource.type
         if not omit_resource_version:
             metadata['IMAGE_VERSION'] = resource.version
 
-    elif resource.access.type is cm.AccessType.LOCAL_BLOB:
+    elif resource.access.type is ocm.AccessType.LOCAL_BLOB:
         metadata['IMAGE_REFERENCE_NAME'] = resource.name
-        metadata['RESOURCE_TYPE'] = cm.AccessType.LOCAL_BLOB
+        metadata['RESOURCE_TYPE'] = ocm.AccessType.LOCAL_BLOB
         # do not use global access as it is optional
         img_ref = component.current_ocm_repo.component_version_oci_ref(
             name=component.name,

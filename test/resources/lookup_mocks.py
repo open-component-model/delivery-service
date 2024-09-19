@@ -4,15 +4,15 @@ import yaml
 
 import cnudie.retrieve
 import cnudie.util
-import gci.componentmodel as cm
+import ocm
 
 
 def load_component_descriptors(file: str):
-    component_descriptors: list[cm.ComponentDescriptor] = []
+    component_descriptors: list[ocm.ComponentDescriptor] = []
     with open(file, 'r') as file:
         descriptors_dict = yaml.load(file, yaml.SafeLoader)
         for descriptor_dict in descriptors_dict["componentDescriptors"]:
-            descriptor = cm.ComponentDescriptor.from_dict(descriptor_dict)
+            descriptor = ocm.ComponentDescriptor.from_dict(descriptor_dict)
             component_descriptors.append(descriptor)
 
     return component_descriptors
@@ -21,15 +21,15 @@ def load_component_descriptors(file: str):
 def component_descriptor_lookup_mockup_factory(
         mock_component_file_path: str,
 ) -> typing.Callable[
-    [cm.ComponentIdentity | str, cm.OcmRepository | None],
-    cm.ComponentDescriptor,
+    [ocm.ComponentIdentity | str, ocm.OcmRepository | None],
+    ocm.ComponentDescriptor,
 ]:
     def component_descriptor_lookup_mockup(
-            component_identity: cm.ComponentIdentity | str,
-            ocm_repo: typing.Optional[cm.OcmRepository] = None,
-    ) -> cm.ComponentDescriptor:
+            component_identity: ocm.ComponentIdentity | str,
+            ocm_repo: typing.Optional[ocm.OcmRepository] = None,
+    ) -> ocm.ComponentDescriptor:
         component_identity = cnudie.util.to_component_id(component_identity)
-        component_descriptors: list[cm.ComponentDescriptor] = load_component_descriptors(
+        component_descriptors: list[ocm.ComponentDescriptor] = load_component_descriptors(
             mock_component_file_path,
         )
 
@@ -46,12 +46,12 @@ def component_descriptor_lookup_mockup_factory(
 def versions_lookup_mockup_factory(
         mock_component_file_path: str,
 ) -> typing.Callable[
-        [cnudie.retrieve.ComponentName, typing.Optional[cm.OcmRepository]],
+        [cnudie.retrieve.ComponentName, typing.Optional[ocm.OcmRepository]],
         typing.Sequence[str],
 ]:
     def versions_lookup_mockup(
         component_name:cnudie.util.ComponentName,
-        ocm: typing.Optional[cm.OcmRepository] = None,
+        ocm: typing.Optional[ocm.OcmRepository] = None,
     ) -> typing.Sequence[str]:
         component_descriptors = load_component_descriptors(
             mock_component_file_path

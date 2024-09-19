@@ -3,7 +3,7 @@ import zlib
 
 import falcon
 
-import gci.componentmodel as cm
+import ocm
 import oci.model
 
 
@@ -71,7 +71,7 @@ class ArtefactBlob:
         except oci.model.OciImageNotFoundException:
             raise falcon.HTTPBadRequest(title=f'did not find {component_id=}')
 
-        def matches(a: cm.Artifact):
+        def matches(a: ocm.Artifact):
             if artefact_name and artefact_name != a.name:
                 return False
             if artefact_version and artefact_version != a.version:
@@ -92,12 +92,12 @@ class ArtefactBlob:
         artefact = a
         access = artefact.access
 
-        if not isinstance(access, cm.LocalBlobAccess):
+        if not isinstance(access, ocm.LocalBlobAccess):
             raise falcon.HTTPBadRequest(
                 f'{artefact.name=} has {access.type=}; only localBlobAccess is supported',
             )
 
-        access: cm.LocalBlobAccess
+        access: ocm.LocalBlobAccess
 
         if access.globalAccess:
             digest = access.globalAccess.digest

@@ -8,7 +8,7 @@ import falcon
 
 import cnudie.iter
 import cnudie.retrieve
-import gci.componentmodel as cm
+import ocm
 import oci.model as om
 
 import middleware.auth
@@ -57,11 +57,11 @@ def dict_factory_date_serialisiation(data):
 
 
 def retrieve_component_descriptor(
-    component_id: cm.ComponentIdentity,
+    component_id: ocm.ComponentIdentity,
     /,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ctx_repo: cm.OcmRepository=None,
-) -> cm.ComponentDescriptor:
+    ctx_repo: ocm.OcmRepository=None,
+) -> ocm.ComponentDescriptor:
     try:
         return component_descriptor_lookup(
             component_id,

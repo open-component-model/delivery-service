@@ -16,7 +16,7 @@ import urllib3.exceptions
 import cnudie.iter
 import cnudie.retrieve
 import dso.model
-import gci.componentmodel as cm
+import ocm
 import github.compliance.model as gcm
 import model.kubernetes
 
@@ -284,7 +284,7 @@ def get_ocm_node(
     if not dso.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
-    component: cm.Component = component_descriptor_lookup(cm.ComponentIdentity(
+    component: ocm.Component = component_descriptor_lookup(ocm.ComponentIdentity(
         name=artefact.component_name,
         version=artefact.component_version,
     )).component

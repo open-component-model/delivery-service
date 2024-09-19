@@ -15,7 +15,7 @@ import ctx
 import dso.cvss
 import dso.labels
 import dso.model
-import gci.componentmodel as cm
+import ocm
 import oci.model as om
 
 import bdba.client
@@ -125,7 +125,7 @@ def rescore(
 
         try:
             component_descriptor = ocm_lookup(
-                cm.ComponentIdentity(
+                ocm.ComponentIdentity(
                     name=component_name,
                     version=component_version,
                 ),

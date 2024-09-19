@@ -16,7 +16,7 @@ import cnudie.retrieve
 import cnudie.upload
 import cnudie.util
 import delivery.client
-import gci.componentmodel as cm
+import ocm
 import model.container_registry
 import model.delivery_db
 import oci.auth
@@ -90,27 +90,27 @@ def create_ocm_descriptor(
     ocm_repo: str,
     backup_digest: str,
     size: int,
-) -> cm.ComponentDescriptor:
-    return cm.ComponentDescriptor(
-      meta=cm.Metadata(schemaVersion=cm.SchemaVersion.V2),
-      component=cm.Component(
+) -> ocm.ComponentDescriptor:
+    return ocm.ComponentDescriptor(
+      meta=ocm.Metadata(schemaVersion=ocm.SchemaVersion.V2),
+      component=ocm.Component(
         name=component_name,
         version=component_version,
         repositoryContexts=[
-          cm.OciOcmRepository(
+          ocm.OciOcmRepository(
             baseUrl=ocm_repo,
-            type=cm.AccessType.OCI_REGISTRY,
+            type=ocm.AccessType.OCI_REGISTRY,
           )
         ],
         provider='internal',
         sources=[],
         componentReferences=[],
         resources=[
-            cm.Resource(
+            ocm.Resource(
                 name='delivery-db-backup',
                 version=component_version,
-                type=cm.ArtefactType.BLOB,
-                access=cm.LocalBlobAccess(
+                type=ocm.ArtefactType.BLOB,
+                access=ocm.LocalBlobAccess(
                     localReference=backup_digest,
                     mediaType=BACKUP_BLOB_MEDIA_TYPE,
                     size=size,
@@ -118,7 +118,7 @@ def create_ocm_descriptor(
             )
         ],
         labels=[
-            cm.Label(
+            ocm.Label(
                 name='cloud.gardener/ocm/creation-date',
                 value=datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
             ),
@@ -163,10 +163,10 @@ def upload_from_file(
 def iter_components_to_purge(
     backup_retention_count: int,
     ocm_repo: str,
-    component: cm.Component,
+    component: ocm.Component,
     oci_client: oci.client.Client,
     lookup,
-) -> typing.Generator[cm.Component, None, None]:
+) -> typing.Generator[ocm.Component, None, None]:
     oci_ref = cnudie.util.oci_ref(component=component)
     all_versions = oci_client.tags(oci_ref.ref_without_tag)
 
@@ -177,7 +177,7 @@ def iter_components_to_purge(
 
     return (
         lookup(
-            cm.ComponentIdentity(
+            ocm.ComponentIdentity(
                 name=component.name,
                 version=v,
             ),
@@ -188,15 +188,15 @@ def iter_components_to_purge(
 
 
 def iter_local_resources(
-    component: cm.Component,
-) -> typing.Generator[None, None, cm.Resource]:
+    component: ocm.Component,
+) -> typing.Generator[None, None, ocm.Resource]:
     for resource_node in cnudie.iter.iter(
         component=component,
         node_filter=cnudie.iter.Filter.resources,
         recursion_depth=0,
     ):
         resource_node: cnudie.iter.ResourceNode
-        if isinstance(resource_node.resource.access, cm.LocalBlobAccess):
+        if isinstance(resource_node.resource.access, ocm.LocalBlobAccess):
             yield resource_node.resource
 
 
@@ -205,7 +205,7 @@ def delete_old_backup_versions(
     oci_ref: str,
     cfg_factory,
     ocm_repo: str,
-    component: cm.Component,
+    component: ocm.Component,
 ):
     logger.info(f'deleting old backup component versions, {backup_retention_count=}')
 
@@ -251,8 +251,8 @@ def delete_old_backup_versions(
         )
 
         for resource in local_resources:
-            resource: cm.Resource
-            resource.access: cm.LocalBlobAccess
+            resource: ocm.Resource
+            resource.access: ocm.LocalBlobAccess
 
             logger.info(f'deleting blob with {resource.access.localReference=}')
 
@@ -346,7 +346,7 @@ def main():
     greatest_version = delivery_service_client.greatest_component_versions(
         component_name=component_name,
         max_versions=1,
-        ocm_repo=cm.OciOcmRepository(baseUrl=ocm_repo),
+        ocm_repo=ocm.OciOcmRepository(baseUrl=ocm_repo),
     )[0]
 
     component_version = version.process_version(

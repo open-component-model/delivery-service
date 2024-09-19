@@ -12,7 +12,7 @@ import concourse.model.traits.image_scan as image_scan
 import cnudie.iter
 import dso.cvss
 import dso.model
-import gci.componentmodel as cm
+import ocm
 import github.compliance.milestone as gcmi
 import github.compliance.model
 import bdba.model
@@ -40,7 +40,7 @@ class Component:
     version: str
     version_filter: str
     max_versions_limit: int
-    ocm_repo: cm.OciOcmRepository
+    ocm_repo: ocm.OciOcmRepository
 
 
 @dataclasses.dataclass(frozen=True)
@@ -274,7 +274,7 @@ def deserialise_component_config(
         ),
     )
     if ocm_repo_raw:
-        ocm_repo = cm.OciOcmRepository(
+        ocm_repo = ocm.OciOcmRepository(
             baseUrl=ocm_repo_raw,
         )
     else:
@@ -315,7 +315,7 @@ def deserialise_artefact_enumerator_config(
         property_key='artefact_types',
         default_config=default_config,
         default_value=(
-            cm.ArtefactType.OCI_IMAGE,
+            ocm.ArtefactType.OCI_IMAGE,
             'application/tar+vm-image-rootfs',
         ),
     ))
@@ -411,7 +411,7 @@ def deserialise_clamav_config(
         property_key='artefact_types',
         default_config=default_config,
         default_value=(
-            cm.ArtefactType.OCI_IMAGE,
+            ocm.ArtefactType.OCI_IMAGE,
             'application/tar+vm-image-rootfs',
         ),
     ))
@@ -493,7 +493,7 @@ def deserialise_bdba_config(
         property_key='artefact_types',
         default_config=default_config,
         default_value=(
-            cm.ArtefactType.OCI_IMAGE,
+            ocm.ArtefactType.OCI_IMAGE,
             'application/tar+vm-image-rootfs',
         ),
     ))
@@ -776,7 +776,7 @@ def deserialise_issue_replicator_config(
         property_key='artefact_types',
         default_config=default_config,
         default_value=(
-            cm.ArtefactType.OCI_IMAGE,
+            ocm.ArtefactType.OCI_IMAGE,
             'application/tar+vm-image-rootfs',
         ),
     ))

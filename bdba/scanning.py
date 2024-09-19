@@ -19,7 +19,7 @@ import delivery.client
 import dso.cvss
 import dso.labels
 import dso.model
-import gci.componentmodel as cm
+import ocm
 import gci.oci
 import oci.client
 import bdba.assessments
@@ -156,7 +156,7 @@ class ResourceGroupProcessor:
 
         display_name = f'{resource.name}_{resource.version}_{component.name}'.replace('/', '_')
 
-        if resource.type is cm.ArtefactType.OCI_IMAGE:
+        if resource.type is ocm.ArtefactType.OCI_IMAGE:
             # find product existing bdba scans (if any)
             component_artifact_metadata = bdba.util.component_artifact_metadata(
                 resource_node=resource_node,
@@ -215,7 +215,7 @@ class ResourceGroupProcessor:
             def as_blob_descriptors():
                 name = resource.extraIdentity.get('platform', 'dummy')
 
-                access: cm.S3Access = resource.access
+                access: ocm.S3Access = resource.access
                 yield cnudie.access.s3_access_as_blob_descriptor(
                     s3_client=s3_client,
                     s3_access=access,
@@ -465,11 +465,11 @@ class ResourceGroupProcessor:
 
 
 def _package_version_hints(
-    component: cm.Component,
-    artefact: cm.Artifact,
+    component: ocm.Component,
+    artefact: ocm.Artifact,
     result: pm.AnalysisResult,
 ) -> list[dso.labels.PackageVersionHint] | None:
-    def result_matches(resource: cm.Resource, result: pm.AnalysisResult):
+    def result_matches(resource: ocm.Resource, result: pm.AnalysisResult):
         '''
         find matching result for package-version-hint
         note: we require strict matching of resource-version
@@ -487,10 +487,10 @@ def _package_version_hints(
     if not result_matches(resource=artefact, result=result):
         return None
 
-    if not isinstance(artefact, cm.Resource):
+    if not isinstance(artefact, ocm.Resource):
         raise NotImplementedError(artefact)
 
-    artefact: cm.Resource
+    artefact: ocm.Resource
 
     package_hints_label = artefact.find_label(name=dso.labels.PackageVersionHintLabel.name)
     if not package_hints_label:

@@ -1,11 +1,11 @@
 import dso.model
-import gci.componentmodel as cm
+import ocm
 
 
 def find_artefact_of_component_or_none(
-    component: cm.Component,
+    component: ocm.Component,
     artefact: dso.model.ComponentArtefactId,
-) -> cm.Resource | cm.Source | None:
+) -> ocm.Resource | ocm.Source | None:
     if artefact.component_name and component.name != artefact.component_name:
         return None
 
@@ -19,7 +19,7 @@ def find_artefact_of_component_or_none(
     artefact_kind = artefact.artefact_kind
 
     for artefact in component.resources + component.sources:
-        artefact: cm.Resource | cm.Source
+        artefact: ocm.Resource | ocm.Source
 
         if local_artefact.artefact_name and artefact.name != local_artefact.artefact_name:
             continue
@@ -35,10 +35,10 @@ def find_artefact_of_component_or_none(
         ) != local_artefact.normalised_artefact_extra_id():
             continue
 
-        if isinstance(artefact, cm.Resource) and artefact_kind != dso.model.ArtefactKind.RESOURCE:
+        if isinstance(artefact, ocm.Resource) and artefact_kind != dso.model.ArtefactKind.RESOURCE:
             continue
 
-        if isinstance(artefact, cm.Source) and artefact_kind != dso.model.ArtefactKind.SOURCE:
+        if isinstance(artefact, ocm.Source) and artefact_kind != dso.model.ArtefactKind.SOURCE:
             continue
 
         # artefact is referenced in component

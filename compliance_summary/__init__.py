@@ -8,7 +8,7 @@ import awesomeversion
 import dacite
 
 import dso.model
-import gci.componentmodel as cm
+import ocm
 import github.compliance.model as gcm
 import unixutil.model as um
 
@@ -247,7 +247,7 @@ class ArtefactComplianceSummary:
 
 @dataclasses.dataclass(frozen=True)
 class ComponentComplianceSummary:
-    componentId: cm.ComponentIdentity
+    componentId: ocm.ComponentIdentity
     entries: list[ComplianceSummaryEntry]
     artefacts: list[ArtefactComplianceSummary]
 
@@ -260,7 +260,7 @@ class SummaryConfig:
 def component_summaries(
     findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    components: tuple[cm.Component],
+    components: tuple[ocm.Component],
     eol_client: eol.EolClient,
     artefact_metadata_cfg_by_type: dict,
     cfg: SummaryConfig = SummaryConfig(
@@ -329,7 +329,7 @@ def component_summaries(
             )
 
         yield ComponentComplianceSummary(
-            componentId=cm.ComponentIdentity(
+            componentId=ocm.ComponentIdentity(
                 name=component.name,
                 version=component.version,
             ),
@@ -354,17 +354,17 @@ def component_summaries(
 
 
 def calculate_artefact_summary(
-    component: cm.Component,
-    artefact: cm.Resource | cm.Source,
+    component: ocm.Component,
+    artefact: ocm.Resource | ocm.Source,
     findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     defaults: dict[ComplianceSummaryEntry],
     eol_client: eol.EolClient,
     artefact_metadata_cfg_by_type: dict[str, ArtefactMetadataCfg],
 ) -> ArtefactComplianceSummary:
-    if isinstance(artefact, cm.Resource):
+    if isinstance(artefact, ocm.Resource):
         artefact_kind = dso.model.ArtefactKind.RESOURCE
-    elif isinstance(artefact, cm.Source):
+    elif isinstance(artefact, ocm.Source):
         artefact_kind = dso.model.ArtefactKind.SOURCE
     else:
         raise ValueError(artefact)

@@ -19,7 +19,7 @@ import github3
 import ci.util
 import cnudie.retrieve
 import cnudie.util
-import gci.componentmodel as cm
+import ocm
 import version as versionutil
 
 import caching
@@ -45,7 +45,7 @@ class ComponentDependencyChangeWithCommits:
     Holds a Dependency Change for a specific Component as well as the commits included within the
     Dependency Change
     '''
-    component: cm.Component
+    component: ocm.Component
     dependency_component_vector: components.ComponentVector
     commits: list[github3.github.repo.commit.ShortCommit]
 
@@ -56,7 +56,7 @@ class ComponentWithDependencyChanges:
     Holds a component descriptor as well as a list of dependency updates, which
     where introduced in this component Version
     '''
-    component_descriptor: cm.ComponentDescriptor
+    component_descriptor: ocm.ComponentDescriptor
     dependency_changes: list[components.ComponentVector]
 
 
@@ -141,7 +141,7 @@ def versions_descriptors_newer_than(
     '''
 
     def _filter_component_newer_than_date(
-        descriptor: cm.ComponentDescriptor,
+        descriptor: ocm.ComponentDescriptor,
         date: datetime.datetime,
     ) -> bool:
         creation_date: datetime.datetime = components.get_creation_date(descriptor.component)
@@ -155,7 +155,7 @@ def versions_descriptors_newer_than(
         version_lookup=version_lookup,
     )
 
-    descriptors: list[cm.ComponentDescriptor] = []
+    descriptors: list[ocm.ComponentDescriptor] = []
 
     for version in versions:
         descriptor = component_descriptor_lookup((component_name, version))
@@ -238,10 +238,10 @@ def all_versions_sorted(
 
 
 def get_next_older_descriptor(
-    component_id: cm.ComponentIdentity,
+    component_id: ocm.ComponentIdentity,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     component_version_lookup: cnudie.retrieve.VersionLookupByComponent,
-) -> cm.ComponentDescriptor | None:
+) -> ocm.ComponentDescriptor | None:
     all_versions = all_versions_sorted(
         component=component_id,
         version_lookup=component_version_lookup,
@@ -256,7 +256,7 @@ def get_next_older_descriptor(
         return None
 
     return component_descriptor_lookup(
-        cm.ComponentIdentity(
+        ocm.ComponentIdentity(
             name=component_id.name,
             version=old_target_version,
         ),
@@ -275,8 +275,8 @@ def can_process(dependency_update: components.ComponentVector):
     new_main_source = cnudie.util.main_source(dependency_update.end)
 
     if (
-        not isinstance(old_main_source.access, cm.GithubAccess)
-        or not isinstance(new_main_source.access, cm.GithubAccess)
+        not isinstance(old_main_source.access, ocm.GithubAccess)
+        or not isinstance(new_main_source.access, ocm.GithubAccess)
     ):
         return False
 
@@ -370,9 +370,9 @@ def categorize_by_changed_component(
             left_access = left_src.access
             right_access = right_src.access
 
-            if not left_access.type is cm.AccessType.GITHUB:
+            if not left_access.type is ocm.AccessType.GITHUB:
                 continue
-            if not right_access.type is cm.AccessType.GITHUB:
+            if not right_access.type is ocm.AccessType.GITHUB:
                 continue
 
             left_repo_url = ci.util.urlparse(left_access.repoUrl)
@@ -801,7 +801,7 @@ class DoraMetrics:
         # first introduced within the time span of the target component version.
 
         if (next_older_descriptor := get_next_older_descriptor(
-            cm.ComponentIdentity(
+            ocm.ComponentIdentity(
                 target_component_name,
                 target_descriptors_in_time_span[0].component.version,
             ),
@@ -907,10 +907,10 @@ def _diff_components(
         )
     )
 
-    def only_greatest_versions(components: list[cm.Component]):
+    def only_greatest_versions(components: list[ocm.Component]):
         components_by_name: collections.defaultdict[
-            str, list[cm.Component]
-        ] = collections.defaultdict(list[cm.Component])
+            str, list[ocm.Component]
+        ] = collections.defaultdict(list[ocm.Component])
 
         for c in components:
             components_by_name[c.name].append(c)
@@ -961,8 +961,8 @@ def _diff_components(
         return None # no diff
 
     def find_changed_component(
-        old_only_component_version: cm.Component,
-        new_only_component_versions: list[cm.Component],
+        old_only_component_version: ocm.Component,
+        new_only_component_versions: list[ocm.Component],
     ):
         for new_only_component_version in new_only_component_versions:
             if new_only_component_version.name == old_only_component_version.name:
