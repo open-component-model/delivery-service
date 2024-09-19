@@ -3,7 +3,7 @@ import os
 import pytest
 
 import cnudie.util
-import gci.componentmodel as cm
+import ocm
 
 import dora
 import test.resources.lookup_mocks as lookup_mocks
@@ -29,7 +29,7 @@ versions_lookup_mockup = lookup_mocks.versions_lookup_mockup_factory(
 def test_get_next_older_descriptor():
 
     next_older_descriptor = dora.get_next_older_descriptor(
-        cm.ComponentIdentity(
+        ocm.ComponentIdentity(
             "TestComponent_1",
             "v2.0.0",
         ),
@@ -37,14 +37,14 @@ def test_get_next_older_descriptor():
         versions_lookup_mockup,
     )
 
-    assert next_older_descriptor.component.identity() == cm.ComponentIdentity(
+    assert next_older_descriptor.component.identity() == ocm.ComponentIdentity(
         'TestComponent_1',
         'v1.0.0',
     )
 
     # if there is no older version
     next_older_descriptor = dora.get_next_older_descriptor(
-        cm.ComponentIdentity(
+        ocm.ComponentIdentity(
             name="TestComponent_1",
             version="v1.0.0",
         ),
@@ -56,7 +56,7 @@ def test_get_next_older_descriptor():
     # if there input version does not exist
     with pytest.raises(ValueError):
         dora.get_next_older_descriptor(
-            cm.ComponentIdentity(
+            ocm.ComponentIdentity(
                 "TestComponent_1",
                 "v1.0942.0",
             ),
@@ -70,10 +70,10 @@ def test_dependency_changes_between_versions():
         cidentities_only_left=(),
         cidentities_only_right=(),
         cpairs_version_changed=(
-            (cm.ComponentIdentity('c1', '1.0.0'), cm.ComponentIdentity('c1', '2.0.0')),
-            (cm.ComponentIdentity('c2', '1.0.0'), cm.ComponentIdentity('c2', '2.0.0')),
-            (cm.ComponentIdentity('c3', '1.0.0'), cm.ComponentIdentity('c3', '2.0.0')),
-            (cm.ComponentIdentity('c4', '1.0.0'), cm.ComponentIdentity('c4', '1.0.0')), # no change
+            (ocm.ComponentIdentity('c1', '1.0.0'), ocm.ComponentIdentity('c1', '2.0.0')),
+            (ocm.ComponentIdentity('c2', '1.0.0'), ocm.ComponentIdentity('c2', '2.0.0')),
+            (ocm.ComponentIdentity('c3', '1.0.0'), ocm.ComponentIdentity('c3', '2.0.0')),
+            (ocm.ComponentIdentity('c4', '1.0.0'), ocm.ComponentIdentity('c4', '1.0.0')), # no change
         ),
     )
 

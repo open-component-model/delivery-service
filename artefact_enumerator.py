@@ -21,7 +21,7 @@ import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import dso.model
-import gci.componentmodel as cm
+import ocm
 
 import config
 import ctx_util
@@ -167,7 +167,7 @@ def _iter_ocm_artefact_nodes(
                 ocm_repo_url = None
 
             component = component_descriptor_lookup(
-                cm.ComponentIdentity(
+                ocm.ComponentIdentity(
                     name=component.component_name,
                     version=version,
                 ),
@@ -308,7 +308,7 @@ def _findings_for_artefact(
     artefact: dso.model.ComponentArtefactId,
     types: tuple[dso.model.Datatype],
 ) -> tuple[dso.model.ArtefactMetadata]:
-    component = cm.ComponentIdentity(
+    component = ocm.ComponentIdentity(
         name=artefact.component_name,
         version=artefact.component_version,
     )

@@ -18,7 +18,7 @@ import ci.util
 import cnudie.retrieve
 import cnudie.util
 import dso.cvss
-import gci.componentmodel as cm
+import ocm
 import model.base
 import model.protecode
 
@@ -348,12 +348,12 @@ class FeatureRepoContexts(FeatureBase):
         if self.state is FeatureStates.AVAILABLE:
             return self.ocm_repo_mappings
 
-    def get_ocm_repos(self) -> typing.Generator[cm.OciOcmRepository, None, None] | None:
+    def get_ocm_repos(self) -> typing.Generator[ocm.OciOcmRepository, None, None] | None:
         if self.state is FeatureStates.UNAVAILABLE:
             return None
 
         yield from { # use set for deduplication
-            cm.OciOcmRepository(baseUrl=mapping.repository)
+            ocm.OciOcmRepository(baseUrl=mapping.repository)
             for mapping in self.ocm_repo_mappings
         }
 

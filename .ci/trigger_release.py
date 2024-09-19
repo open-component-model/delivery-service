@@ -4,14 +4,14 @@ import logging
 import os
 import yaml
 
-import gci.componentmodel as cm
+import ocm
 
 import ccc.concourse
 import ci.log
 import ci.util
 import cnudie.retrieve
 import concourse.steps.component_descriptor_util as cdu
-import gci.componentmodel
+import ocm
 import version
 
 
@@ -22,15 +22,15 @@ own_dir = os.path.abspath(os.path.dirname(__file__))
 
 def parse_component_descriptor():
     descriptor_path = cdu.component_descriptor_path(
-        gci.componentmodel.SchemaVersion.V2,
+        ocm.SchemaVersion.V2,
     )
-    return cm.ComponentDescriptor.from_dict(
+    return ocm.ComponentDescriptor.from_dict(
         ci.util.parse_yaml_file(descriptor_path),
     )
 
 
 def retrieve_latest_released_descriptor(
-    current_descriptor: cm.ComponentDescriptor,
+    current_descriptor: ocm.ComponentDescriptor,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     version_lookup,
 ):
@@ -42,7 +42,7 @@ def retrieve_latest_released_descriptor(
     )
 
     return component_descriptor_lookup(
-        cm.ComponentIdentity(
+        ocm.ComponentIdentity(
             name=current_component.name,
             version=greatest_version,
         ),

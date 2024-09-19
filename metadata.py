@@ -11,7 +11,7 @@ import sqlalchemy.orm.session as ss
 import ci.util
 import cnudie.retrieve
 import dso.model
-import gci.componentmodel as cm
+import ocm
 
 import compliance_summary as cs
 import deliverydb.model as dm
@@ -94,7 +94,7 @@ class ArtefactMetadata:
             none_ok = not type_filter or dso.model.Datatype.RESCORING in type_filter
 
             yield from du.ArtefactMetadataQueries.component_queries(
-                components=[cm.ComponentIdentity(
+                components=[ocm.ComponentIdentity(
                     name=artefact_ref.component_name,
                     version=artefact_ref.component_version,
                 )],

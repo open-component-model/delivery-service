@@ -1,7 +1,7 @@
 import pytest
 
 import cnudie.iter
-import gci.componentmodel as cm
+import ocm
 
 import config_filter
 
@@ -13,7 +13,7 @@ def node_path_entry():
         version='1.2.3',
     ):
         return cnudie.iter.NodePathEntry(
-            component=cm.Component(
+            component=ocm.Component(
                 resources=(),
                 name=name,
                 version=version,
@@ -32,7 +32,7 @@ def resource():
         name='resourceName',
         version='1.2.3',
     ):
-        return cm.Resource(
+        return ocm.Resource(
             name=name,
             version=version,
             type='some-type',

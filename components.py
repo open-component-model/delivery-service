@@ -24,8 +24,8 @@ import cnudie.iter
 import cnudie.util
 import cnudie.retrieve
 import dso.model
-import gci.componentmodel as cm
 import gci.oci
+import ocm
 import github.util
 import oci.client
 import oci.model as om
@@ -53,8 +53,8 @@ class ComponentVector:
     Holds two component objects of the same Component, but different Versions.
     Represents a change in the component version from old_component to new_component.
     '''
-    start: cm.Component
-    end: cm.Component
+    start: ocm.Component
+    end: ocm.Component
 
 
 def _cache_key_gen_dependency_updates(
@@ -94,7 +94,7 @@ def check_if_component_exists(
     return False
 
 
-def get_creation_date(component: cm.Component) -> datetime.datetime:
+def get_creation_date(component: ocm.Component) -> datetime.datetime:
     '''
     Trys to extract creation date from creationTime attribute and if not set from label with name
     "cloud.gardener/ocm/creation-date".
@@ -104,7 +104,7 @@ def get_creation_date(component: cm.Component) -> datetime.datetime:
     if (creationTime := component.creationTime):
         return dateutil.parser.isoparse(creationTime)
 
-    creation_label: cm.Label | None = component.find_label('cloud.gardener/ocm/creation-date')
+    creation_label: ocm.Label | None = component.find_label('cloud.gardener/ocm/creation-date')
 
     if not creation_label:
         raise KeyError(
@@ -119,7 +119,7 @@ def greatest_version_if_none(
     component_name: str,
     version: str,
     version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
-    ocm_repo: cm.OcmRepository=None,
+    ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
@@ -149,7 +149,7 @@ def _component_descriptor(
     version_lookup: cnudie.retrieve.VersionLookupByComponent,
     version_filter: features.VersionFilter,
     invalid_semver_ok: bool=False,
-) -> cm.ComponentDescriptor:
+) -> ocm.ComponentDescriptor:
     component_name = req.get_param('component_name', True)
 
     # TODO remove `ctx_repo_url` once all usages are updated
@@ -159,7 +159,7 @@ def _component_descriptor(
         default=req.get_param('ctx_repo_url', False),
     )
     if ocm_repo_url:
-        ocm_repo = cm.OciOcmRepository(baseUrl=ocm_repo_url)
+        ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
     else:
         ocm_repo = None
 
@@ -297,7 +297,7 @@ class ComponentDependencies:
             default=req.get_param('ctx_repo_url', False),
         )
         if ocm_repo_url:
-            ocm_repo = cm.OciOcmRepository(baseUrl=ocm_repo_url)
+            ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
         else:
             ocm_repo = None
 
@@ -435,7 +435,7 @@ class ComponentResponsibles:
         artifact_name = req.get_param('artifact_name', False)
 
         def _responsibles_label(
-            component: cm.Component,
+            component: ocm.Component,
             artifact_name: typing.Optional[str] = None,
             owners_label: str = 'cloud.gardener.cnudie/responsibles',
         ) -> responsibles.labels.ResponsiblesLabel | None:
@@ -461,7 +461,7 @@ class ComponentResponsibles:
                     )
 
                 for artifact in matching_artifacts:
-                    artifact: cm.Artifact
+                    artifact: ocm.Artifact
                     # hack: hard-code to using first matching artifact with label for now
                     if responsibles_label := artifact.find_label(name=owners_label):
                         return responsibles.labels.ResponsiblesLabel.from_dict(
@@ -540,14 +540,14 @@ class ComponentResponsibles:
 def component_versions(
     component_name: str,
     version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
-    ocm_repo: cm.OcmRepository=None,
+    ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client.Client=None,
 ) -> list[str]:
     if not ocm_repo and not version_lookup:
         raise ValueError('At least one of `ocm_repo` and `version_lookup` must be specified')
 
     if ocm_repo:
-        if not isinstance(ocm_repo, cm.OciOcmRepository):
+        if not isinstance(ocm_repo, ocm.OciOcmRepository):
             raise NotImplementedError(ocm_repo)
 
         if not oci_client:
@@ -563,7 +563,7 @@ def component_versions(
             return []
 
     return version_lookup(
-        component_id=cm.ComponentIdentity(
+        component_id=ocm.ComponentIdentity(
             name=component_name,
             version=None
         ),
@@ -573,7 +573,7 @@ def component_versions(
 def greatest_component_version(
     component_name: str,
     version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
-    ocm_repo: cm.OcmRepository=None,
+    ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
@@ -619,7 +619,7 @@ def greatest_component_version(
 
 def greatest_component_versions(
     component_name: str,
-    ocm_repo: cm.OcmRepository=None,
+    ocm_repo: ocm.OcmRepository=None,
     version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
     max_versions: int=5,
     greatest_version: str=None,
@@ -688,7 +688,7 @@ class GreatestComponentVersions:
             default=req.get_param('ctx_repo_url', False),
         )
         if ocm_repo_url:
-            ocm_repo = cm.OciOcmRepository(baseUrl=ocm_repo_url)
+            ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
         else:
             ocm_repo = None
 
@@ -719,11 +719,11 @@ def resolve_component_dependencies(
     component_name: str,
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ctx_repo: cm.OcmRepository=None,
+    ctx_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
 ) -> list[cnudie.iter.ComponentNode]:
     descriptor = util.retrieve_component_descriptor(
-        cm.ComponentIdentity(
+        ocm.ComponentIdentity(
             name=component_name,
             version=component_version,
         ),
@@ -756,7 +756,7 @@ def resolve_component_dependencies(
                 label_present = True
                 break
         if not label_present:
-            component.component.sources[0].labels.append(cm.Label(
+            component.component.sources[0].labels.append(ocm.Label(
                 name='cloud.gardener/cicd/source',
                 value={'repository-classification': 'main'},
             ))
@@ -791,7 +791,7 @@ class UpgradePRs:
 
         ocm_repo_url = req.get_param('ocmRepo', default=None)
         if ocm_repo_url:
-            ocm_repo = cm.OciOcmRepository(baseUrl=ocm_repo_url)
+            ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
         else:
             ocm_repo = None
 
@@ -816,7 +816,7 @@ class UpgradePRs:
             )
 
             component_descriptor = util.retrieve_component_descriptor(
-                cm.ComponentIdentity(
+                ocm.ComponentIdentity(
                     name=component_name,
                     version=component_version,
                 ),
@@ -865,8 +865,8 @@ class UpgradePRs:
         )
 
         def upgrade_pr_to_dict(upgrade_pr):
-            from_ref: cm.ComponentReference = upgrade_pr.from_ref
-            to_ref: cm.ComponentReference = upgrade_pr.to_ref
+            from_ref: ocm.ComponentReference = upgrade_pr.from_ref
+            to_ref: ocm.ComponentReference = upgrade_pr.to_ref
             pr = upgrade_pr.pull_request
 
             return {
@@ -962,14 +962,14 @@ class ComponentDescriptorDiff:
         right_component_ref: ComponentRef = diff_request.right_component
 
         left_descriptor = util.retrieve_component_descriptor(
-            cm.ComponentIdentity(
+            ocm.ComponentIdentity(
                 name=left_component_ref.name,
                 version=left_component_ref.version,
             ),
             component_descriptor_lookup=self._component_descriptor_lookup,
         )
         right_descriptor = util.retrieve_component_descriptor(
-            cm.ComponentIdentity(
+            ocm.ComponentIdentity(
                 name=right_component_ref.name,
                 version=right_component_ref.version,
             ),
@@ -992,10 +992,10 @@ class ComponentDescriptorDiff:
                 description=err_str,
             ) from e
 
-        def component_ref(component: cm.Component):
+        def component_ref(component: ocm.Component):
             return {'name': component.name, 'version': component.version}
 
-        def changed_component_info(left_comp: cm.Component, right_comp: cm.Component):
+        def changed_component_info(left_comp: ocm.Component, right_comp: ocm.Component):
             resource_diff: cnudie.util.ResourceDiff = cnudie.util.diff_resources(
                 left_component=left_comp,
                 right_component=right_comp,
@@ -1019,7 +1019,7 @@ class ComponentDescriptorDiff:
                 'right': right,
             }
 
-        def changed_resource_info(left_resource: cm.Resource, right_resource: cm.Resource):
+        def changed_resource_info(left_resource: ocm.Resource, right_resource: ocm.Resource):
             label_diff: cnudie.util.LabelDiff = cnudie.util.diff_labels(
                 left_labels=left_resource.labels,
                 right_labels=right_resource.labels,
@@ -1070,11 +1070,11 @@ def _components(
     component_name: str,
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ctx_repo: cm.OcmRepository=None,
+    ctx_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
 ) -> tuple[Component]:
     component_descriptor = util.retrieve_component_descriptor(
-        cm.ComponentIdentity(
+        ocm.ComponentIdentity(
             name=component_name,
             version=component_version,
         ),
@@ -1170,7 +1170,7 @@ class ComplianceSummary:
             default=req.get_param('ctx_repo_url', False),
         )
         if ocm_repo_url:
-            ocm_repo = cm.OciOcmRepository(baseUrl=ocm_repo_url)
+            ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
         else:
             ocm_repo = None
 

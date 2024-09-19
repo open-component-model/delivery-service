@@ -16,7 +16,7 @@ import dateutil.parser
 import ci.util
 import dso.cvss
 import dso.labels
-import gci.componentmodel as cm
+import ocm
 
 from concourse.model.base import (
     AttribSpecMixin,
@@ -308,8 +308,8 @@ class ScanRequest:
 
     if a previous scan result was found, its "product-id" is stored as `target_product_id`
     '''
-    component: cm.Component
-    artefact: cm.Artifact
+    component: ocm.Component
+    artefact: ocm.Artifact
     # The actual content to be scanned.
     scan_content: collections.abc.Generator[bytes, None, None]
     display_name: str
@@ -343,8 +343,8 @@ class BdbaScanError(Exception):
     def __init__(
         self,
         scan_request: ScanRequest,
-        component: cm.Component,
-        artefact: cm.Artifact,
+        component: ocm.Component,
+        artefact: ocm.Artifact,
         exception=None,
         *args,
         **kwargs,

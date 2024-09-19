@@ -3,7 +3,7 @@ import enum
 import typing
 
 import dacite
-import gci.componentmodel as cm
+import ocm
 
 
 class ResponsibleType(enum.Enum):
@@ -53,7 +53,7 @@ class PersonalNameResponsible(Responsible):
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
-class ResponsiblesLabel(cm.Label):
+class ResponsiblesLabel(ocm.Label):
     value: typing.List[
         CodeownersResponsible
         | EmailResponsible

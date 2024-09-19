@@ -9,7 +9,7 @@ import ci.util
 import cnudie.iter
 import cnudie.retrieve
 import dso.model
-import gci.componentmodel as cm
+import ocm
 
 import deliverydb.model as dm
 
@@ -173,8 +173,8 @@ class ArtefactMetadataFilters:
 class ArtefactMetadataQueries:
     @staticmethod
     def artefact_queries(
-        artefacts: collections.abc.Iterable[cm.Resource | cm.Source]=None,
-        component: cm.ComponentIdentity=None,
+        artefacts: collections.abc.Iterable[ocm.Resource | ocm.Source]=None,
+        component: ocm.ComponentIdentity=None,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById=None,
         none_ok: bool=False,
     ) -> collections.abc.Generator[sqle.BooleanClauseList, None, None]:
@@ -197,7 +197,7 @@ class ArtefactMetadataQueries:
 
         if not artefacts:
             if component.version:
-                component: cm.Component = component_descriptor_lookup(component).component
+                component: ocm.Component = component_descriptor_lookup(component).component
 
                 artefacts = tuple(
                     artefact_node.artefact for artefact_node in cnudie.iter.iter(
@@ -249,7 +249,7 @@ class ArtefactMetadataQueries:
 
     @staticmethod
     def component_queries(
-        components: tuple[cm.Component | cm.ComponentIdentity],
+        components: tuple[ocm.Component | ocm.ComponentIdentity],
         none_ok: bool=False,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById=None,
     ) -> collections.abc.Generator[sqle.BooleanClauseList, None, None]:

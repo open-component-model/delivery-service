@@ -6,7 +6,7 @@ import typing
 import github3
 
 import ci.util
-import gci.componentmodel as cm
+import ocm
 import github.codeowners
 
 import ctx_util
@@ -201,7 +201,7 @@ def user_identities_from_github_repo(
 
 
 def user_identities_from_source(
-    source: cm.Source | None,
+    source: ocm.Source | None,
     fallback_to_codeowners: bool = False,
     heuristic_parameters=rg.ResponsiblesDetectionHeuristicsParameters(
         weight_function_identifier='sigmoid',
@@ -213,7 +213,7 @@ def user_identities_from_source(
     if not source:
         return ()
 
-    if not cm.AccessType(source.access.type) is cm.AccessType.GITHUB:
+    if not ocm.AccessType(source.access.type) is ocm.AccessType.GITHUB:
         return ()
 
     repo_url = source.access.repoUrl
@@ -247,7 +247,7 @@ def user_identities_from_source(
 
 def user_identifiers_from_responsible(
     responsible: responsibles.labels.Responsible,
-    source: cm.Source,
+    source: ocm.Source,
 ) -> typing.Iterable[responsibles.user_model.UserIdentifierBase]:
     '''Returns a generator yielding one UserIdentifier per human user that is specified by the
     Responsible-object.
@@ -317,8 +317,8 @@ def user_identifiers_from_responsible(
 
 def user_identities_from_responsibles_label(
     responsibles_label: responsibles.labels.ResponsiblesLabel,
-    source: cm.Source,
-    component_identity: cm.ComponentIdentity,
+    source: ocm.Source,
+    component_identity: ocm.ComponentIdentity,
     github_api_lookup,
 ) -> typing.Iterable[responsibles.user_model.UserIdentity]:
     github_api = None

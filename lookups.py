@@ -8,7 +8,7 @@ import ci.util
 import cnudie.retrieve
 import cnudie.util
 import delivery.client
-import gci.componentmodel as cm
+import ocm
 import oci.client
 
 import ctx_util
@@ -43,7 +43,7 @@ def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
         ) for raw_mapping in ocm_repo_mappings_raw
     )
 
-    def ocm_repository_lookup(component: cm.ComponentIdentity, /):
+    def ocm_repository_lookup(component: ocm.ComponentIdentity, /):
         for mapping in ocm_repo_mappings:
             if not mapping.prefix:
                 yield mapping.repository
