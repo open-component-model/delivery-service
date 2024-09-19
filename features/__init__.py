@@ -348,12 +348,12 @@ class FeatureRepoContexts(FeatureBase):
         if self.state is FeatureStates.AVAILABLE:
             return self.ocm_repo_mappings
 
-    def get_ocm_repos(self) -> typing.Generator[cm.OciRepositoryContext, None, None] | None:
+    def get_ocm_repos(self) -> typing.Generator[cm.OciOcmRepository, None, None] | None:
         if self.state is FeatureStates.UNAVAILABLE:
             return None
 
         yield from { # use set for deduplication
-            cm.OciRepositoryContext(baseUrl=mapping.repository)
+            cm.OciOcmRepository(baseUrl=mapping.repository)
             for mapping in self.ocm_repo_mappings
         }
 

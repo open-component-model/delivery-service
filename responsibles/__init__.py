@@ -201,7 +201,7 @@ def user_identities_from_github_repo(
 
 
 def user_identities_from_source(
-    source: cm.ComponentSource | None,
+    source: cm.Source | None,
     fallback_to_codeowners: bool = False,
     heuristic_parameters=rg.ResponsiblesDetectionHeuristicsParameters(
         weight_function_identifier='sigmoid',
@@ -247,7 +247,7 @@ def user_identities_from_source(
 
 def user_identifiers_from_responsible(
     responsible: responsibles.labels.Responsible,
-    source: cm.ComponentSource,
+    source: cm.Source,
 ) -> typing.Iterable[responsibles.user_model.UserIdentifierBase]:
     '''Returns a generator yielding one UserIdentifier per human user that is specified by the
     Responsible-object.
@@ -317,7 +317,7 @@ def user_identifiers_from_responsible(
 
 def user_identities_from_responsibles_label(
     responsibles_label: responsibles.labels.ResponsiblesLabel,
-    source: cm.ComponentSource,
+    source: cm.Source,
     component_identity: cm.ComponentIdentity,
     github_api_lookup,
 ) -> typing.Iterable[responsibles.user_model.UserIdentity]:
