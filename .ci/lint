@@ -18,7 +18,7 @@ fi
 echo 'Running flake8 for all python modules..'
 error=0
 
-export PYTHONPATH="${src_dir:$PYTHONPATH}"
+export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
 
 echo 'running pylama for all modules (errors only)'
 (
