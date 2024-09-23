@@ -33,6 +33,7 @@ def modules():
 
 def packages():
     return [
+        'bdba',
         'k8s',
     ]
 
