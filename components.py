@@ -180,7 +180,7 @@ def _component_descriptor(
             invalid_semver_ok=invalid_semver_ok,
         )
 
-    component_id = cm.ComponentIdentity(
+    component_id = ocm.ComponentIdentity(
         name=component_name,
         version=version,
     )
@@ -225,7 +225,7 @@ def _component_descriptor(
 
         else:
             try:
-                component_descriptor = cm.ComponentDescriptor.from_dict(
+                component_descriptor = ocm.ComponentDescriptor.from_dict(
                     yaml.safe_load(component_descriptor_bytes),
                 )
             except dacite.exceptions.MissingValueError as e:

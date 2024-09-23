@@ -2,10 +2,11 @@
 
 import dataclasses
 import os
+
 import yaml
 
 import ci.util
-import gci.componentmodel
+import ocm
 
 
 component_descriptor_base_path = os.path.abspath(ci.util.check_env('BASE_DEFINITION_PATH'))
@@ -18,7 +19,7 @@ FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
 
 
 def parse_component_descriptor():
-    component_descriptor = gci.componentmodel.ComponentDescriptor.from_dict(
+    component_descriptor = ocm.ComponentDescriptor.from_dict(
         ci.util.parse_yaml_file(component_descriptor_base_path)
     )
     return component_descriptor
@@ -36,14 +37,14 @@ def main():
     component_descriptor = parse_component_descriptor()
     component = component_descriptor.component
 
-    cc_utils_cref = gci.componentmodel.ComponentReference(
+    cc_utils_cref = ocm.ComponentReference(
         name='cc-utils',
         componentName='github.com/gardener/cc-utils',
         version=version_from_file(CC_UTILS_VERSIONFILE),
         labels=[],
     )
 
-    freshclam_cref = gci.componentmodel.ComponentReference(
+    freshclam_cref = ocm.ComponentReference(
         name='freshclam',
         componentName='ocm.software/ocm-gear/freshclam',
         version=version_from_file(FRESHCLAM_VERSIONFILE),
@@ -59,7 +60,7 @@ def main():
     with open(component_descriptor_path, 'w') as f:
         yaml.dump(
             data=dataclasses.asdict(component_descriptor),
-            Dumper=gci.componentmodel.EnumValueYamlDumper,
+            Dumper=ocm.EnumValueYamlDumper,
             stream=f,
         )
 
