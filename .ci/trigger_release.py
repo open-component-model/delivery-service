@@ -4,7 +4,6 @@ import logging
 import os
 import yaml
 
-import ocm
 
 import ccc.concourse
 import ci.log
