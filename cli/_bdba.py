@@ -9,19 +9,23 @@ import tabulate
 import ccc.aws
 import ccc.oci
 import ci.util
+import cnudie.access
 import cnudie.iter
 import cnudie.retrieve as cr
 import ctx
 import dso.cvss
 import dso.labels
 import dso.model
+import oci
 import oci.model as om
 import ocm
+import tarutil
 
 import bdba.assessments
 import bdba.client
 import bdba.model
 import bdba.scanning
+import ocm_util
 
 
 __cmd_name__ = 'bdba'
@@ -326,11 +330,45 @@ def scan(
                 bdba_client=bdba_client,
                 oci_client=oci_client,
             )
+
+            access = resource_node.resource.access
+
+            if access.type is ocm.AccessType.OCI_REGISTRY:
+                content_iterator = oci.image_layers_as_tarfile_generator(
+                    image_reference=access.imageReference,
+                    oci_client=oci_client,
+                    include_config_blob=False,
+                    fallback_to_first_subimage_if_index=True
+                )
+
+            elif access.type is ocm.AccessType.S3:
+                content_iterator = tarutil.concat_blobs_as_tarstream(
+                    blobs=[
+                        cnudie.access.s3_access_as_blob_descriptor(
+                            s3_client=s3_client,
+                            s3_access=access,
+                        ),
+                    ]
+                )
+
+            elif access.type is ocm.AccessType.LOCAL_BLOB:
+                ocm_repo = resource_node.component.current_ocm_repo
+                image_reference = ocm_repo.component_oci_ref(name=resource_node.component.name)
+
+                content_iterator = ocm_util.iter_local_blob_content(
+                    access=access,
+                    oci_client=oci_client,
+                    image_reference=image_reference,
+                )
+
+            else:
+                raise NotImplementedError(access)
+
             yield from processor.process(
                 resource_node=resource_node,
+                content_iterator=content_iterator,
                 processing_mode=bdba.model.ProcessingMode.RESCAN,
                 known_scan_results=known_scan_results,
-                s3_client=s3_client,
             )
 
     results = list(iter_resource_scans())
