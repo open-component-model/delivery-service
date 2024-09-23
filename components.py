@@ -6,7 +6,6 @@ import io
 import logging
 import tarfile
 import typing
-import yaml
 
 import cachetools
 import cachetools.keys
@@ -18,6 +17,7 @@ import requests
 import sqlalchemy as sa
 import sqlalchemy.orm.query as sq
 import sqlalchemy.orm.session as ss
+import yaml
 
 import ci.util
 import cnudie.iter
@@ -25,10 +25,10 @@ import cnudie.util
 import cnudie.retrieve
 import dso.model
 import gci.oci
-import ocm
 import github.util
 import oci.client
 import oci.model as om
+import ocm
 import version as versionutil
 
 import compliance_summary as cs

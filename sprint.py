@@ -1,7 +1,7 @@
 import collections.abc
 import datetime
-import dateutil.parser
 
+import dateutil.parser
 import falcon
 
 import features

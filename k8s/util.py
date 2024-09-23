@@ -6,19 +6,19 @@ import logging
 import random
 import re
 import time
-import yaml
 
 import kubernetes.client as kc
 import kubernetes.client.rest
 import kubernetes.config
 import urllib3.exceptions
+import yaml
 
 import cnudie.iter
 import cnudie.retrieve
 import dso.model
-import ocm
 import github.compliance.model as gcm
 import model.kubernetes
+import ocm
 
 import config
 import ctx_util

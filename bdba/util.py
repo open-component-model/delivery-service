@@ -12,12 +12,13 @@ import cnudie.iter
 import concourse.model.traits.image_scan as image_scan
 import delivery.client
 import dso.model
-import ocm
 import gci.oci
 import github.compliance.model as gcm
 import github.compliance.report as gcr
 import oci.client
-import bdba.model as pm
+import ocm
+
+import bdba.model as bm
 
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ def iter_existing_findings(
 
 def iter_artefact_metadata(
     scanned_element: cnudie.iter.ResourceNode,
-    scan_result: pm.AnalysisResult,
+    scan_result: bm.AnalysisResult,
     license_cfg: image_scan.LicenseCfg=None,
     delivery_client: delivery.client.DeliveryServiceClient=None,
 ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
@@ -249,7 +250,7 @@ def iter_artefact_metadata(
 
 
 def iter_filesystem_paths(
-    component: pm.Component,
+    component: bm.Component,
     file_type: str | None=None,
 ) -> collections.abc.Generator[dso.model.FilesystemPath, None, None]:
     for ext_obj in component.extended_objects():
@@ -271,8 +272,8 @@ def iter_filesystem_paths(
 
 
 def enum_triages(
-    result: pm.AnalysisResult,
-) -> collections.abc.Generator[tuple[pm.Component, pm.Triage], None, None]:
+    result: bm.AnalysisResult,
+) -> collections.abc.Generator[tuple[bm.Component, bm.Triage], None, None]:
     for component in result.components():
         for vulnerability in component.vulnerabilities():
             for triage in vulnerability.triages():
@@ -327,7 +328,7 @@ def component_artifact_metadata(
 
 def _matching_analysis_result_id(
     component_artifact_metadata: dict[str, str],
-    analysis_results: collections.abc.Iterable[pm.Product],
+    analysis_results: collections.abc.Iterable[bm.Product],
 ) -> int | None:
     # This is a helper function that is used when we create new ScanRequests for a given artifact
     # group. Since a given artifact group can trigger multiple scans in protecode, we want to be

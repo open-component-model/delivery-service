@@ -17,7 +17,9 @@ import ci.util
 import http_requests
 import model.base
 import model.protecode
-import bdba.model as pm
+
+import bdba.model as bm
+
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
@@ -198,7 +200,7 @@ class BDBAApi:
         data: collections.abc.Generator[bytes, None, None],
         replace_id: int=None,
         custom_attribs={},
-    ) -> pm.AnalysisResult:
+    ) -> bm.AnalysisResult:
         url = self._routes.upload(file_name=application_name)
 
         headers = {'Group': str(group_id)}
@@ -212,7 +214,7 @@ class BDBAApi:
             data=data,
         )
 
-        return pm.AnalysisResult(raw_dict=result.json().get('results'))
+        return bm.AnalysisResult(raw_dict=result.json().get('results'))
 
     def delete_product(self, product_id: int):
         url = self._routes.product(product_id=product_id)
@@ -228,25 +230,25 @@ class BDBAApi:
                 return
             raise e
 
-    def scan_result(self, product_id: int) -> pm.AnalysisResult:
+    def scan_result(self, product_id: int) -> bm.AnalysisResult:
         url = self._routes.product(product_id=product_id)
 
         result = self._get(
             url=url,
         ).json()['results']
 
-        return pm.AnalysisResult(raw_dict=result)
+        return bm.AnalysisResult(raw_dict=result)
 
     def wait_for_scan_result(
         self,
         product_id: int,
         polling_interval_seconds: int=60,
-    ) -> pm.AnalysisResult:
+    ) -> bm.AnalysisResult:
         def scan_finished():
             result = self.scan_result(product_id=product_id)
-            if result.status() is pm.ProcessingStatus.READY:
+            if result.status() is bm.ProcessingStatus.READY:
                 return result
-            elif result.status() is pm.ProcessingStatus.FAILED:
+            elif result.status() is bm.ProcessingStatus.FAILED:
                 # failed scans do not contain package infos, raise to prevent side effects
                 raise RuntimeError(f'scan failed; {result.fail_reason()=}')
             else:
@@ -259,7 +261,7 @@ class BDBAApi:
             result = scan_finished()
         return result
 
-    def list_apps(self, group_id=None, custom_attribs={}) -> list[pm.Product]:
+    def list_apps(self, group_id=None, custom_attribs={}) -> list[bm.Product]:
         # BDBA checks for substring match only.
         def full_match(analysis_result_attribs):
             if not custom_attribs:
@@ -279,7 +281,7 @@ class BDBAApi:
             for product in products:
                 if not full_match(product.get('custom_data')):
                     continue
-                yield pm.Product(product)
+                yield bm.Product(product)
 
             if next_page_url := res.get('next'):
                 yield from _iter_matching_products(url=next_page_url)
@@ -326,12 +328,12 @@ class BDBAApi:
             }
         ).json()['triages']
 
-        return [pm.Triage(raw_dict=triage_dict) for triage_dict in result]
+        return [bm.Triage(raw_dict=triage_dict) for triage_dict in result]
 
     def add_triage(
         self,
-        triage: pm.Triage,
-        scope: pm.TriageScope=None,
+        triage: bm.Triage,
+        scope: bm.TriageScope=None,
         product_id=None,
         group_id=None,
         component_version=None,
@@ -359,11 +361,11 @@ class BDBAApi:
         scope = scope if scope else triage.scope()
 
         # depending on the scope, different arguments are required
-        if scope == pm.TriageScope.ACCOUNT_WIDE:
+        if scope == bm.TriageScope.ACCOUNT_WIDE:
             pass
-        elif scope in (pm.TriageScope.FILE_NAME, pm.TriageScope.FILE_HASH, pm.TriageScope.RESULT):
+        elif scope in (bm.TriageScope.FILE_NAME, bm.TriageScope.FILE_HASH, bm.TriageScope.RESULT):
             ci.util.not_none(product_id)
-        elif scope == pm.TriageScope.GROUP:
+        elif scope == bm.TriageScope.GROUP:
             ci.util.not_none(group_id)
         else:
             raise NotImplementedError()
@@ -468,7 +470,7 @@ class BDBAApi:
         component_name: str,
         component_version: str,
         objects: list[str],
-        scope: pm.VersionOverrideScope=pm.VersionOverrideScope.APP,
+        scope: bm.VersionOverrideScope=bm.VersionOverrideScope.APP,
         app_id: int=None,
         group_id: int=None,
     ):
@@ -487,13 +489,13 @@ class BDBAApi:
             'scope': scope.value,
         }
 
-        if scope is pm.VersionOverrideScope.APP:
+        if scope is bm.VersionOverrideScope.APP:
             if not app_id:
                 raise RuntimeError(
                     'An App ID is required when overriding versions with App scope.'
                 )
             override_dict['app_scope'] = app_id
-        elif scope is pm.VersionOverrideScope.GROUP:
+        elif scope is bm.VersionOverrideScope.GROUP:
             if not group_id:
                 raise RuntimeError(
                     'A Group ID is required when overriding versions with Group scope.'
@@ -507,15 +509,15 @@ class BDBAApi:
             json=[override_dict],
         ).json()
 
-    def pdf_report(self, product_id: int, cvss_version: pm.CVSSVersion=pm.CVSSVersion.V3):
+    def pdf_report(self, product_id: int, cvss_version: bm.CVSSVersion=bm.CVSSVersion.V3):
         if not self._csrf_token:
             self.login()
 
         url = self._routes.pdf_report(product_id)
 
-        if cvss_version is pm.CVSSVersion.V2:
+        if cvss_version is bm.CVSSVersion.V2:
             cvss_version_number = 2
-        elif cvss_version is pm.CVSSVersion.V3:
+        elif cvss_version is bm.CVSSVersion.V3:
             cvss_version_number = 3
         else:
             raise NotImplementedError(cvss_version)

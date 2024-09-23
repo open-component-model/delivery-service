@@ -6,7 +6,6 @@ import functools
 import logging
 import traceback
 import urllib.parse
-import yaml
 
 import falcon
 import jsonschema
@@ -14,6 +13,7 @@ import jsonschema.exceptions
 import jwt
 import requests
 import spectree.plugins.falcon_plugin
+import yaml
 
 import ci.util
 import delivery.jwt
@@ -23,6 +23,7 @@ import model.github
 
 import ctx_util
 import paths
+
 
 logger = logging.getLogger(__name__)
 

@@ -8,8 +8,8 @@ import falcon
 
 import cnudie.iter
 import cnudie.retrieve
-import ocm
 import oci.model as om
+import ocm
 
 import middleware.auth
 

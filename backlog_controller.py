@@ -1,9 +1,10 @@
 import argparse
 import datetime
-import dateutil.parser
 import logging
 import math
 import os
+
+import dateutil.parser
 import pytz
 
 import ci.log

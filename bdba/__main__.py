@@ -15,11 +15,10 @@ import cnudie.retrieve
 import delivery.client
 import dso.model
 import oci.client
+
 import bdba.client
 import bdba.scanning
 import bdba.util
-
-import bdba.client
 import config
 import ctx_util
 import k8s.backlog

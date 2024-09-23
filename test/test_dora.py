@@ -8,6 +8,7 @@ import ocm
 import dora
 import test.resources.lookup_mocks as lookup_mocks
 
+
 own_dir = os.path.dirname(__file__)
 res_dir = os.path.join(own_dir, 'resources')
 

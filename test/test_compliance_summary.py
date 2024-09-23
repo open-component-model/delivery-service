@@ -8,6 +8,7 @@ import unixutil.model
 
 import compliance_summary as cs
 
+
 # surpress warnings due to unknown os-id
 ci.log.configure_default_logging(stdout_level=logging.ERROR)
 

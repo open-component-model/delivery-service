@@ -2,8 +2,8 @@
 
 import logging
 import os
-import yaml
 
+import yaml
 
 import ccc.concourse
 import ci.log

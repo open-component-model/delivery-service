@@ -1,12 +1,13 @@
+import io
 import logging
+import zipfile
+
 import falcon
 
-import zipfile
-import io
+import ci.log
 
 import features
 import lookups
-import ci.log
 
 
 ci.log.configure_default_logging()

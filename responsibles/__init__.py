@@ -6,8 +6,8 @@ import typing
 import github3
 
 import ci.util
-import ocm
 import github.codeowners
+import ocm
 
 import ctx_util
 import lookups

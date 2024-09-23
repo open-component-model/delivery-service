@@ -12,11 +12,11 @@ import concourse.model.traits.image_scan as image_scan
 import cnudie.iter
 import dso.cvss
 import dso.model
-import ocm
 import github.compliance.milestone as gcmi
 import github.compliance.model
-import bdba.model
+import ocm
 
+import bdba.model
 import config_filter
 import ctx_util
 import lookups

@@ -13,8 +13,8 @@ import cnudie.retrieve
 import dso.cvss
 import dso.labels
 import dso.model
-import ocm
 import github.compliance.model as gcm
+import ocm
 
 import config
 import features

@@ -1,9 +1,9 @@
 import datetime
-import pytest
 import unittest.mock
 
 import falcon.errors
 import jwt
+import pytest
 
 import middleware.auth
 

@@ -1,7 +1,6 @@
 import collections.abc
 import dataclasses
 import datetime
-import dateutil.parser
 import enum
 import http
 import logging
@@ -10,6 +9,7 @@ import pytz
 import time
 
 import dacite
+import dateutil.parser
 import kubernetes.client.rest
 
 import ci.util

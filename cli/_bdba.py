@@ -15,13 +15,14 @@ import ctx
 import dso.cvss
 import dso.labels
 import dso.model
-import ocm
 import oci.model as om
+import ocm
 
-import bdba.client
 import bdba.assessments
+import bdba.client
 import bdba.model
 import bdba.scanning
+
 
 __cmd_name__ = 'bdba'
 logger = logging.getLogger(__name__)

@@ -5,18 +5,19 @@ import logging
 import requests.exceptions
 
 import dso.labels
+
 import bdba.client
-import bdba.model as pm
+import bdba.model as bm
 
 logger = logging.getLogger(__name__)
 
 
 def upload_version_hints(
-    scan_result: pm.AnalysisResult,
+    scan_result: bm.AnalysisResult,
     hints: collections.abc.Iterable[dso.labels.PackageVersionHint],
     client: bdba.client.BDBAApi,
-) -> pm.AnalysisResult:
-    components: tuple[pm.Component] = tuple(scan_result.components())
+) -> bm.AnalysisResult:
+    components: tuple[bm.Component] = tuple(scan_result.components())
     product_id = scan_result.product_id()
 
     for component in components:
@@ -57,9 +58,9 @@ def upload_version_hints(
 
 
 def add_assessments_if_none_exist(
-    tgt: pm.AnalysisResult,
+    tgt: bm.AnalysisResult,
     tgt_group_id: int,
-    assessments: collections.abc.Iterable[tuple[pm.Component, pm.Vulnerability, tuple[pm.Triage]]],
+    assessments: collections.abc.Iterable[tuple[bm.Component, bm.Vulnerability, tuple[bm.Triage]]],
     bdba_client: bdba.client.BDBAApi,
     assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
 ) -> dict[str, list[str]]:
@@ -120,7 +121,7 @@ def add_assessments_if_none_exist(
 
 def auto_triage(
     bdba_client: bdba.client.BDBAApi,
-    analysis_result: pm.AnalysisResult=None,
+    analysis_result: bm.AnalysisResult=None,
     product_id: int=None,
     assessment_txt: str=None,
     assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
@@ -165,7 +166,7 @@ def auto_triage(
                 bdba_client.set_component_version(
                     component_name=component_name,
                     component_version=component_version,
-                    scope=pm.VersionOverrideScope.APP,
+                    scope=bm.VersionOverrideScope.APP,
                     objects=list(o.sha1() for o in component.extended_objects()),
                     app_id=product_id,
                 )
@@ -174,7 +175,7 @@ def auto_triage(
                 'component': component_name,
                 'version': component_version,
                 'vulns': [vulnerability_cve],
-                'scope': pm.TriageScope.RESULT.value,
+                'scope': bm.TriageScope.RESULT.value,
                 'reason': 'OT', # "other"
                 'description': assessment_txt,
                 'product_id': product_id,

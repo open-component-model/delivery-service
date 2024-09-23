@@ -1,8 +1,8 @@
 import datetime
-import dateutil.parser
 import typing
 
 import cachetools
+import dateutil.parser
 import requests
 
 import ci.util

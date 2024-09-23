@@ -1,6 +1,5 @@
-import yaml
-
 import pytest
+import yaml
 
 import paths
 import responsibles.github_statistics as rg

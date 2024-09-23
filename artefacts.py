@@ -3,8 +3,8 @@ import zlib
 
 import falcon
 
-import ocm
 import oci.model
+import ocm
 
 
 class ArtefactBlob:
@@ -50,7 +50,7 @@ class ArtefactBlob:
         if artefact.startswith('{'):
             artefact = json.loads(artefact)
 
-            # special-handling for name/version (should refactor in gci/componentmodel)
+            # special-handling for name/version (should refactor in ocm)
             artefact_name = artefact.pop('name', None)
             artefact_version = artefact.pop('version', None)
         elif artefact.startswith('['):

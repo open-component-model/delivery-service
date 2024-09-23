@@ -2,13 +2,14 @@ import argparse
 import atexit
 import collections.abc
 import datetime
-import dateutil.parser
 import functools
 import logging
 import os
 import signal
 import sys
 import time
+
+import dateutil.parser
 
 import ci.log
 import cnudie.iter

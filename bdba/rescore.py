@@ -5,8 +5,9 @@ import typing
 import cnudie.iter
 import dso.cvss
 import dso.labels
+
 import bdba.client
-import bdba.model as pm
+import bdba.model as bm
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def cve_categorisation(
 
 def rescore(
     bdba_client: bdba.client.BDBAApi,
-    scan_result: pm.AnalysisResult,
+    scan_result: bm.AnalysisResult,
     scanned_element: cnudie.iter.ResourceNode,
     rescoring_rules: typing.Sequence[dso.cvss.RescoringRule],
     max_rescore_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
@@ -97,7 +98,7 @@ def rescore(
                 'component': c.name(),
                 'version': c.version(),
                 'vulns': [v.cve() for v in vulns_to_assess],
-                'scope': pm.TriageScope.RESULT.value,
+                'scope': bm.TriageScope.RESULT.value,
                 'reason': 'OT',
                 'description': 'auto-assessed as irrelevant based on cve-categorisation',
                 'product_id': product_id,

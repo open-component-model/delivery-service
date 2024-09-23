@@ -8,8 +8,8 @@ import ci.util
 import cnudie.retrieve
 import cnudie.util
 import delivery.client
-import ocm
 import oci.client
+import ocm
 
 import ctx_util
 import paths

@@ -8,8 +8,8 @@ import awesomeversion
 import dacite
 
 import dso.model
-import ocm
 import github.compliance.model as gcm
+import ocm
 import unixutil.model as um
 
 import delivery.model
@@ -18,6 +18,7 @@ import eol
 import ocm_util
 import osinfo
 import rescoring_util
+
 
 logger = logging.getLogger(__name__)
 

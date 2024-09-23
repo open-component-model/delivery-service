@@ -18,9 +18,9 @@ import ci.util
 import cnudie.retrieve
 import cnudie.util
 import dso.cvss
-import ocm
 import model.base
 import model.protecode
+import ocm
 
 import ctx_util
 import k8s.util

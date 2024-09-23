@@ -14,15 +14,11 @@ import dacite
 import dateutil.parser
 
 import ci.util
+import concourse.model.base
 import dso.cvss
 import dso.labels
+import model.base
 import ocm
-
-from concourse.model.base import (
-    AttribSpecMixin,
-    AttributeSpec,
-)
-from model.base import ModelBase
 
 
 logger = logging.getLogger()
@@ -45,7 +41,7 @@ class CVSSVersion(enum.Enum):
     V3 = 'CVSSv3'
 
 
-class Product(ModelBase):
+class Product(model.base.ModelBase):
     def product_id(self) -> int:
         return self.raw['product_id']
 
@@ -56,7 +52,7 @@ class Product(ModelBase):
         return self.raw['name']
 
 
-class AnalysisResult(ModelBase):
+class AnalysisResult(model.base.ModelBase):
     def product_id(self) -> int:
         return self.raw.get('product_id')
 
@@ -122,7 +118,7 @@ class License:
     url: str | None = None
 
 
-class Component(ModelBase):
+class Component(model.base.ModelBase):
     def name(self) -> str:
         return self.raw.get('lib')
 
@@ -170,7 +166,7 @@ class Component(ModelBase):
         )
 
 
-class ExtendedObject(ModelBase):
+class ExtendedObject(model.base.ModelBase):
     def name(self):
         return self.raw.get('name')
 
@@ -178,7 +174,7 @@ class ExtendedObject(ModelBase):
         return self.raw.get('sha1')
 
 
-class Vulnerability(ModelBase):
+class Vulnerability(model.base.ModelBase):
     def historical(self):
         return not self.raw.get('exact')
 
@@ -236,7 +232,7 @@ class TriageScope(enum.Enum):
     GROUP = 'G'
 
 
-class Triage(ModelBase):
+class Triage(model.base.ModelBase):
     def id(self):
         return self.raw['id']
 
@@ -367,14 +363,14 @@ class BdbaScanError(Exception):
         return name + '\n' + ''.join(traceback.format_tb(self.exception.__traceback__))
 
 
-class ProcessingMode(AttribSpecMixin, enum.Enum):
+class ProcessingMode(concourse.model.base.AttribSpecMixin, enum.Enum):
     RESCAN = 'rescan'
     FORCE_UPLOAD = 'force_upload'
 
     @classmethod
     def _attribute_specs(cls):
         return (
-            AttributeSpec.optional(
+            concourse.model.base.AttributeSpec.optional(
                 name=cls.RESCAN.value,
                 default=None,
                 doc='''
@@ -383,7 +379,7 @@ class ProcessingMode(AttribSpecMixin, enum.Enum):
                 ''',
                 type=str,
             ),
-            AttributeSpec.optional(
+            concourse.model.base.AttributeSpec.optional(
                 name=cls.FORCE_UPLOAD.value,
                 default=None,
                 doc='''

@@ -4,10 +4,10 @@ of runtime artefacts (e.g. creation/iteration).
 '''
 import dataclasses
 import datetime
-import dateutil.parser
 import typing
 
 import dacite
+import dateutil.parser
 
 import ci.util
 import dso.model

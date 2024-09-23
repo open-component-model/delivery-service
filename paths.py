@@ -1,5 +1,6 @@
 import os
 
+
 _own_dir = os.path.abspath(os.path.dirname(__file__))
 
 _json_schema_path = os.path.join(_own_dir, 'schema')

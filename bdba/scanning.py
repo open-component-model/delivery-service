@@ -19,15 +19,16 @@ import delivery.client
 import dso.cvss
 import dso.labels
 import dso.model
-import ocm
 import gci.oci
 import oci.client
+import ocm
+import tarutil
+
 import bdba.assessments
 import bdba.client
-import bdba.model as pm
+import bdba.model as bm
 import bdba.rescore
 import bdba.util
-import tarutil
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ ci.log.configure_default_logging(print_thread_id=True)
 def _wait_for_scan_result(
     bdba_client: bdba.client.BDBAApi,
     product_id: int,
-) -> pm.AnalysisResult:
+) -> bm.AnalysisResult:
     return bdba_client.wait_for_scan_result(product_id=product_id)
 
 
@@ -60,7 +61,7 @@ class ResourceGroupProcessor:
     def _products_with_relevant_triages(
         self,
         resource_node: cnudie.iter.ResourceNode,
-    ) -> collections.abc.Generator[pm.Product, None, None]:
+    ) -> collections.abc.Generator[bm.Product, None, None]:
         relevant_group_ids = set(self.reference_group_ids)
         relevant_group_ids.add(self.group_id)
 
@@ -80,11 +81,11 @@ class ResourceGroupProcessor:
 
     def iter_products(
         self,
-        products_to_import_from: list[pm.Product],
+        products_to_import_from: list[bm.Product],
         use_product_cache: bool=True,
         delete_inactive_products_after_seconds: int=None,
     ) -> collections.abc.Generator[
-        tuple[pm.Component, pm.Vulnerability, tuple[pm.Triage]],
+        tuple[bm.Component, bm.Vulnerability, tuple[bm.Triage]],
         None,
         None,
     ]:
@@ -98,14 +99,14 @@ class ResourceGroupProcessor:
         version) are _not_ going to be deleted.
         '''
         def _iter_vulnerabilities(
-            result: pm.AnalysisResult,
-        ) -> collections.abc.Generator[tuple[pm.Component, pm.Vulnerability], None, None]:
+            result: bm.AnalysisResult,
+        ) -> collections.abc.Generator[tuple[bm.Component, bm.Vulnerability], None, None]:
             for component in result.components():
                 for vulnerability in component.vulnerabilities():
                     yield component, vulnerability
 
         def iter_vulnerabilities_with_assessments(
-            result: pm.AnalysisResult,
+            result: bm.AnalysisResult,
         ):
             for component, vulnerability in _iter_vulnerabilities(result=result):
                 if not vulnerability.has_triage():
@@ -148,9 +149,9 @@ class ResourceGroupProcessor:
     def scan_request(
         self,
         resource_node: cnudie.iter.ResourceNode,
-        known_artifact_scans: tuple[pm.Product],
+        known_artifact_scans: tuple[bm.Product],
         s3_client: 'botocore.client.S3',
-    ) -> pm.ScanRequest:
+    ) -> bm.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
 
@@ -185,7 +186,7 @@ class ResourceGroupProcessor:
                     fallback_to_first_subimage_if_index=True,
                 )
 
-            return pm.ScanRequest(
+            return bm.ScanRequest(
                 component=component,
                 artefact=resource,
                 scan_content=iter_content(),
@@ -222,7 +223,7 @@ class ResourceGroupProcessor:
                     name=name,
                 )
 
-            return pm.ScanRequest(
+            return bm.ScanRequest(
                 component=component,
                 artefact=resource,
                 scan_content=tarutil.concat_blobs_as_tarstream(
@@ -237,18 +238,18 @@ class ResourceGroupProcessor:
 
     def process_scan_request(
         self,
-        scan_request: pm.ScanRequest,
-        processing_mode: pm.ProcessingMode,
-    ) -> pm.AnalysisResult:
+        scan_request: bm.ScanRequest,
+        processing_mode: bm.ProcessingMode,
+    ) -> bm.AnalysisResult:
         def raise_on_error(exception):
-            raise pm.BdbaScanError(
+            raise bm.BdbaScanError(
                 scan_request=scan_request,
                 component=scan_request.component,
                 artefact=scan_request.artefact,
                 exception=exception,
             )
 
-        if processing_mode is pm.ProcessingMode.FORCE_UPLOAD:
+        if processing_mode is bm.ProcessingMode.FORCE_UPLOAD:
             if (product_id := scan_request.target_product_id):
                 # reupload binary
                 try:
@@ -276,7 +277,7 @@ class ResourceGroupProcessor:
                     raise_on_error(e)
                 except botocore.exceptions.BotoCoreError as e:
                     raise_on_error(e)
-        elif processing_mode is pm.ProcessingMode.RESCAN:
+        elif processing_mode is bm.ProcessingMode.RESCAN:
             if (existing_id := scan_request.target_product_id):
                 # check if result can be reused
                 scan_result = self.bdba_client.scan_result(product_id=existing_id)
@@ -339,9 +340,9 @@ class ResourceGroupProcessor:
     def process(
         self,
         resource_node: cnudie.iter.ResourceNode,
-        known_scan_results: tuple[pm.Product],
+        known_scan_results: tuple[bm.Product],
         s3_client: 'botocore.client.S3',
-        processing_mode: pm.ProcessingMode,
+        processing_mode: bm.ProcessingMode,
         delivery_client: delivery.client.DeliveryServiceClient=None,
         license_cfg: image_scan.LicenseCfg=None,
         cve_rescoring_rules: tuple[dso.cvss.RescoringRule]=tuple(),
@@ -374,7 +375,7 @@ class ResourceGroupProcessor:
             )
             scan_result = self.bdba_client.wait_for_scan_result(scan_result.product_id())
             scan_failed = False
-        except pm.BdbaScanError as bse:
+        except bm.BdbaScanError as bse:
             scan_result = bse
             scan_failed = True
             logger.warning(bse.print_stacktrace())
@@ -467,9 +468,9 @@ class ResourceGroupProcessor:
 def _package_version_hints(
     component: ocm.Component,
     artefact: ocm.Artifact,
-    result: pm.AnalysisResult,
+    result: bm.AnalysisResult,
 ) -> list[dso.labels.PackageVersionHint] | None:
-    def result_matches(resource: ocm.Resource, result: pm.AnalysisResult):
+    def result_matches(resource: ocm.Resource, result: bm.AnalysisResult):
         '''
         find matching result for package-version-hint
         note: we require strict matching of resource-version
@@ -509,7 +510,7 @@ def retrieve_existing_scan_results(
     group_id: int,
     resource_node: cnudie.iter.ResourceNode,
     oci_client: oci.client.Client,
-) -> list[pm.Product]:
+) -> list[bm.Product]:
     query_data = bdba.util.component_artifact_metadata(
         resource_node=resource_node,
         omit_resource_version=True,
