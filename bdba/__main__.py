@@ -10,11 +10,14 @@ import botocore.client
 
 import ccc.aws
 import ci.log
+import cnudie.access
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import dso.model
 import oci.client
+import ocm
+import tarutil
 
 import bdba.client
 import bdba.scanning
@@ -26,6 +29,7 @@ import k8s.logging
 import k8s.model
 import k8s.util
 import lookups
+import ocm_util
 
 
 logger = logging.getLogger(__name__)
@@ -120,11 +124,44 @@ def scan(
         oci_client=oci_client,
     )
 
+    access = resource_node.resource.access
+
+    if access.type is ocm.AccessType.OCI_REGISTRY:
+        content_iterator = oci.image_layers_as_tarfile_generator(
+            image_reference=access.imageReference,
+            oci_client=oci_client,
+            include_config_blob=False,
+            fallback_to_first_subimage_if_index=True
+        )
+
+    elif access.type is ocm.AccessType.S3:
+        content_iterator = tarutil.concat_blobs_as_tarstream(
+            blobs=[
+                cnudie.access.s3_access_as_blob_descriptor(
+                    s3_client=s3_client,
+                    s3_access=access,
+                ),
+            ]
+        )
+
+    elif access.type is ocm.AccessType.LOCAL_BLOB:
+        ocm_repo = resource_node.component.current_ocm_repo
+        image_reference = ocm_repo.component_oci_ref(name=resource_node.component.name)
+
+        content_iterator = ocm_util.iter_local_blob_content(
+            access=access,
+            oci_client=oci_client,
+            image_reference=image_reference,
+        )
+
+    else:
+        raise NotImplementedError(access)
+
     scan_results = processor.process(
         resource_node=resource_node,
+        content_iterator=content_iterator,
         processing_mode=bdba_config.processing_mode,
         known_scan_results=known_scan_results,
-        s3_client=s3_client,
         delivery_client=delivery_client,
         license_cfg=bdba_config.license_cfg,
         cve_rescoring_rules=bdba_config.cve_rescoring_rules,
