@@ -553,7 +553,7 @@ def client(
 
     if bdba_cfg:
         if isinstance(bdba_cfg, str):
-            bdba_cfg = cfg_factory.protecode(bdba_cfg)
+            bdba_cfg = cfg_factory.bdba(bdba_cfg)
 
         if bdba_cfg.matches(
             group_id=group_id,

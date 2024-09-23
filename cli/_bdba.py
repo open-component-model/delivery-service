@@ -250,7 +250,7 @@ def assess(
     assessment: str,
 ):
     cfg_factory = ci.util.ctx().cfg_factory()
-    bdba_cfg = cfg_factory.protecode(bdba_cfg_name)
+    bdba_cfg = cfg_factory.bdba(bdba_cfg_name)
     bdba_client = bdba.client.client(bdba_cfg=bdba_cfg)
 
     bdba.assessments.auto_triage(
@@ -270,7 +270,7 @@ def scan(
     aws_cfg: str=None,
 ):
     cfg_factory = ci.util.ctx().cfg_factory()
-    bdba_cfg = cfg_factory.protecode(bdba_cfg_name)
+    bdba_cfg = cfg_factory.bdba(bdba_cfg_name)
 
     oci_client = ccc.oci.oci_client()
     if aws_cfg:
@@ -411,7 +411,7 @@ def transport_triages(
     to_product_ids: list[int],
 ):
     cfg_factory = ci.util.ctx().cfg_factory()
-    bdba_cfg = cfg_factory.protecode(bdba_cfg_name)
+    bdba_cfg = cfg_factory.bdba(bdba_cfg_name)
     api = bdba.client.client(bdba_cfg=bdba_cfg)
 
     scan_result_from = api.scan_result(product_id=from_product_id)

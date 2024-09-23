@@ -331,12 +331,12 @@ def _matching_analysis_result_id(
     analysis_results: collections.abc.Iterable[bm.Product],
 ) -> int | None:
     # This is a helper function that is used when we create new ScanRequests for a given artifact
-    # group. Since a given artifact group can trigger multiple scans in protecode, we want to be
+    # group. Since a given artifact group can trigger multiple scans in bdba, we want to be
     # able to find the correct one from a set of possible choices (if there is one).
     def filter_func(other_dict: dict[str, str]):
         # filter-function to find the correct match. We consider a given dict a match if
         # it contains all keys we have and the values associated with these keys are identical.
-        # Note: That means that (manually) added protecode-metadata will not interfere.
+        # Note: That means that (manually) added bdba-metadata will not interfere.
         for key in component_artifact_metadata:
             if key not in other_dict.keys():
                 return False

@@ -65,7 +65,7 @@ def add_assessments_if_none_exist(
     assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
 ) -> dict[str, list[str]]:
     '''
-    add assessments to given protecode "app"; skip given assessments that are not relevant for
+    add assessments to given bdba "app"; skip given assessments that are not relevant for
     target "app" (either because there are already assessments, or vulnerabilities do not exit).
     Assessments are added "optimistically", ignoring version differences between source and target
     component versions (assumption: assessments are valid for all component-versions).
