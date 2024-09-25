@@ -700,7 +700,12 @@ def _template_vars(
             artefact=artefact,
         )
         if ocm_node:
-            artefact_urls.add(gcr._artifact_url(artifact=ocm_node.artefact))
+            artefact_urls.add(
+                gcr._artifact_url(
+                    component=ocm_node.component,
+                    artifact=ocm_node.artefact,
+                )
+            )
             ocm_nodes.append(ocm_node)
 
         if filtered_findings:
