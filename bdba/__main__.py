@@ -287,7 +287,6 @@ def main():
         base_url=bdba_cfg.base_url(),
         cfg_factory=cfg_factory,
     )
-    bdba_client.login()
 
     if not delivery_service_url:
         delivery_service_url = bdba_config.delivery_service_url

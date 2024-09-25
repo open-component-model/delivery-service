@@ -94,19 +94,12 @@ class BDBAApi:
         self._routes = ci.util.not_none(api_routes)
         ci.util.not_none(bdba_cfg)
         self._credentials = bdba_cfg.credentials()
-        self._auth_scheme = bdba_cfg.auth_scheme()
-
-        if self._auth_scheme is model.protecode.ProtecodeAuthScheme.BASIC_AUTH:
-            logger.warning('Using basic auth to authenticate against BDBA.')
 
         self._tls_verify = bdba_cfg.tls_verify()
-        self._session_id = None
         self._session = requests.Session()
         http_requests.mount_default_adapter(
             session=self._session,
         )
-
-        self._csrf_token = None
 
     def set_maximum_concurrent_connections(self, maximum_concurrent_connections: int):
         # mount new adapter with new parameters
@@ -123,30 +116,7 @@ class BDBAApi:
         else:
             headers = {}
 
-        if 'url' in kwargs:
-            url = kwargs.get('url')
-        else:
-            url = args[0]
-
-        if self._session_id:
-            cookies = {
-                'sessionid': self._session_id,
-                'csrftoken': self._csrf_token,
-            }
-            headers['X-CSRFTOKEN'] = self._csrf_token
-            headers['referer'] = url
-        else:
-            cookies = None
-
-        if (auth_scheme := self._auth_scheme) is model.protecode.ProtecodeAuthScheme.BEARER_TOKEN:
-            headers['Authorization'] = f"Bearer {self._credentials.token()}"
-        elif auth_scheme is model.protecode.ProtecodeAuthScheme.BASIC_AUTH:
-            method = functools.partial(
-                method,
-                auth=self._credentials.as_tuple(),
-            )
-        else:
-            raise NotImplementedError(auth_scheme)
+        headers['Authorization'] = f"Bearer {self._credentials.token()}"
 
         try:
             timeout = kwargs.pop('timeout')
@@ -156,7 +126,7 @@ class BDBAApi:
         return functools.partial(
             method,
             verify=self._tls_verify,
-            cookies=cookies,
+            cookies=None,
             headers=headers,
             timeout=timeout,
         )(*args, **kwargs)
@@ -408,49 +378,6 @@ class BDBAApi:
             raise e
 
     # --- "rest" routes (undocumented API)
-
-    def login(self):
-        if (auth_scheme := self._auth_scheme) is model.protecode.ProtecodeAuthScheme.BASIC_AUTH:
-            pass
-        elif auth_scheme is model.protecode.ProtecodeAuthScheme.BEARER_TOKEN:
-            return
-        else:
-            raise NotImplementedError(auth_scheme)
-
-        url = self._routes.login()
-
-        result = self._post(
-            url=url,
-            data={
-                'username': self._credentials.username(),
-                'password': self._credentials.passwd(),
-            },
-            auth=None,
-        )
-
-        # session-id is returned in first response
-        if not result.history:
-            raise RuntimeError('authentication failed:' + str(result.text))
-
-        relevant_response = result.history[0]
-
-        # work around breaking change in BDBA endpoint behaviour
-        if not relevant_response.cookies.get('sessionid'):
-            raw_cookie = relevant_response.raw.headers['Set-Cookie']
-            session_id_key = 'sessionid='
-            # XXX hack
-            sid = raw_cookie[raw_cookie.find(session_id_key) + len(session_id_key):]
-            sid = sid[:sid.find(';')] # let's hope sid never contains a semicolon
-            self._session_id = sid
-            del sid
-        else:
-            self._session_id = relevant_response.cookies.get('sessionid')
-
-        self._csrf_token = relevant_response.cookies.get('csrftoken')
-
-        if not self._session_id:
-            raise RuntimeError('authentication failed: ' + str(relevant_response.text))
-
     def set_product_name(self, product_id: int, name: str):
         url = self._routes.product(product_id)
 
@@ -510,9 +437,6 @@ class BDBAApi:
         ).json()
 
     def pdf_report(self, product_id: int, cvss_version: bm.CVSSVersion=bm.CVSSVersion.V3):
-        if not self._csrf_token:
-            self.login()
-
         url = self._routes.pdf_report(product_id)
 
         if cvss_version is bm.CVSSVersion.V2:
