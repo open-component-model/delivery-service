@@ -435,6 +435,7 @@ def init_app(
     app.add_route(
         '/ocm/component/versions',
         components.GreatestComponentVersions(
+            component_descriptor_lookup=component_descriptor_lookup,
             version_lookup=version_lookup,
             version_filter_callback=version_filter_callback,
             invalid_semver_ok=invalid_semver_ok,
