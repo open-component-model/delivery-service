@@ -146,7 +146,7 @@ def scan(
 
     elif access.type is ocm.AccessType.LOCAL_BLOB:
         ocm_repo = resource_node.component.current_ocm_repo
-        image_reference = ocm_repo.component_oci_ref(name=resource_node.component.name)
+        image_reference = ocm_repo.component_oci_ref(resource_node.component.name)
 
         content_iterator = ocm_util.iter_local_blob_content(
             access=access,
