@@ -619,6 +619,7 @@ def greatest_component_version(
 
 def greatest_component_versions(
     component_name: str,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
     version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
     max_versions: int=5,
@@ -626,6 +627,8 @@ def greatest_component_versions(
     oci_client: oci.client.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
+    start_date: datetime.date=None,
+    end_date: datetime.date=None,
 ) -> list[str]:
     versions = component_versions(
         component_name=component_name,
@@ -659,19 +662,53 @@ def greatest_component_versions(
         invalid_semver_ok=invalid_semver_ok,
     ))
 
-    if greatest_version:
-        versions = versions[:versions.index(greatest_version)+1]
+    # If no end_date is provided, default to now
+    if not end_date:
+        end_date = datetime.date.today().isoformat()
 
-    return versions[-max_versions:]
+    # Handle date range filtering only if start_date is provided
+    if start_date:
+        def filter_by_date_range(versions):
+            for version in reversed(versions):
+                component_descriptor = util.retrieve_component_descriptor(
+                    ocm.ComponentIdentity(
+                        name=component_name,
+                        version=version,
+                    ),
+                    component_descriptor_lookup
+                )
+                creation_date = get_creation_date(
+                    component_descriptor.component
+                ).strftime('%Y-%m-%d')
+
+                if creation_date > end_date:
+                    continue
+
+                if creation_date < start_date:
+                    break
+
+                yield version
+
+        versions = list(filter_by_date_range(versions))
+
+    if greatest_version:
+        versions = versions[:versions.index(greatest_version) + 1]
+
+    if not start_date:
+        return versions[-max_versions:]
+
+    return versions
 
 
 class GreatestComponentVersions:
     def __init__(
         self,
+        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
         version_lookup: cnudie.retrieve.VersionLookupByComponent,
         version_filter_callback,
         invalid_semver_ok: bool=False,
     ):
+        self.component_descriptor_lookup = component_descriptor_lookup
         self.version_lookup = version_lookup
         self._version_filter_callback = version_filter_callback
         self._invalid_semver_ok = invalid_semver_ok
@@ -679,6 +716,8 @@ class GreatestComponentVersions:
     def on_get(self, req: falcon.Request, resp: falcon.Response):
         component_name = req.get_param('component_name', True)
         max_version = req.get_param('max', False, default=5)
+        start_date = req.get_param('start_date', required=False)
+        end_date = req.get_param('end_date', required=False)
         version = req.get_param('version', False, default=None)
 
         # TODO remove `ctx_repo_url` once all usages are updated
@@ -702,12 +741,15 @@ class GreatestComponentVersions:
         try:
             versions = greatest_component_versions(
                 component_name=component_name,
+                component_descriptor_lookup=self.component_descriptor_lookup,
                 ocm_repo=ocm_repo,
                 version_lookup=self.version_lookup,
                 max_versions=int(max_version),
                 greatest_version=version,
                 version_filter=version_filter,
                 invalid_semver_ok=self._invalid_semver_ok,
+                start_date=start_date,
+                end_date=end_date,
             )
         except ValueError:
             raise falcon.HTTPNotFound(description=f'version {version} not found')
