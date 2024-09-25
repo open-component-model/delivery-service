@@ -275,12 +275,7 @@ def main():
         kubernetes_api=kubernetes_api,
     )
 
-    try:
-        bdba_cfg = cfg_factory.bdba(bdba_config.cfg_name)
-    except ValueError:
-        # factory method 'bdba' does not exist, fallback to 'protecode'
-        bdba_cfg = cfg_factory.protecode(bdba_config.cfg_name)
-
+    bdba_cfg = cfg_factory.bdba(bdba_config.cfg_name)
     bdba_client = bdba.client.client(
         bdba_cfg=bdba_cfg,
         group_id=bdba_config.group_id,

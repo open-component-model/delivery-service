@@ -16,7 +16,7 @@ import ci.log
 import ci.util
 import http_requests
 import model.base
-import model.protecode
+import model.bdba
 
 import bdba.model as bm
 
@@ -89,7 +89,7 @@ class BDBAApi:
     def __init__(
         self,
         api_routes,
-        bdba_cfg: model.protecode.ProtecodeConfig,
+        bdba_cfg: model.bdba.BDBAConfig,
     ):
         self._routes = ci.util.not_none(api_routes)
         ci.util.not_none(bdba_cfg)
@@ -455,7 +455,7 @@ class BDBAApi:
 
 
 def client(
-    bdba_cfg: model.protecode.ProtecodeConfig | str=None,
+    bdba_cfg: model.bdba.BDBAConfig | str=None,
     group_id: int=None,
     base_url: str=None,
     cfg_factory=None,
@@ -486,13 +486,13 @@ def client(
             raise ValueError(f'{bdba_cfg.name()=} does not match {group_id=} and {base_url=}')
 
     else:
-        if not (bdba_cfg := model.protecode.find_config(
+        if not (bdba_cfg := model.bdba.find_config(
             group_id=group_id,
             base_url=base_url,
-            config_candidates=cfg_factory._cfg_elements(cfg_type_name='protecode'),
+            config_candidates=cfg_factory._cfg_elements(cfg_type_name='bdba'),
         )):
             raise model.base.ConfigElementNotFoundError(
-                f'No protecode cfg found for {group_id=}, {base_url=}'
+                f'No bdba cfg found for {group_id=}, {base_url=}'
             )
 
     routes = BDBAApiRoutes(base_url=bdba_cfg.api_url())

@@ -254,11 +254,8 @@ def iter_scan_configurations(
             try:
                 bdba_cfg = cfg_factory.bdba(cfg_name)
             except ValueError:
-                # factory method 'bdba' does not exist, fallback to 'protecode'
-                try:
-                    bdba_cfg = cfg_factory.protecode(cfg_name)
-                except ValueError:
-                    pass
+                logger.warning(f'no bdba-cfg found for {cfg_name}')
+                pass
 
             if bdba_cfg:
                 bdba_config['base_url'] = bdba_cfg.base_url()

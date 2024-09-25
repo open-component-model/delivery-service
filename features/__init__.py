@@ -19,7 +19,7 @@ import cnudie.retrieve
 import cnudie.util
 import dso.cvss
 import model.base
-import model.protecode
+import model.bdba
 import ocm
 
 import ctx_util
