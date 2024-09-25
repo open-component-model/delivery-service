@@ -279,11 +279,52 @@ class ArtefactMetadata:
                     ),
                 )
 
-        existing_entries = session.query(dm.ArtefactMetaData).filter(
-            sa.or_(artefact_queries(artefacts=artefacts)),
-        ).all()
+        # order entries to increase chances to find matching existing entry as soon as possible
+        existing_entries = sorted(
+            session.query(dm.ArtefactMetaData).filter(
+                sa.or_(artefact_queries(artefacts=artefacts)),
+            ).all(),
+            key=lambda entry: entry.meta.get('last_update'),
+            reverse=True,
+        )
+
+        existing_artefact_versions = {
+            existing_entry.artefact_version for existing_entry in existing_entries
+        }
 
         created_artefacts: list[dm.ArtefactMetaData] = []
+
+        def find_entry_and_discovery_date(
+            existing_entry: dm.ArtefactMetaData,
+            new_entry: dm.ArtefactMetaData,
+        ) -> tuple[dm.ArtefactMetaData | None, datetime.date | None]:
+            if (
+                existing_entry.type != new_entry.type
+                or existing_entry.component_name != new_entry.component_name
+                or existing_entry.artefact_kind != new_entry.artefact_kind
+                or existing_entry.artefact_name != new_entry.artefact_name
+                or existing_entry.artefact_type != new_entry.artefact_type
+            ):
+                return None, None
+
+            reusable_discovery_date = reuse_discovery_date_if_possible(
+                old_metadata=existing_entry,
+                new_metadata=metadata_entry,
+            )
+
+            if (
+                existing_entry.component_version != metadata_entry.component_version
+                or existing_entry.artefact_version != metadata_entry.artefact_version
+                # do not include extra id (yet) because there is only one entry for
+                # all ocm resources with different extra ids at the moment
+                # TODO include extra id as soon as there is one entry for each extra id
+                # or existing_entry.artefact_extra_id_normalised
+                #     != metadata_entry.artefact_extra_id_normalised
+                or existing_entry.data_key != metadata_entry.data_key
+            ):
+                return None, reusable_discovery_date
+
+            return existing_entry, reusable_discovery_date
 
         try:
             for artefact_metadatum in artefact_metadata:
@@ -291,42 +332,53 @@ class ArtefactMetadata:
                     artefact_metadata=artefact_metadatum,
                 )
 
-                reusable_discovery_date = None
-                for existing_entry in existing_entries + created_artefacts:
-                    if (
-                        existing_entry.type != metadata_entry.type
-                        or existing_entry.component_name != metadata_entry.component_name
-                        or existing_entry.artefact_kind != metadata_entry.artefact_kind
-                        or existing_entry.artefact_name != metadata_entry.artefact_name
-                        or existing_entry.artefact_type != metadata_entry.artefact_type
-                    ):
-                        continue
+                found = None
+                discovery_date = None
 
-                    if not reusable_discovery_date:
-                        reusable_discovery_date = reuse_discovery_date_if_possible(
-                            old_metadata=existing_entry,
-                            new_metadata=metadata_entry,
+                for existing_entry in created_artefacts:
+                    found, reusable_discovery_date = find_entry_and_discovery_date(
+                        existing_entry=existing_entry,
+                        new_entry=metadata_entry,
+                    )
+
+                    if not discovery_date:
+                        discovery_date = reusable_discovery_date
+
+                    if found:
+                        break
+
+                if not found:
+                    for existing_entry in existing_entries:
+                        if (
+                            (
+                                discovery_date or metadata_entry.type not in (
+                                    dso.model.Datatype.VULNERABILITY,
+                                    dso.model.Datatype.LICENSE,
+                                    dso.model.Datatype.DIKI_FINDING,
+                                )
+                            ) and metadata_entry.artefact_version not in existing_artefact_versions
+                        ):
+                            # there is no need to search any further -> we won't find any existing
+                            # entry with the same artefact version and we don't have to find any
+                            # reusable discovery date (anymore)
+                            break
+
+                        found, reusable_discovery_date = find_entry_and_discovery_date(
+                            existing_entry=existing_entry,
+                            new_entry=metadata_entry,
                         )
 
-                    if (
-                        existing_entry.component_version != metadata_entry.component_version
-                        or existing_entry.artefact_version != metadata_entry.artefact_version
-                        # do not include extra id (yet) because there is only one entry for
-                        # all ocm resources with different extra ids at the moment
-                        # TODO include extra id as soon as there is one entry for each extra id
-                        # or existing_entry.artefact_extra_id_normalised
-                        #     != metadata_entry.artefact_extra_id_normalised
-                        or existing_entry.data_key != metadata_entry.data_key
-                    ):
-                        continue
+                        if not discovery_date:
+                            discovery_date = reusable_discovery_date
 
-                    # found database entry that matches the supplied metadata entry
-                    break
-                else:
+                        if found:
+                            break
+
+                if not found:
                     # did not find existing database entry that matches the supplied metadata entry
                     # -> create new entry (and re-use discovery date if possible)
-                    if reusable_discovery_date:
-                        metadata_entry.discovery_date = reusable_discovery_date
+                    if discovery_date:
+                        metadata_entry.discovery_date = discovery_date
 
                     session.add(metadata_entry)
                     created_artefacts.append(metadata_entry)
