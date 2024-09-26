@@ -291,7 +291,10 @@ class ArtefactMetadata:
             session.query(dm.ArtefactMetaData).filter(
                 sa.or_(artefact_queries(artefacts=artefacts)),
             ).all(),
-            key=lambda entry: entry.meta.get('last_update'),
+            key=lambda entry: entry.meta.get(
+                'last_update',
+                datetime.datetime.fromtimestamp(0, datetime.UTC).isoformat(),
+            ),
             reverse=True,
         )
 
