@@ -82,4 +82,5 @@ data:
   freshclam: |-
     DatabaseMirror freshclam.{{ $.Values.namespace }}.svc.cluster.local:8080
     PrivateMirror freshclam.{{ $.Values.namespace }}.svc.cluster.local:8080
+---
 {{- end }}
