@@ -7,6 +7,7 @@ import json
 import logging
 import urllib.parse
 
+import aiohttp.web
 import falcon
 
 import cnudie.iter
@@ -123,3 +124,53 @@ def get_enum_value_or_raise(
             f'bad value for {enum_type=}: {value=}. '
             f'allowed values: {[val.value for val in enum_type]}'
         ))
+
+
+def param(
+    params: dict,
+    name: str,
+    *,
+    required: bool=False,
+    default=None,
+):
+    if required and default:
+        raise ValueError('there must be no default value if `required` is set to `True`')
+
+    if name not in params:
+        if required:
+            raise aiohttp.web.HTTPBadRequest(
+                reason='Missing parameter',
+                text=f'The {name} parameter is required.',
+            )
+        return default
+
+    return params[name]
+
+
+def param_as_bool(
+    params: dict,
+    name: str,
+    *,
+    required: bool=False,
+    default: bool=False,
+) -> bool:
+    # taken from requests' `request.get_param_as_bool`
+    true_strings = ('true', 'True', 't', 'yes', 'y', '1', 'on')
+    false_strings = ('false', 'False', 'f', 'no', 'n', '0', 'off')
+
+    val = str(param(
+        params=params,
+        name=name,
+        required=required,
+        default=default,
+    ))
+
+    if val in true_strings:
+        return True
+    elif val in false_strings:
+        return False
+
+    raise aiohttp.web.HTTPBadRequest(
+        reason='Invalid parameter',
+        text=f'The value of the paramter {name} must be a boolean value.',
+    )
