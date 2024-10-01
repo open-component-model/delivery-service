@@ -152,16 +152,11 @@ def _component_descriptor(
 ) -> ocm.ComponentDescriptor:
     component_name = req.get_param('component_name', True)
 
-    # TODO remove `ctx_repo_url` once all usages are updated
     ocm_repo_url = req.get_param(
         name='ocm_repo_url',
         required=False,
-        default=req.get_param('ctx_repo_url', False),
     )
-    if ocm_repo_url:
-        ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
-    else:
-        ocm_repo = None
+    ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
     version = req.get_param('version', default='greatest')
     raw = req.get_param_as_bool('raw', default=False)
@@ -290,18 +285,14 @@ class ComponentDependencies:
             default='all',
         )
 
-        # TODO remove `ctx_repo_url` once all usages are updated
         ocm_repo_url = req.get_param(
             name='ocm_repo_url',
             required=False,
-            default=req.get_param('ctx_repo_url', False),
         )
-        if ocm_repo_url:
-            ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
-        else:
-            ocm_repo = None
 
         version = req.get_param('version', True)
+
+        ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
         version_filter = req.get_param(
             name='version_filter',
@@ -383,10 +374,10 @@ class ComponentResponsibles:
             - component_name (required) \n
             - version (optional) \n
             - version_filter (optional) \n
-            - ctx_repo_url (optional, defaults to delivery-service's global default ctx) \n
-            - resource_name (optional)
+            - ocm_repo_url (optional, defaults to delivery-service's global default ctx) \n
+            - artifact_name (optional)
 
-        if resource_name is given, and specific responsibles are configured for the given resource
+        if artifact_name is given, and specific responsibles are configured for the given resource
         (using label `cloud.gardener.cnudie/responsibles`), then those take precedence over
         component-wide responsibles.
 
@@ -720,16 +711,12 @@ class GreatestComponentVersions:
         end_date = req.get_param('end_date', required=False)
         version = req.get_param('version', False, default=None)
 
-        # TODO remove `ctx_repo_url` once all usages are updated
         ocm_repo_url = req.get_param(
             name='ocm_repo_url',
             required=False,
-            default=req.get_param('ctx_repo_url', False),
         )
-        if ocm_repo_url:
-            ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
-        else:
-            ocm_repo = None
+
+        ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
         version_filter = req.get_param(
             name='version_filter',
@@ -832,10 +819,8 @@ class UpgradePRs:
         pr_state: str = req.get_param('state', default='open')
 
         ocm_repo_url = req.get_param('ocmRepo', default=None)
-        if ocm_repo_url:
-            ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
-        else:
-            ocm_repo = None
+
+        ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
         version_filter = req.get_param(
             name='version_filter',
@@ -1172,7 +1157,7 @@ class ComplianceSummary:
             - component_name (required) \n
             - version (required) \n
             - version_filter (optional) \n
-            - ctx_repo_url (optional) \n
+            - ocm_repo_url (optional) \n
             - recursion_depth (optional) \n
 
         **response:**
@@ -1205,16 +1190,11 @@ class ComplianceSummary:
 
         component_name = req.get_param('component_name', True)
 
-        # TODO remove `ctx_repo_url` once all usages are updated
         ocm_repo_url = req.get_param(
             name='ocm_repo_url',
             required=False,
-            default=req.get_param('ctx_repo_url', False),
         )
-        if ocm_repo_url:
-            ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url)
-        else:
-            ocm_repo = None
+        ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
         version = req.get_param('version', True)
 
