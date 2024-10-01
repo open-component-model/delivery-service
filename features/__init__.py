@@ -873,7 +873,6 @@ def watch_for_file_changes(
 def init_features(
     parsed_arguments,
     cfg_factory,
-    base_url: str,
 ) -> list[any]:
     global feature_cfgs
     feature_cfgs = []
@@ -886,15 +885,14 @@ def init_features(
         logger.warning(f'Delivery config not found: {e}')
 
     feature_authentication = deserialise_authentication(delivery_cfg)
-    if feature_authentication.state == FeatureStates.AVAILABLE \
-        and not parsed_arguments.shortcut_auth:
-        middlewares.append(
-            middleware.auth.Auth(
-                base_url=base_url,
-                signing_cfgs=feature_authentication.signing_cfgs,
-                default_auth=middleware.auth.AuthType.BEARER,
-            )
-        )
+    if (
+        feature_authentication.state is FeatureStates.AVAILABLE
+        and not parsed_arguments.shortcut_auth
+    ):
+        middlewares.append(middleware.auth.auth_middleware(
+            signing_cfgs=feature_authentication.signing_cfgs,
+            default_auth=middleware.auth.AuthType.BEARER,
+        ))
     feature_cfgs.append(feature_authentication)
 
     delivery_db_feature_state = FeatureStates.UNAVAILABLE
@@ -908,7 +906,7 @@ def init_features(
         except (AttributeError, model.base.ConfigElementNotFoundError):
             logger.warning('Delivery database config not found')
 
-    if delivery_db_feature_state == FeatureStates.AVAILABLE:
+    if delivery_db_feature_state is FeatureStates.AVAILABLE:
         middlewares.append(middleware.db_session.DBSessionLifecycle(
             db_url=db_url,
             verify_db_session=False,

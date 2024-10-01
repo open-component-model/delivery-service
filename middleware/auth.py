@@ -4,15 +4,15 @@ import datetime
 import enum
 import functools
 import logging
-import traceback
 import urllib.parse
 
+import aiohttp.typedefs
+import aiohttp.web
 import falcon
 import jsonschema
 import jsonschema.exceptions
 import jwt
 import requests
-import spectree.plugins.falcon_plugin
 import yaml
 
 import ci.util
@@ -95,7 +95,7 @@ class AuthType(enum.Enum):
 
 def noauth(cls):
     '''
-    class decorator used to disable authentication for the receiving falcon resource
+    class decorator used to disable authentication for the receiving aiohttp request handler
     '''
     cls.auth = AuthType.NONE
     return cls
@@ -377,42 +377,34 @@ class OpenID:
         }
 
 
-class Auth:
-    def __init__(
-        self,
-        base_url: str,
-        signing_cfgs: collections.abc.Iterable[model.delivery.SigningCfg],
-        default_auth: AuthType=AuthType.BEARER,
-    ):
-        self.base_url = base_url
-        self.signing_cfgs = signing_cfgs
-        self.default_auth = default_auth
 
-    def process_resource(self, req: falcon.Request, resp: falcon.Response, resource, params):
-        if req.method == 'OPTIONS':
-            return
+def auth_middleware(
+    signing_cfgs: collections.abc.Iterable[model.delivery.SigningCfg],
+    default_auth: AuthType=AuthType.BEARER,
+) -> aiohttp.typedefs.Middleware:
 
-        auth = getattr(resource, 'auth', self.default_auth)
+    @aiohttp.web.middleware
+    async def middleware(
+        request: aiohttp.web.Request,
+        handler: aiohttp.typedefs.Handler,
+    ) -> aiohttp.web.StreamResponse:
+        if request.method == 'OPTIONS':
+            return await handler(request)
 
-        # auto-generated documentation routes, they are missing the "no-auth" decorator
-        if isinstance(
-            resource,
-            (spectree.plugins.falcon_plugin.DocPage, spectree.plugins.falcon_plugin.OpenAPI),
-        ):
-            return
+        auth = getattr(handler, 'auth', default_auth)
 
         if auth is AuthType.NONE:
-            return
+            return await handler(request)
         elif auth is AuthType.BEARER:
             pass
         else:
             raise NotImplementedError()
 
-        token = get_token_from_request(req)
+        token = get_token_from_request(request)
 
         check_jwt_header_content(jwt.get_unverified_header(token))
 
-        issuer = self.base_url
+        issuer = request.app[consts.APP_BASE_URL]
 
         decoded_jwt = decode_jwt(
             token=token,
@@ -421,7 +413,7 @@ class Auth:
         )
 
         signing_cfg = get_signing_cfg_for_key(
-            signing_cfgs=self.signing_cfgs,
+            signing_cfgs=signing_cfgs,
             key_id=decoded_jwt.get('key_id'),
         )
 
@@ -435,7 +427,7 @@ class Auth:
         validate_jwt_payload(decoded_jwt)
 
         subject = decoded_jwt['sub']
-        req.context['github_user'] = GithubUser(
+        request[consts.REQUEST_GITHUB_USER] = GithubUser(
             username=subject,
             github_hostname=decoded_jwt['github_oAuth']['host'],
         )
@@ -443,9 +435,17 @@ class Auth:
         github_oAuth = decoded_jwt.get('github_oAuth')
 
         if github_oAuth:
-            req.context['user_permissions'] = get_permissions_for_github_oAuth(github_oAuth)
+            request[consts.REQUEST_USER_PERMISSIONS] = get_permissions_for_github_oAuth(
+                github_oAuth=github_oAuth,
+            )
         else:
-            req.context['user_permissions'] = get_user_permissions(subject)
+            request[consts.REQUEST_USER_PERMISSIONS] = get_user_permissions(
+                user_name=subject,
+            )
+
+        return await handler(request)
+
+    return middleware
 
 
 def get_permissions_for_github_oAuth(github_oAuth: dict) -> set[str]:
@@ -468,7 +468,7 @@ def get_permissions_for_github_oAuth(github_oAuth: dict) -> set[str]:
 
 def get_user_permissions(
     user_name: str,
-    raise_if_absent: falcon.HTTPError = falcon.HTTPUnauthorized,
+    raise_if_absent: aiohttp.web.HTTPError=aiohttp.web.HTTPUnauthorized,
 ) -> set[str]:
     def permissions(user_dict):
         for role_name in user_dict['roles']:
@@ -489,23 +489,23 @@ def get_signing_cfg_for_key(
     key_id: str | None,
 ) -> model.delivery.SigningCfg:
     if not key_id:
-        raise falcon.HTTPUnauthorized(description='please specify a key_id')
+        raise aiohttp.web.HTTPUnauthorized(text='Please specify a key_id')
 
     for signing_cfg in signing_cfgs:
         if signing_cfg.id() == key_id:
             return signing_cfg
 
-    raise falcon.HTTPUnauthorized(description='key_id is unknown')
+    raise aiohttp.web.HTTPUnauthorized(text='key_id is unknown')
 
 
 def decode_jwt(
     token: str,
     issuer: str,
     signing_cfg=None,
-    verify_signature: bool = True,
+    verify_signature: bool=True,
 ) -> dict:
     if verify_signature and not signing_cfg:
-        raise falcon.HTTPInternalServerError('error decoding token')
+        raise aiohttp.web.HTTPInternalServerError(text='Error decoding token')
 
     if signing_cfg:
         json_web_key = delivery.jwt.JSONWebKey.from_signing_cfg(signing_cfg)
@@ -520,51 +520,51 @@ def decode_jwt(
             issuer=issuer,
         )
     except (ValueError, jwt.exceptions.DecodeError) as e:
-        raise falcon.HTTPUnauthorized(
-            title='Unauthorized, invalid JWT signature',
-            description=traceback.format_exception(e),
+        raise aiohttp.web.HTTPUnauthorized(
+            reason='Unauthorized, invalid JWT signature',
+            text=str(e),
         )
 
     except (jwt.exceptions.ExpiredSignatureError) as e:
-        raise falcon.HTTPUnauthorized(
-            title='Unauthorized, token expired',
-            description=traceback.format_exception(e),
+        raise aiohttp.web.HTTPUnauthorized(
+            reason='Unauthorized, token expired',
+            text=str(e),
         )
 
     except (jwt.exceptions.InvalidIssuedAtError) as e:
-        raise falcon.HTTPBadRequest(
-            title='Bad Request, iat is in future',
-            description=traceback.format_exception(e),
+        raise aiohttp.web.HTTPBadRequest(
+            reason='Bad Request, iat is in future',
+            text=str(e),
         )
 
     except (jwt.exceptions.ImmatureSignatureError) as e:
-        raise falcon.HTTPBadRequest(
-            title='Bad Request, token not yet valid',
-            description=traceback.format_exception(e),
+        raise aiohttp.web.HTTPBadRequest(
+            reason='Bad Request, token not yet valid',
+            text=str(e),
         )
 
     except (jwt.exceptions.InvalidIssuerError) as e:
-        raise falcon.HTTPUnauthorized(
-            title='Unauthorized, issuer not accepted',
-            description=traceback.format_exception(e),
+        raise aiohttp.web.HTTPUnauthorized(
+            reason='Unauthorized, issuer not accepted',
+            text=str(e),
         )
 
 
 def check_jwt_header_content(header: dict[str, str]):
     if (typ := header.get('typ', '')).lower() != 'jwt':
-        raise falcon.HTTPUnauthorized(
-            description=f'token type {typ} in header can not be processed',
+        raise aiohttp.web.HTTPUnauthorized(
+            text=f'Token type {typ} in header can not be processed',
         )
     if (algorithm := header.get('alg', '')):
         try:
             delivery.jwt.Algorithm(algorithm.upper())
         except ValueError:
-            raise falcon.HTTPNotImplemented(
-                description=f'algorithm {algorithm} is not supported',
+            raise aiohttp.web.HTTPNotImplemented(
+                text=f'Algorithm {algorithm} is not supported',
             )
     else:
-        raise falcon.HTTPBadRequest(
-            description='please define an "alg" entry in your token header',
+        raise aiohttp.web.HTTPBadRequest(
+            text='Please define an "alg" entry in your token header',
         )
 
 
@@ -572,39 +572,37 @@ def validate_jwt_payload(decoded_jwt: dict):
     try:
         jsonschema.validate(decoded_jwt, token_payload_schema())
     except jsonschema.exceptions.ValidationError as e:
-        raise falcon.HTTPBadRequest(description=e.message)
+        raise aiohttp.web.HTTPBadRequest(text=e.message)
 
     if (version := decoded_jwt.get('version')) and version != 'v1':
-        raise falcon.HTTPBadRequest(description='token version does not match')
+        raise aiohttp.web.HTTPBadRequest(text='Token version does not match')
 
 
-def get_token_from_request(req: falcon.Request) -> str:
-    if req.auth:
-        token = _get_token_from_auth_header(req.auth)
-    else:
-        token = _get_token_from_cookie(req)
+def get_token_from_request(request: aiohttp.web.Request) -> str:
+    if 'Authorization' in request.headers:
+        return _get_token_from_auth_header(request.headers.get('Authorization'))
 
-    return token
+    return _get_token_from_cookie(request)
 
 
-def _get_token_from_cookie(req: falcon.Request) -> str:
-    if (cookie_list := req.get_cookie_values('bearer_token')):
-        return cookie_list[0]
+def _get_token_from_cookie(request: aiohttp.web.Request) -> str:
+    if token := request.cookies.get('bearer_token'):
+        return token
 
-    raise falcon.HTTPBadRequest(description='please provide a bearer token in your cookie')
+    raise aiohttp.web.HTTPBadRequest(text='Please provide a bearer token in your cookie')
 
 
-def _get_token_from_auth_header(auth_header) -> str:
+def _get_token_from_auth_header(auth_header: str | None) -> str:
     if not auth_header:
-        raise falcon.HTTPBadRequest(description='auth header not set')
+        raise aiohttp.web.HTTPBadRequest(text='Auth header not set')
     if not auth_header.startswith('Bearer '):
-        raise falcon.HTTPBadRequest(
-            description='please provide a correctly formatted auth header'
+        raise aiohttp.web.HTTPBadRequest(
+            text='Please provide a correctly formatted auth header',
         )
 
     auth_header_parts = auth_header.split(' ')
     if len(auth_header_parts) != 2:
-        raise falcon.HTTPBadRequest(description='auth header malformed')
+        raise aiohttp.web.HTTPBadRequest(text='Auth header malformed')
 
     return auth_header_parts[1]
 
