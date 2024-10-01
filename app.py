@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import asyncio
 import functools
 import json
 import logging
@@ -7,6 +8,7 @@ import os
 import sys
 import traceback
 
+import aiohttp.web
 import falcon
 import falcon.media
 import spectree
@@ -18,6 +20,7 @@ import artefacts
 import compliance_tests
 import compliance_summary as cs
 import components
+import consts
 import ctx_util
 import dora
 import eol
@@ -546,6 +549,7 @@ def init_app(
 def get_base_url(
     is_productive: bool,
     delivery_endpoints: str,
+    port: int,
     cfg_factory=None,
 ) -> str:
     if is_productive:
@@ -555,36 +559,171 @@ def get_base_url(
         endpoints = cfg_factory.delivery_endpoints(delivery_endpoints)
         base_url = f'https://{endpoints.service_host()}'
     else:
-        base_url = 'http://localhost:5000'
+        base_url = f'http://localhost:{port}'
 
     return base_url
 
 
-def run_app():
+def add_app_context_vars(
+    app: aiohttp.web.Application,
+    cfg_factory,
+    parsed_arguments,
+) -> aiohttp.web.Application:
+    oci_client = lookups.semver_sanitised_oci_client(cfg_factory)
+
+    version_lookup = lookups.init_version_lookup(
+        oci_client=oci_client,
+        default_absent_ok=True,
+    )
+
+    component_descriptor_lookup = lookups.init_component_descriptor_lookup(
+        cache_dir=parsed_arguments.cache_dir,
+        oci_client=oci_client,
+    )
+
+    github_api_lookup = lookups.github_api_lookup(cfg_factory)
+    github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
+
+    addressbook_feature = features.get_feature(features.FeatureAddressbook)
+    if addressbook_feature.state is features.FeatureStates.AVAILABLE:
+        addressbook_feature: features.FeatureAddressbook
+
+        addressbook_entries = addressbook_feature.get_addressbook_entries()
+        addressbook_github_mappings = addressbook_feature.get_github_mappings()
+        addressbook_source = addressbook_feature.get_source()
+    else:
+        addressbook_entries = []
+        addressbook_github_mappings = []
+        addressbook_source = None
+
+    artefact_metadata_cfg_by_type = cs.artefact_metadata_cfg_by_type(
+        artefact_metadata_cfg=ci.util.parse_yaml_file(
+            paths.artefact_metadata_cfg,
+        ),
+    )
+
+    base_url = get_base_url(
+        is_productive=parsed_arguments.productive,
+        delivery_endpoints=parsed_arguments.delivery_endpoints,
+        port=parsed_arguments.port,
+        cfg_factory=cfg_factory,
+    )
+
+    component_with_tests_callback = features.get_feature(
+        features.FeatureTests,
+    ).get_component_with_tests
+
+    cve_rescoring_rule_set_lookup = features.get_feature(
+        features.FeatureRescoring,
+    ).find_rule_set_by_name
+    default_rule_set_callback = features.get_feature(features.FeatureRescoring).default_rule_set
+
+    issue_repo_callback = features.get_feature(features.FeatureIssues).get_issue_repo
+
+    kubernetes_api_callback = features.get_feature(
+        features.FeatureServiceExtensions,
+    ).get_kubernetes_api
+
+    namespace_callback = features.get_feature(
+        features.FeatureServiceExtensions,
+    ).get_namespace
+
+    service_extensions_callback = features.get_feature(
+        features.FeatureServiceExtensions,
+    ).get_services
+
+    special_component_callback = features.get_feature(
+        features.FeatureSpecialComponents,
+    ).get_special_component
+
+    sprints_feature = features.get_feature(features.FeatureSprints)
+    if sprints_feature.state is features.FeatureStates.AVAILABLE:
+        sprints_feature: features.FeatureSprints
+
+        sprint_date_display_name_callback = sprints_feature.get_sprint_date_display_name
+        sprints = sprints_feature.get_sprints()
+        sprints_metadata = sprints_feature.get_sprints_metadata()
+    else:
+        sprint_date_display_name_callback = None
+        sprints = []
+        sprints_metadata = None
+
+    upr_regex_callback = features.get_feature(features.FeatureUpgradePRs).get_regex
+
+    version_filter_callback = features.get_feature(
+        feature_type=features.FeatureVersionFilter,
+    ).get_version_filter
+
+    app[consts.APP_ADDRESSBOOK_ENTRIES] = addressbook_entries
+    app[consts.APP_ADDRESSBOOK_GITHUB_MAPPINGS] = addressbook_github_mappings
+    app[consts.APP_ADDRESSBOOK_SOURCE] = addressbook_source
+    app[consts.APP_ARTEFACT_METADATA_CFG] = artefact_metadata_cfg_by_type
+    app[consts.APP_BASE_URL] = base_url
+    app[consts.APP_CFG_FACTORY] = cfg_factory
+    app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP] = component_descriptor_lookup
+    app[consts.APP_COMPONENT_WITH_TESTS_CALLBACK] = component_with_tests_callback
+    app[consts.APP_CVE_RESCORING_RULE_SET_LOOKUP] = cve_rescoring_rule_set_lookup
+    app[consts.APP_DEFAULT_RULE_SET_CALLBACK] = default_rule_set_callback
+    app[consts.APP_DELIVERY_CFG] = parsed_arguments.delivery_cfg
+    app[consts.APP_EOL_CLIENT] = eol.EolClient()
+    app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup
+    app[consts.APP_GITHUB_REPO_LOOKUP] = github_repo_lookup
+    app[consts.APP_INVALID_SEMVER_OK] = parsed_arguments.invalid_semver_ok
+    app[consts.APP_ISSUE_REPO_CALLBACK] = issue_repo_callback
+    app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
+    app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
+    app[consts.APP_OCI_CLIENT] = oci_client
+    app[consts.APP_SERVICE_EXTENSIONS_CALLBACK] = service_extensions_callback
+    app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
+    app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK] = sprint_date_display_name_callback
+    app[consts.APP_SPRINTS] = sprints
+    app[consts.APP_SPRINTS_METADATA] = sprints_metadata
+    app[consts.APP_UPR_REGEX_CALLBACK] = upr_regex_callback
+    app[consts.APP_VERSION_FILTER_CALLBACK] = version_filter_callback
+    app[consts.APP_VERSION_LOOKUP] = version_lookup
+
+    return app
+
+
+async def initialise_app(parsed_arguments):
+    cfg_factory = ctx_util.cfg_factory()
+
+    app = aiohttp.web.Application()
+
+    app = add_app_context_vars(
+        app=app,
+        cfg_factory=cfg_factory,
+        parsed_arguments=parsed_arguments,
+    )
+
+    return app
+
+
+async def run_app_locally():
     parsed_arguments = parse_args()
 
     port = parsed_arguments.port
 
-    app = init(parsed_arguments)
+    app = await initialise_app(parsed_arguments)
 
     print('running in development mode')
     print()
     print(f'listening at localhost:{port}')
     print()
-    # pylint: disable=E0401
-    import werkzeug.serving
-    werkzeug.serving.run_simple(
-        hostname='localhost',
+
+    runner = aiohttp.web.AppRunner(app)
+    await runner.setup()
+    await aiohttp.web.TCPSite(
+        runner=runner,
+        host='localhost',
         port=port,
-        application=app,
-        use_reloader=True,
-        use_debugger=True,
-        extra_files=(), # might add cfg-files
-    )
+    ).start()
+
+    await asyncio.Event().wait()
 
 
 if __name__ == '__main__':
-    run_app()
+    asyncio.run(run_app_locally())
 else:
     # required for uWSGI setup
     global app
