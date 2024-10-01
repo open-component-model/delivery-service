@@ -1,7 +1,5 @@
-import functools
-
 import sqlalchemy.dialects.postgresql as sap
-import sqlalchemy.orm.session
+import sqlalchemy.ext.asyncio as sqlasync
 
 import deliverydb.model as dm
 
@@ -13,29 +11,38 @@ def do_raise(self):
 # prevent usage of postgresql exclusive `JSONB`
 sap.JSONB.__init__ = do_raise
 
+sessionmaker = None
 
-@functools.cache
-def _sqlalchemy_session(db_url: str) -> sqlalchemy.orm.session.Session:
-    import sqlalchemy as sa
 
-    engine = sa.create_engine(
+async def _sqlalchemy_sessionmaker(
+    db_url: str,
+) -> sqlasync.async_sessionmaker[sqlasync.session.AsyncSession]:
+    # use singleton instead of caching to prevent issues with coroutines as return type
+    global sessionmaker
+    if sessionmaker:
+        return sessionmaker
+
+    engine = sqlasync.create_async_engine(
         db_url,
         echo=False,
         future=True,
         pool_pre_ping=True,
     )
 
-    Base = dm.Base
-    Base.metadata.create_all(engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(dm.Base.metadata.create_all)
 
-    return sa.orm.sessionmaker(bind=engine)
+    sessionmaker = sqlasync.async_sessionmaker(bind=engine)
+    return sessionmaker
 
 
-def sqlalchemy_session(db_url: str) -> sqlalchemy.orm.session.Session:
+async def sqlalchemy_session(db_url: str) -> sqlasync.session.AsyncSession:
     '''
     Caller must close database-session.
 
     Using session object managed by `DBSessionLifecycle` middleware is the preferred way to obtain
     a database-session.
     '''
-    return _sqlalchemy_session(db_url=db_url)()
+    sessionmaker = await _sqlalchemy_sessionmaker(db_url=db_url)
+
+    return sessionmaker()
