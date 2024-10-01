@@ -693,6 +693,16 @@ async def initialise_app(parsed_arguments):
         cfg_factory=cfg_factory,
     )
 
+    if (unavailable_features := tuple(
+        f for f in features.feature_cfgs
+        if f.state is features.FeatureStates.UNAVAILABLE
+    )):
+        logger.info(
+            f'The following feature{"s are" if len(unavailable_features) != 1 else " is"} '
+            f'inactive: {", ".join(f.name for f in unavailable_features)}'
+        )
+        middlewares.append(rfc.feature_check_middleware(unavailable_features))
+
     app = aiohttp.web.Application(
         middlewares=middlewares,
     )
