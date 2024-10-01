@@ -31,6 +31,7 @@ import metric
 import middleware.auth
 import middleware.cors
 import middleware.decompressor
+import middleware.errors
 import middleware.json_translator
 import middleware.route_feature_check as rfc
 import osinfo
@@ -694,8 +695,10 @@ async def initialise_app(parsed_arguments):
         cfg_factory=cfg_factory,
     )
 
+    es_client = features.get_feature(features.FeatureElasticSearch).get_es_client()
     middlewares.extend([
         middleware.cors.cors_middleware(),
+        middleware.errors.errors_middleware(es_client),
     ])
 
     if (unavailable_features := tuple(
