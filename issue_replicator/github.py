@@ -207,15 +207,9 @@ def _issue_milestone(
 def _issue_title(
     issue_type: str,
     artefact: dso.model.ComponentArtefactId,
-    milestone: github3.issues.milestone.Milestone,
     extra: str,
 ) -> str:
-    title = f'[{issue_type}]'
-
-    if milestone:
-        title += f' - [{milestone.title}]'
-
-    title += f' - {artefact.component_name}:{artefact.artefact.artefact_name}'
+    title = f'[{issue_type} - {artefact.component_name}:{artefact.artefact.artefact_name}'
 
     if extra:
         title += f' - [{extra}]'
@@ -944,7 +938,6 @@ def _create_or_update_issue(
     title = _issue_title(
         issue_type=issue_type,
         artefact=artefacts[0],
-        milestone=milestone,
         extra=extra_title,
     )
 
