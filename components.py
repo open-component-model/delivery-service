@@ -232,7 +232,7 @@ def _component_descriptor(
         descriptor = util.retrieve_component_descriptor(
             component_id,
             component_descriptor_lookup=component_descriptor_lookup,
-            ctx_repo=ocm_repo,
+            ocm_repo=ocm_repo,
         )
     except dacite.exceptions.MissingValueError as e:
         raise falcon.HTTPFailedDependency(title=str(e))
@@ -315,7 +315,7 @@ class ComponentDependencies:
             component_name=component_name,
             component_version=version,
             component_descriptor_lookup=self._component_descriptor_lookup,
-            ctx_repo=ocm_repo,
+            ocm_repo=ocm_repo,
         )
 
         filtered_component_dependencies = []
@@ -748,7 +748,7 @@ def resolve_component_dependencies(
     component_name: str,
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ctx_repo: ocm.OcmRepository=None,
+    ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
 ) -> list[cnudie.iter.ComponentNode]:
     descriptor = util.retrieve_component_descriptor(
@@ -757,7 +757,7 @@ def resolve_component_dependencies(
             version=component_version,
         ),
         component_descriptor_lookup=component_descriptor_lookup,
-        ctx_repo=ctx_repo,
+        ocm_repo=ocm_repo,
     )
     component = descriptor.component
 
@@ -766,7 +766,7 @@ def resolve_component_dependencies(
             component_name=component.name,
             component_version=component.version,
             component_descriptor_lookup=component_descriptor_lookup,
-            ctx_repo=ctx_repo,
+            ocm_repo=ocm_repo,
             recursion_depth=recursion_depth,
         ))
     except dacite.exceptions.MissingValueError as e:
@@ -848,7 +848,7 @@ class UpgradePRs:
                     version=component_version,
                 ),
                 component_descriptor_lookup=self._component_descriptor_lookup,
-                ctx_repo=ocm_repo,
+                ocm_repo=ocm_repo,
             )
             component = component_descriptor.component
             source = cnudie.util.main_source(
@@ -1097,7 +1097,7 @@ def _components(
     component_name: str,
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ctx_repo: ocm.OcmRepository=None,
+    ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
 ) -> tuple[Component]:
     component_descriptor = util.retrieve_component_descriptor(
@@ -1106,7 +1106,7 @@ def _components(
             version=component_version,
         ),
         component_descriptor_lookup=component_descriptor_lookup,
-        ctx_repo=ctx_repo,
+        ocm_repo=ocm_repo,
     )
 
     try:
@@ -1221,7 +1221,7 @@ class ComplianceSummary:
             component_name=component_name,
             component_version=version,
             component_descriptor_lookup=self._component_descriptor_lookup,
-            ctx_repo=ocm_repo,
+            ocm_repo=ocm_repo,
             recursion_depth=recursion_depth,
         )
 

@@ -83,16 +83,16 @@ def retrieve_component_descriptor(
     component_id: ocm.ComponentIdentity,
     /,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ctx_repo: ocm.OcmRepository=None,
+    ocm_repo: ocm.OcmRepository=None,
 ) -> ocm.ComponentDescriptor:
     try:
         return component_descriptor_lookup(
             component_id,
-            ctx_repo=ctx_repo,
+            ctx_repo=ocm_repo,
         )
     except om.OciImageNotFoundException as e:
         err_str = f'component descriptor "{component_id.name}" in version "' \
-        f'{component_id.version}" not found in {ctx_repo=}'
+        f'{component_id.version}" not found in {ocm_repo=}'
         logger.debug(err_str)
         raise falcon.HTTPNotFound(
             title='component descriptor not found',
