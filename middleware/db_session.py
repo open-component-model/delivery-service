@@ -1,10 +1,15 @@
-import falcon
+import aiohttp.typedefs
+import aiohttp.web
+import sqlalchemy
 
 import deliverydb
 import deliverydb.model as dm
 
 
-class DBSessionLifecycle:
+async def db_session_middleware(
+    db_url: str,
+    verify_db_session: bool=True,
+) -> aiohttp.typedefs.Middleware:
     '''
     Used to centrally manage database-session lifecycle.
 
@@ -16,42 +21,27 @@ class DBSessionLifecycle:
     Consumers must still commit / rollback transactions.
     '''
 
-    def __init__(
-        self,
-        db_url: str,
-        verify_db_session: bool = True,
-    ):
-        self.db_url = db_url
+    @aiohttp.web.middleware
+    async def middleware(
+        request: aiohttp.web.Request,
+        handler: aiohttp.typedefs.Handler,
+    ) -> aiohttp.web.StreamResponse:
+        request[consts.REQUEST_DB_SESSION] = await deliverydb.sqlalchemy_session(db_url)
 
-        def test_db_session():
-            session = deliverydb.sqlalchemy_session(self.db_url)
-            # execute query to validate monkey-patched attributes
-            session.query(dm.ArtefactMetaData).first()
+        response = await handler(request)
 
-        if verify_db_session:
-            test_db_session()
+        if db_session := request.get(consts.REQUEST_DB_SESSION):
+            await db_session.close()
 
-    def process_resource(
-        self,
-        req: falcon.Request,
-        resp: falcon.Response,
-        resource,
-        params,
-    ):
-        req.context.db_session = deliverydb.sqlalchemy_session(self.db_url)
+        return response
 
-    def process_response(
-        self,
-        req: falcon.Request,
-        resp: falcon.Response,
-        resource,
-        req_succeeded: bool,
-    ):
-        if not resource:
-            # may be None if no route was found for the request
-            return
+    async def test_db_session():
+        session = await deliverydb.sqlalchemy_session(db_url)
+        # execute query to validate monkey-patched attributes
+        await session.execute(sqlalchemy.select(dm.ArtefactMetaData).limit(1))
+        await session.close()
 
-        if not hasattr(req.context, 'db_session'):
-            return
+    if verify_db_session:
+        await test_db_session()
 
-        req.context.db_session.close()
+    return middleware

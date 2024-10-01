@@ -688,7 +688,14 @@ def add_app_context_vars(
 async def initialise_app(parsed_arguments):
     cfg_factory = ctx_util.cfg_factory()
 
-    app = aiohttp.web.Application()
+    middlewares = await features.init_features(
+        parsed_arguments=parsed_arguments,
+        cfg_factory=cfg_factory,
+    )
+
+    app = aiohttp.web.Application(
+        middlewares=middlewares,
+    )
 
     app = add_app_context_vars(
         app=app,
