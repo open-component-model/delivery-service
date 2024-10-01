@@ -111,9 +111,11 @@ def db_artefact_metadata_to_dict(
     }
 
 
-def db_artefact_metadata_to_dso(
-    artefact_metadata: dm.ArtefactMetaData,
+def db_artefact_metadata_row_to_dso(
+    artefact_metadata_row: sa.Row[dm.ArtefactMetaData],
 ) -> dso.model.ArtefactMetadata:
+    artefact_metadata = artefact_metadata_row[0]
+
     artefact_metadata_dict = db_artefact_metadata_to_dict(
         artefact_metadata=artefact_metadata,
     )
@@ -172,12 +174,12 @@ class ArtefactMetadataFilters:
 
 class ArtefactMetadataQueries:
     @staticmethod
-    def artefact_queries(
+    async def artefact_queries(
         artefacts: collections.abc.Iterable[ocm.Resource | ocm.Source]=None,
         component: ocm.ComponentIdentity=None,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById=None,
         none_ok: bool=False,
-    ) -> collections.abc.Generator[sqle.BooleanClauseList, None, None]:
+    ) -> collections.abc.AsyncGenerator[sqle.BooleanClauseList, None, None]:
         '''
         Generates single SQL expressions which check for equality with one artefact of `artefacts`.
         If `artefacts` is not specified, `component` and `component_descriptor_lookup` _must_ be
@@ -197,14 +199,15 @@ class ArtefactMetadataQueries:
 
         if not artefacts:
             if component.version:
-                component: ocm.Component = component_descriptor_lookup(component).component
+                component: ocm.Component = (await component_descriptor_lookup(component)).component
 
-                artefacts = tuple(
-                    artefact_node.artefact for artefact_node in cnudie.iter.iter(
-                    component=component,
-                    lookup=component_descriptor_lookup,
-                    node_filter=cnudie.iter.Filter.artefacts,
-                ))
+                artefacts = [
+                    artefact_node.artefact async for artefact_node in cnudie.iter.iter(
+                        component=component,
+                        lookup=component_descriptor_lookup,
+                        node_filter=cnudie.iter.Filter.artefacts,
+                    )
+                ]
             else:
                 # if no component version is specified, artefact specific querying must be
                 # taken care of by the caller
@@ -248,11 +251,11 @@ class ArtefactMetadataQueries:
             )
 
     @staticmethod
-    def component_queries(
+    async def component_queries(
         components: tuple[ocm.Component | ocm.ComponentIdentity],
         none_ok: bool=False,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById=None,
-    ) -> collections.abc.Generator[sqle.BooleanClauseList, None, None]:
+    ) -> collections.abc.AsyncGenerator[sqle.BooleanClauseList, None, None]:
         '''
         Generates single SQL expressions which check for equality with one component of `components`
         by name and version.
@@ -287,10 +290,13 @@ class ArtefactMetadataQueries:
                     ),
                     sa.and_(
                         dm.ArtefactMetaData.component_version == None,
-                        sa.or_(ArtefactMetadataQueries.artefact_queries(
-                            component=component,
-                            component_descriptor_lookup=component_descriptor_lookup,
-                        )),
+                        sa.or_(*[
+                            query async for query
+                            in ArtefactMetadataQueries.artefact_queries(
+                                component=component,
+                                component_descriptor_lookup=component_descriptor_lookup,
+                            )
+                        ]),
                     ),
                 ),
             )

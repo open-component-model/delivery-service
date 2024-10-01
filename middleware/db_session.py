@@ -2,6 +2,7 @@ import aiohttp.typedefs
 import aiohttp.web
 import sqlalchemy
 
+import consts
 import deliverydb
 import deliverydb.model as dm
 
@@ -26,7 +27,7 @@ async def db_session_middleware(
         request: aiohttp.web.Request,
         handler: aiohttp.typedefs.Handler,
     ) -> aiohttp.web.StreamResponse:
-        request['db_session'] = await deliverydb.sqlalchemy_session(db_url)
+        request[consts.DB_SESSION] = await deliverydb.sqlalchemy_session(db_url)
 
         response = await handler(request)
 

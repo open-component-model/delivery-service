@@ -687,6 +687,158 @@ def add_app_context_vars(
     return app
 
 
+def add_routes(
+    app: aiohttp.web.Application,
+) -> aiohttp.web.Application:
+    app.router.add_view(
+        path='/ready',
+        handler=util.Ready,
+    )
+
+    app.router.add_view(
+        path='/features',
+        handler=features.Features,
+    )
+
+    app.router.add_view(
+        path='/ocm/artefacts/blob',
+        handler=artefacts.ArtefactBlob,
+    )
+
+    app.router.add_view(
+        path='/artefacts/metadata',
+        handler=metadata.ArtefactMetadata,
+    )
+    app.router.add_view(
+        path='/artefacts/metadata/query',
+        handler=metadata.ArtefactMetadataQuery,
+    )
+
+    app.router.add_view(
+        path='/components/upgrade-prs',
+        handler=components.UpgradePRs,
+    )
+
+    app.router.add_view(
+        path='/components/diff',
+        handler=components.ComponentDescriptorDiff,
+    )
+
+    app.router.add_view(
+        path='/components/issues',
+        handler=components.Issues,
+    )
+
+    app.router.add_view(
+        path='/special-component/current-dependencies',
+        handler=special_component.CurrentDependencies,
+    )
+
+    app.router.add_view(
+        path='/components/tests',
+        handler=compliance_tests.DownloadTestResults,
+    )
+
+    app.router.add_view(
+        path='/components/compliance-summary',
+        handler=components.ComplianceSummary,
+    )
+
+    app.router.add_view(
+        path='/components/metadata',
+        handler=components.ComponentMetadata,
+    )
+
+    app.router.add_view(
+        path='/delivery/sprint-infos',
+        handler=sprint.SprintInfos,
+    )
+    app.router.add_view(
+        path='/delivery/sprint-infos/current',
+        handler=sprint.SprintInfosCurrent,
+    )
+
+    app.router.add_view(
+        path='/auth',
+        handler=middleware.auth.OAuthLogin,
+    )
+    app.router.add_view(
+        path='/auth/logout',
+        handler=middleware.auth.OAuthLogout,
+    )
+    app.router.add_view(
+        path='/auth/configs',
+        handler=middleware.auth.OAuthCfgs,
+    )
+
+    # endpoint according to OpenID provider configuration request
+    # https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
+    app.router.add_view(
+        path='/.well-known/openid-configuration',
+        handler=middleware.auth.OpenIDCfg,
+    )
+    app.router.add_view(
+        path='/openid/v1/jwks',
+        handler=middleware.auth.OpenIDJwks,
+    )
+
+    app.router.add_view(
+        path='/ocm/component',
+        handler=components.Component,
+    )
+    app.router.add_view(
+        path='/ocm/component/versions',
+        handler=components.GreatestComponentVersions,
+    )
+    app.router.add_view(
+        path='/ocm/component/dependencies',
+        handler=components.ComponentDependencies,
+    )
+    app.router.add_view(
+        path='/ocm/component/responsibles',
+        handler=components.ComponentResponsibles,
+    )
+    app.router.add_view(
+        path='/os/{os_id}/branches',
+        handler=osinfo.OsInfoRoutes,
+    )
+    app.router.add_view(
+        path='/rescore',
+        handler=rescore.Rescore,
+    )
+
+    app.router.add_view(
+        path='/service-extensions',
+        handler=service_extensions.ServiceExtensions,
+    )
+    app.router.add_view(
+        path='/service-extensions/log-collections',
+        handler=service_extensions.LogCollections,
+    )
+    app.router.add_view(
+        path='/service-extensions/container-statuses',
+        handler=service_extensions.ContainerStatuses,
+    )
+    app.router.add_view(
+        path='/service-extensions/scan-configurations',
+        handler=service_extensions.ScanConfigurations,
+    )
+    app.router.add_view(
+        path='/service-extensions/backlog-items',
+        handler=service_extensions.BacklogItems,
+    )
+    app.router.add_view(
+        path='/service-extensions/runtime-artefacts',
+        handler=service_extensions.RuntimeArtefacts,
+    )
+    app.router.add_view(
+        path='/dora/dora-metrics',
+        handler=dora.DoraMetrics,
+    )
+
+    return app
+
+
 async def initialise_app(parsed_arguments):
     cfg_factory = ctx_util.cfg_factory()
 
@@ -719,6 +871,10 @@ async def initialise_app(parsed_arguments):
         app=app,
         cfg_factory=cfg_factory,
         parsed_arguments=parsed_arguments,
+    )
+
+    app = add_routes(
+        app=app,
     )
 
     return app
