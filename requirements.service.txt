@@ -1,3 +1,4 @@
+aiohttp
 awesomeversion
 cachetools
 dataclasses-json
