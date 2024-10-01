@@ -1,8 +1,8 @@
+import collections.abc
 import dataclasses
 import enum
 import logging
 import time
-import typing
 import urllib.parse
 
 import cachetools
@@ -292,7 +292,7 @@ def global_stats(
 def heuristically_determine_responsibles(
     stats: RepoStats,
     max_responsibles: int,
-) -> typing.Tuple[typing.Tuple[str], ResponsibleDeterminationConfidence]:
+) -> tuple[tuple[str], ResponsibleDeterminationConfidence]:
     '''
     Return determined responsibles and determination confidence.
     '''
@@ -384,7 +384,7 @@ def user_identifiers_for_responsible(
     username: str,
     repo_url: str,
     gh_api: github3.GitHub,
-) -> typing.Generator[responsibles.user_model.UserIdentifierBase, None, None]:
+) -> collections.abc.Generator[responsibles.user_model.UserIdentifierBase, None, None]:
 
     github_hostname = util.normalise_url_to_second_and_tld(repo_url)
 

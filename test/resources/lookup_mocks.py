@@ -1,4 +1,4 @@
-import typing
+import collections.abc
 
 import yaml
 
@@ -19,14 +19,14 @@ def load_component_descriptors(file: str):
 
 
 def component_descriptor_lookup_mockup_factory(
-        mock_component_file_path: str,
-) -> typing.Callable[
+    mock_component_file_path: str,
+) -> collections.abc.Callable[
     [ocm.ComponentIdentity | str, ocm.OcmRepository | None],
     ocm.ComponentDescriptor,
 ]:
     def component_descriptor_lookup_mockup(
-            component_identity: ocm.ComponentIdentity | str,
-            ocm_repo: typing.Optional[ocm.OcmRepository] = None,
+        component_identity: ocm.ComponentIdentity | str,
+        ocm_repo: ocm.OcmRepository | None=None,
     ) -> ocm.ComponentDescriptor:
         component_identity = cnudie.util.to_component_id(component_identity)
         component_descriptors: list[ocm.ComponentDescriptor] = load_component_descriptors(
@@ -35,8 +35,8 @@ def component_descriptor_lookup_mockup_factory(
 
         for component_descriptor in component_descriptors:
             if (
-                    component_descriptor.component.name == component_identity.name
-                    and component_descriptor.component.version == component_identity.version
+                component_descriptor.component.name == component_identity.name
+                and component_descriptor.component.version == component_identity.version
             ):
                 return component_descriptor
 
@@ -44,15 +44,15 @@ def component_descriptor_lookup_mockup_factory(
 
 
 def versions_lookup_mockup_factory(
-        mock_component_file_path: str,
-) -> typing.Callable[
-        [cnudie.retrieve.ComponentName, typing.Optional[ocm.OcmRepository]],
-        typing.Sequence[str],
+    mock_component_file_path: str,
+) -> collections.abc.Callable[
+    [cnudie.retrieve.ComponentName, ocm.OcmRepository | None],
+    collections.abc.Sequence[str],
 ]:
     def versions_lookup_mockup(
         component_name:cnudie.util.ComponentName,
-        ocm: typing.Optional[ocm.OcmRepository] = None,
-    ) -> typing.Sequence[str]:
+        ocm: ocm.OcmRepository | None=None,
+    ) -> collections.abc.Sequence[str]:
         component_descriptors = load_component_descriptors(
             mock_component_file_path
         )

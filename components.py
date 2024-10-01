@@ -1,3 +1,4 @@
+import collections.abc
 import dataclasses
 import datetime
 import dataclasses_json
@@ -5,7 +6,6 @@ import enum
 import io
 import logging
 import tarfile
-import typing
 
 import cachetools
 import cachetools.keys
@@ -40,9 +40,9 @@ import lookups
 import responsibles
 import responsibles.github_statistics
 import responsibles.labels
-import responsibles
 import util
 import yp
+
 
 logger = logging.getLogger(__name__)
 
@@ -436,8 +436,8 @@ class ComponentResponsibles:
 
         def _responsibles_label(
             component: ocm.Component,
-            artifact_name: typing.Optional[str] = None,
-            owners_label: str = 'cloud.gardener.cnudie/responsibles',
+            artifact_name: str | None=None,
+            owners_label: str='cloud.gardener.cnudie/responsibles',
         ) -> responsibles.labels.ResponsiblesLabel | None:
             '''
             Returns the most specific ResponsiblesLabel for the given component and artifact name,
@@ -901,7 +901,7 @@ class UpgradePRs:
             resp.media = []
             return
 
-        upgrade_prs: typing.Iterable[github.util.UpgradePullRequest] = pr_helper.enumerate_upgrade_pull_requests( # noqa:E501
+        upgrade_prs: collections.abc.Iterable[github.util.UpgradePullRequest] = pr_helper.enumerate_upgrade_pull_requests( # noqa:E501
             state=pr_state,
             pattern=self.upr_regex_callback(),
         )
@@ -1328,7 +1328,7 @@ class ComponentMetadata:
     def _latest_metadata_query(
         self,
         session: ss.Session,
-        metadata_types: typing.Iterable[str],
+        metadata_types: collections.abc.Iterable[str],
         component_version: str | None,
         component_name: str,
     ) -> sq.Query:
@@ -1359,7 +1359,7 @@ class ComponentMetadata:
     def _metadata_query_for_version(
         self,
         session: ss.Session,
-        metadata_types: typing.Iterable[str],
+        metadata_types: collections.abc.Iterable[str],
         component_version: str,
         component_name: str,
     ) -> sq.Query:

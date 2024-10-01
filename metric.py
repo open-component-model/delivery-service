@@ -1,13 +1,12 @@
 import dataclasses
 import datetime
 import json
-import typing
 
 
 @dataclasses.dataclass(frozen=True)
 class ExceptionMetric:
     service: str
-    stacktrace: typing.List[str]
+    stacktrace: list[str]
     request: str
     params: str
     creation_date: str
@@ -15,9 +14,9 @@ class ExceptionMetric:
     @staticmethod
     def create(
         service: str,
-        stacktrace: typing.List[str],
-        request: typing.Optional[dict] = None,
-        params: typing.Optional[dict] = None,
+        stacktrace: list[str],
+        request: dict | None=None,
+        params: dict | None=None,
     ) -> 'ExceptionMetric':
         '''
         convenience method to create a `ExceptionMetric`

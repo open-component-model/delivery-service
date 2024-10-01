@@ -1,12 +1,12 @@
 import argparse
 import atexit
+import collections.abc
 import datetime
 import hashlib
 import logging
 import os
 import subprocess
 import tarfile
-import typing
 
 import ci.log
 import ci.util
@@ -166,7 +166,7 @@ def iter_components_to_purge(
     component: ocm.Component,
     oci_client: oci.client.Client,
     lookup,
-) -> typing.Generator[ocm.Component, None, None]:
+) -> collections.abc.Generator[ocm.Component, None, None]:
     oci_ref = cnudie.util.oci_ref(component=component)
     all_versions = oci_client.tags(oci_ref.ref_without_tag)
 
@@ -189,7 +189,7 @@ def iter_components_to_purge(
 
 def iter_local_resources(
     component: ocm.Component,
-) -> typing.Generator[None, None, ocm.Resource]:
+) -> collections.abc.Generator[None, None, ocm.Resource]:
     for resource_node in cnudie.iter.iter(
         component=component,
         node_filter=cnudie.iter.Filter.resources,

@@ -1,7 +1,7 @@
+import collections.abc
 import dataclasses
 import functools
 import logging
-import typing
 
 import github3
 
@@ -16,6 +16,7 @@ import responsibles.labels
 import responsibles.user_model
 import util
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,11 +27,15 @@ class Status:
 
 
 def flatten_codeowners(
-    codeowner_entries: typing.Iterable[
+    codeowner_entries: collections.abc.Iterable[
         github.codeowners.Username | github.codeowners.EmailAddress | github.codeowners.Team
     ],
     gh_api: github3.GitHub,
-) -> typing.Generator[github.codeowners.Username | github.codeowners.EmailAddress, None, None]:
+) -> collections.abc.Generator[
+    github.codeowners.Username | github.codeowners.EmailAddress,
+    None,
+    None,
+]:
     '''
     yield Username and Emails from codeowner_entries, teams are resolved to Usernames recursively
     '''
@@ -56,7 +61,7 @@ def flatten_codeowners(
 
 def iter_additional_gh_user_identifier(
     gh_user: github3.users.User,
-) -> typing.Generator[responsibles.user_model.UserIdentifierBase, None, None]:
+) -> collections.abc.Generator[responsibles.user_model.UserIdentifierBase, None, None]:
     if gh_user.email:
         yield responsibles.user_model.EmailAddress(
             source=gh_user.html_url,
@@ -79,7 +84,7 @@ def iter_additional_gh_user_identifier(
 
 def user_identifiers_for_gh_user(
     gh_user: github3.users.User,
-) -> typing.Generator[responsibles.user_model.UserIdentifierBase, None, None]:
+) -> collections.abc.Generator[responsibles.user_model.UserIdentifierBase, None, None]:
 
     yield responsibles.user_model.GithubUser(
         source=gh_user.html_url,
@@ -91,10 +96,10 @@ def user_identifiers_for_gh_user(
 
 
 def user_identity_from_github_username_or_email(
-    gh_api: typing.Union[github3.GitHub, github3.GitHubEnterprise],
+    gh_api: github3.GitHub | github3.GitHubEnterprise,
     username_or_email: github.codeowners.Username | github.codeowners.EmailAddress,
     repo: github3.github.repo.Repository,
-) -> typing.Optional[responsibles.user_model.UserIdentity]:
+) -> responsibles.user_model.UserIdentity | None:
     '''
     returns `user_model.UserIdentity` or `None` if the username_or_email was not found
     '''
@@ -124,18 +129,18 @@ def user_identity_from_github_username_or_email(
 
 
 def user_identities_from_codeowners(
-    flattend_codeowners: typing.Generator[
+    flattend_codeowners: collections.abc.Generator[
         github.codeowners.Username | github.codeowners.EmailAddress, None, None
     ],
     gh_api: github3.GitHub,
     repo: github3.repos.repo.Repository,
-) -> typing.Generator[responsibles.user_model.UserIdentity, None, None]:
+) -> collections.abc.Generator[responsibles.user_model.UserIdentity, None, None]:
     '''
     Generator of `user_model.UserIdentity` from username and email contexts,
     removing duplicate email addresses
     '''
-    usernames: typing.Set[github.codeowners.Username] = set()
-    emails: typing.Set[github.codeowners.EmailAddress] = set()
+    usernames: set[github.codeowners.Username] = set()
+    emails: set[github.codeowners.EmailAddress] = set()
 
     for username_or_email in flattend_codeowners:
         if isinstance(username_or_email, github.codeowners.EmailAddress):
@@ -248,7 +253,7 @@ def user_identities_from_source(
 def user_identifiers_from_responsible(
     responsible: responsibles.labels.Responsible,
     source: ocm.Source,
-) -> typing.Iterable[responsibles.user_model.UserIdentifierBase]:
+) -> collections.abc.Iterable[responsibles.user_model.UserIdentifierBase]:
     '''Returns a generator yielding one UserIdentifier per human user that is specified by the
     Responsible-object.
 
@@ -320,7 +325,7 @@ def user_identities_from_responsibles_label(
     source: ocm.Source,
     component_identity: ocm.ComponentIdentity,
     github_api_lookup,
-) -> typing.Iterable[responsibles.user_model.UserIdentity]:
+) -> collections.abc.Iterable[responsibles.user_model.UserIdentity]:
     github_api = None
     github_repo = None
 

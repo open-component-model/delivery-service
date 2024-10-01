@@ -1,7 +1,6 @@
 import dataclasses
 import functools
 import logging
-import typing
 
 import falcon
 import yaml
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 def release_infos_from_cfg(
     os_id: str,
     absent_ok: bool = False,
-) -> typing.Optional[list[dm.OsReleaseInfo]]:
+) -> list[dm.OsReleaseInfo] | None:
     '''
     reads os_release_info from filesystem,
     returns `None` if requested os is not supported
@@ -59,7 +58,7 @@ def osinfo_client(os_id: str):
 def os_release_infos(
     os_id: str,
     eol_client: eol.EolClient,
-) -> typing.Optional[list[dm.OsReleaseInfo]]:
+) -> list[dm.OsReleaseInfo] | None:
     '''
     returns release_info or `None` for given os_id
     lookup hierarchy:

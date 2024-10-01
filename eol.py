@@ -1,5 +1,4 @@
 import datetime
-import typing
 
 import cachetools
 import dateutil.parser
@@ -102,7 +101,7 @@ class EolClient:
         self._routes = routes
 
     @cachetools.cached(cachetools.TTLCache(maxsize=1, ttl=60 * 60 * 24)) # 24h
-    def all_products(self) -> typing.List[str]:
+    def all_products(self) -> list[str]:
         res = requests.get(url=self._routes.all_products())
         res.raise_for_status()
         return res.json()
@@ -112,7 +111,7 @@ class EolClient:
         self,
         product: str,
         absent_ok: bool = False,
-    ) -> typing.Optional[list[dict]]:
+    ) -> list[dict] | None:
         '''
         Returns release_cycles as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
@@ -142,7 +141,7 @@ class EolClient:
         product: str,
         cycle: str,
         absent_ok: bool = False,
-    ) -> typing.Optional[dict]:
+    ) -> dict | None:
         '''
         Returns single release_cycle as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.

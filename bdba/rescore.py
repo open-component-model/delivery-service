@@ -1,6 +1,6 @@
 import collections
+import collections.abc
 import logging
-import typing
 
 import cnudie.iter
 import dso.cvss
@@ -31,7 +31,7 @@ def rescore(
     bdba_client: bdba.client.BDBAApi,
     scan_result: bm.AnalysisResult,
     scanned_element: cnudie.iter.ResourceNode,
-    rescoring_rules: typing.Sequence[dso.cvss.RescoringRule],
+    rescoring_rules: collections.abc.Sequence[dso.cvss.RescoringRule],
     max_rescore_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
     assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
 ) -> dict[str, list[str]]:

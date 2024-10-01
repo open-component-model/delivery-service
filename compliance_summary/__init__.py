@@ -2,7 +2,6 @@ import collections.abc
 import dataclasses
 import enum
 import logging
-import typing
 
 import awesomeversion
 import dacite
@@ -183,12 +182,7 @@ class ArtefactMetadataCfg:
     Each evaluated ArtefactMetadataType has its own Mapping dataclass.
     '''
     type: str
-    severityMappings: typing.Optional[list[
-        typing.Union[
-            OsStatusMapping,
-            CodecheckSeverityNamesMapping,
-        ]
-    ]]
+    severityMappings: list[OsStatusMapping | CodecheckSeverityNamesMapping] | None
     categories: list[str] = dataclasses.field(default_factory=list)
 
     def match(

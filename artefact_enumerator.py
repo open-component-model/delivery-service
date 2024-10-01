@@ -14,7 +14,6 @@ import hashlib
 import logging
 import os
 import threading
-import typing
 
 import ci.log
 import cnudie.iter
@@ -147,7 +146,7 @@ def create_compliance_snapshot(
 def _iter_ocm_artefact_nodes(
     components: tuple[config.Component],
     artefact_types: tuple[str],
-    node_filter: typing.Callable[[cnudie.iter.Node], bool],
+    node_filter: collections.abc.Callable[[cnudie.iter.Node], bool],
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> collections.abc.Generator[cnudie.iter.Node, None, None]:
@@ -189,7 +188,7 @@ def _iter_ocm_artefact_nodes(
 def _iter_ocm_artefacts(
     components: tuple[config.Component],
     artefact_types: tuple[str],
-    node_filter: typing.Callable[[cnudie.iter.Node], bool],
+    node_filter: collections.abc.Callable[[cnudie.iter.Node], bool],
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:

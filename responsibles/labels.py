@@ -1,6 +1,5 @@
 import dataclasses
 import enum
-import typing
 
 import dacite
 import ocm
@@ -54,7 +53,7 @@ class PersonalNameResponsible(Responsible):
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class ResponsiblesLabel(ocm.Label):
-    value: typing.List[
+    value: list[
         CodeownersResponsible
         | EmailResponsible
         | GitHubTeamResponsible

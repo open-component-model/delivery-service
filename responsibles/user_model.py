@@ -1,5 +1,4 @@
 import dataclasses
-import typing
 
 
 @dataclasses.dataclass
@@ -49,6 +48,4 @@ class UserIdentity:
     '''
     collection of identities that refer to the same user
     '''
-    identifiers: typing.Tuple[typing.Union[
-        GithubUser, EmailAddress, PersonalName, MetaOrigin, UserIdentifierBase
-    ], ...]
+    identifiers: tuple[GithubUser | EmailAddress | PersonalName | MetaOrigin | UserIdentifierBase]

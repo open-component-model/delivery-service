@@ -1,4 +1,4 @@
-import typing
+import collections.abc
 
 import features
 
@@ -10,13 +10,13 @@ class ShortcutRoutesWithUnavailableFeatures:
     '''
     def __init__(
         self,
-        unavailable_features: typing.Iterable[features.FeatureBase],
+        unavailable_features: collections.abc.Iterable[features.FeatureBase],
     ):
         self.unavailable_features = self.getFeatureNameSet(unavailable_features)
 
     @staticmethod
     def getFeatureNameSet(
-        feature_list: typing.Iterable[features.FeatureBase],
+        feature_list: collections.abc.Iterable[features.FeatureBase],
     ) -> set[str]:
         return set([f.name for f in feature_list])
 

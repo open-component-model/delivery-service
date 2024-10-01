@@ -1,4 +1,3 @@
-import typing
 import unittest.mock
 
 import pytest
@@ -64,7 +63,7 @@ def user_identities(
     codeowners: str,
     gh_api,
     repo,
-) -> typing.Tuple[responsibles.user_model.UserIdentity]:
+) -> tuple[responsibles.user_model.UserIdentity]:
     codeowners_gen = (
         github.codeowners.parse_codeowner_entry(
             entry=entry,

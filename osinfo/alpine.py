@@ -1,6 +1,5 @@
 import dataclasses
 import datetime
-import typing
 
 import dacite
 import dateutil.parser
@@ -19,7 +18,7 @@ urljoin = ci.util.urljoin
 class AlpineRelease:
     date: str
     version: str
-    notes: typing.Optional[str] = None
+    notes: str | None = None
 
 
 @dataclasses.dataclass
@@ -29,12 +28,12 @@ class AlpineReleaseBranch:
     rel_branch: str # either edge, latest-stable, or v<major>.<minor>
 
     # optional attrs are present only for release-branches (not for edge)
-    repos: typing.Optional[list[dict[str, str]]] = None
-    branch_date: typing.Optional[str] = None
-    eol_date: typing.Optional[str] = None
-    releases: typing.Optional[list[AlpineRelease]] = None
+    repos: list[dict[str, str]] | None = None
+    branch_date: str | None = None
+    eol_date: str | None = None
+    releases: list[AlpineRelease] | None = None
 
-    def greatest_release(self) -> typing.Optional[AlpineRelease]:
+    def greatest_release(self) -> AlpineRelease | None:
         if not self.releases:
             return None
 

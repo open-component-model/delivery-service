@@ -1,10 +1,10 @@
+import collections.abc
 import dataclasses
 import datetime
 import enum
 import logging
 import os
 import re
-import typing
 import watchdog.events
 import watchdog.observers.polling
 
@@ -52,7 +52,7 @@ class SprintRules:
     '''
     frozenFrom: str
     frozenUntil: str
-    frozenWarningOffsetDays: typing.Optional[int]
+    frozenWarningOffsetDays: int | None
 
 
 class CurrentVersionSourceType(enum.Enum):
@@ -65,8 +65,8 @@ class CurrentVersion:
     class CurrentVersionSource:
         type: CurrentVersionSourceType
         repo: str
-        relpath: list[typing.Union[dict, str]]
-        postprocess: typing.Optional[bool]
+        relpath: list[dict | str]
+        postprocess: bool | None
 
     source: CurrentVersionSource
 
@@ -112,7 +112,7 @@ class CurrentVersion:
 class SpecialComponentDependency:
     name: str
     displayName: str
-    currentVersion: typing.Optional[CurrentVersion]
+    currentVersion: CurrentVersion | None
 
 
 @dataclasses.dataclass
@@ -153,13 +153,13 @@ class SpecialComponentsCfg:
     displayName: str
     type: str
     version: str | CurrentVersion
-    versionFilter: typing.Optional[VersionFilter]
-    icon: typing.Optional[str]
-    releasePipelineUrl: typing.Optional[str]
-    sprintRules: typing.Optional[SprintRules]
-    repoContextUrl: typing.Optional[str]
-    currentVersion: typing.Optional[CurrentVersion]
-    dependencies: typing.Optional[list[SpecialComponentDependency]]
+    versionFilter: VersionFilter | None
+    icon: str | None
+    releasePipelineUrl: str | None
+    sprintRules: SprintRules | None
+    repoContextUrl: str | None
+    currentVersion: CurrentVersion | None
+    dependencies: list[SpecialComponentDependency] | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -348,7 +348,7 @@ class FeatureRepoContexts(FeatureBase):
         if self.state is FeatureStates.AVAILABLE:
             return self.ocm_repo_mappings
 
-    def get_ocm_repos(self) -> typing.Generator[ocm.OciOcmRepository, None, None] | None:
+    def get_ocm_repos(self) -> collections.abc.Generator[ocm.OciOcmRepository, None, None] | None:
         if self.state is FeatureStates.UNAVAILABLE:
             return None
 
@@ -758,7 +758,7 @@ def deserialise_authentication(delivery_cfg) -> FeatureAuthentication:
     )
 
 
-def deserialise_cfg(raw: dict) -> typing.Generator[FeatureBase, None, None]:
+def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, None]:
     addressbook = raw.get(
         'addressbook',
         FeatureAddressbook(FeatureStates.UNAVAILABLE),
@@ -874,7 +874,7 @@ def init_features(
     parsed_arguments,
     cfg_factory,
     base_url: str,
-) -> typing.Iterable[any]:
+) -> list[any]:
     global feature_cfgs
     feature_cfgs = []
     middlewares = []
