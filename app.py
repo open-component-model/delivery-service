@@ -29,6 +29,7 @@ import lookups
 import metadata
 import metric
 import middleware.auth
+import middleware.cors
 import middleware.decompressor
 import middleware.json_translator
 import middleware.route_feature_check as rfc
@@ -692,6 +693,10 @@ async def initialise_app(parsed_arguments):
         parsed_arguments=parsed_arguments,
         cfg_factory=cfg_factory,
     )
+
+    middlewares.extend([
+        middleware.cors.cors_middleware(),
+    ])
 
     if (unavailable_features := tuple(
         f for f in features.feature_cfgs
