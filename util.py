@@ -1,6 +1,9 @@
+import collections.abc
+import dataclasses
 import datetime
 import enum
 import functools
+import json
 import logging
 import urllib.parse
 
@@ -54,6 +57,25 @@ def dict_factory_date_serialisiation(data):
         return obj
 
     return dict((k, convert_value(v)) for k, v in data)
+
+
+def dict_to_json_factory(data: dict) -> str:
+    def convert_value(obj):
+        if isinstance(obj, str):
+            return obj
+        elif isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+        elif isinstance(obj, enum.Enum):
+            return obj.value
+        elif dataclasses.is_dataclass(obj):
+            return convert_value(dataclasses.asdict(obj))
+        elif isinstance(obj, dict):
+            return dict((k, convert_value(v)) for k, v in obj.items())
+        elif isinstance(obj, collections.abc.Iterable):
+            return [convert_value(o) for o in obj]
+        return obj
+
+    return json.dumps(convert_value(data))
 
 
 def retrieve_component_descriptor(
