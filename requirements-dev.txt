@@ -3,4 +3,3 @@
 -r requirements.utils.txt
 numpy
 scipy
-werkzeug
