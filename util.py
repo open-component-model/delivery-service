@@ -174,3 +174,18 @@ def param_as_bool(
         reason='Invalid parameter',
         text=f'The value of the paramter {name} must be a boolean value.',
     )
+
+
+def error_description(
+    error_id: str,
+    **kwargs,
+) -> str:
+    '''
+    Used to create a uniform error JSON response, containing a unique `error_id` as well as optional
+    extra parameters to enrich the error description. Callers will still have to set the correct
+    content type `application/json` for the error object.
+    '''
+    return dict_to_json_factory({
+        'error_id': error_id,
+        **kwargs,
+    })
