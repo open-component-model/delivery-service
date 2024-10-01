@@ -1,5 +1,4 @@
 awesomeversion
-bjoern
 cachetools
 dataclasses-json
 falcon>=3
