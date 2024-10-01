@@ -3,20 +3,17 @@ import dataclasses
 import datetime
 import dataclasses_json
 import enum
+import http
 import io
 import logging
 import tarfile
 
-import cachetools
-import cachetools.keys
+import aiohttp.web
 import dacite.exceptions
 import dateutil.parser
-import falcon
-import falcon.media.validators
-import requests
 import sqlalchemy as sa
+import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.orm.query as sq
-import sqlalchemy.orm.session as ss
 import yaml
 
 import ci.util
@@ -32,9 +29,9 @@ import ocm
 import version as versionutil
 
 import compliance_summary as cs
+import consts
 import deliverydb.model as dm
 import deliverydb.util
-import eol
 import features
 import lookups
 import responsibles
@@ -57,40 +54,23 @@ class ComponentVector:
     end: ocm.Component
 
 
-def _cache_key_gen_dependency_updates(
-    component_vector: ComponentVector,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    dependency_name_filter: list[str] = (),
-    only_rising_changes: bool = False
-):
-    return cachetools.keys.hashkey(
-        component_vector.start.name,
-        component_vector.end.name,
-        component_vector.start.version,
-        component_vector.end.version,
-        tuple(dependency_name_filter),
-        only_rising_changes,
-    )
-
-
 cache_existing_components = []
 
 
-def check_if_component_exists(
-        component_name: str,
-        version_lookup: cnudie.retrieve.VersionLookupByComponent,
-        raise_http_error: bool = False,
+async def check_if_component_exists(
+    component_name: str,
+    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    raise_http_error: bool=False,
 ):
     if component_name in cache_existing_components:
         return True
 
-    for _ in version_lookup(component_name, None):
+    for _ in await version_lookup(component_name, None):
         cache_existing_components.append(component_name)
         return True
 
     if raise_http_error:
-        # pylint: disable=E1101
-        raise falcon.HTTPNotFound(title=f'{component_name=} not found')
+        raise aiohttp.web.HTTPNotFound(text=f'{component_name=} not found')
     return False
 
 
@@ -115,7 +95,7 @@ def get_creation_date(component: ocm.Component) -> datetime.datetime:
         return dateutil.parser.isoparse(creation_label.value)
 
 
-def greatest_version_if_none(
+async def greatest_version_if_none(
     component_name: str,
     version: str,
     version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
@@ -125,7 +105,7 @@ def greatest_version_if_none(
     invalid_semver_ok: bool=False,
 ):
     if version is None:
-        version = greatest_component_version(
+        version = await greatest_component_version(
             component_name=component_name,
             version_lookup=version_lookup,
             ocm_repo=ocm_repo,
@@ -135,38 +115,35 @@ def greatest_version_if_none(
         )
 
     if not version:
-        raise falcon.HTTPNotFound(
-            title='no greatest version found',
-            description=f'{component_name=}; {version_filter=}',
+        raise aiohttp.web.HTTPNotFound(
+            reason='No greatest version found',
+            text=f'No greatest version found for {component_name=}; {version_filter=}',
         )
 
     return version
 
 
-def _component_descriptor(
-    req: falcon.Request,
+async def _component_descriptor(
+    params: dict,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     version_lookup: cnudie.retrieve.VersionLookupByComponent,
     version_filter: features.VersionFilter,
     invalid_semver_ok: bool=False,
 ) -> ocm.ComponentDescriptor:
-    component_name = req.get_param('component_name', True)
+    component_name = util.param(params, 'component_name', required=True)
 
-    ocm_repo_url = req.get_param(
-        name='ocm_repo_url',
-        required=False,
-    )
+    ocm_repo_url = util.param(params, 'ocm_repo_url')
     ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
-    version = req.get_param('version', default='greatest')
-    raw = req.get_param_as_bool('raw', default=False)
-    ignore_cache = req.get_param_as_bool('ignore_cache', default=False)
+    version = util.param(params, 'version', default='greatest')
+    raw = util.param_as_bool(params, 'raw')
+    ignore_cache = util.param_as_bool(params, 'ignore_cache')
 
-    version_filter = req.get_param('version_filter', False, default=version_filter)
+    version_filter = util.param(params, 'version_filter', default=version_filter)
     util.get_enum_value_or_raise(version_filter, features.VersionFilter)
 
     if version == 'greatest':
-        version = greatest_version_if_none(
+        version = await greatest_version_if_none(
             component_name=component_name,
             version=None,
             version_lookup=version_lookup,
@@ -194,19 +171,20 @@ def _component_descriptor(
     if raw or ignore_cache:
         # in both cases fetch directly from oci-registry
         try:
-            raw = cnudie.retrieve.raw_component_descriptor_from_oci(
+            raw = await cnudie.retrieve.raw_component_descriptor_from_oci(
                 component_id=component_id,
                 ocm_repos=ocm_repos,
                 oci_client=lookups.semver_sanitised_oci_client(),
             )
 
-        except om.OciImageNotFoundException as e:
-            err_str = f'component descriptor "{component_id.name}" in version "' \
-            f'{component_id.version}" not found in {ocm_repo=}'
-            raise falcon.HTTPNotFound(
-                title='component descriptor not found',
-                description=err_str,
-            ) from e
+        except om.OciImageNotFoundException:
+            raise aiohttp.web.HTTPNotFound(
+                reason='Component descriptor not found',
+                text=(
+                    f'Component descriptor "{component_id.name}" in version '
+                    f'"{component_id.version}" not found in {ocm_repo=}'
+                ),
+            )
 
         # wrap in fobj
         blob_fobj = io.BytesIO(raw)
@@ -224,112 +202,93 @@ def _component_descriptor(
                     yaml.safe_load(component_descriptor_bytes),
                 )
             except dacite.exceptions.MissingValueError as e:
-                raise falcon.HTTPFailedDependency(title=str(e))
+                raise aiohttp.web.HTTPFailedDependency(
+                    reason=str(e),
+                )
 
         return component_descriptor
 
     try:
-        descriptor = util.retrieve_component_descriptor(
+        descriptor = await util.retrieve_component_descriptor(
             component_id,
             component_descriptor_lookup=component_descriptor_lookup,
             ocm_repo=ocm_repo,
         )
     except dacite.exceptions.MissingValueError as e:
-        raise falcon.HTTPFailedDependency(title=str(e))
+        raise aiohttp.web.HTTPFailedDependency(
+            reason=str(e),
+        )
 
     return descriptor
 
 
-class Component:
-    def __init__(
-        self,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        version_lookup: cnudie.retrieve.VersionLookupByComponent,
-        version_filter_callback,
-        invalid_semver_ok: bool=False,
-    ):
-        self._component_descriptor_lookup = component_descriptor_lookup
-        self._version_lookup = version_lookup
-        self._version_filter_callback = version_filter_callback
-        self._invalid_semver_ok = invalid_semver_ok
+class Component(aiohttp.web.View):
+    async def get(self):
+        params = self.request.rel_url.query
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        resp.media = _component_descriptor(
-            req=req,
-            component_descriptor_lookup=self._component_descriptor_lookup,
-            version_lookup=self._version_lookup,
-            version_filter=self._version_filter_callback(),
-            invalid_semver_ok=self._invalid_semver_ok,
+        component_descriptor = await _component_descriptor(
+            params=params,
+            component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
+            version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
+            version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
+            invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+        )
+
+        return aiohttp.web.json_response(
+            data=component_descriptor,
+            dumps=util.dict_to_json_factory,
         )
 
 
-class ComponentDependencies:
-    def __init__(
-        self,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        version_lookup: cnudie.retrieve.VersionLookupByComponent,
-        version_filter_callback,
-        invalid_semver_ok: bool=False,
-    ):
-        self._component_descriptor_lookup = component_descriptor_lookup
-        self._version_lookup = version_lookup
-        self._version_filter_callback = version_filter_callback
-        self._invalid_semver_ok = invalid_semver_ok
+class ComponentDependencies(aiohttp.web.View):
+    async def get(self):
+        params = self.request.rel_url.query
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        component_name = req.get_param('component_name', True)
+        component_name = util.param(params, 'component_name', required=True)
 
-        populate = req.get_param(
-            name='populate',
-            required=False,
-            default='all',
-        )
+        populate = util.param(params, 'populate', default='all')
 
-        ocm_repo_url = req.get_param(
-            name='ocm_repo_url',
-            required=False,
-        )
-
-        version = req.get_param('version', True)
-
+        ocm_repo_url = util.param(params, 'ocm_repo_url')
         ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
-        version_filter = req.get_param(
+        version = util.param(params, 'version', default='greatest')
+
+        version_filter = util.param(
+            params=params,
             name='version_filter',
-            required=False,
-            default=self._version_filter_callback(),
+            default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
         )
         util.get_enum_value_or_raise(version_filter, features.VersionFilter)
 
         if version == 'greatest':
-            version = greatest_version_if_none(
+            version = await greatest_version_if_none(
                 component_name=component_name,
                 version=None,
-                version_lookup=self._version_lookup,
+                version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
-                invalid_semver_ok=self._invalid_semver_ok,
+                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
             )
 
         component_dependencies = resolve_component_dependencies(
             component_name=component_name,
             component_version=version,
-            component_descriptor_lookup=self._component_descriptor_lookup,
+            component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
             ocm_repo=ocm_repo,
         )
 
         filtered_component_dependencies = []
-        for component in component_dependencies:
+        async for component_node in component_dependencies:
             if populate == 'componentReferences':
                 component_dependency = {
-                    'name': component.component.name,
-                    'version': component.component.version,
-                    'repositoryContexts': component.component.repositoryContexts,
+                    'name': component_node.component.name,
+                    'version': component_node.component.version,
+                    'repositoryContexts': component_node.component.repositoryContexts,
                 }
             elif populate == 'all':
-                component_dependency = dataclasses.asdict(component.component)
+                component_dependency = dataclasses.asdict(component_node.component)
             else:
-                raise falcon.HTTPBadRequest(f'{populate=} not implemented')
+                raise aiohttp.web.HTTPBadRequest(text=f'{populate} not implemented')
 
             component_dependency['comp_ref'] = [
                 {
@@ -337,35 +296,20 @@ class ComponentDependencies:
                     'version': ref.component.version,
                     'repositoryContexts': ref.component.repositoryContexts,
                 }
-                for ref in component.path
+                for ref in component_node.path
             ]
             filtered_component_dependencies.append(component_dependency)
 
-        resp.media = {'componentDependencies': filtered_component_dependencies}
+        return aiohttp.web.json_response(
+            data={
+                'componentDependencies': filtered_component_dependencies,
+            },
+            dumps=util.dict_to_json_factory,
+        )
 
 
-class ComponentResponsibles:
-    def __init__(
-        self,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        version_lookup: cnudie.retrieve.VersionLookupByComponent,
-        github_api_lookup,
-        addressbook_source: str | None,
-        addressbook_entries: list[yp.AddressbookEntry],
-        addressbook_github_mappings: list[dict],
-        version_filter_callback,
-        invalid_semver_ok: bool=False,
-    ):
-        self._component_descriptor_lookup = component_descriptor_lookup
-        self._version_lookup = version_lookup
-        self.github_api_lookup = github_api_lookup
-        self.addressbook_source = addressbook_source
-        self.addressbook_entries = addressbook_entries
-        self.addressbook_github_mappings = addressbook_github_mappings
-        self._version_filter_callback = version_filter_callback
-        self._invalid_semver_ok = invalid_semver_ok
-
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
+class ComponentResponsibles(aiohttp.web.View):
+    async def get(self):
         '''
         returns a list of user-identities responsible for the given component or resource
 
@@ -412,18 +356,19 @@ class ComponentResponsibles:
         statuses allows to provide additional information to caller.
         e.g. to communicate that responsible label was malformed and heuristic was used as fallback
         '''
+        params = self.request.rel_url.query
         statuses: list[responsibles.Status] = []
 
-        component_descriptor = _component_descriptor(
-            req=req,
-            component_descriptor_lookup=self._component_descriptor_lookup,
-            version_lookup=self._version_lookup,
-            version_filter=self._version_filter_callback(),
-            invalid_semver_ok=self._invalid_semver_ok,
+        component_descriptor = await _component_descriptor(
+            params=params,
+            component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
+            version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
+            version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
+            invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
         )
         component = component_descriptor.component
         main_source = cnudie.util.main_source(component_descriptor.component)
-        artifact_name = req.get_param('artifact_name', False)
+        artifact_name = util.param(params, 'artifact_name')
 
         def _responsibles_label(
             component: ocm.Component,
@@ -444,11 +389,8 @@ class ComponentResponsibles:
                     if a.name == artifact_name
                 ]
                 if not matching_artifacts:
-                    raise falcon.HTTPNotFound(
-                        description=(
-                            f'{component.name} in version {component.version} has no '
-                            f'{artifact_name=}'
-                        )
+                    raise aiohttp.web.HTTPNotFound(
+                        text=f'{component.name}:{component.version} has no {artifact_name=}'
                     )
 
                 for artifact in matching_artifacts:
@@ -491,13 +433,13 @@ class ComponentResponsibles:
                 responsibles_label=responsibles_label,
                 source=main_source,
                 component_identity=component_descriptor.component.identity(),
-                github_api_lookup=self.github_api_lookup,
+                github_api_lookup=self.request.app[consts.APP_GITHUB_API_LOOKUP],
             ))
         else:
             try:
                 user_identities = responsibles.user_identities_from_source(
                     source=main_source,
-                    github_api_lookup=self.github_api_lookup,
+                    github_api_lookup=self.request.app[consts.APP_GITHUB_API_LOOKUP],
                 )
             except ValueError:
                 user_identities = []
@@ -509,26 +451,30 @@ class ComponentResponsibles:
 
         if user_identities is None: # can be falsy
             # github statistics pending, client should retry
-            resp.status = falcon.HTTP_ACCEPTED
-            return
+            return aiohttp.web.Response(
+                status=http.HTTPStatus.ACCEPTED,
+            )
 
         user_identities = [
             yp.inject(
-                addressbook_source=self.addressbook_source,
-                addressbook_entries=self.addressbook_entries,
-                addressbook_github_mappings=self.addressbook_github_mappings,
+                addressbook_source=self.request.app[consts.APP_ADDRESSBOOK_SOURCE],
+                addressbook_entries=self.request.app[consts.APP_ADDRESSBOOK_ENTRIES],
+                addressbook_github_mappings=self.request.app[consts.APP_ADDRESSBOOK_GITHUB_MAPPINGS],
                 user_id=user_id,
             ).identifiers
             for user_id in user_identities
         ]
 
-        resp.media = {
-            'responsibles': user_identities,
-            'statuses': [dataclasses.asdict(s) for s in statuses],
-        }
+        return aiohttp.web.json_response(
+            data={
+                'responsibles': user_identities,
+                'statuses': [dataclasses.asdict(s) for s in statuses],
+            },
+            dumps=util.dict_to_json_factory,
+        )
 
 
-def component_versions(
+async def component_versions(
     component_name: str,
     version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
@@ -545,15 +491,15 @@ def component_versions(
             oci_client = lookups.semver_sanitised_oci_client()
 
         try:
-            return cnudie.retrieve.component_versions(
+            return await cnudie.retrieve.component_versions(
                 component_name=component_name,
                 ctx_repo=ocm_repo,
                 oci_client=oci_client,
             )
-        except requests.exceptions.HTTPError:
+        except aiohttp.ClientResponseError:
             return []
 
-    return version_lookup(
+    return await version_lookup(
         component_id=ocm.ComponentIdentity(
             name=component_name,
             version=None
@@ -561,7 +507,7 @@ def component_versions(
     )
 
 
-def greatest_component_version(
+async def greatest_component_version(
     component_name: str,
     version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
@@ -569,7 +515,7 @@ def greatest_component_version(
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
 ) -> str | None:
-    versions = component_versions(
+    versions = await component_versions(
         component_name=component_name,
         version_lookup=version_lookup,
         ocm_repo=ocm_repo,
@@ -608,7 +554,7 @@ def greatest_component_version(
     return greatest_candidate
 
 
-def greatest_component_versions(
+async def greatest_component_versions(
     component_name: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
@@ -621,7 +567,7 @@ def greatest_component_versions(
     start_date: datetime.date=None,
     end_date: datetime.date=None,
 ) -> list[str]:
-    versions = component_versions(
+    versions = await component_versions(
         component_name=component_name,
         version_lookup=version_lookup,
         ocm_repo=ocm_repo,
@@ -691,67 +637,56 @@ def greatest_component_versions(
     return versions
 
 
-class GreatestComponentVersions:
-    def __init__(
-        self,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        version_lookup: cnudie.retrieve.VersionLookupByComponent,
-        version_filter_callback,
-        invalid_semver_ok: bool=False,
-    ):
-        self.component_descriptor_lookup = component_descriptor_lookup
-        self.version_lookup = version_lookup
-        self._version_filter_callback = version_filter_callback
-        self._invalid_semver_ok = invalid_semver_ok
+class GreatestComponentVersions(aiohttp.web.View):
+    async def get(self):
+        params = self.request.rel_url.query
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        component_name = req.get_param('component_name', True)
-        max_version = req.get_param('max', False, default=5)
-        start_date = req.get_param('start_date', required=False)
-        end_date = req.get_param('end_date', required=False)
-        version = req.get_param('version', False, default=None)
+        component_name = util.param(params, 'component_name', required=True)
+        max_version = util.param(params, 'max', default=5)
+        start_date = util.param(params, 'start_date')
+        end_date = util.param(params, 'end_date')
+        version = util.param(params, 'version')
 
-        ocm_repo_url = req.get_param(
-            name='ocm_repo_url',
-            required=False,
-        )
-
+        ocm_repo_url = util.param(params, 'ocm_repo_url')
         ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
-        version_filter = req.get_param(
+        version_filter = util.param(
+            params=params,
             name='version_filter',
-            required=False,
-            default=self._version_filter_callback(),
+            default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
         )
         util.get_enum_value_or_raise(version_filter, features.VersionFilter)
 
         try:
-            versions = greatest_component_versions(
+            versions = await greatest_component_versions(
                 component_name=component_name,
-                component_descriptor_lookup=self.component_descriptor_lookup,
+                component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
                 ocm_repo=ocm_repo,
-                version_lookup=self.version_lookup,
+                version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
                 max_versions=int(max_version),
                 greatest_version=version,
                 version_filter=version_filter,
-                invalid_semver_ok=self._invalid_semver_ok,
+                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 start_date=start_date,
                 end_date=end_date,
             )
         except ValueError:
-            raise falcon.HTTPNotFound(description=f'version {version} not found')
+            raise aiohttp.web.HTTPNotFound(text=f'Version {version} not found')
 
-        resp.media = versions
+        return aiohttp.web.json_response(
+            data=versions,
+            dumps=util.dict_to_json_factory,
+        )
 
 
-def resolve_component_dependencies(
+async def resolve_component_dependencies(
     component_name: str,
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
-) -> list[cnudie.iter.ComponentNode]:
-    descriptor = util.retrieve_component_descriptor(
+) -> collections.abc.AsyncGenerator[cnudie.iter.ComponentNode, None, None]:
+    descriptor = await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
             name=component_name,
             version=component_version,
@@ -762,92 +697,78 @@ def resolve_component_dependencies(
     component = descriptor.component
 
     try:
-        components: list[cnudie.iter.ComponentNode] = list(_components(
+        component_nodes = await _components(
             component_name=component.name,
             component_version=component.version,
             component_descriptor_lookup=component_descriptor_lookup,
             ocm_repo=ocm_repo,
             recursion_depth=recursion_depth,
-        ))
+        )
     except dacite.exceptions.MissingValueError as e:
-        raise falcon.HTTPFailedDependency(title=str(e))
+        raise aiohttp.web.HTTPFailedDependency(text=str(e))
 
     # add repo classification label if not present in component labels
-    for component in components:
-
+    async for component_node in component_nodes:
         label_present = False
         # if no sources present we cannot add the source
-        if not len(component.component.sources) > 0:
+        if not len(component_node.component.sources) > 0:
             continue
 
-        for source in component.component.sources:
+        for source in component_node.component.sources:
             if 'cloud.gardener/cicd/source' in [label.name for label in source.labels]:
                 label_present = True
                 break
         if not label_present:
-            component.component.sources[0].labels.append(ocm.Label(
+            component_node.component.sources[0].labels.append(ocm.Label(
                 name='cloud.gardener/cicd/source',
                 value={'repository-classification': 'main'},
             ))
 
-    return components
+        yield component_node
 
 
-class UpgradePRs:
+class UpgradePRs(aiohttp.web.View):
     required_features = (features.FeatureUpgradePRs,)
 
-    def __init__(
-        self,
-        upr_regex_callback,
-        component_descriptor_lookup,
-        github_api_lookup,
-        version_lookup,
-        version_filter_callback,
-        invalid_semver_ok,
-    ):
-        self.upr_regex_callback = upr_regex_callback
-        self._component_descriptor_lookup = component_descriptor_lookup
-        self.github_api_lookup = github_api_lookup
-        self._version_lookup = version_lookup
-        self._version_filter_callback = version_filter_callback
-        self._invalid_semver_ok = invalid_semver_ok
+    async def get(self):
+        params = self.request.rel_url.query
 
-    def on_get(self, req, resp):
-        component_name: str = req.get_param('componentName', default=None)
-        component_version: str = req.get_param('componentVersion', default=None)
-        repo_url: str = req.get_param('repoUrl', default=None)
-        pr_state: str = req.get_param('state', default='open')
+        component_name = util.param(params, 'componentName')
+        component_version = util.param(params, 'componentVersion')
+        repo_url = util.param(params, 'repoUrl')
+        pr_state = util.param(params, 'state', default='open')
 
-        ocm_repo_url = req.get_param('ocmRepo', default=None)
-
+        ocm_repo_url = util.param(params, 'ocmRepo')
         ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
-        version_filter = req.get_param(
+        version_filter = util.param(
+            params=params,
             name='version_filter',
-            required=False,
-            default=self._version_filter_callback(),
+            default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
         )
         util.get_enum_value_or_raise(version_filter, features.VersionFilter)
 
         if not (bool(component_name) ^ bool(repo_url)):
-           raise falcon.HTTPBadRequest(title='exactly one of componentName, repoUrl must be passed')
-
-        if component_name:
-            component_version = greatest_version_if_none(
-                component_name=component_name,
-                version=component_version,
-                version_lookup=self._version_lookup,
-                ocm_repo=ocm_repo,
-                version_filter=version_filter,
-                invalid_semver_ok=self._invalid_semver_ok,
+            raise aiohttp.web.HTTPBadRequest(
+                text='Exactly one of componentName and repoUrl must be passed',
             )
 
-            component_descriptor = util.retrieve_component_descriptor(
+        if component_name:
+            component_version = await greatest_version_if_none(
+                component_name=component_name,
+                version=component_version,
+                version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
+                ocm_repo=ocm_repo,
+                version_filter=version_filter,
+                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+            )
+
+            component_descriptor = await util.retrieve_component_descriptor(
                 ocm.ComponentIdentity(
                     name=component_name,
                     version=component_version,
                 ),
-                component_descriptor_lookup=self._component_descriptor_lookup,
+                component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
                 ocm_repo=ocm_repo,
             )
             component = component_descriptor.component
@@ -856,21 +777,18 @@ class UpgradePRs:
                 absent_ok=True,
             )
 
-            if source:
-                repo_url = source.access.repoUrl
+            repo_url = source.access.repoUrl if source else component_name
 
-            else:
-                repo_url = component_name
-
-        gh_api = self.github_api_lookup(
+        gh_api = self.request.app[consts.APP_GITHUB_API_LOOKUP](
             repo_url,
             absent_ok=True,
         )
         if not gh_api:
             # todo: rather raise/return http-error?
             logger.warning(f'no github-cfg found for {repo_url=}')
-            resp.media = []
-            return
+            return aiohttp.web.json_response(
+                data=[],
+            )
 
         parsed_url = ci.util.urlparse(repo_url)
         org, repo = parsed_url.path.strip('/').split('/')
@@ -883,12 +801,13 @@ class UpgradePRs:
             )
         except RuntimeError:
             # Component source repository not found
-            resp.media = []
-            return
+            return aiohttp.web.json_response(
+                data=[],
+            )
 
         upgrade_prs: collections.abc.Iterable[github.util.UpgradePullRequest] = pr_helper.enumerate_upgrade_pull_requests( # noqa:E501
             state=pr_state,
-            pattern=self.upr_regex_callback(),
+            pattern=self.request.app[consts.APP_UPR_REGEX_CALLBACK](),
         )
 
         def upgrade_pr_to_dict(upgrade_pr):
@@ -913,52 +832,52 @@ class UpgradePRs:
                 }
             }
 
-        resp.media = [upgrade_pr_to_dict(upgrade_pr) for upgrade_pr in upgrade_prs]
+        return aiohttp.web.json_response(
+            data=[upgrade_pr_to_dict(upgrade_pr) for upgrade_pr in upgrade_prs],
+            dumps=util.dict_to_json_factory,
+        )
 
 
-class Issues:
+class Issues(aiohttp.web.View):
     required_features = (features.FeatureIssues,)
 
-    def __init__(
-        self,
-        issue_repo_callback,
-        github_api_lookup,
-    ):
-        self.issue_repo_callback = issue_repo_callback
-        self.github_api_lookup = github_api_lookup
-        self.github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
+    async def get(self):
+        params = self.request.rel_url.query
 
-    def on_get(self, req, resp):
-        component_name: str = req.get_param('componentName', required=True)
-        state: str = req.get_param('state', 'open')
-        since: str = req.get_param('since', required=False)
+        component_name = util.param(params, 'componentName', required=True)
+        state = util.param(params, 'state', default='open')
+        since = util.param(params, 'since')
 
-        issue_repo = self.issue_repo_callback(component_name)
+        issue_repo = self.request.app[consts.APP_ISSUE_REPO_CALLBACK](component_name)
 
         if not issue_repo:
-            resp.media = []
-            return
+            return aiohttp.web.json_response(
+                data=[],
+            )
 
-        ls_repo = self.github_repo_lookup(issue_repo)
+        ls_repo = self.request.app[consts.APP_GITHUB_REPO_LOOKUP](issue_repo)
 
         issues = ls_repo.issues(state=state, since=since)
-        resp.media = [
-            {
-                'id': issue.number,
-                'title': issue.title,
-                'state': issue.state,
-                'created_at': issue.created_at.isoformat(),
-                'url': issue.html_url,
-                'label': [
-                    {
-                        'id': label.id,
-                        'name': label.name,
-                        'color': label.color,
-                        'description': label.description,
-                    } for label in issue.labels()
-                ]
-            } for issue in issues if 'pull_request' not in issue.as_dict()
-        ]
+        return aiohttp.web.json_response(
+            data=[
+                {
+                    'id': issue.number,
+                    'title': issue.title,
+                    'state': issue.state,
+                    'created_at': issue.created_at.isoformat(),
+                    'url': issue.html_url,
+                    'label': [
+                        {
+                            'id': label.id,
+                            'name': label.name,
+                            'color': label.color,
+                            'description': label.description,
+                        } for label in issue.labels()
+                    ]
+                } for issue in issues if 'pull_request' not in issue.as_dict()
+            ],
+            dumps=util.dict_to_json_factory,
+        )
 
 
 @dataclasses_json.dataclass_json
@@ -975,49 +894,48 @@ class ComponentDiffRequest:
     right_component: ComponentRef
 
 
-class ComponentDescriptorDiff:
-    def __init__(
-        self,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ):
-        self._component_descriptor_lookup = component_descriptor_lookup
+class ComponentDescriptorDiff(aiohttp.web.View):
+    async def options(self):
+        return aiohttp.web.Response()
 
-    def on_post(self, req: falcon.Request, resp: falcon.Response):
-        diff_request = ComponentDiffRequest.from_dict(req.media)
+    async def post(self):
+        diff_request = ComponentDiffRequest.from_dict(await self.request.json())
 
         left_component_ref: ComponentRef = diff_request.left_component
         right_component_ref: ComponentRef = diff_request.right_component
 
-        left_descriptor = util.retrieve_component_descriptor(
+        component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
+
+        left_descriptor = await util.retrieve_component_descriptor(
             ocm.ComponentIdentity(
                 name=left_component_ref.name,
                 version=left_component_ref.version,
             ),
-            component_descriptor_lookup=self._component_descriptor_lookup,
+            component_descriptor_lookup=component_descriptor_lookup,
         )
-        right_descriptor = util.retrieve_component_descriptor(
+        right_descriptor = await util.retrieve_component_descriptor(
             ocm.ComponentIdentity(
                 name=right_component_ref.name,
                 version=right_component_ref.version,
             ),
-            component_descriptor_lookup=self._component_descriptor_lookup,
+            component_descriptor_lookup=component_descriptor_lookup,
         )
 
         try:
-            diff = cnudie.retrieve.component_diff(
+            diff = await cnudie.retrieve.component_diff(
                 left_component=left_descriptor,
                 right_component=right_descriptor,
-                component_descriptor_lookup=self._component_descriptor_lookup,
+                component_descriptor_lookup=component_descriptor_lookup,
             )
-        except om.OciImageNotFoundException as e:
-            err_str = 'error occurred during calculation of component diff of ' \
+        except om.OciImageNotFoundException:
+            err_str = 'Error occurred during calculation of component diff of ' \
             f'{left_descriptor.component.name=} in {left_descriptor.component.version=} and ' \
             f'{right_descriptor.component.name=} in {right_descriptor.component.version=}'
             logger.warning(err_str)
-            raise falcon.HTTPUnprocessableEntity(
-                title='error occurred during calculation of component diff',
-                description=err_str,
-            ) from e
+            raise aiohttp.web.HTTPUnprocessableEntity(
+                reason='Error occurred during calculation of component diff',
+                text=err_str,
+            )
 
         def component_ref(component: ocm.Component):
             return {'name': component.name, 'version': component.version}
@@ -1076,31 +994,34 @@ class ComponentDescriptorDiff:
 
         # filtering is not 100% accurate: if more than one component of the same version were
         # contained, removal/addition would not be detected.
-        resp.media = {
-            'components_added': [
-                component_ref(c) for c in diff.cidentities_only_right
-                if c.name not in identity_names_only_left
-            ],
-            'components_removed': [
-                component_ref(c) for c in diff.cidentities_only_left
-                if c.name not in identity_names_only_right
-            ],
+        return aiohttp.web.json_response(
+            data={
+                'components_added': [
+                    component_ref(c) for c in diff.cidentities_only_right
+                    if c.name not in identity_names_only_left
+                ],
+                'components_removed': [
+                    component_ref(c) for c in diff.cidentities_only_left
+                    if c.name not in identity_names_only_right
+                ],
 
-            'components_changed': [
-                changed_component_info(left_comp=left_comp, right_comp=right_comp)
-                for left_comp, right_comp in diff.cpairs_version_changed
-            ],
-        }
+                'components_changed': [
+                    changed_component_info(left_comp=left_comp, right_comp=right_comp)
+                    for left_comp, right_comp in diff.cpairs_version_changed
+                ],
+            },
+            dumps=util.dict_to_json_factory,
+        )
 
 
-def _components(
+async def _components(
     component_name: str,
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
-) -> tuple[Component]:
-    component_descriptor = util.retrieve_component_descriptor(
+) -> collections.abc.AsyncGenerator[cnudie.iter.ComponentNode, None, None]:
+    component_descriptor = await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
             name=component_name,
             version=component_version,
@@ -1110,43 +1031,27 @@ def _components(
     )
 
     try:
-        return tuple(cnudie.iter.iter(
+        return cnudie.iter.iter(
             component=component_descriptor,
             lookup=component_descriptor_lookup,
             recursion_depth=recursion_depth,
             prune_unique=False,
-            node_filter=lambda node: isinstance(node, cnudie.iter.ComponentNode),
-        ))
-    except om.OciImageNotFoundException as e:
-        err_str = 'error occurred during retrieval of component dependencies of ' \
+            node_filter=cnudie.iter.Filter.components,
+        )
+    except om.OciImageNotFoundException:
+        err_str = 'Error occurred during retrieval of component dependencies of ' \
         f'{component_descriptor.component.name=} in {component_descriptor.component.version=}'
         logger.warning(err_str)
-        raise falcon.HTTPUnprocessableEntity(
-            title='error occurred during retrieval of component dependencies',
-            description=err_str,
-        ) from e
+        raise aiohttp.web.HTTPUnprocessableEntity(
+            reason='Error occurred during retrieval of component dependencies',
+            text=err_str,
+        )
 
 
-class ComplianceSummary:
+class ComplianceSummary(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
-    def __init__(
-        self,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        version_lookup: cnudie.retrieve.VersionLookupByComponent,
-        eol_client: eol.EolClient,
-        artefact_metadata_cfg_by_type: dict,
-        version_filter_callback,
-        invalid_semver_ok: bool=False,
-    ):
-        self._component_descriptor_lookup = component_descriptor_lookup
-        self._version_lookup = version_lookup
-        self.eol_client = eol_client
-        self.artefact_metadata_cfg_by_type = artefact_metadata_cfg_by_type
-        self._version_filter_callback = version_filter_callback
-        self._invalid_semver_ok = invalid_semver_ok
-
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
+    async def get(self):
         '''
         returns most critical severity for artefact-metadata types, for all component-dependencies
 
@@ -1187,50 +1092,50 @@ class ComplianceSummary:
                         severity: ... \n
                         scanStatus: ... \n
         '''
+        params = self.request.rel_url.query
+        artefact_metadata_cfg_by_type = self.request.app[consts.APP_ARTEFACT_METADATA_CFG]
+        component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
+        eol_client = self.request.app[consts.APP_EOL_CLIENT]
+        invalid_semver_ok = self.request.app[consts.APP_INVALID_SEMVER_OK]
+        version_filter_callback = self.request.app[consts.APP_VERSION_FILTER_CALLBACK]
+        version_lookup = self.request.app[consts.APP_VERSION_LOOKUP]
 
-        component_name = req.get_param('component_name', True)
+        component_name = util.param(params, 'component_name', required=True)
 
-        ocm_repo_url = req.get_param(
-            name='ocm_repo_url',
-            required=False,
-        )
+        ocm_repo_url = util.param(params, 'ocm_repo_url')
         ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
-        version = req.get_param('version', True)
+        version = util.param(params, 'version', required=True)
 
-        version_filter = req.get_param(
-            name='version_filter',
-            required=False,
-            default=self._version_filter_callback(),
-        )
+        version_filter = util.param(params, 'version_filter', default=version_filter_callback())
         util.get_enum_value_or_raise(version_filter, features.VersionFilter)
 
-        recursion_depth = req.get_param_as_int('recursion_depth', default=-1)
+        recursion_depth = int(util.param(params, 'recursion_depth', default=-1))
 
         if version == 'greatest':
-            version = greatest_version_if_none(
+            version = await greatest_version_if_none(
                 component_name=component_name,
                 version=None,
-                version_lookup=self._version_lookup,
+                version_lookup=version_lookup,
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
-                invalid_semver_ok=self._invalid_semver_ok,
+                invalid_semver_ok=invalid_semver_ok,
             )
 
         components_dependencies = resolve_component_dependencies(
             component_name=component_name,
             component_version=version,
-            component_descriptor_lookup=self._component_descriptor_lookup,
+            component_descriptor_lookup=component_descriptor_lookup,
             ocm_repo=ocm_repo,
             recursion_depth=recursion_depth,
         )
 
-        components = tuple(
+        components = [
             component_node.component
-            for component_node in components_dependencies
-        )
+            async for component_node in components_dependencies
+        ]
 
-        session: ss.Session = req.context.db_session
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         type_filter = (
             dso.model.Datatype.ARTEFACT_SCAN_INFO,
@@ -1241,50 +1146,59 @@ class ComplianceSummary:
             dso.model.Datatype.MALWARE_FINDING,
         )
 
-        findings_query = session.query(dm.ArtefactMetaData).filter(
-            sa.or_(deliverydb.util.ArtefactMetadataQueries.component_queries(
-                components=components,
-                component_descriptor_lookup=self._component_descriptor_lookup,
-            )),
+        db_statement_findings = sa.select(dm.ArtefactMetaData).where(
+            sa.or_(*[
+                query async for query in deliverydb.util.ArtefactMetadataQueries.component_queries(
+                    components=components,
+                    component_descriptor_lookup=component_descriptor_lookup,
+                )
+            ]),
             dm.ArtefactMetaData.type.in_(type_filter),
         )
-        rescorings_query = session.query(dm.ArtefactMetaData).filter(
+        db_statement_rescorings = sa.select(dm.ArtefactMetaData).where(
             dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
-            sa.or_(deliverydb.util.ArtefactMetadataQueries.component_queries(
-                components=components,
-                none_ok=True,
-                component_descriptor_lookup=self._component_descriptor_lookup,
-            )),
+            sa.or_(*[
+                query async for query in deliverydb.util.ArtefactMetadataQueries.component_queries(
+                    components=components,
+                    none_ok=True,
+                    component_descriptor_lookup=component_descriptor_lookup,
+                )
+            ]),
             deliverydb.util.ArtefactMetadataFilters.filter_for_rescoring_type(type_filter),
         )
 
-        findings_raw = findings_query.all()
+        db_stream_findings = await db_session.stream(db_statement_findings)
         findings = [
-            deliverydb.util.db_artefact_metadata_to_dso(raw)
-            for raw in findings_raw
+            deliverydb.util.db_artefact_metadata_row_to_dso(row)
+            async for partition in db_stream_findings.partitions(size=50)
+            for row in partition
         ]
 
-        rescorings_raw = rescorings_query.all()
+        db_stream_rescorings = await db_session.stream(db_statement_rescorings)
         rescorings = [
-            deliverydb.util.db_artefact_metadata_to_dso(raw)
-            for raw in rescorings_raw
+            deliverydb.util.db_artefact_metadata_row_to_dso(row)
+            async for partition in db_stream_rescorings.partitions(size=50)
+            for row in partition
         ]
 
-        resp.media = {
-            'complianceSummary': [
-                dataclasses.asdict(
-                    obj=summary,
-                    dict_factory=util.dict_factory_enum_name_serialisiation,
-                )
-                for summary in cs.component_summaries(
-                    findings=findings,
-                    rescorings=rescorings,
-                    components=components,
-                    eol_client=self.eol_client,
-                    artefact_metadata_cfg_by_type=self.artefact_metadata_cfg_by_type,
-                )
-            ]
-        }
+        return aiohttp.web.json_response(
+            data={
+                'complianceSummary': [
+                    dataclasses.asdict(
+                        obj=summary,
+                        dict_factory=util.dict_factory_enum_name_serialisiation,
+                    )
+                    async for summary in cs.component_summaries(
+                        findings=findings,
+                        rescorings=rescorings,
+                        components=components,
+                        eol_client=eol_client,
+                        artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+                    )
+                ]
+            },
+            dumps=util.dict_to_json_factory,
+        )
 
 
 class Select(enum.Enum):
@@ -1292,22 +1206,11 @@ class Select(enum.Enum):
     LATEST = 'latestData'
 
 
-class ComponentMetadata:
+class ComponentMetadata(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
-
-    def __init__(
-        self,
-        version_lookup: cnudie.retrieve.VersionLookupByComponent,
-        version_filter_callback,
-        invalid_semver_ok: bool=False,
-    ):
-        self.version_lookup = version_lookup
-        self._version_filter_callback = version_filter_callback
-        self._invalid_semver_ok = invalid_semver_ok
 
     def _latest_metadata_query(
         self,
-        session: ss.Session,
         metadata_types: collections.abc.Iterable[str],
         component_version: str | None,
         component_name: str,
@@ -1316,13 +1219,13 @@ class ComponentMetadata:
         # are partitioned by metadata, sorted, and a rank-column is assigned to each row in the
         # resulting partitions.
         # Then, the actual query returns the rows where rank equals '1' from the subquery.
-        subquery = session.query(
+        subquery = sa.select(
             dm.ArtefactMetaData,
             sa.func.rank().over(
                 order_by=dm.ArtefactMetaData.creation_date.desc(),
                 partition_by=dm.ArtefactMetaData.type,
             ).label('rank')
-        ).filter(
+        ).where(
             sa.and_(
                 dm.ArtefactMetaData.component_name == component_name,
                 (
@@ -1334,27 +1237,25 @@ class ComponentMetadata:
                 dm.ArtefactMetaData.type.in_(metadata_types) if metadata_types else True,
             )
         ).subquery()
-        return session.query(subquery).filter(subquery.c.rank == 1)
+        return sa.select(subquery).where(subquery.c.rank == 1)
 
     def _metadata_query_for_version(
         self,
-        session: ss.Session,
         metadata_types: collections.abc.Iterable[str],
         component_version: str,
         component_name: str,
     ) -> sq.Query:
-        return session.query(
-            dm.ArtefactMetaData
-        ).filter(
+        subquery = sa.select(dm.ArtefactMetaData).where(
             sa.and_(
                 dm.ArtefactMetaData.component_name == component_name,
                 # return results for all metadata types if no collection (or an empty one) is given
                 dm.ArtefactMetaData.type.in_(metadata_types) if metadata_types else True,
                 dm.ArtefactMetaData.component_version == component_version,
-            )
-        )
+            ),
+        ).subquery()
+        return sa.select(subquery)
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
+    async def get(self):
         '''
         returns a list of artifact-metadata for the given component with optional filters
 
@@ -1386,73 +1287,70 @@ class ComponentMetadata:
                 datasource: <str> \n
             data: <object> # schema depends on meta.type \n
         '''
-        component_name = req.get_param(name='name', required=True)
-        component_version = req.get_param(name='version', required=False)
+        params = self.request.rel_url.query
+        invalid_semver_ok = self.request.app[consts.APP_INVALID_SEMVER_OK]
+        version_filter_callback = self.request.app[consts.APP_VERSION_FILTER_CALLBACK]
+        version_lookup = self.request.app[consts.APP_VERSION_LOOKUP]
 
-        version_filter = req.get_param(
-            name='version_filter',
-            required=False,
-            default=self._version_filter_callback(),
-        )
+        component_name = util.param(params, 'name', required=True)
+        component_version = util.param(params, 'version')
+
+        version_filter = util.param(params, 'version_filter', default=version_filter_callback())
         util.get_enum_value_or_raise(version_filter, features.VersionFilter)
 
-        # if given by the user without value, data_types will be a list with an empty string
-        # in it. If not given at all, it will be None.
-        data_types = req.get_param_as_list(name='type', required=False)
-        select = req.get_param(name='select', required=False)
+        data_types = params.getall('type', default=[])
+        select = util.param(params, 'select')
 
         if select:
             try:
                 select = Select(select)
             except ValueError:
-                raise falcon.HTTPInvalidParam(
-                    param_name='select',
-                    msg=f'Valid values are: {[m.value for m in Select]}',
+                raise aiohttp.web.HTTPBadRequest(
+                    reason='Invalid parameter',
+                    text=(
+                        'The value of the parameter select must be a one of '
+                        f'{[m.value for m in Select]}'
+                    ),
                 )
 
-        if data_types is None:
-            data_types = []
-
         if not component_version and not select:
-            raise falcon.HTTPBadRequest(description="One of 'version' and 'select' must be given.")
+            raise aiohttp.web.HTTPBadRequest(text='One of "version" and "select" must be given.')
 
         if component_version and select and select is Select.GREATEST:
-            raise falcon.HTTPBadRequest(
-                description=f"'select' must not be '{Select.GREATEST.value}' if 'version' is given"
+            raise aiohttp.web.HTTPBadRequest(
+                text=f'"select" must not be "{Select.GREATEST.value}" if "version" is given',
             )
 
         if select is Select.GREATEST:
-            component_version = greatest_component_version(
+            component_version = await greatest_component_version(
                 component_name=component_name,
-                version_lookup=self.version_lookup,
+                version_lookup=version_lookup,
                 version_filter=version_filter,
-                invalid_semver_ok=self._invalid_semver_ok,
+                invalid_semver_ok=invalid_semver_ok,
             )
 
-        session: ss.Session = req.context.db_session
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         if component_version:
-            query = self._metadata_query_for_version(
-                session=session,
+            db_statement = self._metadata_query_for_version(
                 metadata_types=data_types,
                 component_version=component_version,
                 component_name=component_name,
             )
         else:
-            query = self._latest_metadata_query(
-                session=session,
+            db_statement = self._latest_metadata_query(
                 metadata_types=data_types,
                 component_version=component_version,
                 component_name=component_name,
             )
 
-        query_results = query.all()
+        db_stream = await db_session.stream(db_statement)
 
-        results = [
-            deliverydb.util.db_artefact_metadata_to_dict(
-                artefact_metadata=artefact_metadata,
-            )
-            for artefact_metadata in query_results
-        ]
-
-        resp.media = results
+        return aiohttp.web.json_response(
+            data=[
+                deliverydb.util.db_artefact_metadata_to_dict(result)
+                async for partition in db_stream.partitions(size=50)
+                for result in partition
+            ],
+            dumps=util.dict_to_json_factory,
+        )

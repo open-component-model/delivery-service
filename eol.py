@@ -1,11 +1,13 @@
 import datetime
 
-import cachetools
+import aiohttp
+import aiohttp.client_exceptions
 import dateutil.parser
-import requests
 
 import ci.util
 import delivery.model as dm
+
+import caching
 
 
 def normalise_os_id(os_id: str) -> str:
@@ -99,15 +101,16 @@ class EolClient:
         routes: EolRoutes = EolRoutes(),
     ):
         self._routes = routes
+        self.session = aiohttp.ClientSession()
 
-    @cachetools.cached(cachetools.TTLCache(maxsize=1, ttl=60 * 60 * 24)) # 24h
-    def all_products(self) -> list[str]:
-        res = requests.get(url=self._routes.all_products())
-        res.raise_for_status()
-        return res.json()
+    @caching.async_cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=1)) # 24h
+    async def all_products(self) -> list[str]:
+        async with self.session.get(url=self._routes.all_products()) as res:
+            res.raise_for_status()
+            return await res.json()
 
-    @cachetools.cached(cachetools.TTLCache(maxsize=200, ttl=60 * 60 * 24)) # 24h
-    def cycles(
+    @caching.async_cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200)) # 24h
+    async def cycles(
         self,
         product: str,
         absent_ok: bool = False,
@@ -116,27 +119,22 @@ class EolClient:
         Returns release_cycles as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
         '''
-        res = requests.get(
-            url=self._routes.cycles(
-                product=product,
-            )
-        )
+        async with self.session.get(url=self._routes.cycles(product)) as res:
+            try:
+                res.raise_for_status()
+            except aiohttp.client_exceptions.ClientResponseError as e:
+                if not absent_ok:
+                    raise
 
-        try:
-            res.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            if not absent_ok:
+                if e.status == 404:
+                    return None
+
                 raise
 
-            if e.response.status_code == 404:
-                return None
+            return await res.json()
 
-            raise
-
-        return res.json()
-
-    @cachetools.cached(cachetools.TTLCache(maxsize=200, ttl=60 * 60 * 24)) # 24h
-    def cycle(
+    @caching.async_cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200)) # 24h
+    async def cycle(
         self,
         product: str,
         cycle: str,
@@ -146,21 +144,16 @@ class EolClient:
         Returns single release_cycle as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
         '''
-        res = requests.get(
-            url=self._routes.cycle(
-                product=product,
-                cycle=cycle,
-            ),
-        )
-        try:
-            res.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            if not absent_ok:
+        async with self.session.get(url=self._routes.cycle(cycle, product)) as res:
+            try:
+                res.raise_for_status()
+            except aiohttp.client_exceptions.ClientResponseError as e:
+                if not absent_ok:
+                    raise
+
+                if e.status == 404:
+                    return None
+
                 raise
 
-            if e.response.status_code == 404:
-                return None
-
-            raise
-
-        return res.json()
+            return await res.json()

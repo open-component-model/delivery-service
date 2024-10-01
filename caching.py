@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 import datetime
 import hashlib
 import os
@@ -17,12 +18,12 @@ class FilesystemCache:
     Base class which implements a basic filesytem cache using pickle. This implementation does _not_
     take care of clearing the cache, e.g. if it reaches a certain size.
     '''
-    def __get_item__(self, filepath: str):
+    def __getitem__(self, filepath: str):
         if os.path.exists(filepath):
             return pickle.load(open(filepath, 'rb'))
         raise self.__missing__(filepath)
 
-    def __set_item__(self, filepath: str, value):
+    def __setitem__(self, filepath: str, value):
         cache_dir = os.path.dirname(filepath)
         if not os.path.isdir(cache_dir):
             os.makedirs(name=cache_dir, exist_ok=True)
@@ -52,8 +53,8 @@ class LFUFilesystemCache(FilesystemCache):
         self._item_sizes_lock = threading.Lock()
         self._ref_counters_lock = threading.Lock()
 
-    def __get_item__(self, filepath: str):
-        item = super().__get_item__(filepath)
+    def __getitem__(self, filepath: str):
+        item = super().__getitem__(filepath)
 
         if self._max_total_size:
             with self._ref_counters_lock:
@@ -61,9 +62,9 @@ class LFUFilesystemCache(FilesystemCache):
 
         return item
 
-    def __set_item__(self, filepath: str, value):
+    def __setitem__(self, filepath: str, value):
         if not self._max_total_size:
-            return super().__set_item__(filepath, value)
+            return super().__setitem__(filepath, value)
 
         cache_dir = os.path.dirname(filepath)
         if not os.path.isdir(cache_dir):
@@ -91,7 +92,7 @@ class LFUFilesystemCache(FilesystemCache):
         with self._ref_counters_lock:
             ((filepath, _),) = self._ref_counters.most_common(1)
 
-        value = self.__get_item__(filepath)
+        value = self.__getitem__(filepath)
         try:
             os.remove(filepath)
         except OSError:
@@ -121,18 +122,18 @@ class TTLFilesystemCache(LFUFilesystemCache):
         super().__init__(max_total_size_mib)
         self._ttl = ttl
 
-    def __get_item__(self, filepath: str):
+    def __getitem__(self, filepath: str):
         if os.path.exists(filepath):
             modified_on = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
             age_seconds = datetime.datetime.now() - modified_on
 
             if age_seconds.total_seconds() < self._ttl:
-                return super().__get_item__(filepath)
+                return super().__getitem__(filepath)
 
         return self.__missing__(filepath)
 
-    def __set_item__(self, filepath: str, value):
-        super().__set_item__(filepath, value)
+    def __setitem__(self, filepath: str, value):
+        super().__setitem__(filepath, value)
 
 
 def cached(
@@ -152,12 +153,43 @@ def cached(
             filepath = os.path.join(cache_dir, key.hexdigest())
 
             try:
-                return cache.__get_item__(filepath)
+                return cache[filepath]
             except KeyError:
                 pass
 
             result = func(*args, **kwargs)
-            cache.__set_item__(filepath, result)
+            cache[filepath] = result
+
+            return result
+
+        return wrapper
+    return decorator
+
+
+def async_cached(
+    cache: FilesystemCache,
+    key_func: collections.abc.Callable=cachetools.keys.hashkey,
+    cache_dir: str=default_cache_dir,
+):
+    '''
+    Decorator to wrap an async function with a callable that saves results to a defined
+    `FilesystemCache`.
+    '''
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            key = hashlib.sha1()
+            for key_part in key_func(*args, **kwargs):
+                key.update(str(key_part).encode('utf-8'))
+
+            filepath = os.path.join(cache_dir, key.hexdigest())
+
+            try:
+                return cache[filepath]
+            except KeyError:
+                pass
+
+            result = await func(*args, **kwargs)
+            cache[filepath] = result
 
             return result
 

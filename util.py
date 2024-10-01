@@ -8,7 +8,6 @@ import logging
 import urllib.parse
 
 import aiohttp.web
-import falcon
 
 import cnudie.iter
 import cnudie.retrieve
@@ -22,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 @middleware.auth.noauth
-class Ready:
-    def on_get(self, req, resp: falcon.Response):
-        resp.status = falcon.HTTP_200
+class Ready(aiohttp.web.View):
+    async def get(self):
+        return aiohttp.web.Response()
 
 
 @functools.cache
@@ -79,25 +78,25 @@ def dict_to_json_factory(data: dict) -> str:
     return json.dumps(convert_value(data))
 
 
-def retrieve_component_descriptor(
+async def retrieve_component_descriptor(
     component_id: ocm.ComponentIdentity,
     /,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
 ) -> ocm.ComponentDescriptor:
     try:
-        return component_descriptor_lookup(
+        return await component_descriptor_lookup(
             component_id,
             ctx_repo=ocm_repo,
         )
-    except om.OciImageNotFoundException as e:
-        err_str = f'component descriptor "{component_id.name}" in version "' \
-        f'{component_id.version}" not found in {ocm_repo=}'
+    except om.OciImageNotFoundException:
+        err_str = f'Component descriptor "{component_id.name}" in version "' \
+        f'{component_id.version}" not found in {ocm_repo=}.'
         logger.debug(err_str)
-        raise falcon.HTTPNotFound(
-            title='component descriptor not found',
-            description=err_str,
-        ) from e
+        raise aiohttp.web.HTTPNotFound(
+            reason='Component descriptor not found',
+            text=err_str,
+        )
 
 
 def artefact_node_to_str(
@@ -120,10 +119,12 @@ def get_enum_value_or_raise(
     try:
         return enum_type(value)
     except ValueError:
-        raise falcon.HTTPBadRequest(title=(
-            f'bad value for {enum_type=}: {value=}. '
-            f'allowed values: {[val.value for val in enum_type]}'
-        ))
+        raise aiohttp.web.HTTPBadRequest(
+            text=(
+                f'Bad value for {enum_type=}: {value=}. '
+                f'Allowed values: {[val.value for val in enum_type]}'
+            ),
+        )
 
 
 def param(

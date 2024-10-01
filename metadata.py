@@ -1,23 +1,23 @@
 import collections.abc
 import dataclasses
 import datetime
+import http
 
+import aiohttp.web
 import dacite
-import falcon
-import falcon.media.validators.jsonschema
 import sqlalchemy as sa
-import sqlalchemy.orm.session as ss
+import sqlalchemy.ext.asyncio as sqlasync
 
 import ci.util
-import cnudie.retrieve
 import dso.model
 import ocm
 
 import compliance_summary as cs
+import consts
 import deliverydb.model as dm
 import deliverydb.util as du
-import eol
 import features
+import util
 
 
 types_with_reusable_discovery_dates = (
@@ -27,20 +27,13 @@ types_with_reusable_discovery_dates = (
 )
 
 
-class ArtefactMetadata:
+class ArtefactMetadataQuery(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
-    def __init__(
-        self,
-        eol_client: eol.EolClient,
-        artefact_metadata_cfg_by_type: dict,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ):
-        self.eol_client = eol_client
-        self.artefact_metadata_cfg_by_type = artefact_metadata_cfg_by_type
-        self.component_descriptor_lookup = component_descriptor_lookup
+    async def options(self):
+        return aiohttp.web.Response()
 
-    def on_post_query(self, req: falcon.Request, resp: falcon.Response):
+    async def post(self):
         '''
         query artefact-metadata from delivery-db and mix-in existing rescorings
 
@@ -67,22 +60,16 @@ class ArtefactMetadata:
                     - artefact_type: <str> \n
                     - artefact_extra_id: <object> \n
         '''
-        body = req.context.media
+        artefact_metadata_cfg_by_type = self.request.app[consts.APP_ARTEFACT_METADATA_CFG]
+        component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
+        eol_client = self.request.app[consts.APP_EOL_CLIENT]
+        params = self.request.rel_url.query
+
+        body = await self.request.json()
         entries: list[dict] = body.get('entries', [])
 
-        # TODO: remove once all clients have been adjusted to use `entries` instead of `components`
-        if not entries and (components := body.get('components')):
-            entries = tuple(
-                {
-                    'component_name': component.get('componentName'),
-                    'component_version': component.get('componentVersion'),
-                } for component in components
-            )
-
-        type_filter = req.get_param_as_list('type', required=False)
-        referenced_type_filter = req.get_param_as_list('referenced_type', required=False)
-
-        session: ss.Session = req.context.db_session
+        type_filter = params.getall('type', [])
+        referenced_type_filter = params.getall('referenced_type', [])
 
         artefact_refs = [
             dacite.from_dict(
@@ -94,20 +81,21 @@ class ArtefactMetadata:
             ) for entry in entries
         ]
 
-        def artefact_queries(artefact_ref: dso.model.ComponentArtefactId):
+        async def artefact_queries(artefact_ref: dso.model.ComponentArtefactId):
             # when filtering for metadata of type `rescorings`, entries without a component
             # name or version should also be considered a "match" (caused by different rescoring
             # scopes)
             none_ok = not type_filter or dso.model.Datatype.RESCORING in type_filter
 
-            yield from du.ArtefactMetadataQueries.component_queries(
+            async for query in du.ArtefactMetadataQueries.component_queries(
                 components=[ocm.ComponentIdentity(
                     name=artefact_ref.component_name,
                     version=artefact_ref.component_version,
                 )],
                 none_ok=none_ok,
-                component_descriptor_lookup=self.component_descriptor_lookup,
-            )
+                component_descriptor_lookup=component_descriptor_lookup,
+            ):
+                yield query
 
             if not artefact_ref.artefact:
                 return
@@ -148,43 +136,36 @@ class ArtefactMetadata:
                     dm.ArtefactMetaData.artefact_extra_id_normalised == artefact_extra_id,
                 )
 
-        def artefact_refs_queries(artefact_refs: list[dso.model.ComponentArtefactId]):
+        async def artefact_refs_queries(artefact_refs: list[dso.model.ComponentArtefactId]):
             for artefact_ref in artefact_refs:
-                yield sa.and_(
-                    artefact_queries(artefact_ref=artefact_ref),
-                )
+                yield sa.and_(*[
+                    query async for query
+                    in artefact_queries(artefact_ref=artefact_ref)
+                ])
 
-        findings_query = session.query(dm.ArtefactMetaData)
+        db_statement = sa.select(dm.ArtefactMetaData)
 
         if type_filter:
-            findings_query = findings_query.filter(
+            db_statement = db_statement.where(
                 dm.ArtefactMetaData.type.in_(type_filter),
             )
 
         if referenced_type_filter:
-            findings_query = findings_query.filter(
-                sa.and_(
-                    dm.ArtefactMetaData.referenced_type.in_(referenced_type_filter),
-                ),
+            db_statement = db_statement.where(
+                dm.ArtefactMetaData.referenced_type.in_(referenced_type_filter),
             )
 
         if artefact_refs:
-            findings_query = findings_query.filter(
-                sa.or_(
-                    artefact_refs_queries(artefact_refs=artefact_refs),
-                ),
+            db_statement = db_statement.where(
+                sa.or_(*[
+                    query async for query
+                    in artefact_refs_queries(artefact_refs=artefact_refs)
+                ]),
             )
 
-        findings_raw = findings_query.all()
-        findings = [
-            du.db_artefact_metadata_to_dso(raw)
-            for raw in findings_raw
-        ]
-
-        def iter_findings(
-            findings: list[dso.model.ArtefactMetadata],
-            artefact_metadata_cfg_by_type: dict[str, cs.ArtefactMetadataCfg],
-        ) -> collections.abc.Generator[dict, None, None]:
+        async def serialise_and_enrich_finding(
+            finding: dso.model.ArtefactMetadata,
+        ) -> dict:
             def result_dict(
                 finding: dso.model.ArtefactMetadata,
                 meta: dict=None,
@@ -199,33 +180,39 @@ class ArtefactMetadata:
 
                 return finding_dict
 
-            for finding in findings:
-                cfg = artefact_metadata_cfg_by_type.get(finding.meta.type)
+            cfg = artefact_metadata_cfg_by_type.get(finding.meta.type)
 
-                if not cfg:
-                    yield result_dict(finding)
-                    continue
+            if not cfg:
+                return result_dict(finding)
 
-                severity = cs.severity_for_finding(
-                    finding=finding,
-                    artefact_metadata_cfg=cfg,
-                    eol_client=self.eol_client,
-                )
-                if not severity:
-                    yield result_dict(finding)
-                    continue
+            severity = await cs.severity_for_finding(
+                finding=finding,
+                artefact_metadata_cfg=cfg,
+                eol_client=eol_client,
+            )
+            if not severity:
+                return result_dict(finding)
 
-                yield result_dict(
-                    finding=finding,
-                    meta=dict(**dataclasses.asdict(finding.meta), severity=severity),
-                )
+            return result_dict(
+                finding=finding,
+                meta=dict(**dataclasses.asdict(finding.meta), severity=severity),
+            )
 
-        resp.media = list(iter_findings(
-            findings=findings,
-            artefact_metadata_cfg_by_type=self.artefact_metadata_cfg_by_type,
-        ))
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        db_stream = await db_session.stream(db_statement)
 
-    def on_put(self, req: falcon.Request, resp: falcon.Response):
+        return aiohttp.web.json_response(
+            data=[
+                await serialise_and_enrich_finding(du.db_artefact_metadata_row_to_dso(row))
+                async for partition in db_stream.partitions(size=50)
+                for row in partition
+            ],
+            dumps=util.dict_to_json_factory,
+        )
+
+
+class ArtefactMetadata(aiohttp.web.View):
+    async def put(self):
         '''
         update artefact-metadata in delivery-db
 
@@ -252,14 +239,11 @@ class ArtefactMetadata:
                 - data: <object> # schema depends on meta.type \n
                 - discovery_date: <str of format YYYY-MM-DD> \n
         '''
-        body = req.context.media
+        body = await self.request.json()
         entries: list[dict] = body.get('entries')
 
         if not entries:
-            resp.status = falcon.HTTP_OK
-            return
-
-        session: ss.Session = req.context.db_session
+            return aiohttp.web.Response()
 
         artefact_metadata = [
             dso.model.ArtefactMetadata.from_dict(_fill_default_values(entry))
@@ -286,11 +270,19 @@ class ArtefactMetadata:
                     ),
                 )
 
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        db_statement = sa.select(dm.ArtefactMetaData).where(
+            sa.or_(artefact_queries(artefacts=artefacts)),
+        )
+        db_stream = await db_session.stream(db_statement)
+
         # order entries to increase chances to find matching existing entry as soon as possible
         existing_entries = sorted(
-            session.query(dm.ArtefactMetaData).filter(
-                sa.or_(artefact_queries(artefacts=artefacts)),
-            ).all(),
+            [
+                entry[0]
+                async for partition in db_stream.partitions(size=50)
+                for entry in partition
+            ],
             key=lambda entry: entry.meta.get(
                 'last_update',
                 datetime.datetime.fromtimestamp(0, datetime.UTC).isoformat(),
@@ -387,7 +379,7 @@ class ArtefactMetadata:
                     if discovery_date:
                         metadata_entry.discovery_date = discovery_date
 
-                    session.add(metadata_entry)
+                    db_session.add(metadata_entry)
                     created_artefacts.append(metadata_entry)
                     continue
 
@@ -401,14 +393,16 @@ class ArtefactMetadata:
                     last_update=metadata_entry.meta['last_update'],
                 )
 
-            session.commit()
+            await db_session.commit()
         except:
-            session.rollback()
+            await db_session.rollback()
             raise
 
-        resp.status = falcon.HTTP_CREATED
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.CREATED,
+        )
 
-    def on_delete(self, req: falcon.Request, resp: falcon.Response):
+    async def delete(self):
         '''
         delete artefact-metadata from delivery-db
 
@@ -429,10 +423,10 @@ class ArtefactMetadata:
                 - data: <object> # schema depends on meta.type \n
                 - discovery_date: <str of format YYYY-MM-DD> \n
         '''
-        body = req.context.media
+        body = await self.request.json()
         entries: list[dict] = body.get('entries')
 
-        session: ss.Session = req.context.db_session
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         try:
             for entry in entries:
@@ -442,16 +436,18 @@ class ArtefactMetadata:
                     artefact_metadata=dso.model.ArtefactMetadata.from_dict(entry),
                 )
 
-                session.query(dm.ArtefactMetaData).filter(
-                    du.ArtefactMetadataFilters.by_single_scan_result(artefact_metadata)
-                ).delete()
+                await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
+                    du.ArtefactMetadataFilters.by_single_scan_result(artefact_metadata),
+                ))
 
-                session.commit()
+            await db_session.commit()
         except:
-            session.rollback()
+            await db_session.rollback()
             raise
 
-        resp.status = falcon.HTTP_NO_CONTENT
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.NO_CONTENT,
+        )
 
 
 def reuse_discovery_date_if_possible(

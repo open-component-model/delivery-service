@@ -15,7 +15,7 @@ ci.log.configure_default_logging(stdout_level=logging.ERROR)
 
 @pytest.fixture()
 def eol_client():
-    def cycles(
+    async def cycles(
         product: str,
         absent_ok: bool = False,
     ):
@@ -96,14 +96,15 @@ def component_artefact_id() -> dso.model.ComponentArtefactId:
     )
 
 
-def test_vulnerability(component_artefact_id):
+@pytest.mark.asyncio
+async def test_vulnerability(component_artefact_id):
     type = 'finding/vulnerability'
     meta = dso.model.Metadata(
         datasource=None,
         type=type,
     )
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -123,7 +124,7 @@ def test_vulnerability(component_artefact_id):
         ),
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -144,14 +145,15 @@ def test_vulnerability(component_artefact_id):
     ) == cs.ComplianceEntrySeverity.CRITICAL.name
 
 
-def test_malware(component_artefact_id):
+@pytest.mark.asyncio
+async def test_malware(component_artefact_id):
     type = 'finding/malware'
     meta = dso.model.Metadata(
         datasource=None,
         type=type,
     )
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -172,7 +174,7 @@ def test_malware(component_artefact_id):
         ),
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -194,7 +196,8 @@ def test_malware(component_artefact_id):
     ) == cs.ComplianceEntrySeverity.BLOCKER.name
 
 
-def test_os_id(
+@pytest.mark.asyncio
+async def test_os_id(
     eol_client,
     artefact_metadata_cfg_by_type,
     component_artefact_id,
@@ -205,7 +208,7 @@ def test_os_id(
         type=type,
     )
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -217,7 +220,7 @@ def test_os_id(
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.UNKNOWN.name
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -232,7 +235,7 @@ def test_os_id(
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.MEDIUM.name
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -247,7 +250,7 @@ def test_os_id(
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -262,7 +265,7 @@ def test_os_id(
         eol_client=eol_client,
     ) == cs.ComplianceEntrySeverity.CRITICAL.name
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -278,14 +281,15 @@ def test_os_id(
     ) == cs.ComplianceEntrySeverity.UNKNOWN.name
 
 
-def test_licenses(component_artefact_id):
+@pytest.mark.asyncio
+async def test_licenses(component_artefact_id):
     type = 'finding/license'
     meta = dso.model.Metadata(
         datasource=None,
         type=type,
     )
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
@@ -302,7 +306,7 @@ def test_licenses(component_artefact_id):
         ),
     ) == cs.ComplianceEntrySeverity.CLEAN.name
 
-    assert cs.severity_for_finding(
+    assert await cs.severity_for_finding(
         finding=dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,

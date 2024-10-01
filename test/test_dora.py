@@ -27,9 +27,10 @@ versions_lookup_mockup = lookup_mocks.versions_lookup_mockup_factory(
 )
 
 
-def test_get_next_older_descriptor():
+@pytest.mark.asyncio
+async def test_get_next_older_descriptor():
 
-    next_older_descriptor = dora.get_next_older_descriptor(
+    next_older_descriptor = await dora.get_next_older_descriptor(
         ocm.ComponentIdentity(
             "TestComponent_1",
             "v2.0.0",
@@ -44,7 +45,7 @@ def test_get_next_older_descriptor():
     )
 
     # if there is no older version
-    next_older_descriptor = dora.get_next_older_descriptor(
+    next_older_descriptor = await dora.get_next_older_descriptor(
         ocm.ComponentIdentity(
             name="TestComponent_1",
             version="v1.0.0",
@@ -56,7 +57,7 @@ def test_get_next_older_descriptor():
 
     # if there input version does not exist
     with pytest.raises(ValueError):
-        dora.get_next_older_descriptor(
+        await dora.get_next_older_descriptor(
             ocm.ComponentIdentity(
                 "TestComponent_1",
                 "v1.0942.0",

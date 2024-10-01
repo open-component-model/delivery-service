@@ -6,22 +6,21 @@ import functools
 import logging
 import urllib.parse
 
+import aiohttp
 import aiohttp.typedefs
 import aiohttp.web
-import falcon
 import jsonschema
 import jsonschema.exceptions
 import jwt
-import requests
 import yaml
 
 import ci.util
+import consts
 import delivery.jwt
 import model
 import model.delivery
 import model.github
 
-import ctx_util
 import paths
 
 
@@ -69,23 +68,27 @@ class GithubApi:
     def __init__(self, routes: GithubRoutes, oauth_token: str):
         self._routes = routes
         self._oauth_token = oauth_token
+        self.session = aiohttp.ClientSession()
 
-    def _get(self, *args, **kwargs):
+    async def _get(self, *args, **kwargs):
         if 'headers' not in kwargs:
             kwargs['headers'] = {}
         headers = kwargs['headers']
         headers['Authorization'] = f'token {self._oauth_token}'
 
-        res = requests.get(*args, **kwargs)
-        res.raise_for_status()
+        async with self.session.get(*args, **kwargs) as res:
+            res.raise_for_status()
 
-        return res
+            return await res.json()
 
-    def current_user(self):
-        return self._get(self._routes.current_user()).json()
+    async def current_user(self):
+        return await self._get(self._routes.current_user())
 
-    def current_user_teams(self):
-        return self._get(self._routes.current_user_teams()).json()
+    async def current_user_teams(self):
+        return await self._get(self._routes.current_user_teams())
+
+    async def close_connection(self):
+        await self.session.close()
 
 
 class AuthType(enum.Enum):
@@ -121,41 +124,36 @@ def _roles_dict():
     return yaml.safe_load(open(paths.roles_path, 'rb'))['roles']
 
 
+def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication':
+    # Use this function instead of feature checking middleware to prevent
+    # circular module imports between middleware.auth.py and features.py
+    import features
+    feature_authentication = features.get_feature(features.FeatureAuthentication)
+
+    if feature_authentication.state == features.FeatureStates.AVAILABLE:
+        return feature_authentication
+
+    import util
+    raise aiohttp.web.HTTPBadRequest(
+        reason='Feature is inactive',
+        text=util.dict_to_json_factory({
+            'error_id': 'feature-inactive',
+            'missing_features': [feature_authentication.name],
+        }),
+        content_type='application/json',
+    )
+
+
 @noauth
-class OAuth:
-    def __init__(
-        self,
-        base_url: str,
-        delivery_cfg: str,
-    ):
-        self.base_url = base_url
-        self.delivery_cfg = delivery_cfg
-
-    def check_if_oauth_feature_available(self, resp: falcon.Response):
-        # Use this function instead of feature checking middleware to prevent
-        # circular module imports between middleware.auth.py and features.py
-        import features
-        feature_authentication = features.get_feature(features.FeatureAuthentication)
-
-        if feature_authentication.state == features.FeatureStates.AVAILABLE:
-            return (resp, feature_authentication)
-        else:
-            resp.complete = True
-            resp.status = 400
-            resp.media = {
-                'error_id': 'feature-inactive',
-                'missing_features': [feature_authentication.name]
-            }
-            return (resp, None)
-
-    def on_get_cfgs(self, req: falcon.Request, resp: falcon.Response):
-        def oauth_cfg_to_dict(oauth_cfg):
-            cfg_factory = ctx_util.cfg_factory()
+class OAuthCfgs(aiohttp.web.View):
+    async def get(self):
+        def oauth_cfg_to_dict(oauth_cfg: model.delivery.OAuth):
+            cfg_factory = self.request.app[consts.APP_CFG_FACTORY]
             github_cfg = cfg_factory.github(oauth_cfg.github_cfg())
             github_host = urllib.parse.urlparse(github_cfg.api_url()).hostname.lower()
 
             redirect_uri = ci.util.urljoin(
-                self.base_url,
+                self.request.app[consts.APP_BASE_URL],
                 'auth',
             ) + '?' + urllib.parse.urlencode({
                 'client_id': oauth_cfg.client_id(),
@@ -179,38 +177,39 @@ class OAuth:
                 'oauth_url_with_redirect': oauth_url,
             }
 
-        resp, feature_authentication = self.check_if_oauth_feature_available(resp)
+        feature_authentication = _check_if_oauth_feature_available()
 
-        if not feature_authentication:
-            return
+        return aiohttp.web.json_response(
+            data=[
+                oauth_cfg_to_dict(oauth_cfg)
+                for oauth_cfg in feature_authentication.oauth_cfgs
+            ],
+        )
 
-        resp.media = [
-            oauth_cfg_to_dict(oauth_cfg)
-            for oauth_cfg in feature_authentication.oauth_cfgs
-        ]
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        resp, feature_authentication = self.check_if_oauth_feature_available(resp)
+@noauth
+class OAuthLogin(aiohttp.web.View):
+    async def get(self):
+        feature_authentication = _check_if_oauth_feature_available()
 
-        if not feature_authentication:
-            return
-
-        code = req.params.get('code')
-        client_id = req.params.get('client_id')
-        access_token = req.params.get('access_token')
-        api_url = req.params.get('api_url')
+        import util
+        params = self.request.rel_url.query
+        code = util.param(params, 'code')
+        client_id = util.param(params, 'client_id')
+        access_token = util.param(params, 'access_token')
+        api_url = util.param(params, 'api_url')
 
         if not ((access_token and api_url) or (client_id and code)):
-            resp.set_header(
-                name='WWW-Authenticate',
-                value=(
-                    'Add either the url query params "code" and "client_id" '
-                    'or a valid "access_token" with a github "api_url"'
-                ),
+            raise aiohttp.web.HTTPUnauthorized(
+                headers={
+                    'WWW-Authenticate': (
+                        'Add either the url query params "code" and "client_id" '
+                        'or a valid "access_token" with a github "api_url"'
+                    ),
+                },
             )
-            raise falcon.HTTPUnauthorized
 
-        cfg_factory = ctx_util.cfg_factory()
+        cfg_factory = self.request.app[consts.APP_CFG_FACTORY]
 
         if not access_token:
             for oauth_cfg in feature_authentication.oauth_cfgs:
@@ -220,11 +219,13 @@ class OAuth:
                 client_ids = [
                     oauth_cfg.client_id() for oauth_cfg in feature_authentication.oauth_cfgs
                 ]
-                resp.set_header(
-                    name='WWW-Authenticate',
-                    value=f'no such client: {client_id}; available clients: {client_ids}',
+                raise aiohttp.web.HTTPUnauthorized(
+                    headers={
+                        'WWW-Authenticate': (
+                            f'no such client: {client_id}; available clients: {client_ids}'
+                        ),
+                    },
                 )
-                raise falcon.HTTPUnauthorized
 
             # exchange code for bearer token
             github_oauth_url = oauth_cfg.token_url() + '?' + \
@@ -234,16 +235,17 @@ class OAuth:
                     'code': code,
                 })
 
-            res = requests.post(url=github_oauth_url)
-            res.raise_for_status()
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url=github_oauth_url) as res:
+                    res.raise_for_status()
 
-            parsed = urllib.parse.parse_qs(res.text)
+                    parsed = urllib.parse.parse_qs(await res.text())
 
             access_token = parsed.get('access_token')
 
             if not access_token:
-                raise falcon.HTTPInternalServerError(
-                    description=f'GitHub api did not return an access token. {parsed}',
+                raise aiohttp.web.HTTPInternalServerError(
+                    text=f'GitHub api did not return an access token. {parsed}',
                 )
 
             access_token = access_token[0]
@@ -257,7 +259,7 @@ class OAuth:
             ]
 
             if api_url not in api_urls:
-                raise falcon.HTTPUnauthorized
+                raise aiohttp.web.HTTPUnauthorized
 
         gh_routes = GithubRoutes(api_url=api_url)
         gh_api = GithubApi(
@@ -268,20 +270,24 @@ class OAuth:
         github_host = urllib.parse.urlparse(api_url).hostname.lower()
 
         try:
-            user = gh_api.current_user()
+            user = await gh_api.current_user()
             team_names = [
                 '/'.join((github_host, t['organization']['login'], t['name']))
-                for t in gh_api.current_user_teams()
+                for t in await gh_api.current_user_teams()
             ]
         except Exception as e:
             logger.warning(f'failed to retrieve user info for {api_url=}: {e}')
-            raise falcon.HTTPUnauthorized
+            raise aiohttp.web.HTTPUnauthorized
+        finally:
+            await gh_api.close_connection()
 
-        delivery_cfg = ctx_util.cfg_factory().delivery(self.delivery_cfg)
+        delivery_cfg = cfg_factory.delivery(self.request.app[consts.APP_DELIVERY_CFG])
         signing_cfgs: list[model.delivery.SigningCfg] = list(delivery_cfg.service().signing_cfgs())
 
         if not signing_cfgs:
-            raise falcon.HTTPInternalServerError('could not retrieve matching signing cfgs')
+            raise aiohttp.web.HTTPInternalServerError(
+                text='could not retrieve matching signing cfgs',
+            )
 
         # prefer asymmetric signing algorithms before symmetric ones (which don't have a public key)
         signing_cfgs = sorted(
@@ -296,7 +302,7 @@ class OAuth:
         token = {
             'version': 'v1',
             'sub': user['login'],
-            'iss': self.base_url,
+            'iss': self.request.app[consts.APP_BASE_URL],
             'iat': int(now.timestamp()),
             'github_oAuth': {
                 'host': github_host,
@@ -307,75 +313,83 @@ class OAuth:
             'key_id': signing_cfg.id(),
         }
 
-        resp.set_cookie(
+        response = aiohttp.web.json_response(
+            data=token,
+        )
+
+        response.set_cookie(
             name=delivery.jwt.JWT_KEY,
             value=jwt.encode(
                 token,
                 signing_cfg.secret(),
                 algorithm=signing_cfg.algorithm(),
             ),
-            http_only=True,
-            same_site='Lax',
-            max_age=int(time_delta.total_seconds())
+            httponly=True,
+            samesite='Lax',
+            max_age=int(time_delta.total_seconds()),
         )
 
-        resp.media = token
-
-    def on_get_logout(self, req: falcon.Request, resp: falcon.Response):
-        resp, feature_authentication = self.check_if_oauth_feature_available(resp)
-
-        if not feature_authentication:
-            return
-
-        resp.unset_cookie(name=delivery.jwt.JWT_KEY, path='/')
+        return response
 
 
 @noauth
-class OpenID:
+class OAuthLogout(aiohttp.web.View):
+    async def get(self):
+        _check_if_oauth_feature_available()
+
+        response = aiohttp.web.Response()
+        response.del_cookie(name=delivery.jwt.JWT_KEY, path='/')
+
+        return response
+
+
+@noauth
+class OpenIDCfg(aiohttp.web.View):
     '''
     Implements authentication flow according to OpenID specification (see
     https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
     for reference).
     '''
-    def __init__(
-        self,
-        base_url: str,
-        delivery_cfg: str,
-    ):
-        self.base_url = base_url
-        self.delivery_cfg = delivery_cfg
+    async def get(self):
+        base_url = self.request.app[consts.APP_BASE_URL]
 
-    def on_get_configuration(self, req: falcon.Request, resp: falcon.Response):
-        resp.media = {
-            'issuer': self.base_url,
-            'jwks_uri': f'{self.base_url}/openid/v1/jwks',
-            'response_types_supported': [
-                'id_token',
-            ],
-            'subject_types_supported': [
-                'public',
-            ],
-            'id_token_signing_alg_values_supported': [
-                algorithm for algorithm in delivery.jwt.Algorithm
-            ],
-        }
+        return aiohttp.web.json_response(
+            data={
+                'issuer': base_url,
+                'jwks_uri': f'{base_url}/openid/v1/jwks',
+                'response_types_supported': [
+                    'id_token',
+                ],
+                'subject_types_supported': [
+                    'public',
+                ],
+                'id_token_signing_alg_values_supported': [
+                    algorithm for algorithm in delivery.jwt.Algorithm
+                ],
+            },
+        )
 
-    def on_get_jwks(self, req: falcon.Request, resp: falcon.Response):
-        cfg_factory = ctx_util.cfg_factory()
 
-        delivery_cfg = cfg_factory.delivery(self.delivery_cfg)
+@noauth
+class OpenIDJwks(aiohttp.web.View):
+    async def get(self):
+        cfg_factory = self.request.app[consts.APP_CFG_FACTORY]
+        delivery_cfg = cfg_factory.delivery(self.request.app[consts.APP_DELIVERY_CFG])
         signing_cfgs: tuple[model.delivery.SigningCfg] = tuple(
             delivery_cfg.service().signing_cfgs()
         )
 
-        resp.media = {
-            'keys': [
-                delivery.jwt.JSONWebKey.from_signing_cfg(signing_cfg)
-                for signing_cfg in signing_cfgs
-                if signing_cfg.public_key()
-            ],
-        }
-
+        import util
+        return aiohttp.web.json_response(
+            data={
+                'keys': [
+                    delivery.jwt.JSONWebKey.from_signing_cfg(signing_cfg)
+                    for signing_cfg in signing_cfgs
+                    if signing_cfg.public_key()
+                ],
+            },
+            dumps=util.dict_to_json_factory,
+        )
 
 
 def auth_middleware(
