@@ -870,7 +870,7 @@ def watch_for_file_changes(
         logger.warning('Feature config not found')
 
 
-def init_features(
+async def init_features(
     parsed_arguments,
     cfg_factory,
 ) -> list[any]:
@@ -907,7 +907,7 @@ def init_features(
             logger.warning('Delivery database config not found')
 
     if delivery_db_feature_state is FeatureStates.AVAILABLE:
-        middlewares.append(middleware.db_session.DBSessionLifecycle(
+        middlewares.append(await middleware.db_session.db_session_middleware(
             db_url=db_url,
             verify_db_session=False,
         ))
