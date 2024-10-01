@@ -1,22 +1,17 @@
 import json
 import zlib
 
-import falcon
+import aiohttp.web
 
 import oci.model
 import ocm
 
+import consts
+import util
 
-class ArtefactBlob:
-    def __init__(
-        self,
-        component_descriptor_lookup,
-        oci_client,
-    ):
-        self.component_descriptor_lookup = component_descriptor_lookup
-        self.oci_client = oci_client
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
+class ArtefactBlob(aiohttp.web.View):
+    async def get(self):
         '''
         returns a requested artefact (from a OCM Component) as an octet-stream. This route is
         limited to artefacts with `localBlob` as access-type.
@@ -36,17 +31,13 @@ class ArtefactBlob:
 
         If artefact is not specified unambiguously, the first match will be used.
         '''
-        component_id = req.get_param(
-            'component',
-            required=True,
-        )
-        if component_id.count(':') != 1:
-            raise falcon.HTTPBadRequest(title='malformed component-id')
+        params = self.request.rel_url.query
 
-        artefact = req.get_param(
-            'artefact',
-            required=True,
-        ).strip()
+        component_id = util.param(params, 'component', required=True)
+        if component_id.count(':') != 1:
+            raise aiohttp.web.HTTPBadRequest(text='Malformed component-id')
+
+        artefact = util.param(params, 'artefact', required=True).strip()
         if artefact.startswith('{'):
             artefact = json.loads(artefact)
 
@@ -54,22 +45,27 @@ class ArtefactBlob:
             artefact_name = artefact.pop('name', None)
             artefact_version = artefact.pop('version', None)
         elif artefact.startswith('['):
-            raise falcon.HTTPBadRequest(title='bad artefact: either name or json-object is allowed')
+            raise aiohttp.web.HTTPBadRequest(
+                text='Bad artefact: Either name or json-object is allowed',
+            )
         else:
             artefact_name = artefact
             artefact = {}
             artefact_version = None
 
-        ocm_repository = req.get_param('ocm_repository')
-        unzip = req.get_param_as_bool('unzip', default=True)
+        ocm_repository = util.param(params, 'ocm_repository')
+        unzip = util.param_as_bool(params, 'unzip', default=True)
+
+        component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
 
         try:
-            component = self.component_descriptor_lookup(
+            component_descriptor = await component_descriptor_lookup(
                 component_id,
                 ocm_repository,
-            ).component
+            )
+            component = component_descriptor.component
         except oci.model.OciImageNotFoundException:
-            raise falcon.HTTPBadRequest(title=f'did not find {component_id=}')
+            raise aiohttp.web.HTTPBadRequest(text=f'Did not find {component_id=}')
 
         def matches(a: ocm.Artifact):
             if artefact_name and artefact_name != a.name:
@@ -87,26 +83,21 @@ class ArtefactBlob:
             if matches(a):
                 break
         else:
-            raise falcon.HTTPBadRequest('did not find requested artefact')
+            raise aiohttp.web.HTTPBadRequest(text='Did not find requested artefact')
 
         artefact = a
         access = artefact.access
 
         if not isinstance(access, ocm.LocalBlobAccess):
-            raise falcon.HTTPBadRequest(
-                f'{artefact.name=} has {access.type=}; only localBlobAccess is supported',
+            raise aiohttp.web.HTTPBadRequest(
+                text=f'{artefact.name=} has {access.type=}; only localBlobAccess is supported',
             )
 
         access: ocm.LocalBlobAccess
+        digest = access.globalAccess.digest if access.globalAccess else access.localReference
 
-        if access.globalAccess:
-            digest = access.globalAccess.digest
-            size = access.globalAccess.size
-        else:
-            digest = access.localReference
-            size = access.size
-
-        blob = self.oci_client.blob(
+        oci_client = self.request.app[consts.APP_OCI_CLIENT]
+        blob = await oci_client.blob(
             image_reference=component.current_ocm_repo.component_oci_ref(component),
             digest=digest,
             absent_ok=True,
@@ -123,21 +114,30 @@ class ArtefactBlob:
 
         fname = f'{component.name}_{component.version}_{artefact.name}{file_ending}'
 
-        # required to allow download from delivery-dashboard (CORS):
-        # https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a#attributes
-        resp.set_header('Content-Disposition', f'attachment; filename="{fname}"')
-
         if unzip and access.mediaType == 'application/gzip':
-            def iter_uncompressed():
-                decompressor = zlib.decompressobj(wbits=31)
-                for chunk in blob.iter_content(chunk_size=4096):
-                    yield decompressor.decompress(chunk)
-                yield decompressor.flush()
+            response = aiohttp.web.StreamResponse(
+                headers={
+                    'Content-Type': artefact.type,
+                    'Content-Disposition': f'attachment; filename="{fname}"',
+                },
+            )
+            await response.prepare(self.request)
 
-            resp.content_type = artefact.type
-            resp.stream = iter_uncompressed()
-            return
+            decompressor = zlib.decompressobj(wbits=31)
+            async for chunk in blob.content.iter_chunked(4096):
+                await response.write(decompressor.decompress(chunk))
+            await response.write(decompressor.flush())
+        else:
+            response = aiohttp.web.StreamResponse(
+                headers={
+                    'Content-Type': access.mediaType,
+                    'Content-Disposition': f'attachment; filename="{fname}"',
+                },
+            )
+            await response.prepare(self.request)
 
-        resp.content_type = access.mediaType
-        resp.content_length = size
-        resp.stream = blob.iter_content(chunk_size=4096)
+            async for chunk in blob.content.iter_chunked(4096):
+                await response.write(chunk)
+
+        await response.write_eof()
+        return response

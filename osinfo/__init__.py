@@ -2,11 +2,12 @@ import dataclasses
 import functools
 import logging
 
-import falcon
+import aiohttp.web
 import yaml
 
 import delivery.model as dm
 
+import consts
 import eol
 import osinfo.alpine
 import osinfo.paths
@@ -55,7 +56,7 @@ def osinfo_client(os_id: str):
     return None
 
 
-def os_release_infos(
+async def os_release_infos(
     os_id: str,
     eol_client: eol.EolClient,
 ) -> list[dm.OsReleaseInfo] | None:
@@ -67,7 +68,7 @@ def os_release_infos(
       3. filesystem
     '''
 
-    release_cycles = eol_client.cycles(
+    release_cycles = await eol_client.cycles(
         product=os_id,
         absent_ok=True,
     )
@@ -79,7 +80,7 @@ def os_release_infos(
         ]
 
     if (client := osinfo_client(os_id)):
-        return client.release_infos()
+        return await client.release_infos()
 
     return release_infos_from_cfg(
         os_id=os_id,
@@ -87,27 +88,27 @@ def os_release_infos(
     )
 
 
-class OsInfoRoutes:
-    def __init__(
-        self,
-        eol_client: eol.EolClient,
-    ):
-        self.eol_client = eol_client
+class OsInfoRoutes(aiohttp.web.View):
+    async def options(self):
+        return aiohttp.web.Response()
 
-    def on_get_branches(self, req, resp, os_id: str):
-        release_infos = os_release_infos(
+    async def get(self):
+        os_id = self.request.match_info.get('os_id')
+
+        release_infos = await os_release_infos(
             os_id=eol.normalise_os_id(os_id),
-            eol_client=self.eol_client,
+            eol_client=self.request.app[consts.APP_EOL_CLIENT],
         )
 
         if not release_infos:
             # change to 404 eventually
-            raise falcon.HTTPBadRequest(title=os_id)
+            raise aiohttp.web.HTTPBadRequest(text=os_id)
 
-        resp.media = [
-            dataclasses.asdict(
-                obj=release_info,
-                dict_factory=util.dict_factory_date_serialisiation,
-            )
-            for release_info in release_infos
-        ]
+        return aiohttp.web.json_response(
+            data=[
+                dataclasses.asdict(
+                    obj=release_info,
+                    dict_factory=util.dict_factory_date_serialisiation,
+                ) for release_info in release_infos
+            ],
+        )

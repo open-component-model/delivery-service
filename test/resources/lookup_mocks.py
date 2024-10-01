@@ -2,7 +2,6 @@ import collections.abc
 
 import yaml
 
-import cnudie.retrieve
 import cnudie.util
 import ocm
 
@@ -24,7 +23,7 @@ def component_descriptor_lookup_mockup_factory(
     [ocm.ComponentIdentity | str, ocm.OcmRepository | None],
     ocm.ComponentDescriptor,
 ]:
-    def component_descriptor_lookup_mockup(
+    async def component_descriptor_lookup_mockup(
         component_identity: ocm.ComponentIdentity | str,
         ocm_repo: ocm.OcmRepository | None=None,
     ) -> ocm.ComponentDescriptor:
@@ -46,10 +45,10 @@ def component_descriptor_lookup_mockup_factory(
 def versions_lookup_mockup_factory(
     mock_component_file_path: str,
 ) -> collections.abc.Callable[
-    [cnudie.retrieve.ComponentName, ocm.OcmRepository | None],
-    collections.abc.Sequence[str],
+    [cnudie.util.ComponentName, ocm.OcmRepository | None],
+    collections.abc.Awaitable[collections.abc.Sequence[str]],
 ]:
-    def versions_lookup_mockup(
+    async def versions_lookup_mockup(
         component_name:cnudie.util.ComponentName,
         ocm: ocm.OcmRepository | None=None,
     ) -> collections.abc.Sequence[str]:

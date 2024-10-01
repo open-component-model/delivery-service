@@ -8,9 +8,9 @@ import re
 import watchdog.events
 import watchdog.observers.polling
 
+import aiohttp.web
 import dacite
 import dateutil.parser
-import falcon
 import github3.repos
 import yaml
 
@@ -28,6 +28,7 @@ import lookups
 import middleware.auth
 import middleware.db_session
 import paths
+import util
 import yp
 
 
@@ -963,9 +964,13 @@ async def init_features(
     return middlewares
 
 
-class Features:
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        self.feature_cfgs = tuple(f.serialize() for f in feature_cfgs)
-        resp.media = {
-            'features': self.feature_cfgs
-        }
+class Features(aiohttp.web.View):
+    async def get(self):
+        self.feature_cfgs = list(f.serialize() for f in feature_cfgs)
+
+        return aiohttp.web.json_response(
+            data={
+                'features': self.feature_cfgs,
+            },
+            dumps=util.dict_to_json_factory,
+        )

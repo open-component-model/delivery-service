@@ -2,48 +2,34 @@ import io
 import logging
 import zipfile
 
-import falcon
+import aiohttp.web
 
 import ci.log
 
+import consts
 import features
-import lookups
+import util
 
 
 ci.log.configure_default_logging()
 logger = logging.getLogger(__name__)
 
 
-class DownloadTestResults:
+class DownloadTestResults(aiohttp.web.View):
     required_features = (features.FeatureTests,)
 
-    def __init__(
-        self,
-        component_with_tests_callback,
-        github_api_lookup,
-    ):
-        self.component_with_tests_callback = component_with_tests_callback
-        self.github_api_lookup = github_api_lookup
-
-    def on_get(
-        self,
-        req: falcon.Request,
-        resp: falcon.Response,
-    ):
-        """
+    async def get(self):
+        '''
         Downloads the zipped test results for the specified component release
-        """
+        '''
+        params = self.request.rel_url.query
 
-        component_name: str = req.get_param('componentName', required=True)
-        component_version: str = req.get_param('componentVersion', required=True)
-
-        github_repo_lookup = lookups.github_repo_lookup(self.github_api_lookup)
+        component_name = util.param(params, 'componentName', required=True)
+        component_version = util.param(params, 'componentVersion', required=True)
 
         # todo: lookup repository in component-descriptor
-        gh_api = self.github_api_lookup(
-            component_name,
-        )
-        repo = github_repo_lookup(component_name)
+        gh_api = self.request.app[consts.APP_GITHUB_API_LOOKUP](component_name)
+        repo = self.request.app[consts.APP_GITHUB_REPO_LOOKUP](component_name)
 
         release = repo.release_from_tag(component_version)
         assets = release.assets()
@@ -52,10 +38,11 @@ class DownloadTestResults:
         zip_buffer = io.BytesIO()
         zipf = zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED)
 
-        component_with_tests = self.component_with_tests_callback(component_name)
+        component_with_tests_callback = self.request.app[consts.APP_COMPONENT_WITH_TESTS_CALLBACK]
+        component_with_tests = component_with_tests_callback(component_name)
 
         if not component_with_tests:
-            raise falcon.HTTPBadRequest()
+            raise aiohttp.web.HTTPBadRequest
 
         for asset in assets:
             # only add test assets that are prefixed like configured in the features config
@@ -82,6 +69,13 @@ class DownloadTestResults:
                 )
 
         zipf.close()
-        resp.content_type = 'application/zip'
-        resp.downloadable_as = f'{component_with_tests.downloadableName}_{component_version}.zip'
-        resp.data = zip_buffer.getvalue()
+
+        response = aiohttp.web.Response(
+            body=zip_buffer.getvalue(),
+            content_type='application/zip',
+        )
+
+        fname = f'{component_with_tests.downloadableName}_{component_version}.zip'
+        response.headers.add('Content-Disposition', f'attachment; filename="{fname}"')
+
+        return response

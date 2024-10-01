@@ -1,9 +1,9 @@
 import dataclasses
 import datetime
 
+import aiohttp
 import dacite
 import dateutil.parser
-import requests
 import yaml
 
 import ci.util
@@ -113,19 +113,22 @@ class Client:
         self._cached_releases: AlpineReleases = None
         self._cached_releases_timestamp: datetime.datetime = None
 
-    def release_infos(self) -> list[dm.OsReleaseInfo]:
-        return [r.release_info() for r in self.releases().release_branches]
+    async def release_infos(self) -> list[dm.OsReleaseInfo]:
+        return [r.release_info() for r in await self.releases().release_branches]
 
-    def releases(self) -> AlpineReleases:
+    async def releases(self) -> AlpineReleases:
         now = datetime.datetime.now(tz=datetime.timezone.utc)
 
-        if self._cached_releases:
-            last_modified = requests.head(self.routes.releases_json()).headers['last-modified']
-            last_modified = dateutil.parser.parse(last_modified)
-            if last_modified < self._cached_releases_timestamp:
-                return self._cached_releases
+        async with aiohttp.ClientSession() as session:
+            if self._cached_releases:
+                async with session.head(self.routes.releases_json()) as res:
+                    last_modified = dateutil.parser.parse(res.headers['last-modified'])
 
-        raw = requests.get(self.routes.releases_json()).json()
+                if last_modified < self._cached_releases_timestamp:
+                    return self._cached_releases
+
+            async with session.get(self.routes.releases_json()) as res:
+                raw = await res.json()
 
         self._cached_releases = dacite.from_dict(
             data_class=AlpineReleases,
@@ -135,10 +138,12 @@ class Client:
 
         return self._cached_releases
 
-    def latest_release(self, branch: str, architecture: str='x86_64'):
+    async def latest_release(self, branch: str, architecture: str='x86_64'):
         url = self.routes.latest_releases(branch=branch, architecture=architecture)
 
-        res = requests.get(url).text
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as res:
+                res = await res.text()
 
         parsed = yaml.safe_load(res)
 

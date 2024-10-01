@@ -2,6 +2,7 @@ import aiohttp.typedefs
 import aiohttp.web
 import sqlalchemy
 
+import consts
 import deliverydb
 import deliverydb.model as dm
 

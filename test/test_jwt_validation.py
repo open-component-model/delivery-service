@@ -1,7 +1,7 @@
 import datetime
 import unittest.mock
 
-import falcon.errors
+import aiohttp.web
 import jwt
 import pytest
 
@@ -65,7 +65,7 @@ def test_wrong_exp_format():
     # will return float
     payload['exp'] = datetime.datetime.now(tz=datetime.timezone.utc).timestamp()
 
-    with pytest.raises(falcon.errors.HTTPBadRequest):
+    with pytest.raises(aiohttp.web.HTTPBadRequest):
         middleware.auth.validate_jwt_payload(payload)
 
 
@@ -73,7 +73,7 @@ def test_no_iss():
     payload = gen_jwt_payload()
     payload.pop('iss')
 
-    with pytest.raises(falcon.errors.HTTPBadRequest):
+    with pytest.raises(aiohttp.web.HTTPBadRequest):
         middleware.auth.validate_jwt_payload(payload)
 
 
@@ -83,7 +83,7 @@ def test_wrong_iss(signing_cfg):
 
     token = gen_jwt_token(payload=payload)
 
-    with pytest.raises(falcon.errors.HTTPUnauthorized):
+    with pytest.raises(aiohttp.web.HTTPUnauthorized):
         middleware.auth.decode_jwt(
             token=token,
             issuer=ISSUER,
@@ -96,7 +96,7 @@ def test_no_iat():
     payload = gen_jwt_payload()
     payload.pop('iat')
 
-    with pytest.raises(falcon.errors.HTTPBadRequest):
+    with pytest.raises(aiohttp.web.HTTPBadRequest):
         middleware.auth.validate_jwt_payload(payload)
 
 
@@ -109,7 +109,7 @@ def test_future_iat(signing_cfg):
 
     token = gen_jwt_token(payload=payload)
 
-    with pytest.raises(falcon.errors.HTTPBadRequest):
+    with pytest.raises(aiohttp.web.HTTPBadRequest):
         middleware.auth.decode_jwt(
             token=token,
             issuer=ISSUER,
@@ -122,12 +122,12 @@ def test_no_sub():
     payload = gen_jwt_payload()
     payload.pop('sub')
 
-    with pytest.raises(falcon.errors.HTTPBadRequest):
+    with pytest.raises(aiohttp.web.HTTPBadRequest):
         middleware.auth.validate_jwt_payload(payload)
 
 
 def test_sub_not_found():
-    with pytest.raises(falcon.errors.HTTPUnauthorized):
+    with pytest.raises(aiohttp.web.HTTPUnauthorized):
         middleware.auth.get_user_permissions('foo_bar_test_user')
 
 
@@ -135,7 +135,7 @@ def test_wrong_version():
     payload = gen_jwt_payload()
     payload['version'] = 'versionNotSet5000'
 
-    with pytest.raises(falcon.errors.HTTPBadRequest):
+    with pytest.raises(aiohttp.web.HTTPBadRequest):
         middleware.auth.validate_jwt_payload(payload)
 
 
@@ -143,7 +143,7 @@ def test_no_version():
     payload = gen_jwt_payload()
     payload.pop('version')
 
-    with pytest.raises(falcon.errors.HTTPBadRequest):
+    with pytest.raises(aiohttp.web.HTTPBadRequest):
         middleware.auth.validate_jwt_payload(payload)
 
 
@@ -166,7 +166,7 @@ def test_nbf_in_future(signing_cfg):
 
     token = gen_jwt_token(payload=payload)
 
-    with pytest.raises(falcon.errors.HTTPBadRequest):
+    with pytest.raises(aiohttp.web.HTTPBadRequest):
         middleware.auth.decode_jwt(
             token=token,
             issuer=ISSUER,
