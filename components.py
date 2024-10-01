@@ -183,13 +183,13 @@ def _component_descriptor(
     if ocm_repo_url:
         ocm_repos = (ocm_repo_url,)
     else:
-        if not lookups.init_ocm_repository_lookup():
-            raise ValueError('either ctx_repo, or ocm_repository_lookup must be passed')
+        if not (lookup := lookups.init_ocm_repository_lookup()):
+            raise ValueError('either ocm_repo_url, or ocm_repository_lookup must be passed')
 
-    ocm_repos = cnudie.retrieve.iter_ocm_repositories(
-        component_id,
-        lookups.init_ocm_repository_lookup(),
-    )
+        ocm_repos = cnudie.retrieve.iter_ocm_repositories(
+            component_id,
+            lookup,
+        )
 
     if raw or ignore_cache:
         # in both cases fetch directly from oci-registry
