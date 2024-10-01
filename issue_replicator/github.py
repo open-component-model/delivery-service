@@ -209,7 +209,7 @@ def _issue_title(
     artefact: dso.model.ComponentArtefactId,
     extra: str,
 ) -> str:
-    title = f'[{issue_type} - {artefact.component_name}:{artefact.artefact.artefact_name}'
+    title = f'[{issue_type}] - {artefact.component_name}:{artefact.artefact.artefact_name}'
 
     if extra:
         title += f' - [{extra}]'
