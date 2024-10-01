@@ -3,9 +3,7 @@ import argparse
 import functools
 import json
 import logging
-import multiprocessing
 import os
-import platform
 import sys
 import traceback
 
@@ -50,7 +48,6 @@ default_cache_dir = os.path.join(own_dir, '.cache')
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--productive', action='store_true', default=False)
-    parser.add_argument('--workers', type=int, default=12)
     parser.add_argument('--port', default=5000, type=int)
     parser.add_argument('--shortcut-auth', action='store_true', default=False)
     parser.add_argument('--delivery-cfg', default='internal')
@@ -566,52 +563,24 @@ def get_base_url(
 def run_app():
     parsed_arguments = parse_args()
 
-    if parsed_arguments.productive:
-        host = '0.0.0.0'
-        workers = 4
-    else:
-        host = '127.0.0.1'
-        workers = 2
-
     port = parsed_arguments.port
 
     app = init(parsed_arguments)
 
-    if parsed_arguments.productive:
-        # pylint: disable=E0401
-        import bjoern
-
-        def serve():
-            bjoern.run(app, host, port, reuse_port=True)
-
-        # Starting the server using `spawn` results in a `PickleError`, which is why it should not
-        # be used here. Currently, `spawn` is the default value for macOS as well as Windows, and
-        # it will also become the default for other POSIX systems in the future, see
-        # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for
-        # reference. That's why, the processes should be started using `fork` instead, which will
-        # work on all POSIX systems but not for Windows.
-        if platform.system() != 'Windows':
-            multiprocessing.set_start_method('fork')
-
-        for _ in range(workers - 1):
-            proc = multiprocessing.Process(target=serve)
-            proc.start()
-        serve()
-    else:
-        print('running in development mode')
-        print()
-        print(f'listening at localhost:{port}')
-        print()
-        # pylint: disable=E0401
-        import werkzeug.serving
-        werkzeug.serving.run_simple(
-            hostname='localhost',
-            port=port,
-            application=app,
-            use_reloader=True,
-            use_debugger=True,
-            extra_files=(), # might add cfg-files
-        )
+    print('running in development mode')
+    print()
+    print(f'listening at localhost:{port}')
+    print()
+    # pylint: disable=E0401
+    import werkzeug.serving
+    werkzeug.serving.run_simple(
+        hostname='localhost',
+        port=port,
+        application=app,
+        use_reloader=True,
+        use_debugger=True,
+        extra_files=(), # might add cfg-files
+    )
 
 
 if __name__ == '__main__':
