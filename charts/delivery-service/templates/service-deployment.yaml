@@ -36,21 +36,10 @@ spec:
         - name: delivery-service
           image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
-          {{- if .Values.command }}
-          command:
-          {{- range $command := .Values.command }}
-          - {{ $command }}
-          {{- end }}
-          {{- end }}
           args:
-          {{- if not .Values.command }} # if default entrypoint is overriden, uWSGI may not be used
-            - --pyargv
-            - --productive {{ join " " .Values.args }}
-          {{ else }}
             - --productive
           {{- range $arg := default list .Values.args }}
             - {{ $arg }}
-          {{- end }}
           {{- end }}
           readinessProbe:
             httpGet:

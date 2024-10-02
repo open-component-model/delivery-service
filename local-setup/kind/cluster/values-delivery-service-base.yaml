@@ -32,13 +32,6 @@ envVars:
   FEATURES_CFG_PATH: ./../features_cfg/features_cfg
   K8S_TARGET_NAMESPACE: delivery
 
-# override of default entrypoint is required if setup with uWSGI is not working on local machine
-# -> fallback to bjoern WSGI server
-command:
-  - python3
-  - -m
-  - app
-
 args:
   - --productive
   - --delivery-cfg
