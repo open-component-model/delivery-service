@@ -107,14 +107,14 @@ def add_app_context_vars(
     cfg_factory,
     parsed_arguments,
 ) -> aiohttp.web.Application:
-    oci_client = lookups.semver_sanitised_oci_client(cfg_factory)
+    oci_client = lookups.semver_sanitised_oci_client_async(cfg_factory)
 
-    version_lookup = lookups.init_version_lookup(
+    version_lookup = lookups.init_version_lookup_async(
         oci_client=oci_client,
         default_absent_ok=True,
     )
 
-    component_descriptor_lookup = lookups.init_component_descriptor_lookup(
+    component_descriptor_lookup = lookups.init_component_descriptor_lookup_async(
         cache_dir=parsed_arguments.cache_dir,
         oci_client=oci_client,
     )

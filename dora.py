@@ -18,7 +18,8 @@ import github3
 
 import ci.util
 import cnudie.iter
-import cnudie.retrieve
+import cnudie.iter_async
+import cnudie.retrieve_async
 import cnudie.util
 import ocm
 import version as versionutil
@@ -129,8 +130,8 @@ class DoraResponse:
 async def versions_descriptors_newer_than(
     component_name: str,
     date: datetime.datetime,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     only_releases: bool = True,
     invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc'
@@ -177,8 +178,8 @@ async def versions_descriptors_newer_than(
 
 
 def _cache_key_gen_all_versions_sorted(
-    component: cnudie.retrieve.ComponentName,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component: cnudie.util.ComponentName,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     only_releases: bool = True,
     invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
@@ -196,8 +197,8 @@ def _cache_key_gen_all_versions_sorted(
     key_func=_cache_key_gen_all_versions_sorted,
 )
 async def all_versions_sorted(
-    component: cnudie.retrieve.ComponentName,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component: cnudie.util.ComponentName,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     only_releases: bool = True,
     invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc'
@@ -243,8 +244,8 @@ async def all_versions_sorted(
 
 async def get_next_older_descriptor(
     component_id: ocm.ComponentIdentity,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    component_version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    component_version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
 ) -> ocm.ComponentDescriptor | None:
     all_versions = await all_versions_sorted(
         component=component_id,
@@ -856,7 +857,7 @@ class DoraMetrics(aiohttp.web.View):
 
 def _cache_key_diff_components(
     component_vector: components.ComponentVector,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
 ):
     return cachetools.keys.hashkey(
         component_vector.start.name,
@@ -872,7 +873,7 @@ def _cache_key_diff_components(
 )
 async def _diff_components(
     component_vector: components.ComponentVector,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
 ) -> cnudie.util.ComponentDiff | None:
     '''
     calculates component-diff between components from passed-in component-vector
@@ -882,7 +883,7 @@ async def _diff_components(
     component-version, choosing greatest/smallest versions.
     '''
     old_components = [
-        c.component async for c in cnudie.iter.iter(
+        c.component async for c in cnudie.iter_async.iter(
             component=component_vector.start,
             lookup=component_descriptor_lookup,
             node_filter=cnudie.iter.Filter.components,
@@ -890,7 +891,7 @@ async def _diff_components(
     ]
 
     new_components = [
-        c.component async for c in cnudie.iter.iter(
+        c.component async for c in cnudie.iter_async.iter(
             component=component_vector.end,
             lookup=component_descriptor_lookup,
             node_filter=cnudie.iter.Filter.components,

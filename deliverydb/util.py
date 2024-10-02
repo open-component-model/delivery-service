@@ -7,7 +7,8 @@ import sqlalchemy.sql.elements as sqle
 
 import ci.util
 import cnudie.iter
-import cnudie.retrieve
+import cnudie.iter_async
+import cnudie.retrieve_async
 import dso.model
 import ocm
 
@@ -177,7 +178,7 @@ class ArtefactMetadataQueries:
     async def artefact_queries(
         artefacts: collections.abc.Iterable[ocm.Resource | ocm.Source]=None,
         component: ocm.ComponentIdentity=None,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById=None,
+        component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById=None,
         none_ok: bool=False,
     ) -> collections.abc.AsyncGenerator[sqle.BooleanClauseList, None, None]:
         '''
@@ -202,7 +203,7 @@ class ArtefactMetadataQueries:
                 component: ocm.Component = (await component_descriptor_lookup(component)).component
 
                 artefacts = [
-                    artefact_node.artefact async for artefact_node in cnudie.iter.iter(
+                    artefact_node.artefact async for artefact_node in cnudie.iter_async.iter(
                         component=component,
                         lookup=component_descriptor_lookup,
                         node_filter=cnudie.iter.Filter.artefacts,
@@ -254,7 +255,7 @@ class ArtefactMetadataQueries:
     async def component_queries(
         components: tuple[ocm.Component | ocm.ComponentIdentity],
         none_ok: bool=False,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById=None,
+        component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById=None,
     ) -> collections.abc.AsyncGenerator[sqle.BooleanClauseList, None, None]:
         '''
         Generates single SQL expressions which check for equality with one component of `components`
