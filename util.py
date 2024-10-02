@@ -10,7 +10,7 @@ import urllib.parse
 import aiohttp.web
 
 import cnudie.iter
-import cnudie.retrieve
+import cnudie.retrieve_async
 import oci.model as om
 import ocm
 
@@ -81,7 +81,7 @@ def dict_to_json_factory(data: dict) -> str:
 async def retrieve_component_descriptor(
     component_id: ocm.ComponentIdentity,
     /,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
 ) -> ocm.ComponentDescriptor:
     try:

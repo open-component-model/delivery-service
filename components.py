@@ -18,12 +18,14 @@ import yaml
 
 import ci.util
 import cnudie.iter
-import cnudie.util
+import cnudie.iter_async
 import cnudie.retrieve
+import cnudie.retrieve_async
+import cnudie.util
 import dso.model
 import gci.oci
 import github.util
-import oci.client
+import oci.client_async
 import oci.model as om
 import ocm
 import version as versionutil
@@ -59,7 +61,7 @@ cache_existing_components = []
 
 async def check_if_component_exists(
     component_name: str,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     raise_http_error: bool=False,
 ):
     if component_name in cache_existing_components:
@@ -98,9 +100,9 @@ def get_creation_date(component: ocm.Component) -> datetime.datetime:
 async def greatest_version_if_none(
     component_name: str,
     version: str,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
-    oci_client: oci.client.Client=None,
+    oci_client: oci.client_async.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
 ):
@@ -125,8 +127,8 @@ async def greatest_version_if_none(
 
 async def _component_descriptor(
     params: dict,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     version_filter: features.VersionFilter,
     invalid_semver_ok: bool=False,
 ) -> ocm.ComponentDescriptor:
@@ -171,10 +173,10 @@ async def _component_descriptor(
     if raw or ignore_cache:
         # in both cases fetch directly from oci-registry
         try:
-            raw = await cnudie.retrieve.raw_component_descriptor_from_oci(
+            raw = await cnudie.retrieve_async.raw_component_descriptor_from_oci(
                 component_id=component_id,
                 ocm_repos=ocm_repos,
-                oci_client=lookups.semver_sanitised_oci_client(),
+                oci_client=lookups.semver_sanitised_oci_client_async(),
             )
 
         except om.OciImageNotFoundException:
@@ -476,9 +478,9 @@ class ComponentResponsibles(aiohttp.web.View):
 
 async def component_versions(
     component_name: str,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
-    oci_client: oci.client.Client=None,
+    oci_client: oci.client_async.Client=None,
 ) -> list[str]:
     if not ocm_repo and not version_lookup:
         raise ValueError('At least one of `ocm_repo` and `version_lookup` must be specified')
@@ -488,10 +490,10 @@ async def component_versions(
             raise NotImplementedError(ocm_repo)
 
         if not oci_client:
-            oci_client = lookups.semver_sanitised_oci_client()
+            oci_client = lookups.semver_sanitised_oci_client_async()
 
         try:
-            return await cnudie.retrieve.component_versions(
+            return await cnudie.retrieve_async.component_versions(
                 component_name=component_name,
                 ctx_repo=ocm_repo,
                 oci_client=oci_client,
@@ -509,9 +511,9 @@ async def component_versions(
 
 async def greatest_component_version(
     component_name: str,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
-    oci_client: oci.client.Client=None,
+    oci_client: oci.client_async.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
 ) -> str | None:
@@ -556,12 +558,12 @@ async def greatest_component_version(
 
 async def greatest_component_versions(
     component_name: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent=None,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     max_versions: int=5,
     greatest_version: str=None,
-    oci_client: oci.client.Client=None,
+    oci_client: oci.client_async.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
     start_date: datetime.date=None,
@@ -682,7 +684,7 @@ class GreatestComponentVersions(aiohttp.web.View):
 async def resolve_component_dependencies(
     component_name: str,
     component_version: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
 ) -> collections.abc.AsyncGenerator[cnudie.iter.ComponentNode, None, None]:
@@ -922,7 +924,7 @@ class ComponentDescriptorDiff(aiohttp.web.View):
         )
 
         try:
-            diff = await cnudie.retrieve.component_diff(
+            diff = await cnudie.retrieve_async.component_diff(
                 left_component=left_descriptor,
                 right_component=right_descriptor,
                 component_descriptor_lookup=component_descriptor_lookup,
@@ -1017,7 +1019,7 @@ class ComponentDescriptorDiff(aiohttp.web.View):
 async def _components(
     component_name: str,
     component_version: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
 ) -> collections.abc.AsyncGenerator[cnudie.iter.ComponentNode, None, None]:
@@ -1031,7 +1033,7 @@ async def _components(
     )
 
     try:
-        return cnudie.iter.iter(
+        return cnudie.iter_async.iter(
             component=component_descriptor,
             lookup=component_descriptor_lookup,
             recursion_depth=recursion_depth,
