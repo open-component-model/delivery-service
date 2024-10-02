@@ -3,7 +3,6 @@ import argparse
 import asyncio
 import logging
 import os
-import sys
 
 import aiohttp.web
 
@@ -75,13 +74,7 @@ def parse_args():
         help='specify kubernetes cluster namespace to interact with extensions (and logs)',
     )
 
-    args = sys.argv
-    if args[0].endswith('pytest'):
-        # remove arguments passed to "pytest" from delivery-service arguments
-        args = []
-    else:
-        args = args[1:]
-    return parser.parse_args(args)
+    return parser.parse_args()
 
 
 def get_base_url(
@@ -416,23 +409,28 @@ async def initialise_app(parsed_arguments):
     return app
 
 
-async def run_app_locally():
+async def run_app():
     parsed_arguments = parse_args()
 
     port = parsed_arguments.port
 
     app = await initialise_app(parsed_arguments)
 
-    print('running in development mode')
-    print()
-    print(f'listening at localhost:{port}')
-    print()
+    if parsed_arguments.productive:
+        host = '0.0.0.0'
+
+    else:
+        host = '127.0.0.1'
+        print('running in development mode')
+        print()
+        print(f'listening at {host}:{port}')
+        print()
 
     runner = aiohttp.web.AppRunner(app)
     await runner.setup()
     await aiohttp.web.TCPSite(
         runner=runner,
-        host='localhost',
+        host=host,
         port=port,
     ).start()
 
@@ -440,7 +438,4 @@ async def run_app_locally():
 
 
 if __name__ == '__main__':
-    asyncio.run(run_app_locally())
-else:
-    # After-Draft-PR-TODO -> proper setup for local and productive scenario
-    app = run_app_locally()
+    asyncio.run(run_app())
