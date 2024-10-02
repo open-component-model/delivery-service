@@ -10,7 +10,8 @@ import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 
 import cnudie.iter
-import cnudie.retrieve
+import cnudie.iter_async
+import cnudie.retrieve_async
 import dso.cvss
 import dso.labels
 import dso.model
@@ -91,7 +92,7 @@ def _find_cve_rescoring_rule_set(
 
 
 async def _find_artefact_node(
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     component: ocm.Component,
     artefact: dso.model.ComponentArtefactId,
 ) -> cnudie.iter.Node | cnudie.iter.ArtefactNode | None:
@@ -104,7 +105,7 @@ async def _find_artefact_node(
 
     artefact_ref = artefact.artefact
 
-    async for node in cnudie.iter.iter(
+    async for node in cnudie.iter_async.iter(
         component=component,
         lookup=component_descriptor_lookup,
         node_filter=node_filter,
@@ -120,7 +121,7 @@ async def _find_artefact_node(
 
 
 async def _find_artefact_node_or_raise(
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     artefact: dso.model.ComponentArtefactId,
 ) -> cnudie.iter.Node | cnudie.iter.ArtefactNode:
     component = (await util.retrieve_component_descriptor(

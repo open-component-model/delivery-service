@@ -16,7 +16,6 @@ import yaml
 
 import ci.util
 import cnudie.retrieve
-import cnudie.util
 import dso.cvss
 import model.base
 import model.bdba

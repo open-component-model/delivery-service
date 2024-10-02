@@ -49,7 +49,7 @@ def versions_lookup_mockup_factory(
     collections.abc.Awaitable[collections.abc.Sequence[str]],
 ]:
     async def versions_lookup_mockup(
-        component_name:cnudie.util.ComponentName,
+        component_name: cnudie.util.ComponentName,
         ocm: ocm.OcmRepository | None=None,
     ) -> collections.abc.Sequence[str]:
         component_descriptors = load_component_descriptors(
