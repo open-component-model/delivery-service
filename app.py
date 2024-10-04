@@ -368,7 +368,9 @@ def add_routes(
     return app
 
 
-async def initialise_app(parsed_arguments):
+async def initialise_app():
+    parsed_arguments = parse_args()
+
     cfg_factory = ctx_util.cfg_factory()
 
     middlewares = await features.init_features(
@@ -414,7 +416,7 @@ async def run_app():
 
     port = parsed_arguments.port
 
-    app = await initialise_app(parsed_arguments)
+    app = await initialise_app()
 
     if parsed_arguments.productive:
         host = '0.0.0.0'
@@ -439,3 +441,5 @@ async def run_app():
 
 if __name__ == '__main__':
     asyncio.run(run_app())
+else:
+    app = initialise_app
