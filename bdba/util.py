@@ -144,7 +144,7 @@ def iter_artefact_metadata(
             yield artefact_metadata
 
         for vulnerability in package.vulnerabilities():
-            if not vulnerability.cvss:
+            if not vulnerability.cvss or not vulnerability.cve_severity():
                 # we only support vulnerabilities with a valid cvss v3 vector
                 continue
 
