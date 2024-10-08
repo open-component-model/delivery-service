@@ -5,6 +5,8 @@ import logging
 import os
 
 import aiohttp.web
+import aiohttp_swagger
+import yaml
 
 import ci.log
 import ci.util
@@ -99,6 +101,7 @@ def add_app_context_vars(
     app: aiohttp.web.Application,
     cfg_factory,
     parsed_arguments,
+    base_url: str,
 ) -> aiohttp.web.Application:
     oci_client = lookups.semver_sanitised_oci_client_async(cfg_factory)
 
@@ -131,13 +134,6 @@ def add_app_context_vars(
         artefact_metadata_cfg=ci.util.parse_yaml_file(
             paths.artefact_metadata_cfg,
         ),
-    )
-
-    base_url = get_base_url(
-        is_productive=parsed_arguments.productive,
-        delivery_endpoints=parsed_arguments.delivery_endpoints,
-        port=parsed_arguments.port,
-        cfg_factory=cfg_factory,
     )
 
     component_with_tests_callback = features.get_feature(
@@ -394,6 +390,13 @@ async def initialise_app():
         )
         middlewares.append(rfc.feature_check_middleware(unavailable_features))
 
+    base_url = get_base_url(
+        is_productive=parsed_arguments.productive,
+        delivery_endpoints=parsed_arguments.delivery_endpoints,
+        port=parsed_arguments.port,
+        cfg_factory=cfg_factory,
+    )
+
     app = aiohttp.web.Application(
         middlewares=middlewares,
     )
@@ -402,10 +405,21 @@ async def initialise_app():
         app=app,
         cfg_factory=cfg_factory,
         parsed_arguments=parsed_arguments,
+        base_url=base_url,
     )
 
     app = add_routes(
         app=app,
+    )
+
+    api_definitions = yaml.safe_load(open(os.path.join(own_dir, 'swagger.yaml'))).get('definitions')
+
+    aiohttp_swagger.setup_swagger(
+        app=app,
+        swagger_url='/api/v1/doc',
+        description='API definition',
+        title='Delivery-Service by Gardener CICD',
+        definitions=api_definitions,
     )
 
     return app

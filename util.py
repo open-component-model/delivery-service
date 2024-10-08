@@ -23,6 +23,15 @@ logger = logging.getLogger(__name__)
 @middleware.auth.noauth
 class Ready(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        description: This endpoint allows to test that the service is up and running.
+        tags:
+        - Health check
+        responses:
+          "200":
+            description: Service is up and running
+        '''
         return aiohttp.web.Response()
 
 
