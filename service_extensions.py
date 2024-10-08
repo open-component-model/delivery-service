@@ -39,6 +39,25 @@ class ContainerStatuses(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: service
+          type: string
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: object
+        '''
         params = self.request.rel_url.query
 
         service_filter = params.getall(
@@ -85,6 +104,34 @@ class LogCollections(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: service
+          type: string
+          required: false
+        - in: query
+          name: log_level
+          type: string
+          enum:
+          - ERROR
+          - WARNING
+          - INFO
+          - DEBUG
+          required: true
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: object
+        '''
         params = self.request.rel_url.query
 
         service_filter = params.getall(
@@ -109,6 +156,20 @@ class ServiceExtensions(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: string
+        '''
         return aiohttp.web.json_response(
             data=self.request.app[consts.APP_SERVICE_EXTENSIONS_CALLBACK](),
         )
@@ -118,6 +179,20 @@ class ScanConfigurations(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: object
+        '''
         return aiohttp.web.json_response(
             data=k8s.util.iter_scan_configurations(
                 namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
@@ -167,6 +242,29 @@ class BacklogItems(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: service
+          type: string
+          required: true
+        - in: query
+          name: cfg_name
+          type: string
+          required: true
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                $ref: '#/definitions/BacklogItem'
+        '''
         params = self.request.rel_url.query
 
         service = util.param(params, 'service', required=True)
@@ -183,27 +281,30 @@ class BacklogItems(aiohttp.web.View):
 
     async def put(self):
         '''
-        update spec of backlog item with the specified name. If the backlog item does not
-        exist (anymore), ignore it
-
-        **expected query parameters:**
-
-            - name (required) \n
-
-        **expected body:**
-
-            spec: <object> \n
-              artefact: <object> \n
-                component_name: <str> \n
-                component_version: <str> \n
-                artefact_kind: <str> \n
-                artefact: <object> \n
-                  artefact_name: <str> \n
-                  artefact_version: <str> \n
-                  artefact_type: <str> \n
-                  artefact_extra_id: <object> \n
-              priority: <int> \n
-              timestamp: <str> \n
+        ---
+        description:
+          Update spec of backlog item with the specified name. If the backlog item does not exist
+          (anymore), ignore it.
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: name
+          type: string
+          required: true
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+            - spec
+            properties:
+              spec:
+                $ref: '#/definitions/BacklogItemSpec'
+        responses:
+          "204":
+            description: Successful operation.
         '''
         params = self.request.rel_url.query
 
@@ -225,25 +326,46 @@ class BacklogItems(aiohttp.web.View):
 
     async def post(self):
         '''
-        create backlog items for the specified service (e.g. bdba) and the supplied artefacts
-
-        **expected query parameters:**
-
-            - service (required) \n
-            - cfg_name (required) \n
-            - priority (optional): one of {NONE, LOW, MEDIUM, HIGH, CRITICAL}, default CRITICAL \n
-
-        **expected body:**
-
-            artefacts: <array> of <object> \n
-            - component_name: <str> \n
-              component_version: <str> \n
-              artefact_kind: <str> \n
-              artefact: <object> \n
-                artefact_name: <str> \n
-                artefact_version: <str> \n
-                artefact_type: <str> \n
-                artefact_extra_id: <object> \n
+        ---
+        description:
+          Create backlog items for the specified service (e.g. bdba) and the supplied artefacts.
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: service
+          type: string
+          required: true
+        - in: query
+          name: cfg_name
+          type: string
+          required: true
+        - in: query
+          name: priority
+          type: string
+          enum:
+          - NONE
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+          required: false
+          default: CRITICAL
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+            - artefacts
+            properties:
+              artefacts:
+                type: array
+                items:
+                 $ref: '#/definitions/ComponentArtefactId'
+        responses:
+          "201":
+            description: Successful operation.
         '''
         params = self.request.rel_url.query
 
@@ -279,6 +401,22 @@ class BacklogItems(aiohttp.web.View):
         )
 
     async def delete(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: name
+          schema:
+            type: array
+            items:
+              type: string
+          required: true
+        responses:
+          "204":
+            description: Successful operation.
+        '''
         params = self.request.rel_url.query
 
         names = params.getall('name')
@@ -332,11 +470,28 @@ class RuntimeArtefacts(aiohttp.web.View):
 
     async def get(self):
         '''
-        retrieve existing runtime artefacts, optionally pre-filtered using the `label_selector`
-
-        **expected query parameters:**
-
-            - label (optional): `<key>:<value>` formatted label to use as filter \n
+        ---
+        description:
+          Retrieve existing runtime artefacts, optionally pre-filtered using the `label_selector`.
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: label
+          schema:
+            type: array
+            items:
+              type: string
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                $ref: '#/definitions/RuntimeArtefact'
         '''
         params = self.request.rel_url.query
 
@@ -355,24 +510,33 @@ class RuntimeArtefacts(aiohttp.web.View):
 
     async def put(self):
         '''
-        create a runtime artefact with the specified spec
-
-        **expected query parameters:**
-
-            - label (optional): `<key>:<value>` formatted label to add to the custom resource \n
-
-        **expected body:**
-
-            artefacts: <array> of <object> \n
-            - component_name: <str> \n
-              component_version: <str> \n
-              artefact_kind: <str> \n
-              artefact: <object> \n
-                artefact_name: <str> \n
-                artefact_version: <str> \n
-                artefact_type: <str> \n
-                artefact_extra_id: <object> \n
-              references: <array> of <Self> \n
+        ---
+        description: Create a runtime artefact with the specified spec.
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: label
+          schema:
+            type: array
+            items:
+              type: string
+          required: false
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+            - artefacts
+            properties:
+              artefacts:
+                type: array
+                items:
+                  $ref: '#/definitions/ComponentArtefactId'
+        responses:
+          "201":
+            description: Successful operation.
         '''
         params = self.request.rel_url.query
 
@@ -403,11 +567,21 @@ class RuntimeArtefacts(aiohttp.web.View):
 
     async def delete(self):
         '''
-        delete one or more runtime artefacts by their kubernetes resource `name`
-
-        **expected query parameters:**
-
-            - name (required) \n
+        ---
+        description: Delete one or more runtime artefacts by their kubernetes resource `name`.
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: name
+          schema:
+            type: array
+            items:
+              type: string
+          required: true
+        responses:
+          "204":
+            description: Successful operation.
         '''
         params = self.request.rel_url.query
 

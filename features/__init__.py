@@ -965,6 +965,36 @@ async def init_features(
 
 class Features(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        description: Returns a list of available and unavailable features with optional extra cfg.
+        tags:
+        - Features
+        produces:
+        - application/json
+        responses:
+          "200":
+            schema:
+              type: object
+              required:
+              - features
+              properties:
+                features:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - state
+                    properties:
+                      name:
+                        type: string
+                      state:
+                        type: string
+                        enum:
+                          - available
+                          - unavailable
+        '''
         self.feature_cfgs = list(f.serialize() for f in feature_cfgs)
 
         return aiohttp.web.json_response(

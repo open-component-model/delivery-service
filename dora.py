@@ -754,6 +754,48 @@ def create_response_object(
 
 class DoraMetrics(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        tags:
+        - Dora
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: target_component_name
+          type: string
+          required: true
+        - in: query
+          name: time_span_days
+          type: integer
+          required: false
+          default: 90
+        - in: query
+          name: filter_component_names
+          schema:
+            type: array
+            items:
+              type: string
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - change_lead_time_median
+              - change_lead_time_average
+              - dependencies
+              properties:
+                change_lead_time_median:
+                  type: number
+                change_lead_time_average:
+                  type: number
+                dependencies:
+                  type: object
+          "202":
+            description: Dora metric calculation pending, client should retry.
+        '''
         params = self.request.rel_url.query
 
         target_component_name = util.param(params, 'target_component_name', required=True)

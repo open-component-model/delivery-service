@@ -672,32 +672,28 @@ class Rescore(aiohttp.web.View):
 
     async def post(self):
         '''
-        applies rescoring to delivery-db, only for authenticated users
-
-        **expected query parameters:**
-
-            - scanConfigName (optional) <string> \n
-
-        **expected request body:**
-            entries: <array> of <object> \n
-            - artefact: <object> \n
-                component_name: <string> \n
-                component_version: <string> \n
-                artefact_kind: <string> \n
-                artefact: <object> \n
-                  artefact_name: <string> \n
-                  artefact_version: <string> \n
-                  artefact_type: <string> \n
-                  artefact_extra_id: <object> \n
-              meta: <object> \n
-                datasource: <string> # e.g. delivery-dashboard or cli \n
-                type: rescorings \n
-              data: <object> \n
-                finding: <object> # schema depends on data.referenced_type \n
-                referenced_type: <string> # type of finding, e.g. finding/vulnerability \n
-                severity: <string> # one of github.compliance.model.Severity \n
-                matching_rules: <array> of <string> \n
-                comment: <string> \n
+        ---
+        description: Applies rescoring to delivery-db.
+        tags:
+        - Rescoring
+        parameters:
+        - in: query
+          name: scanConfigName
+          type: string
+          required: false
+        - in: body
+          name: body
+          required: false
+          schema:
+            type: object
+            properties:
+              entries:
+                type: array
+                items:
+                  $ref: '#/definitions/ArtefactMetadata'
+        responses:
+          "201":
+            description: Successful operation.
         '''
         params = self.request.rel_url.query
 
@@ -759,53 +755,65 @@ class Rescore(aiohttp.web.View):
 
     async def get(self):
         '''
-        calculates vulnerabilities rescorings based on cve-categorisation and cve-rescoring-ruleset.
-
-        cve-categorisation is read from respective component-descriptor label, cve-rescoring-rule-set
-        is specified by name.
-        rescorings are not applied yet, just "previewed".
-
-        **expected query parameters:**
-
-            - componentName (required) \n
-            - componentVersion (required) \n
-            - artefactKind (required) \n
-            - artefactName (required) \n
-            - artefactVersion (required) \n
-            - artefactType (required) \n
-            - artefactExtraId (optional) \n
-            - type (optional) \n
-            - scanConfigName (optional) \n
-            - cveRescoringRuleSetName (optional): defaults to global default cveRescoringRuleSet \n
-
-        **response:**
-
-            <array> of <object> \n
-            - finding: <object> # schema depends on  type of finding, e.g. finding/vulnerability \n
-                id: <object> \n
-                severity: <string> # one of github.compliance.model.Severity \n
-              severity: <string> # one of github.compliance.model.Severity \n
-              matching_rules: <array> of <string> # applicable cve-categorisation rules \n
-              applicable_rescorings: <array> of <object> \n
-              - artefact: <object> \n
-                  component_name: <string> \n
-                  component_version: <string> \n
-                  artefact_kind: <string> \n
-                  artefact: <object> \n
-                    artefact_name: <string> \n
-                    artefact_version: <string> \n
-                    artefact_type: <string> \n
-                    artefact_extra_id: <object> \n
-                meta: <object> \n
-                  datasource: <string> # e.g. delivery-dashboard or cli \n
-                  type: rescoring \n
-                data: <object> \n
-                  finding: <object> # schema depends on data.referenced_type \n
-                  referenced_type: <string> # type of finding, e.g. finding/vulnerability \n
-                  severity: <string> # one of github.compliance.model.Severity \n
-                  matching_rules: <array> of <string> \n
-                  user: <object> \n
-                  comment: <string> \n
+        ---
+        description:
+          Calculates vulnerability rescorings based on cve-categorisation and cve-rescoring-ruleset.
+          cve-categorisation is read from respective component-descriptor label,
+          cve-rescoring-rule-set is specified by name. Rescorings are not applied yet, just
+          "previewed".
+        tags:
+        - Rescoring
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: componentName
+          type: string
+          required: true
+        - in: query
+          name: componentVersion
+          type: string
+          required: true
+        - in: query
+          name: artefactKind
+          type: string
+          required: true
+        - in: query
+          name: artefactName
+          type: string
+          required: true
+        - in: query
+          name: artefactVersion
+          type: string
+          required: true
+        - in: query
+          name: artefactType
+          type: string
+          required: true
+        - in: query
+          name: artefactExtraId
+          type: string
+          required: false
+        - in: query
+          name: type
+          schema:
+            $ref: '#/definitions/Datatype'
+          required: false
+        - in: query
+          name: scanConfigName
+          type: string
+          required: false
+        - in: query
+          name: cveRescoringRuleSetName
+          type: string
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                $ref: '#/definitions/RescoringProposal'
         '''
         params = self.request.rel_url.query
 
@@ -919,12 +927,24 @@ class Rescore(aiohttp.web.View):
 
     async def delete(self):
         '''
-        deletes rescoring from delivery-db, only for authenticated users
-
-        **expected query parameters:**
-
-            - id (required) <array> of <int> \n
-            - scanConfigName (optional) <string> \n
+        ---
+        description: Deletes rescoring from delivery-db.
+        tags:
+        - Rescoring
+        parameters:
+        - in: query
+          name: id
+          type: array
+          items:
+            type: integer
+          required: true
+        - in: query
+          name: scanConfigName
+          type: string
+          required: false
+        responses:
+          "204":
+            description: Successful operation.
         '''
         params = self.request.rel_url.query
 

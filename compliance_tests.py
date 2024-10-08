@@ -20,7 +20,21 @@ class DownloadTestResults(aiohttp.web.View):
 
     async def get(self):
         '''
-        Downloads the zipped test results for the specified component release
+        ---
+        description: Downloads the zipped test results for the specified component release.
+        tags:
+        - Components
+        produces:
+        - application/zip
+        parameters:
+        - in: query
+          name: componentName
+          type: string
+          required: true
+        - in: query
+          name: componentVersion
+          type: string
+          required: true
         '''
         params = self.request.rel_url.query
 

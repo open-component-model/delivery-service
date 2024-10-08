@@ -9,6 +9,18 @@ class CurrentDependencies(aiohttp.web.View):
     required_features = (features.FeatureSpecialComponents,)
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: component_name
+          type: string
+          required: true
+        '''
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'component_name', required=True)
