@@ -58,6 +58,25 @@ class SprintInfos(aiohttp.web.View):
     required_features = (features.FeatureSprints,)
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Sprints
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - sprints
+              properties:
+                sprints:
+                  type: array
+                  items:
+                    $ref: '#/definitions/Sprint'
+        '''
         sprint_display_name_callback = self.request.app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK]
         sprints_metadata = self.request.app[consts.APP_SPRINTS_METADATA]
         sprints = self.request.app[consts.APP_SPRINTS]
@@ -80,30 +99,37 @@ class SprintInfosCurrent(aiohttp.web.View):
 
     async def get(self):
         '''
-        returns the "current" sprint infos, optionally considering passed query-params.
-
-        The current sprint is (by default, i.e. no arguments) the sprint whose end_date is either
-        the current day, or the nearest day (in chronological sense) from today, considering only
-        future sprints.
-
-        **expected query parameters:**
-
-            offset: <int>; if set, the returned sprint is offset by given amount of sprints \n
-                    (positive value will yield future sprints, while negative numbers will yield \n
-                    past ones) \n
-            before: <str(iso8601-date)>; if set, the returned sprint is calculated setting "today" \n
-                    to the specified date
-
-        If both `offset` and `before` are given, offset is applied after calculating "current"
-        sprint.
-
-        **response:**
-
-            name: <str> e.g. "2304b" \n
-            dates: \n
-            - name: <str> e.g. "rtc" \n
-              display_name: <str> e.g. "Release To Customer" \n
-              value: <iso8601-date-str> \n
+        ---
+        description:
+          Returns the "current" sprint infos, optionally considering passed query-params. The
+          current sprint is (by default, i.e. no arguments) the sprint whose end_date is either the
+          current day, or the nearest day (in chronological sense) from today, considering only
+          future sprints. If both `offset` and `before` are given, offset is applied after
+          calculating "current" sprint.
+        tags:
+        - Sprints
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: offset
+          type: integer
+          required: false
+          default: 0
+          description:
+            If set, the returned sprint is offset by given amount of sprints (positive value will
+            yield future sprints, while negative numbers will yield past ones).
+        - in: query
+          name: before
+          type: string
+          required: false
+          description:
+            If set, the returned sprint is calculated setting "today" to the specified date.
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              $ref: '#/definitions/Sprint'
         '''
         params = self.request.rel_url.query
 

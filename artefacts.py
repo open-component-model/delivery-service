@@ -13,23 +13,42 @@ import util
 class ArtefactBlob(aiohttp.web.View):
     async def get(self):
         '''
-        returns a requested artefact (from a OCM Component) as an octet-stream. This route is
-        limited to artefacts with `localBlob` as access-type.
-
-        required query-parameters:
-
-        component: ocm-component-id (<name>:<version>)
-        artefact:  has two forms:
-                    1. str - interpreted as `name` attribute
-                    2. json (object) - str-to-str mapping for attributes
-
-        optional query-parameters:
-
-        ocm_repository: ocm-repository-url
-        unzip:          bool, defaults to true; if true, and artefact's access is gzipped, returned
-                        content will be unzipped (for convenience)
-
-        If artefact is not specified unambiguously, the first match will be used.
+        ---
+        description:
+          Returns a requested artefact (from a OCM Component) as an octet-stream. This route is
+          limited to artefacts with `localBlob` as access-type. If artefact is not specified
+          unambiguously, the first match will be used.
+        tags:
+        - Artefacts
+        produces:
+        - application/octet-stream
+        parameters:
+        - in: query
+          name: component
+          type: string
+          required: true
+          description: component-name:component-version
+        - in: query
+          name: artefact
+          type: string
+          required: true
+          description: |
+            has two forms:
+            1. str - interpreted as `name` attribute
+            2. json (object) - str-to-str mapping for attributes
+        - in: query
+          name: ocm_repository
+          type: string
+          required: false
+          description: ocm-repository-url
+        - in: query
+          name: unzip
+          type: boolean
+          required: false
+          default: true
+          description:
+            if true and artefact's access is gzipped, returned content will be unzipped (for
+            convenience)
         '''
         params = self.request.rel_url.query
 

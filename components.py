@@ -226,6 +226,44 @@ async def _component_descriptor(
 
 class Component(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: component_name
+          type: string
+          required: true
+        - in: query
+          name: version
+          type: string
+          required: false
+          default: greatest
+        - in: query
+          name: ocm_repo_url
+          type: string
+          required: false
+        - in: query
+          name: raw
+          type: boolean
+          required: false
+          default: false
+        - in: query
+          name: ignore_cache
+          type: boolean
+          required: false
+          default: false
+        - in: query
+          name: version_filter
+          type: string
+          enum:
+          - all
+          - releases_only
+          required: false
+        '''
         params = self.request.rel_url.query
 
         component_descriptor = await _component_descriptor(
@@ -244,6 +282,42 @@ class Component(aiohttp.web.View):
 
 class ComponentDependencies(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: component_name
+          type: string
+          required: true
+        - in: query
+          name: version
+          type: string
+          required: false
+          default: greatest
+        - in: query
+          name: ocm_repo_url
+          type: string
+          required: false
+        - in: query
+          name: populate
+          type: string
+          enum:
+          - all
+          - componentReferences
+          required: false
+          default: all
+        - in: query
+          name: version_filter
+          type: string
+          enum:
+          - all
+          - releases_only
+          required: false
+        '''
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'component_name', required=True)
@@ -313,50 +387,59 @@ class ComponentDependencies(aiohttp.web.View):
 class ComponentResponsibles(aiohttp.web.View):
     async def get(self):
         '''
-        returns a list of user-identities responsible for the given component or resource
-
-        **expected query parameters:**
-
-            - component_name (required) \n
-            - version (optional) \n
-            - version_filter (optional) \n
-            - ocm_repo_url (optional, defaults to delivery-service's global default ctx) \n
-            - artifact_name (optional)
-
-        if artifact_name is given, and specific responsibles are configured for the given resource
-        (using label `cloud.gardener.cnudie/responsibles`), then those take precedence over
-        component-wide responsibles.
-
-        **response:**
-
-            responsibles: \n
-            - source: ... \n
-              type: ... \n
-              <type-specific-attributes>
-            statuses: \n
-            - type: <str> \n
-              msg: <str> \n
-
-        each user-identity consists of a list of typed userinfo-entries. callers should ignore
-        types they do not know or care about. known types w/ examples:
-
-            githubUser: \n
-                source: <github-url> \n
-                username: ... \n
-                type: githubUser \n
-                githubHostname: ... \n
-            emailAddress: \n
-                source: <url> \n
-                email: ... \n
-                type: emailAddress \n
-            personalName: \n
-                source: <url> \n
-                firstName: ... \n
-                lastName: ... \n
-                type: personalName \n
-
-        statuses allows to provide additional information to caller.
-        e.g. to communicate that responsible label was malformed and heuristic was used as fallback
+        ---
+        description:
+          Returns a list of user-identities responsible for the given component or resource.
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: component_name
+          type: string
+          required: true
+        - in: query
+          name: version
+          type: string
+          required: false
+          default: greatest
+        - in: query
+          name: artifact_name
+          type: string
+          required: false
+          description:
+            If given and specific responsibles are configured for the given artefact, (using label
+            `cloud.gardener.cnudie/responsibles`), then those take precedence over component-wide
+            responsibles.
+        - in: query
+          name: ocm_repo_url
+          type: string
+          required: false
+        - in: query
+          name: raw
+          type: boolean
+          required: false
+          default: false
+        - in: query
+          name: ignore_cache
+          type: boolean
+          required: false
+          default: false
+        - in: query
+          name: version_filter
+          type: string
+          enum:
+          - all
+          - releases_only
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              $ref: '#/definitions/ComponentResponsibles'
+          "202":
+            description: GitHub statistics pending, client should retry.
         '''
         params = self.request.rel_url.query
         statuses: list[responsibles.Status] = []
@@ -641,6 +724,53 @@ async def greatest_component_versions(
 
 class GreatestComponentVersions(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: component_name
+          type: string
+          required: true
+        - in: query
+          name: version
+          type: string
+          required: false
+        - in: query
+          name: ocm_repo_url
+          type: string
+          required: false
+        - in: query
+          name: max
+          type: integer
+          required: false
+          default: 5
+        - in: query
+          name: start_date
+          type: string
+          required: false
+        - in: query
+          name: end_date
+          type: string
+          required: false
+        - in: query
+          name: version_filter
+          type: string
+          enum:
+          - all
+          - releases_only
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: string
+        '''
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'component_name', required=True)
@@ -733,6 +863,46 @@ class UpgradePRs(aiohttp.web.View):
     required_features = (features.FeatureUpgradePRs,)
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: componentName
+          type: string
+          required: false
+        - in: query
+          name: componentVersion
+          type: string
+          required: false
+        - in: query
+          name: repoUrl
+          type: string
+          required: false
+        - in: query
+          name: state
+          type: string
+          enum:
+          - all
+          - open
+          - closed
+          required: false
+          default: open
+        - in: query
+          name: ocmRepo
+          type: string
+          required: false
+        - in: query
+          name: version_filter
+          type: string
+          enum:
+          - all
+          - releases_only
+          required: false
+        '''
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'componentName')
@@ -844,6 +1014,31 @@ class Issues(aiohttp.web.View):
     required_features = (features.FeatureIssues,)
 
     async def get(self):
+        '''
+        ---
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: componentName
+          type: string
+          required: true
+        - in: query
+          name: state
+          type: string
+          enum:
+          - all
+          - open
+          - closed
+          required: false
+          default: open
+        - in: query
+          name: since
+          type: string
+          required: false
+        '''
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'componentName', required=True)
@@ -901,6 +1096,27 @@ class ComponentDescriptorDiff(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def post(self):
+        '''
+        ---
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+            - left_component
+            - right_component
+            properties:
+              left_component:
+                $ref: '#/definitions/ComponentId'
+              right_component:
+                $ref: '#/definitions/ComponentId'
+        '''
         diff_request = ComponentDiffRequest.from_dict(await self.request.json())
 
         left_component_ref: ComponentRef = diff_request.left_component
@@ -1055,44 +1271,52 @@ class ComplianceSummary(aiohttp.web.View):
 
     async def get(self):
         '''
-        returns most critical severity for artefact-metadata types, for all component-dependencies
-
-        compliance-summaries contain severities and scan-statuses for artefact-metadata types.
-
-        **expected query parameters:**
-
-            - component_name (required) \n
-            - version (required) \n
-            - version_filter (optional) \n
-            - ocm_repo_url (optional) \n
-            - recursion_depth (optional) \n
-
-        **response:**
-
-            complianceSummary: \n
-                componentId: \n
-                    name: ... \n
-                    version: ... \n
-                entries: \n
-                  - type: artefact-metadata type, e.g. finding/vulnerability \n
-                    source: ... \n
-                    severity: ... \n
-                    scanStatus: ... \n
-                artefacts: \n
-                  - artefact: \n
-                        component_name: ... \n
-                        component_version: ... \n
-                        artefact_kind: ... \n
-                        artefact: \n
-                            artefact_name: ... \n
-                            artefact_version: ... \n
-                            artefact_type: ... \n
-                            artefact_extra_id: ... \n
-                    entries: \n
-                      - type: artefact-metadata type, e.g. finding/vulnerability \n
-                        source: ... \n
-                        severity: ... \n
-                        scanStatus: ... \n
+        ---
+        description:
+          Returns the most critical severity for artefact-metadata types, for all
+          component-dependencies. Compliance summaries contain severities and scan-statuses for
+          artefact-metadata types.
+        tags:
+        - Artefact metadata
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: component_name
+          type: string
+          required: true
+        - in: query
+          name: version
+          type: string
+          required: true
+        - in: query
+          name: ocm_repo_url
+          type: string
+          required: false
+        - in: query
+          name: version_filter
+          type: string
+          enum:
+          - all
+          - releases_only
+          required: false
+        - in: query
+          name: recursion_depth
+          type: integer
+          required: false
+          default: -1
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+                - complianceSummary
+              properties:
+                complianceSummary:
+                    type: array
+                    items:
+                      $ref: '#/definitions/ComplianceSummary'
         '''
         params = self.request.rel_url.query
         artefact_metadata_cfg_by_type = self.request.app[consts.APP_ARTEFACT_METADATA_CFG]
@@ -1259,35 +1483,54 @@ class ComponentMetadata(aiohttp.web.View):
 
     async def get(self):
         '''
-        returns a list of artifact-metadata for the given component with optional filters
-
-        **expected query parameters:**
-
-            - name (required) \n
-            - type (optional): The metadata-types to retrieve. Can be given multiple times. If \n
-                no type is given, all relevant metadata will be returned. \n
-            - select (optional): Currently either `greatestVersion` or `latestDate`. \n
-            - version (optional): The component version to consider. \n
-            - version_filter (optional) \n
-
-        One of 'select' and 'version' must be given. However, if 'select' is given as
-        `greatestVersion` 'version' must _not_ be given.
-
-        **response:**
-
-            - artefact: <object> \n
-                component_name: <str> \n
-                component_version: <str> \n
-                artefact_kind: <str> \n
-                artefact: <object> \n
-                    artefact_name: <str> \n
-                    artefact_version: <str> \n
-                    artefact_type: <str> \n
-                    artefact_extra_id: <object> \n
-            meta: <object> \n
-                type: <str> \n
-                datasource: <str> \n
-            data: <object> # schema depends on meta.type \n
+        ---
+        description:
+          Returns a list of artefact-metadata for the given component with optional filters. One of
+          `select` and `version` must be given. However, if `select` is given as `greatestVersion`,
+          `version` must _not_ be given.
+        tags:
+        - Artefact metadata
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: name
+          type: string
+          required: true
+        - in: query
+          name: version
+          type: string
+          required: false
+          description: The component version to consider.
+        - in: query
+          name: type
+          schema:
+            $ref: '#/definitions/Datatype'
+          required: false
+          description:
+            The metadata-types to retrieve. Can be given multiple times. If no type is given, all
+            relevant metadata will be returned.
+        - in: query
+          name: select
+          type: string
+          enum:
+          - greatestVersion
+          - latestDat
+          required: false
+        - in: query
+          name: version_filter
+          type: string
+          enum:
+          - all
+          - releases_only
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                $ref: '#/definitions/ArtefactMetadata'
         '''
         params = self.request.rel_url.query
         invalid_semver_ok = self.request.app[consts.APP_INVALID_SEMVER_OK]

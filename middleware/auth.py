@@ -147,6 +147,18 @@ def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication':
 @noauth
 class OAuthCfgs(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        tags:
+        - Authentication
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              $ref: '#/definitions/AuthConfig'
+        '''
         def oauth_cfg_to_dict(oauth_cfg: model.delivery.OAuth):
             cfg_factory = self.request.app[consts.APP_CFG_FACTORY]
             github_cfg = cfg_factory.github(oauth_cfg.github_cfg())
@@ -190,6 +202,37 @@ class OAuthCfgs(aiohttp.web.View):
 @noauth
 class OAuthLogin(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        tags:
+        - Authentication
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: code
+          type: string
+          required: false
+        - in: query
+          name: client_id
+          type: string
+          required: false
+        - in: query
+          name: access_token
+          type: string
+          required: false
+        - in: query
+          name: api_url
+          type: string
+          required: false
+        responses:
+          "200":
+            description: Successfully logged in.
+            schema:
+              $ref: '#/definitions/AuthToken'
+          "401":
+            description: The provided auth information is not valid.
+        '''
         feature_authentication = _check_if_oauth_feature_available()
 
         import util
@@ -335,6 +378,14 @@ class OAuthLogin(aiohttp.web.View):
 @noauth
 class OAuthLogout(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        tags:
+        - Authentication
+        responses:
+          "200":
+            description: Successfully logged out.
+        '''
         _check_if_oauth_feature_available()
 
         response = aiohttp.web.Response()
@@ -351,6 +402,18 @@ class OpenIDCfg(aiohttp.web.View):
     for reference).
     '''
     async def get(self):
+        '''
+        ---
+        tags:
+        - Authentication
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              $ref: '#/definitions/OpenIdConfig'
+        '''
         base_url = self.request.app[consts.APP_BASE_URL]
 
         return aiohttp.web.json_response(
@@ -373,6 +436,25 @@ class OpenIDCfg(aiohttp.web.View):
 @noauth
 class OpenIDJwks(aiohttp.web.View):
     async def get(self):
+        '''
+        ---
+        tags:
+        - Authentication
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - keys
+              properties:
+                keys:
+                  type: array
+                  items:
+                    type: object
+        '''
         cfg_factory = self.request.app[consts.APP_CFG_FACTORY]
         delivery_cfg = cfg_factory.delivery(self.request.app[consts.APP_DELIVERY_CFG])
         signing_cfgs: tuple[model.delivery.SigningCfg] = tuple(
@@ -403,6 +485,10 @@ def auth_middleware(
         handler: aiohttp.typedefs.Handler,
     ) -> aiohttp.web.StreamResponse:
         if request.method == 'OPTIONS':
+            return await handler(request)
+
+        # auto-generated documentation routes, they are missing the "no-auth" decorator
+        if request.path.startswith('/api/v1/doc'):
             return await handler(request)
 
         auth = getattr(handler, 'auth', default_auth)
