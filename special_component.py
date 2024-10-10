@@ -1,26 +1,39 @@
-import falcon
+import aiohttp.web
 
+import consts
 import features
+import util
 
 
-class CurrentDependencies():
+class CurrentDependencies(aiohttp.web.View):
     required_features = (features.FeatureSpecialComponents,)
 
-    def __init__(
-        self,
-        special_component_callback,
-        github_api_lookup,
-    ):
-        self.special_component_callback = special_component_callback
-        self.github_api_lookup = github_api_lookup
+    async def get(self):
+        '''
+        ---
+        tags:
+        - Components
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: component_name
+          type: string
+          required: true
+        '''
+        params = self.request.rel_url.query
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        component_name = req.get_param('component_name', True)
-        component_cfg = self.special_component_callback(component_name=component_name)
+        component_name = util.param(params, 'component_name', required=True)
+        component_cfg = self.request.app[consts.SPECIAL_COMPONENT_CALLBACK](
+            component_name=component_name,
+        )
 
         if not component_cfg:
-            resp.media = {}
-            return
+            return aiohttp.web.json_response(
+                data={},
+            )
+
+        github_api_lookup = self.request.app[consts.GITHUB_API_LOOKUP]
 
         resolved_dependencies = []
         for dependency in component_cfg.dependencies or []:
@@ -30,7 +43,7 @@ class CurrentDependencies():
             }
             if (dependency.currentVersion):
                 resolved_dependency['version'] = dependency.currentVersion.retrieve(
-                    github_api_lookup=self.github_api_lookup,
+                    github_api_lookup=github_api_lookup,
                 )
             resolved_dependencies.append(resolved_dependency)
 
@@ -40,6 +53,9 @@ class CurrentDependencies():
         }
         if component_cfg.currentVersion:
             resp_media['version'] = component_cfg.currentVersion.retrieve(
-                github_api_lookup=self.github_api_lookup,
+                github_api_lookup=github_api_lookup,
             )
-        resp.media = resp_media
+
+        return aiohttp.web.json_response(
+            data=resp_media,
+        )

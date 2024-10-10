@@ -5,25 +5,29 @@ import dataclasses
 import datetime
 import enum
 import functools
+import http
 import logging
 import statistics
 import typing
 import urllib.parse
 
+import aiohttp.web
 import cachetools.keys
 import dateutil.parser
-import falcon
-import falcon.media.validators
 import github3
 
 import ci.util
-import cnudie.retrieve
+import cnudie.iter
+import cnudie.iter_async
+import cnudie.retrieve_async
 import cnudie.util
 import ocm
 import version as versionutil
 
 import caching
 import components
+import consts
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -123,11 +127,11 @@ class DoraResponse:
     dependencies: dict[str, DoraDependencyResponse]
 
 
-def versions_descriptors_newer_than(
+async def versions_descriptors_newer_than(
     component_name: str,
     date: datetime.datetime,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     only_releases: bool = True,
     invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc'
@@ -148,7 +152,7 @@ def versions_descriptors_newer_than(
         creation_date: datetime.datetime = components.get_creation_date(descriptor.component)
         return creation_date > date
 
-    versions = all_versions_sorted(
+    versions = await all_versions_sorted(
         component=component_name,
         sorting_direction='desc',
         invalid_semver_ok=invalid_semver_ok,
@@ -159,7 +163,7 @@ def versions_descriptors_newer_than(
     descriptors: list[ocm.ComponentDescriptor] = []
 
     for version in versions:
-        descriptor = component_descriptor_lookup((component_name, version))
+        descriptor = await component_descriptor_lookup((component_name, version))
         try:
             if not _filter_component_newer_than_date(descriptor, date):
                 break
@@ -174,8 +178,8 @@ def versions_descriptors_newer_than(
 
 
 def _cache_key_gen_all_versions_sorted(
-    component: cnudie.retrieve.ComponentName,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component: cnudie.util.ComponentName,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     only_releases: bool = True,
     invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
@@ -188,13 +192,13 @@ def _cache_key_gen_all_versions_sorted(
     )
 
 
-@caching.cached(
+@caching.async_cached(
     cache=caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=128), # 1 day
     key_func=_cache_key_gen_all_versions_sorted,
 )
-def all_versions_sorted(
-    component: cnudie.retrieve.ComponentName,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+async def all_versions_sorted(
+    component: cnudie.util.ComponentName,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     only_releases: bool = True,
     invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc'
@@ -222,7 +226,7 @@ def all_versions_sorted(
 
     versions = (
         version for version
-        in version_lookup(component_name)
+        in await version_lookup(component_name)
         if filter_version(version, invalid_semver_ok, only_releases)
     )
 
@@ -238,25 +242,23 @@ def all_versions_sorted(
     return versions
 
 
-def get_next_older_descriptor(
+async def get_next_older_descriptor(
     component_id: ocm.ComponentIdentity,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    component_version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    component_version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
 ) -> ocm.ComponentDescriptor | None:
-    all_versions = all_versions_sorted(
+    all_versions = await all_versions_sorted(
         component=component_id,
         version_lookup=component_version_lookup,
         sorting_direction='desc',
     )
 
     if (version_index := all_versions.index(component_id.version)) != len(all_versions) - 1:
-        old_target_version = all_versions[
-            version_index + 1
-        ]
+        old_target_version = all_versions[version_index + 1]
     else:
         return None
 
-    return component_descriptor_lookup(
+    return await component_descriptor_lookup(
         ocm.ComponentIdentity(
             name=component_id.name,
             version=old_target_version,
@@ -750,50 +752,78 @@ def create_response_object(
     )
 
 
-class DoraMetrics:
-    def __init__(
-        self,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        component_version_lookup: cnudie.retrieve.VersionLookupByComponent,
-        github_api_lookup,
-    ):
-        self._component_descriptor_lookup = component_descriptor_lookup
-        self._component_version_lookup = component_version_lookup
-        self.github_api_lookup = github_api_lookup
+class DoraMetrics(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        tags:
+        - Dora
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: target_component_name
+          type: string
+          required: true
+        - in: query
+          name: time_span_days
+          type: integer
+          required: false
+          default: 90
+        - in: query
+          name: filter_component_names
+          schema:
+            type: array
+            items:
+              type: string
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - change_lead_time_median
+              - change_lead_time_average
+              - dependencies
+              properties:
+                change_lead_time_median:
+                  type: number
+                change_lead_time_average:
+                  type: number
+                dependencies:
+                  type: object
+          "202":
+            description: Dora metric calculation pending, client should retry.
+        '''
+        params = self.request.rel_url.query
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        target_component_name: str = req.get_param(
-            name='target_component_name',
-            required=True,
-        )
-        time_span_days: int = req.get_param_as_int(
-            name='time_span_days',
-            default=90,
-        )
-        filter_component_names: list[str] = req.get_param_as_list(
-            name='filter_component_names',
-            default=[],
-        )
+        target_component_name = util.param(params, 'target_component_name', required=True)
+        time_span_days = int(util.param(params, 'time_span_days', default=90))
+        filter_component_names = params.getall('filter_component_names', default=[])
 
-        components.check_if_component_exists(
+        component_descriptor_lookup = self.request.app[consts.COMPONENT_DESCRIPTOR_LOOKUP]
+        version_lookup = self.request.app[consts.VERSION_LOOKUP]
+
+        await components.check_if_component_exists(
             component_name=target_component_name,
-            version_lookup=self._component_version_lookup,
+            version_lookup=version_lookup,
             raise_http_error=True,
         )
 
         for filter_component_name in filter_component_names:
-            components.check_if_component_exists(
+            await components.check_if_component_exists(
                 component_name=filter_component_name,
-                version_lookup=self._component_version_lookup,
+                version_lookup=version_lookup,
                 raise_http_error=True,
             )
 
         # get all component descriptors of component versions of target component within time span
-        target_descriptors_in_time_span = versions_descriptors_newer_than(
+        target_descriptors_in_time_span = await versions_descriptors_newer_than(
             component_name=target_component_name,
             date=datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=time_span_days),
-            component_descriptor_lookup=self._component_descriptor_lookup,
-            version_lookup=self._component_version_lookup,
+            component_descriptor_lookup=component_descriptor_lookup,
+            version_lookup=version_lookup,
             sorting_direction='asc',
         )
 
@@ -801,25 +831,25 @@ class DoraMetrics:
         # at the beginning of the descriptor list to be able to detect changes which were
         # first introduced within the time span of the target component version.
 
-        if (next_older_descriptor := get_next_older_descriptor(
-            ocm.ComponentIdentity(
+        if (next_older_descriptor := await get_next_older_descriptor(
+            component_id=ocm.ComponentIdentity(
                 target_component_name,
                 target_descriptors_in_time_span[0].component.version,
             ),
-            self._component_descriptor_lookup,
-            self._component_version_lookup,
+            component_descriptor_lookup=component_descriptor_lookup,
+            component_version_lookup=version_lookup,
         )):
             target_descriptors_in_time_span.insert(0, next_older_descriptor)
 
         # calculate the changes which where introduced for every component version
         target_descriptors_with_updates: list[ComponentWithDependencyChanges] = []
         for index in range(1, len(target_descriptors_in_time_span)):
-            component_diff = _diff_components(
+            component_diff = await _diff_components(
                 component_vector=components.ComponentVector(
                     start=target_descriptors_in_time_span[index-1].component,
                     end=target_descriptors_in_time_span[index].component,
                 ),
-                component_descriptor_lookup=self._component_descriptor_lookup,
+                component_descriptor_lookup=component_descriptor_lookup,
             )
 
             if component_diff:
@@ -851,21 +881,25 @@ class DoraMetrics:
                 tpe.submit(
                     categorize_by_changed_component,
                     target_descriptors_with_updates,
-                    self.github_api_lookup,
+                    self.request.app[consts.GITHUB_API_LOOKUP],
                 )
 
-            resp.status = falcon.HTTP_ACCEPTED
-            return
+            return aiohttp.web.Response(
+                status=http.HTTPStatus.ACCEPTED,
+            )
 
-        resp.media = create_response_object(
-            target_updates_by_dependency=updates_by_dependency,
-            time_span_days=time_span_days,
+        return aiohttp.web.json_response(
+            data=create_response_object(
+                target_updates_by_dependency=updates_by_dependency,
+                time_span_days=time_span_days,
+            ),
+            dumps=util.dict_to_json_factory,
         )
 
 
 def _cache_key_diff_components(
     component_vector: components.ComponentVector,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
 ):
     return cachetools.keys.hashkey(
         component_vector.start.name,
@@ -875,13 +909,13 @@ def _cache_key_diff_components(
     )
 
 
-@caching.cached(
+@caching.async_cached(
     cache=caching.LFUFilesystemCache(max_total_size_mib=256),
     key_func=_cache_key_diff_components,
 )
-def _diff_components(
+async def _diff_components(
     component_vector: components.ComponentVector,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
 ) -> cnudie.util.ComponentDiff | None:
     '''
     calculates component-diff between components from passed-in component-vector
@@ -890,23 +924,21 @@ def _diff_components(
     in that it will merge multiple component-versions (of the same component) into just one
     component-version, choosing greatest/smallest versions.
     '''
-    old_components = tuple(
-        c.component for c
-        in cnudie.iter.iter(
+    old_components = [
+        c.component async for c in cnudie.iter_async.iter(
             component=component_vector.start,
             lookup=component_descriptor_lookup,
             node_filter=cnudie.iter.Filter.components,
         )
-    )
+    ]
 
-    new_components = tuple(
-        c.component
-        for c in cnudie.iter.iter(
+    new_components = [
+        c.component async for c in cnudie.iter_async.iter(
             component=component_vector.end,
             lookup=component_descriptor_lookup,
             node_filter=cnudie.iter.Filter.components,
         )
-    )
+    ]
 
     def only_greatest_versions(components: list[ocm.Component]):
         components_by_name: collections.defaultdict[

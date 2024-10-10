@@ -1,16 +1,19 @@
 import collections.abc
+import http
 import logging
 
+import aiohttp.web
 import dacite
-import falcon
 
 import dso.model
 
+import consts
 import features
 import k8s.backlog
 import k8s.model
 import k8s.runtime_artefacts
 import k8s.util
+import util
 
 
 def iter_container_statuses(
@@ -32,31 +35,44 @@ def iter_container_statuses(
             yield k8s.model.ContainerStatus.from_v1_container_status(status)
 
 
-class ContainerStatuses:
+class ContainerStatuses(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
-    def __init__(
-        self,
-        service_extensions_callback,
-        namespace_callback,
-        kubernetes_api_callback,
-    ):
-        self.service_extensions_callback = service_extensions_callback
-        self.namespace_callback = namespace_callback
-        self.kubernetes_api_callback = kubernetes_api_callback
+    async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: service
+          type: string
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: object
+        '''
+        params = self.request.rel_url.query
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        service_filter = req.get_param_as_list(
-            'service',
-            required=False,
-            default=self.service_extensions_callback(),
+        service_filter = params.getall(
+            key='service',
+            default=self.request.app[consts.SERVICE_EXTENSIONS_CALLBACK](),
         )
 
-        resp.media = tuple(iter_container_statuses(
-            service_filter=service_filter,
-            namespace=self.namespace_callback(),
-            kubernetes_api=self.kubernetes_api_callback(),
-        ))
+        return aiohttp.web.json_response(
+            data=tuple(iter_container_statuses(
+                service_filter=service_filter,
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
+            )),
+            dumps=util.dict_to_json_factory,
+        )
 
 
 def iter_log_collections(
@@ -84,68 +100,105 @@ def iter_log_collections(
         yield log_collection
 
 
-class LogCollections:
+class LogCollections(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
-    def __init__(
-        self,
-        service_extensions_callback,
-        namespace_callback,
-        kubernetes_api_callback,
-    ):
-        self.service_extensions_callback = service_extensions_callback
-        self.namespace_callback = namespace_callback
-        self.kubernetes_api_callback = kubernetes_api_callback
+    async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: service
+          type: string
+          required: false
+        - in: query
+          name: log_level
+          type: string
+          enum:
+          - ERROR
+          - WARNING
+          - INFO
+          - DEBUG
+          required: true
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: object
+        '''
+        params = self.request.rel_url.query
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        service_filter = req.get_param_as_list(
-            'service',
-            required=False,
-            default=self.service_extensions_callback(),
+        service_filter = params.getall(
+            key='service',
+            default=self.request.app[consts.SERVICE_EXTENSIONS_CALLBACK](),
         )
 
-        log_level = req.get_param(
-            'log_level',
-            required=True,
-        )
+        log_level = util.param(params, 'log_level', required=True)
         log_level = logging._nameToLevel[log_level.upper()]
 
-        resp.media = tuple(iter_log_collections(
-            service_filter=service_filter,
-            log_level=log_level,
-            namespace=self.namespace_callback(),
-            kubernetes_api=self.kubernetes_api_callback(),
-        ))
+        return aiohttp.web.json_response(
+            data=tuple(iter_log_collections(
+                service_filter=service_filter,
+                log_level=log_level,
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
+            )),
+        )
 
 
-class ServiceExtensions:
+class ServiceExtensions(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
-    def __init__(
-        self,
-        service_extensions_callback,
-    ):
-        self.service_extensions_callback = service_extensions_callback
+    async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: string
+        '''
+        return aiohttp.web.json_response(
+            data=self.request.app[consts.SERVICE_EXTENSIONS_CALLBACK](),
+        )
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        resp.media = self.service_extensions_callback()
 
-
-class ScanConfigurations:
+class ScanConfigurations(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
-    def __init__(
-        self,
-        namespace_callback,
-        kubernetes_api_callback,
-    ):
-        self.namespace_callback = namespace_callback
-        self.kubernetes_api_callback = kubernetes_api_callback
-
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        resp.media = k8s.util.iter_scan_configurations(
-            namespace=self.namespace_callback(),
-            kubernetes_api=self.kubernetes_api_callback(),
+    async def get(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                type: object
+        '''
+        return aiohttp.web.json_response(
+            data=k8s.util.iter_scan_configurations(
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
+            ),
+            dumps=util.dict_to_json_factory,
         )
 
 
@@ -182,97 +235,150 @@ def iter_backlog_items(
         }
 
 
-class BacklogItems:
+class BacklogItems(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
-    def __init__(
-        self,
-        namespace_callback,
-        kubernetes_api_callback,
-    ):
-        self.namespace_callback = namespace_callback
-        self.kubernetes_api_callback = kubernetes_api_callback
+    async def options(self):
+        return aiohttp.web.Response()
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        service = req.get_param('service', required=True)
-        cfg_name = req.get_param('cfg_name', required=True)
-
-        resp.media = tuple(iter_backlog_items(
-            service=service,
-            cfg_name=cfg_name,
-            namespace=self.namespace_callback(),
-            kubernetes_api=self.kubernetes_api_callback(),
-        ))
-
-    def on_put(self, req: falcon.Request, resp: falcon.Response):
+    async def get(self):
         '''
-        update spec of backlog item with the specified name. If the backlog item does not
-        exist (anymore), ignore it
-
-        **expected query parameters:**
-
-            - name (required) \n
-
-        **expected body:**
-
-            spec: <object> \n
-              artefact: <object> \n
-                component_name: <str> \n
-                component_version: <str> \n
-                artefact_kind: <str> \n
-                artefact: <object> \n
-                  artefact_name: <str> \n
-                  artefact_version: <str> \n
-                  artefact_type: <str> \n
-                  artefact_extra_id: <object> \n
-              priority: <int> \n
-              timestamp: <str> \n
+        ---
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: service
+          type: string
+          required: true
+        - in: query
+          name: cfg_name
+          type: string
+          required: true
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                $ref: '#/definitions/BacklogItem'
         '''
-        name = req.get_param('name', required=True)
+        params = self.request.rel_url.query
 
-        backlog_item_raw = req.media.get('spec')
+        service = util.param(params, 'service', required=True)
+        cfg_name = util.param(params, 'cfg_name', required=True)
+
+        return aiohttp.web.json_response(
+            data=tuple(iter_backlog_items(
+                service=service,
+                cfg_name=cfg_name,
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
+            )),
+        )
+
+    async def put(self):
+        '''
+        ---
+        description:
+          Update spec of backlog item with the specified name. If the backlog item does not exist
+          (anymore), ignore it.
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: name
+          type: string
+          required: true
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+            - spec
+            properties:
+              spec:
+                $ref: '#/definitions/BacklogItemSpec'
+        responses:
+          "204":
+            description: Successful operation.
+        '''
+        params = self.request.rel_url.query
+
+        name = util.param(params, 'name', required=True)
+
+        backlog_item_raw = (await self.request.json()).get('spec')
         backlog_item = k8s.backlog.BacklogItem.from_dict(backlog_item_raw)
 
         k8s.backlog.update_backlog_crd(
             name=name,
-            namespace=self.namespace_callback(),
-            kubernetes_api=self.kubernetes_api_callback(),
+            namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+            kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
             backlog_item=backlog_item,
         )
 
-        resp.status = falcon.HTTP_NO_CONTENT
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.NO_CONTENT,
+        )
 
-    def on_post(self, req: falcon.Request, resp: falcon.Response):
+    async def post(self):
         '''
-        create backlog items for the specified service (e.g. bdba) and the supplied artefacts
-
-        **expected query parameters:**
-
-            - service (required) \n
-            - cfg_name (required) \n
-            - priority (optional): one of {NONE, LOW, MEDIUM, HIGH, CRITICAL}, default CRITICAL \n
-
-        **expected body:**
-
-            artefacts: <array> of <object> \n
-            - component_name: <str> \n
-              component_version: <str> \n
-              artefact_kind: <str> \n
-              artefact: <object> \n
-                artefact_name: <str> \n
-                artefact_version: <str> \n
-                artefact_type: <str> \n
-                artefact_extra_id: <object> \n
+        ---
+        description:
+          Create backlog items for the specified service (e.g. bdba) and the supplied artefacts.
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: service
+          type: string
+          required: true
+        - in: query
+          name: cfg_name
+          type: string
+          required: true
+        - in: query
+          name: priority
+          type: string
+          enum:
+          - NONE
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+          required: false
+          default: CRITICAL
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+            - artefacts
+            properties:
+              artefacts:
+                type: array
+                items:
+                 $ref: '#/definitions/ComponentArtefactId'
+        responses:
+          "201":
+            description: Successful operation.
         '''
-        service = req.get_param('service', required=True)
-        cfg_name = req.get_param('cfg_name', required=True)
-        priority_str = req.get_param(
+        params = self.request.rel_url.query
+
+        service = util.param(params, 'service', required=True)
+        cfg_name = util.param(params, 'cfg_name', required=True)
+        priority_str = util.param(
+            params=params,
             name='priority',
             default=k8s.backlog.BacklogPriorities.CRITICAL.name,
         )
         priority = k8s.backlog.BacklogPriorities[priority_str.upper()]
 
-        for artefact_raw in req.media.get('artefacts'):
+        for artefact_raw in (await self.request.json()).get('artefacts'):
             artefact = dacite.from_dict(
                 data_class=dso.model.ComponentArtefactId,
                 data=artefact_raw,
@@ -284,26 +390,48 @@ class BacklogItems:
             k8s.backlog.create_backlog_item(
                 service=service,
                 cfg_name=cfg_name,
-                namespace=self.namespace_callback(),
-                kubernetes_api=self.kubernetes_api_callback(),
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
                 artefact=artefact,
                 priority=priority,
             )
 
-        resp.status = falcon.HTTP_CREATED
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.CREATED,
+        )
 
-    def on_delete(self, req: falcon.Request, resp: falcon.Response):
-        names = req.get_param_as_list('name', required=True)
+    async def delete(self):
+        '''
+        ---
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: name
+          schema:
+            type: array
+            items:
+              type: string
+          required: true
+        responses:
+          "204":
+            description: Successful operation.
+        '''
+        params = self.request.rel_url.query
+
+        names = params.getall('name')
 
         for name in names:
             k8s.util.delete_custom_resource(
                 crd=k8s.model.BacklogItemCrd,
                 name=name,
-                namespace=self.namespace_callback(),
-                kubernetes_api=self.kubernetes_api_callback(),
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
             )
 
-        resp.status = falcon.HTTP_NO_CONTENT
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.NO_CONTENT,
+        )
 
 
 def iter_runtime_artefacts(
@@ -334,63 +462,90 @@ def iter_runtime_artefacts(
         }
 
 
-class RuntimeArtefacts:
+class RuntimeArtefacts(aiohttp.web.View):
     required_features = (features.FeatureServiceExtensions,)
 
-    def __init__(
-        self,
-        namespace_callback,
-        kubernetes_api_callback,
-    ):
-        self.namespace_callback = namespace_callback
-        self.kubernetes_api_callback = kubernetes_api_callback
+    async def options(self):
+        return aiohttp.web.Response()
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
+    async def get(self):
         '''
-        retrieve existing runtime artefacts, optionally pre-filtered using the `label_selector`
-
-        **expected query parameters:**
-
-            - label (optional): `<key>:<value>` formatted label to use as filter \n
+        ---
+        description:
+          Retrieve existing runtime artefacts, optionally pre-filtered using the `label_selector`.
+        tags:
+        - Service extensions
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: label
+          schema:
+            type: array
+            items:
+              type: string
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                $ref: '#/definitions/RuntimeArtefact'
         '''
-        labels_raw = req.get_param_as_list('label', default=[])
+        params = self.request.rel_url.query
+
+        labels_raw = params.getall('label', default=[])
         labels = dict([
             label_raw.split(':') for label_raw in labels_raw
         ])
 
-        resp.media = tuple(iter_runtime_artefacts(
-            namespace=self.namespace_callback(),
-            kubernetes_api=self.kubernetes_api_callback(),
-            labels=labels,
-        ))
+        return aiohttp.web.json_response(
+            data=tuple(iter_runtime_artefacts(
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
+                labels=labels,
+            )),
+        )
 
-    def on_put(self, req: falcon.Request, resp: falcon.Response):
+    async def put(self):
         '''
-        create a runtime artefact with the specified spec
-
-        **expected query parameters:**
-
-            - label (optional): `<key>:<value>` formatted label to add to the custom resource \n
-
-        **expected body:**
-
-            artefacts: <array> of <object> \n
-            - component_name: <str> \n
-              component_version: <str> \n
-              artefact_kind: <str> \n
-              artefact: <object> \n
-                artefact_name: <str> \n
-                artefact_version: <str> \n
-                artefact_type: <str> \n
-                artefact_extra_id: <object> \n
-              references: <array> of <Self> \n
+        ---
+        description: Create a runtime artefact with the specified spec.
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: label
+          schema:
+            type: array
+            items:
+              type: string
+          required: false
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+            - artefacts
+            properties:
+              artefacts:
+                type: array
+                items:
+                  $ref: '#/definitions/ComponentArtefactId'
+        responses:
+          "201":
+            description: Successful operation.
         '''
-        labels_raw = req.get_param_as_list('label', default=[])
+        params = self.request.rel_url.query
+
+        labels_raw = params.getall('label', default=[])
         labels = dict([
             label_raw.split(':') for label_raw in labels_raw
         ])
 
-        for runtime_artefact_raw in req.media.get('artefacts'):
+        for runtime_artefact_raw in (await self.request.json()).get('artefacts'):
             runtime_artefact = dacite.from_dict(
                 data_class=dso.model.ComponentArtefactId,
                 data=runtime_artefact_raw,
@@ -400,30 +555,46 @@ class RuntimeArtefacts:
             )
 
             k8s.runtime_artefacts.create_unique_runtime_artefact(
-                namespace=self.namespace_callback(),
-                kubernetes_api=self.kubernetes_api_callback(),
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
                 artefact=runtime_artefact,
                 labels=labels,
             )
 
-        resp.status = falcon.HTTP_CREATED
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.CREATED,
+        )
 
-    def on_delete(self, req: falcon.Request, resp: falcon.Response):
+    async def delete(self):
         '''
-        delete one or more runtime artefacts by their kubernetes resource `name`
-
-        **expected query parameters:**
-
-            - name (required) \n
+        ---
+        description: Delete one or more runtime artefacts by their kubernetes resource `name`.
+        tags:
+        - Service extensions
+        parameters:
+        - in: query
+          name: name
+          schema:
+            type: array
+            items:
+              type: string
+          required: true
+        responses:
+          "204":
+            description: Successful operation.
         '''
-        names = req.get_param_as_list('name', required=True)
+        params = self.request.rel_url.query
+
+        names = params.getall('name')
 
         for name in names:
             k8s.util.delete_custom_resource(
                 crd=k8s.model.RuntimeArtefactCrd,
                 name=name,
-                namespace=self.namespace_callback(),
-                kubernetes_api=self.kubernetes_api_callback(),
+                namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
             )
 
-        resp.status = falcon.HTTP_NO_CONTENT
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.NO_CONTENT,
+        )

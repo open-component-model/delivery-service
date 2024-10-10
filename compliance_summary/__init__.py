@@ -68,7 +68,7 @@ class SeverityMappingBase:
 class CodecheckSeverityNamesMapping(SeverityMappingBase):
     codecheckSeverityNames: list[str]
 
-    def match(
+    async def match(
         self,
         finding: dso.model.ArtefactMetadata,
         **kwargs,
@@ -89,7 +89,7 @@ class CodecheckSeverityNamesMapping(SeverityMappingBase):
 class OsStatusMapping(SeverityMappingBase):
     status: list[str]
 
-    def match(
+    async def match(
         self,
         finding: dso.model.ArtefactMetadata,
         **kwargs,
@@ -161,7 +161,7 @@ class OsStatusMapping(SeverityMappingBase):
         if empty_os_id(os_id):
             return severity_for_os_status(OsStatus.EMPTY_OS_ID)
 
-        release_infos = osinfo.os_release_infos(
+        release_infos = await osinfo.os_release_infos(
             os_id=eol.normalise_os_id(os_id.ID),
             eol_client=eol_client,
         )
@@ -185,7 +185,7 @@ class ArtefactMetadataCfg:
     severityMappings: list[OsStatusMapping | CodecheckSeverityNamesMapping] | None
     categories: list[str] = dataclasses.field(default_factory=list)
 
-    def match(
+    async def match(
         self,
         finding: dso.model.ArtefactMetadata,
         **kwargs,
@@ -194,7 +194,7 @@ class ArtefactMetadataCfg:
         matches finding against severityMappings
         '''
         for severity_mapping in self.severityMappings:
-            if (severity := severity_mapping.match(finding, **kwargs)):
+            if (severity := await severity_mapping.match(finding, **kwargs)):
                 return severity
 
         raise RuntimeError(f'no severity mapping for {finding.meta.type=}')
@@ -252,7 +252,7 @@ class SummaryConfig:
     default_entries: dict[str, ComplianceSummaryEntry]
 
 
-def component_summaries(
+async def component_summaries(
     findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     components: tuple[ocm.Component],
@@ -292,7 +292,7 @@ def component_summaries(
             )
         },
     ),
-) -> collections.abc.Generator[ComponentComplianceSummary, None, None]:
+) -> collections.abc.AsyncGenerator[ComponentComplianceSummary, None, None]:
     '''
     yields compliance summaries per component and per artefact containing most
     critical flaw for each `data_type`.
@@ -328,15 +328,17 @@ def component_summaries(
                 name=component.name,
                 version=component.version,
             ),
-            entries=list(calculate_summary(
-                artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
-                findings=filtered_findings,
-                rescorings=filtered_rescorings,
-                defaults=cfg.default_entries,
-                types=tuple(type for type in cfg.default_entries.keys()),
-                eol_client=eol_client,
-            )),
-            artefacts=list(calculate_artefact_summary(
+            entries=[
+                summary async for summary in calculate_summary(
+                    artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+                    findings=filtered_findings,
+                    rescorings=filtered_rescorings,
+                    defaults=cfg.default_entries,
+                    types=tuple(type for type in cfg.default_entries.keys()),
+                    eol_client=eol_client,
+                )
+            ],
+            artefacts=[await calculate_artefact_summary(
                 component=component,
                 artefact=artefact,
                 findings=filtered_findings,
@@ -344,11 +346,11 @@ def component_summaries(
                 defaults=cfg.default_entries,
                 eol_client=eol_client,
                 artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
-            ) for artefact in component.resources + component.sources),
+            ) for artefact in component.resources + component.sources],
         )
 
 
-def calculate_artefact_summary(
+async def calculate_artefact_summary(
     component: ocm.Component,
     artefact: ocm.Resource | ocm.Source,
     findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
@@ -392,30 +394,31 @@ def calculate_artefact_summary(
                 artefact_extra_id=artefact.extraIdentity,
             ),
         ),
-        entries=list(calculate_summary(
-            artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
-            findings=findings_for_artefact,
-            rescorings=rescorings,
-            defaults=defaults,
-            types=tuple(type for type in defaults.keys()),
-            eol_client=eol_client,
-        )),
+        entries=[
+            summary async for summary in calculate_summary(
+                artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+                findings=findings_for_artefact,
+                rescorings=rescorings,
+                defaults=defaults,
+                types=tuple(type for type in defaults.keys()),
+                eol_client=eol_client,
+            )
+        ],
     )
 
 
-def calculate_summary(
+async def calculate_summary(
     findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     defaults: dict[ComplianceSummaryEntry],
     types: tuple[dso.model.Datatype],
     eol_client: eol.EolClient,
     artefact_metadata_cfg_by_type: dict[str, ArtefactMetadataCfg],
-) -> collections.abc.Generator[ComplianceSummaryEntry, None, None]:
+) -> collections.abc.AsyncGenerator[ComplianceSummaryEntry, None, None]:
     '''
     yields exactly one `ComplianceSummaryEntry` per type in `types` from `findings`,
     on absence fallback to corresponding default.
     '''
-    results = {}
     for finding_type in types:
         artefact_metadata_cfg = artefact_metadata_cfg_by_type.get(finding_type)
 
@@ -435,7 +438,7 @@ def calculate_summary(
             ]
 
             if findings_with_matching_datasource:
-                results[finding_type] = ComplianceSummaryEntry(
+                yield ComplianceSummaryEntry(
                     type=finding_type,
                     source=datasource,
                     severity=ComplianceEntrySeverity.CLEAN,
@@ -443,7 +446,7 @@ def calculate_summary(
                 )
                 continue
 
-            results[finding_type] = defaults[finding_type]
+            yield defaults[finding_type]
             continue
 
         rescorings_for_type = tuple(
@@ -451,17 +454,15 @@ def calculate_summary(
             if rescoring.data.referenced_type == finding_type
         )
 
-        results[finding_type] = calculate_summary_entry(
+        yield await calculate_summary_entry(
             findings=findings_with_given_type,
             rescorings=rescorings_for_type,
             eol_client=eol_client,
             artefact_metadata_cfg=artefact_metadata_cfg,
         )
 
-    yield from results.values()
 
-
-def severity_for_finding(
+async def severity_for_finding(
     finding: dso.model.ArtefactMetadata,
     artefact_metadata_cfg: ArtefactMetadataCfg | None = None,
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata] = tuple(),
@@ -503,13 +504,13 @@ def severity_for_finding(
             severity=gcm.Severity[finding.data.severity],
         ).name
 
-    return artefact_metadata_cfg.match(
+    return await artefact_metadata_cfg.match(
         finding=finding,
         eol_client=eol_client,
     )
 
 
-def calculate_summary_entry(
+async def calculate_summary_entry(
     findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     eol_client: eol.EolClient,
@@ -527,7 +528,7 @@ def calculate_summary_entry(
     )
 
     for finding in findings:
-        severity_name = severity_for_finding(
+        severity_name = await severity_for_finding(
             finding=finding,
             rescorings=rescorings,
             eol_client=eol_client,

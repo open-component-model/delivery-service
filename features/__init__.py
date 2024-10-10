@@ -8,15 +8,14 @@ import re
 import watchdog.events
 import watchdog.observers.polling
 
+import aiohttp.web
 import dacite
 import dateutil.parser
-import falcon
 import github3.repos
 import yaml
 
 import ci.util
 import cnudie.retrieve
-import cnudie.util
 import dso.cvss
 import model.base
 import model.bdba
@@ -28,6 +27,7 @@ import lookups
 import middleware.auth
 import middleware.db_session
 import paths
+import util
 import yp
 
 
@@ -870,10 +870,9 @@ def watch_for_file_changes(
         logger.warning('Feature config not found')
 
 
-def init_features(
+async def init_features(
     parsed_arguments,
     cfg_factory,
-    base_url: str,
 ) -> list[any]:
     global feature_cfgs
     feature_cfgs = []
@@ -886,15 +885,14 @@ def init_features(
         logger.warning(f'Delivery config not found: {e}')
 
     feature_authentication = deserialise_authentication(delivery_cfg)
-    if feature_authentication.state == FeatureStates.AVAILABLE \
-        and not parsed_arguments.shortcut_auth:
-        middlewares.append(
-            middleware.auth.Auth(
-                base_url=base_url,
-                signing_cfgs=feature_authentication.signing_cfgs,
-                default_auth=middleware.auth.AuthType.BEARER,
-            )
-        )
+    if (
+        feature_authentication.state == FeatureStates.AVAILABLE
+        and not parsed_arguments.shortcut_auth
+    ):
+        middlewares.append(middleware.auth.auth_middleware(
+            signing_cfgs=feature_authentication.signing_cfgs,
+            default_auth=middleware.auth.AuthType.BEARER,
+        ))
     feature_cfgs.append(feature_authentication)
 
     delivery_db_feature_state = FeatureStates.UNAVAILABLE
@@ -909,7 +907,7 @@ def init_features(
             logger.warning('Delivery database config not found')
 
     if delivery_db_feature_state == FeatureStates.AVAILABLE:
-        middlewares.append(middleware.db_session.DBSessionLifecycle(
+        middlewares.append(await middleware.db_session.db_session_middleware(
             db_url=db_url,
             verify_db_session=False,
         ))
@@ -965,9 +963,43 @@ def init_features(
     return middlewares
 
 
-class Features:
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
-        self.feature_cfgs = tuple(f.serialize() for f in feature_cfgs)
-        resp.media = {
-            'features': self.feature_cfgs
-        }
+class Features(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        description: Returns a list of available and unavailable features with optional extra cfg.
+        tags:
+        - Features
+        produces:
+        - application/json
+        responses:
+          "200":
+            schema:
+              type: object
+              required:
+              - features
+              properties:
+                features:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - state
+                    properties:
+                      name:
+                        type: string
+                      state:
+                        type: string
+                        enum:
+                          - available
+                          - unavailable
+        '''
+        self.feature_cfgs = list(f.serialize() for f in feature_cfgs)
+
+        return aiohttp.web.json_response(
+            data={
+                'features': self.feature_cfgs,
+            },
+            dumps=util.dict_to_json_factory,
+        )

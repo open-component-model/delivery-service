@@ -10,11 +10,11 @@ Base: sqlalchemy.orm.decl_api.DeclarativeMeta = declarative_base()
 
 class ArtefactMetaData(Base):
     '''
-    a (meta-)data entry about an artefact described in a CNUDIE-Component-Descriptor.
+    a (meta-)data entry about an artefact described in an OCM-Component-Descriptor.
 
     Examples of such data are:
 
-    - vulnerability scan results (as e.g. reported from Protecode or Whitesource)
+    - vulnerability scan results (as e.g. reported from BDBA)
     - malware scan results
     - file system paths
     - operating system identification

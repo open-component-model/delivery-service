@@ -44,12 +44,12 @@ pip3 install -r requirements-dev.txt --upgrade --break-system-packages
 <a id="db-local"></a>
 ## Run with local database
 
-Currently `SQLite3` and `PostgreSQL 16` are support.
+Currently `SQLite3` and `PostgreSQL 16` are supported.
 
 ### SQLite3
 
 ```
-python3 app.py --delivery-db-url sqlite:///test.db
+adev runserver --port 5000 . -- --delivery-db-url sqlite:///test.db
 ```
 
 #### SQLite3 hints
@@ -77,7 +77,7 @@ docker run -dit  \
 Start the delivery-service
 
 ```
-python3 app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+adev runserver --port 5000 . -- --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 ```
 
 <a id="db-remote"></a>
@@ -94,7 +94,7 @@ kubectl port-forward service/delivery-db --namespace=database 5431:5432
 Start the delivery-service
 
 ```
-python3 app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5431
+adev runserver --port 5000 . -- --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5431
 ```
 
 

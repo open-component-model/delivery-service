@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 import datetime
 import hashlib
 import os
@@ -157,6 +158,37 @@ def cached(
                 pass
 
             result = func(*args, **kwargs)
+            cache.__set_item__(filepath, result)
+
+            return result
+
+        return wrapper
+    return decorator
+
+
+def async_cached(
+    cache: FilesystemCache,
+    key_func: collections.abc.Callable=cachetools.keys.hashkey,
+    cache_dir: str=default_cache_dir,
+):
+    '''
+    Decorator to wrap an async function with a callable that saves results to a defined
+    `FilesystemCache`.
+    '''
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            key = hashlib.sha1()
+            for key_part in key_func(*args, **kwargs):
+                key.update(str(key_part).encode('utf-8'))
+
+            filepath = os.path.join(cache_dir, key.hexdigest())
+
+            try:
+                return cache.__get_item__(filepath)
+            except KeyError:
+                pass
+
+            result = await func(*args, **kwargs)
             cache.__set_item__(filepath, result)
 
             return result

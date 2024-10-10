@@ -1,15 +1,17 @@
 import collections.abc
 import dataclasses
 import datetime
+import http
 import logging
 
+import aiohttp.web
 import dacite
-import falcon
 import sqlalchemy as sa
-import sqlalchemy.orm.session as ss
+import sqlalchemy.ext.asyncio as sqlasync
 
 import cnudie.iter
-import cnudie.retrieve
+import cnudie.iter_async
+import cnudie.retrieve_async
 import dso.cvss
 import dso.labels
 import dso.model
@@ -17,6 +19,7 @@ import github.compliance.model as gcm
 import ocm
 
 import config
+import consts
 import features
 import deliverydb.model as dm
 import deliverydb.util as du
@@ -88,8 +91,8 @@ def _find_cve_rescoring_rule_set(
     return cve_rescoring_rule_set_lookup(cve_rescoring_rule_set_name)
 
 
-def _find_artefact_node(
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+async def _find_artefact_node(
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     component: ocm.Component,
     artefact: dso.model.ComponentArtefactId,
 ) -> cnudie.iter.Node | cnudie.iter.ArtefactNode | None:
@@ -102,7 +105,7 @@ def _find_artefact_node(
 
     artefact_ref = artefact.artefact
 
-    for node in cnudie.iter.iter(
+    async for node in cnudie.iter_async.iter(
         component=component,
         lookup=component_descriptor_lookup,
         node_filter=node_filter,
@@ -117,20 +120,20 @@ def _find_artefact_node(
         return node
 
 
-def _find_artefact_node_or_raise(
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+async def _find_artefact_node_or_raise(
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     artefact: dso.model.ComponentArtefactId,
 ) -> cnudie.iter.Node | cnudie.iter.ArtefactNode:
-    component = util.retrieve_component_descriptor(
+    component = (await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
             name=artefact.component_name,
             version=artefact.component_version,
         ),
         component_descriptor_lookup=component_descriptor_lookup,
-    ).component
+    )).component
 
     try:
-        artefact_node = _find_artefact_node(
+        artefact_node = await _find_artefact_node(
             component_descriptor_lookup=component_descriptor_lookup,
             component=component,
             artefact=artefact,
@@ -140,9 +143,9 @@ def _find_artefact_node_or_raise(
         artefact_node = None
 
     if not artefact_node:
-        raise falcon.HTTPNotFound(
-            title='artefact not found in component descriptor',
-            description=f'{artefact=}',
+        raise aiohttp.web.HTTPNotFound(
+            reason='Artefact not found in component descriptor',
+            text=f'{artefact=}',
         )
 
     return artefact_node
@@ -163,12 +166,12 @@ def _find_cve_label(
     return categorisation_label.value
 
 
-def _find_artefact_metadata(
-    session: ss.Session,
+async def _find_artefact_metadata(
+    db_session: sqlasync.session.AsyncSession,
     artefact: dso.model.ComponentArtefactId,
     type_filter: list[str]=[],
-) -> tuple[dso.model.ArtefactMetadata]:
-    query = session.query(dm.ArtefactMetaData).filter(
+) -> list[dso.model.ArtefactMetadata]:
+    db_statement = sa.select(dm.ArtefactMetaData).where(
         sa.and_(
             dm.ArtefactMetaData.component_name == artefact.component_name,
             sa.or_(
@@ -187,19 +190,21 @@ def _find_artefact_metadata(
         ),
     )
 
-    artefact_metadata_raw = query.all()
-    return tuple(
-        du.db_artefact_metadata_to_dso(raw)
-        for raw in artefact_metadata_raw
-    )
+    db_stream = await db_session.stream(db_statement)
+
+    return [
+        du.db_artefact_metadata_row_to_dso(row)
+        async for partition in db_stream.partitions(size=50)
+        for row in partition
+    ]
 
 
-def _find_rescorings(
-    session: ss.Session,
+async def _find_rescorings(
+    db_session: sqlasync.session.AsyncSession,
     artefact: dso.model.ComponentArtefactId,
     type_filter: list[str]=[],
-) -> tuple[dso.model.ArtefactMetadata]:
-    rescorings_query = session.query(dm.ArtefactMetaData).filter(
+) -> list[dso.model.ArtefactMetadata]:
+    db_statement = sa.select(dm.ArtefactMetaData).where(
         sa.and_(
             dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
             sa.or_(
@@ -225,19 +230,21 @@ def _find_rescorings(
     )
 
     if type_filter:
-        rescorings_query = rescorings_query.filter(
+        db_statement = db_statement.where(
             du.ArtefactMetadataFilters.filter_for_rescoring_type(type_filter),
         )
 
-    rescorings_raw = rescorings_query.all()
-    return tuple(
-        du.db_artefact_metadata_to_dso(raw)
-        for raw in rescorings_raw
-    )
+    db_stream = await db_session.stream(db_statement)
+
+    return [
+        du.db_artefact_metadata_row_to_dso(row)
+        async for partition in db_stream.partitions(size=50)
+        for row in partition
+    ]
 
 
 def _rescore_vulnerabilitiy(
-    rescoring_rules: tuple[dso.cvss.RescoringRule] | None,
+    rescoring_rules: collections.abc.Iterable[dso.cvss.RescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
     cvss: dso.cvss.CVSSV3 | dict,
     severity: dso.cvss.CVESeverity,
@@ -319,7 +326,7 @@ def sprint_for_finding(
 
 def _rescorings_and_sprint(
     artefact_metadatum: dso.model.ArtefactMetadata,
-    rescorings: tuple[dso.model.ArtefactMetadata],
+    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     max_processing_days: gcm.MaxProcessingTimesDays | None=None,
     sprints: list[yp.Sprint]=[],
 ) -> tuple[tuple[dso.model.ArtefactMetadata], yp.Sprint]:
@@ -345,7 +352,7 @@ def _rescorings_and_sprint(
 
 def _package_versions_and_filesystem_paths(
     artefact_metadata_across_package_version: tuple[dso.model.ArtefactMetadata],
-    artefact_metadata: tuple[dso.model.ArtefactMetadata],
+    artefact_metadata: collections.abc.Iterable[dso.model.ArtefactMetadata],
     finding: dso.model.ArtefactMetadata,
 ) -> tuple[tuple[str], list[dso.model.FilesystemPath]]:
     package_versions = tuple(
@@ -364,9 +371,9 @@ def _package_versions_and_filesystem_paths(
 
 
 def _iter_rescoring_proposals(
-    artefact_metadata: tuple[dso.model.ArtefactMetadata],
-    rescorings: tuple[dso.model.ArtefactMetadata],
-    rescoring_rules: tuple[dso.cvss.RescoringRule] | None,
+    artefact_metadata: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    rescoring_rules: collections.abc.Iterable[dso.cvss.RescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
     max_processing_days: gcm.MaxProcessingTimesDays | None=None,
     sprints: list[yp.Sprint]=[],
@@ -545,7 +552,7 @@ def _iter_rescoring_proposals(
 
 def iter_matching_artefacts(
     compliance_snapshots: tuple[dso.model.ArtefactMetadata],
-    rescorings: tuple[dso.model.ArtefactMetadata],
+    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
 ) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:
     '''
     Some rescorings don't have any component name or artefact name set because their scope may be
@@ -605,11 +612,11 @@ def iter_matching_artefacts(
             yield a
 
 
-def create_backlog_items_for_rescored_artefacts(
+async def create_backlog_items_for_rescored_artefacts(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    session: ss.Session,
-    rescorings: tuple[dso.model.ComponentArtefactId],
+    db_session: sqlasync.session.AsyncSession,
+    rescorings: collections.abc.Iterable[dso.model.ComponentArtefactId],
     scan_config_name: str=None,
 ):
     if not scan_config_name:
@@ -624,17 +631,17 @@ def create_backlog_items_for_rescored_artefacts(
 
         scan_config_name = scan_configs[0].name
 
-    compliance_snapshots_raw = session.query(dm.ArtefactMetaData).filter(
+    db_statement = sa.select(dm.ArtefactMetaData).where(
         dm.ArtefactMetaData.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
         dm.ArtefactMetaData.cfg_name == scan_config_name,
-    ).all()
-
-    compliance_snapshots = tuple(
-        du.db_artefact_metadata_to_dso(
-            artefact_metadata=raw,
-        )
-        for raw in compliance_snapshots_raw
     )
+    db_stream = await db_session.stream(db_statement)
+
+    compliance_snapshots = [
+        du.db_artefact_metadata_row_to_dso(row)
+        async for partition in db_stream.partitions(size=50)
+        for row in partition
+    ]
 
     active_compliance_snapshots = tuple(
         cs for cs in compliance_snapshots
@@ -657,61 +664,46 @@ def create_backlog_items_for_rescored_artefacts(
         )
 
 
-class Rescore:
+class Rescore(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
-    def __init__(
-        self,
-        cve_rescoring_rule_set_lookup: CveRescoringRuleSetLookup,
-        default_rule_set_callback: collections.abc.Callable[[], features.CveRescoringRuleSet],
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        namespace_callback,
-        kubernetes_api_callback,
-        sprints: collections.abc.Iterable[yp.Sprint],
-    ):
-        self.cve_rescoring_rule_set_lookup = cve_rescoring_rule_set_lookup
-        self.default_rule_set_callback = default_rule_set_callback
-        self.component_descriptor_lookup = component_descriptor_lookup
-        self.namespace_callback = namespace_callback
-        self.kubernetes_api_callback = kubernetes_api_callback
-        self.sprints = sprints
+    async def options(self):
+        return aiohttp.web.Response()
 
-    def on_post(self, req: falcon.Request, resp: falcon.Response):
+    async def post(self):
         '''
-        applies rescoring to delivery-db, only for authenticated users
-
-        **expected query parameters:**
-
-            - scanConfigName (optional) <string> \n
-
-        **expected request body:**
-            entries: <array> of <object> \n
-            - artefact: <object> \n
-                component_name: <string> \n
-                component_version: <string> \n
-                artefact_kind: <string> \n
-                artefact: <object> \n
-                  artefact_name: <string> \n
-                  artefact_version: <string> \n
-                  artefact_type: <string> \n
-                  artefact_extra_id: <object> \n
-              meta: <object> \n
-                datasource: <string> # e.g. delivery-dashboard or cli \n
-                type: rescorings \n
-              data: <object> \n
-                finding: <object> # schema depends on data.referenced_type \n
-                referenced_type: <string> # type of finding, e.g. finding/vulnerability \n
-                severity: <string> # one of github.compliance.model.Severity \n
-                matching_rules: <array> of <string> \n
-                comment: <string> \n
+        ---
+        description: Applies rescoring to delivery-db.
+        tags:
+        - Rescoring
+        parameters:
+        - in: query
+          name: scanConfigName
+          type: string
+          required: false
+        - in: body
+          name: body
+          required: false
+          schema:
+            type: object
+            properties:
+              entries:
+                type: array
+                items:
+                  $ref: '#/definitions/ArtefactMetadata'
+        responses:
+          "201":
+            description: Successful operation.
         '''
-        body = req.media
+        params = self.request.rel_url.query
+
+        body = await self.request.json()
         rescorings_raw: list[dict] = body.get('entries')
 
-        user: middleware.auth.GithubUser = req.context['github_user']
-        session: ss.Session = req.context.db_session
+        user: middleware.auth.GithubUser = self.request[consts.GITHUB_USER]
+        db_session: sqlasync.session.AsyncSession = self.request[consts.DB_SESSION]
 
-        scan_config_name = req.get_param('scanConfigName', required=False)
+        scan_config_name = util.param(params, 'scanConfigName')
 
         def iter_rescorings(
             rescorings_raw: list[dict],
@@ -722,9 +714,9 @@ class Rescore:
                 rescoring = dso.model.ArtefactMetadata.from_dict(rescoring_raw)
 
                 if not rescoring.meta.type == dso.model.Datatype.RESCORING:
-                    raise falcon.HTTPBadRequest(
-                        title=f'rescoring must be of type {dso.model.Datatype.RESCORING}',
-                        description=f'{rescoring.meta.type=}',
+                    raise aiohttp.web.HTTPBadRequest(
+                        reason=f'Rescoring must be of type {dso.model.Datatype.RESCORING}',
+                        text=f'{rescoring.meta.type=}',
                     )
 
                 yield rescoring
@@ -738,100 +730,111 @@ class Rescore:
                 )
 
                 # avoid adding rescoring duplicates -> purge old entries
-                session.query(dm.ArtefactMetaData).filter(
+                await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
                     du.ArtefactMetadataFilters.by_single_scan_result(rescoring_db),
-                ).delete()
+                ))
 
-                session.add(rescoring_db)
-                session.commit()
+                db_session.add(rescoring_db)
+
+            await db_session.commit()
         except:
-            session.rollback()
+            await db_session.rollback()
             raise
 
-        create_backlog_items_for_rescored_artefacts(
-            namespace=self.namespace_callback(),
-            kubernetes_api=self.kubernetes_api_callback(),
-            session=session,
+        await create_backlog_items_for_rescored_artefacts(
+            namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+            kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
+            db_session=db_session,
             rescorings=rescorings,
             scan_config_name=scan_config_name,
         )
 
-        resp.status = falcon.HTTP_CREATED
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.CREATED,
+        )
 
-    def on_get(self, req: falcon.Request, resp: falcon.Response):
+    async def get(self):
         '''
-        calculates vulnerabilities rescorings based on cve-categorisation and cve-rescoring-ruleset.
-
-        cve-categorisation is read from respective component-descriptor label, cve-rescoring-rule-set
-        is specified by name.
-        rescorings are not applied yet, just "previewed".
-
-        **expected query parameters:**
-
-            - componentName (required) \n
-            - componentVersion (required) \n
-            - artefactKind (required) \n
-            - artefactName (required) \n
-            - artefactVersion (required) \n
-            - artefactType (required) \n
-            - artefactExtraId (optional) \n
-            - type (optional) \n
-            - scanConfigName (optional) \n
-            - cveRescoringRuleSetName (optional): defaults to global default cveRescoringRuleSet \n
-
-        **response:**
-
-            <array> of <object> \n
-            - finding: <object> # schema depends on  type of finding, e.g. finding/vulnerability \n
-                id: <object> \n
-                severity: <string> # one of github.compliance.model.Severity \n
-              severity: <string> # one of github.compliance.model.Severity \n
-              matching_rules: <array> of <string> # applicable cve-categorisation rules \n
-              applicable_rescorings: <array> of <object> \n
-              - artefact: <object> \n
-                  component_name: <string> \n
-                  component_version: <string> \n
-                  artefact_kind: <string> \n
-                  artefact: <object> \n
-                    artefact_name: <string> \n
-                    artefact_version: <string> \n
-                    artefact_type: <string> \n
-                    artefact_extra_id: <object> \n
-                meta: <object> \n
-                  datasource: <string> # e.g. delivery-dashboard or cli \n
-                  type: rescoring \n
-                data: <object> \n
-                  finding: <object> # schema depends on data.referenced_type \n
-                  referenced_type: <string> # type of finding, e.g. finding/vulnerability \n
-                  severity: <string> # one of github.compliance.model.Severity \n
-                  matching_rules: <array> of <string> \n
-                  user: <object> \n
-                  comment: <string> \n
+        ---
+        description:
+          Calculates vulnerability rescorings based on cve-categorisation and cve-rescoring-ruleset.
+          cve-categorisation is read from respective component-descriptor label,
+          cve-rescoring-rule-set is specified by name. Rescorings are not applied yet, just
+          "previewed".
+        tags:
+        - Rescoring
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: componentName
+          type: string
+          required: true
+        - in: query
+          name: componentVersion
+          type: string
+          required: true
+        - in: query
+          name: artefactKind
+          type: string
+          required: true
+        - in: query
+          name: artefactName
+          type: string
+          required: true
+        - in: query
+          name: artefactVersion
+          type: string
+          required: true
+        - in: query
+          name: artefactType
+          type: string
+          required: true
+        - in: query
+          name: artefactExtraId
+          type: string
+          required: false
+        - in: query
+          name: type
+          schema:
+            $ref: '#/definitions/Datatype'
+          required: false
+        - in: query
+          name: scanConfigName
+          type: string
+          required: false
+        - in: query
+          name: cveRescoringRuleSetName
+          type: string
+          required: false
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: array
+              items:
+                $ref: '#/definitions/RescoringProposal'
         '''
-        session: ss.Session = req.context.db_session
+        params = self.request.rel_url.query
 
-        component_name = req.get_param('componentName', required=True)
-        component_version = req.get_param('componentVersion', required=True)
-        artefact_kind = req.get_param('artefactKind', required=True)
-        artefact_name = req.get_param('artefactName', required=True)
-        artefact_version = req.get_param('artefactVersion', required=True)
-        artefact_type = req.get_param('artefactType', required=True)
-        artefact_extra_id = req.get_param('artefactExtraId', required=False, default=dict())
-        type_filter = req.get_param_as_list('type', required=False)
-        scan_config_name = req.get_param('scanConfigName', required=False)
+        component_name = util.param(params, 'componentName', required=True)
+        component_version = util.param(params, 'componentVersion', required=True)
+        artefact_kind = util.param(params, 'artefactKind', required=True)
+        artefact_name = util.param(params, 'artefactName', required=True)
+        artefact_version = util.param(params, 'artefactVersion', required=True)
+        artefact_type = util.param(params, 'artefactType', required=True)
+        artefact_extra_id = util.param(params, 'artefactExtraId', default=dict())
+        type_filter = params.getall('type', default=[])
+        scan_config_name = util.param(params, 'scanConfigName')
 
         # also filter for structure info to enrich findings
         type_filter.append(dso.model.Datatype.STRUCTURE_INFO)
 
-        cve_rescoring_rule_set_name = req.get_param(
-            'cveRescoringRuleSetName',
-            required=False,
-            default=None,
-        )
+        cve_rescoring_rule_set_name = util.param(params, 'cveRescoringRuleSetName')
 
         cve_rescoring_rule_set = _find_cve_rescoring_rule_set(
-            default_cve_rescoring_rule_set=self.default_rule_set_callback(),
-            cve_rescoring_rule_set_lookup=self.cve_rescoring_rule_set_lookup,
+            default_cve_rescoring_rule_set=self.request.app[consts.DEFAULT_RULE_SET_CALLBACK](),
+            cve_rescoring_rule_set_lookup=self.request.app[consts.CVE_RESCORING_RULE_SET_LOOKUP],
             cve_rescoring_rule_set_name=cve_rescoring_rule_set_name,
         )
 
@@ -850,8 +853,8 @@ class Rescore:
         )
 
         if dso.model.Datatype.VULNERABILITY in type_filter:
-            artefact_node = _find_artefact_node_or_raise(
-                component_descriptor_lookup=self.component_descriptor_lookup,
+            artefact_node = await _find_artefact_node_or_raise(
+                component_descriptor_lookup=self.request.app[consts.COMPONENT_DESCRIPTOR_LOOKUP],
                 artefact=artefact,
             )
 
@@ -859,21 +862,23 @@ class Rescore:
         else:
             categorisation = None
 
-        artefact_metadata = _find_artefact_metadata(
-            session=session,
+        db_session: sqlasync.session.AsyncSession = self.request[consts.DB_SESSION]
+
+        artefact_metadata = await _find_artefact_metadata(
+            db_session=db_session,
             artefact=artefact,
             type_filter=type_filter,
         )
 
-        rescorings = _find_rescorings(
-            session=session,
+        rescorings = await _find_rescorings(
+            db_session=db_session,
             artefact=artefact,
             type_filter=type_filter,
         )
 
         scan_configs = k8s.util.iter_scan_configurations(
-            namespace=self.namespace_callback(),
-            kubernetes_api=self.kubernetes_api_callback(),
+            namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+            kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
         )
 
         if scan_config_name:
@@ -881,7 +886,9 @@ class Rescore:
                 if scan_config.name == scan_config_name:
                     break
             else:
-                raise falcon.HTTPBadRequest(f'did not find scan config with {scan_config_name=}')
+                raise aiohttp.web.HTTPBadRequest(
+                    text=f'did not find scan config with {scan_config_name=}',
+                )
         elif scan_configs:
             if len(scan_configs) == 1:
                 scan_config = scan_configs[0]
@@ -910,50 +917,70 @@ class Rescore:
             rescoring_rules=cve_rescoring_rule_set.rules if cve_rescoring_rule_set else None,
             categorisation=categorisation,
             max_processing_days=max_processing_days,
-            sprints=self.sprints,
+            sprints=self.request.app[consts.SPRINTS],
         )
 
-        resp.media = tuple(rescoring_proposals)
+        return aiohttp.web.json_response(
+            data=rescoring_proposals,
+            dumps=util.dict_to_json_factory,
+        )
 
-    def on_delete(self, req: falcon.Request, resp: falcon.Response):
+    async def delete(self):
         '''
-        deletes rescoring from delivery-db, only for authenticated users
-
-        **expected query parameters:**
-
-            - id (required) <array> of <int> \n
-            - scanConfigName (optional) <string> \n
+        ---
+        description: Deletes rescoring from delivery-db.
+        tags:
+        - Rescoring
+        parameters:
+        - in: query
+          name: id
+          type: array
+          items:
+            type: integer
+          required: true
+        - in: query
+          name: scanConfigName
+          type: string
+          required: false
+        responses:
+          "204":
+            description: Successful operation.
         '''
-        session: ss.Session = req.context.db_session
+        params = self.request.rel_url.query
 
-        ids = req.get_param_as_list('id', required=True)
-        scan_config_name = req.get_param('scanConfigName', required=False)
+        ids = params.getall('id')
+        scan_config_name = util.param(params, 'scanConfigName')
+
+        db_session: sqlasync.session.AsyncSession = self.request[consts.DB_SESSION]
 
         try:
-            query = session.query(dm.ArtefactMetaData).filter(
+            db_statement = sa.select(dm.ArtefactMetaData).where(
                 dm.ArtefactMetaData.id.cast(sa.String).in_(ids),
             )
+            db_stream = await db_session.stream(db_statement)
 
-            rescorings_raw = query.all()
-            rescorings = tuple(
-                du.db_artefact_metadata_to_dso(
-                    artefact_metadata=raw,
-                )
-                for raw in rescorings_raw
-            )
+            rescorings = [
+                du.db_artefact_metadata_row_to_dso(row)
+                async for partition in db_stream.partitions(size=50)
+                for row in partition
+            ]
 
-            query.delete()
-            session.commit()
-
-            create_backlog_items_for_rescored_artefacts(
-                namespace=self.namespace_callback(),
-                kubernetes_api=self.kubernetes_api_callback(),
-                session=session,
-                rescorings=rescorings,
-                scan_config_name=scan_config_name,
-            )
+            await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
+                dm.ArtefactMetaData.id.cast(sa.String).in_(ids),
+            ))
+            await db_session.commit()
         except:
-            session.rollback()
+            await db_session.rollback()
             raise
 
-        resp.status = falcon.HTTP_NO_CONTENT
+        await create_backlog_items_for_rescored_artefacts(
+            namespace=self.request.app[consts.NAMESPACE_CALLBACK](),
+            kubernetes_api=self.request.app[consts.KUBERNETES_API_CALLBACK](),
+            db_session=db_session,
+            rescorings=rescorings,
+            scan_config_name=scan_config_name,
+        )
+
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.NO_CONTENT,
+        )

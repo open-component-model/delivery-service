@@ -1,10 +1,11 @@
-import collections.abc
 import datetime
 
+import aiohttp.web
 import dateutil.parser
-import falcon
 
+import consts
 import features
+import util
 import yp
 
 
@@ -41,87 +42,119 @@ def current_sprint(
         # if this line is reached, current sprint has already ended, so its predecessor is the
         # current one (edge-case: there is no such sprint)
         if idx == 0:
-            # pylint: disable=E1101
-            raise falcon.HTTPBadRequest(
-                title='no sprint found',
-                description=f'all sprints ended before {ref_date.date()=}',
+            raise aiohttp.web.HTTPBadRequest(
+                reason='No sprint found',
+                text=f'All sprints ended before {ref_date.date()=}',
             )
 
         return sprints[idx - 1 + offset]
-    # pylint: disable=E1101
-    raise falcon.HTTPBadRequest(
-        title='no sprint found',
-        description=f'all sprints started after {ref_date=}',
+    raise aiohttp.web.HTTPBadRequest(
+        reason='No sprint found',
+        text=f'All sprints started after {ref_date=}',
     )
 
 
-class SprintInfos:
+class SprintInfos(aiohttp.web.View):
     required_features = (features.FeatureSprints,)
 
-    def __init__(
-        self,
-        sprints_metadata: yp.SprintMetadata,
-        sprints: collections.abc.Iterable[yp.Sprint],
-        sprint_date_display_name_callback,
-    ):
-        self.sprint_metadata = sprints_metadata
-        self.sprints = sprints
-        self.sprint_date_display_name_callback = sprint_date_display_name_callback
-
-    def on_get(self, req, resp):
-        resp.media = {
-            'sprints': [
-                sprint.asdict(
-                    sprint_date_display_name_callback=self.sprint_date_display_name_callback,
-                    meta=self.sprint_metadata,
-                )
-                for sprint in self.sprints
-            ]
-        }
-
-    def on_get_current(self, req: falcon.Request, resp):
+    async def get(self):
         '''
-        returns the "current" sprint infos, optionally considering passed query-params.
-
-        The current sprint is (by default, i.e. no arguments) the sprint whose end_date is either
-        the current day, or the nearest day (in chronological sense) from today, considering only
-        future sprints.
-
-        **expected query parameters:**
-
-            offset: <int>; if set, the returned sprint is offset by given amount of sprints \n
-                    (positive value will yield future sprints, while negative numbers will yield \n
-                    past ones) \n
-            before: <str(iso8601-date)>; if set, the returned sprint is calculated setting "today" \n
-                    to the specified date
-
-        If both `offset` and `before` are given, offset is applied after calculating "current"
-        sprint.
-
-        **response:**
-
-            name: <str> e.g. "2304b" \n
-            dates: \n
-            - name: <str> e.g. "rtc" \n
-              display_name: <str> e.g. "Release To Customer" \n
-              value: <iso8601-date-str> \n
+        ---
+        tags:
+        - Sprints
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - sprints
+              properties:
+                sprints:
+                  type: array
+                  items:
+                    $ref: '#/definitions/Sprint'
         '''
-        offset = req.get_param_as_int('offset', default=0)
-        before = req.get_param('before')
+        sprint_display_name_callback = self.request.app[consts.SPRINT_DATE_DISPLAY_NAME_CALLBACK]
+        sprints_metadata = self.request.app[consts.SPRINTS_METADATA]
+        sprints = self.request.app[consts.SPRINTS]
+
+        return aiohttp.web.json_response(
+            data={
+                'sprints': [
+                    sprint.asdict(
+                        sprint_date_display_name_callback=sprint_display_name_callback,
+                        meta=sprints_metadata,
+                    ) for sprint in sprints
+                ],
+            },
+            dumps=util.dict_to_json_factory,
+        )
+
+
+class SprintInfosCurrent(aiohttp.web.View):
+    required_features = (features.FeatureSprints,)
+
+    async def get(self):
+        '''
+        ---
+        description:
+          Returns the "current" sprint infos, optionally considering passed query-params. The
+          current sprint is (by default, i.e. no arguments) the sprint whose end_date is either the
+          current day, or the nearest day (in chronological sense) from today, considering only
+          future sprints. If both `offset` and `before` are given, offset is applied after
+          calculating "current" sprint.
+        tags:
+        - Sprints
+        produces:
+        - application/json
+        parameters:
+        - in: query
+          name: offset
+          type: integer
+          required: false
+          default: 0
+          description:
+            If set, the returned sprint is offset by given amount of sprints (positive value will
+            yield future sprints, while negative numbers will yield past ones).
+        - in: query
+          name: before
+          type: string
+          required: false
+          description:
+            If set, the returned sprint is calculated setting "today" to the specified date.
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              $ref: '#/definitions/Sprint'
+        '''
+        params = self.request.rel_url.query
+
+        offset = int(util.param(params, 'offset', default=0))
+        before = util.param(params, 'before')
         if before:
             try:
                 before = dateutil.parser.isoparse(before)
             except ValueError:
-                # pylint: disable=E1101
-                raise falcon.HTTPBadRequest(title='invalid date format')
+                raise aiohttp.web.HTTPBadRequest(text='Invalid date format')
+
+        sprint_display_name_callback = self.request.app[consts.SPRINT_DATE_DISPLAY_NAME_CALLBACK]
+        sprints_metadata = self.request.app[consts.SPRINTS_METADATA]
+        sprints = self.request.app[consts.SPRINTS]
 
         current = current_sprint(
-            sprints=self.sprints,
+            sprints=sprints,
             offset=offset,
             ref_date=before,
         )
 
-        resp.media = current.asdict(
-            sprint_date_display_name_callback=self.sprint_date_display_name_callback,
-            meta=self.sprint_metadata,
+        return aiohttp.web.json_response(
+            data=current.asdict(
+                sprint_date_display_name_callback=sprint_display_name_callback,
+                meta=sprints_metadata,
+            ),
+            dumps=util.dict_to_json_factory,
         )
