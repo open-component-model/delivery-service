@@ -23,6 +23,7 @@ def modules():
         'caching',
         'config',
         'config_filter',
+        'consts',
         'ctx_util',
         'lookups',
         'ocm_util',
