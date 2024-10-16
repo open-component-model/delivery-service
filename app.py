@@ -412,7 +412,7 @@ async def initialise_app():
         app=app,
     )
 
-    api_definitions = yaml.safe_load(open(os.path.join(own_dir, 'swagger.yaml'))).get('definitions')
+    api_definitions = yaml.safe_load(open(paths.swagger_path)).get('definitions')
 
     aiohttp_swagger.setup_swagger(
         app=app,

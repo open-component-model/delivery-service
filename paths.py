@@ -32,6 +32,8 @@ users_path = os.path.join(_auth_dir_path, 'users.yaml')
 roles_path = os.path.join(_auth_dir_path, 'roles.yaml')
 teams_path = os.path.join(_auth_dir_path, 'teams.yaml')
 
+swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')
+
 
 def features_cfg_path() -> str:
     if (
