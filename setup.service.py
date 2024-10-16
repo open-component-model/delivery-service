@@ -50,6 +50,7 @@ def packages():
         'osinfo',
         'responsibles',
         'schema',
+        'swagger',
     ]
 
 
@@ -61,6 +62,7 @@ def package_data():
         'osinfo': ['*.yaml'],
         'responsibles': ['*.yaml'],
         'schema': ['*.yaml'],
+        'swagger': ['*.yaml'],
     }
 
 
