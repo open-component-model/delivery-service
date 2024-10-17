@@ -302,27 +302,6 @@ def _calculate_backlog_item_priority(
     return priority
 
 
-def _findings_for_artefact(
-    delivery_client: delivery.client.DeliveryServiceClient,
-    artefact: dso.model.ComponentArtefactId,
-    types: tuple[dso.model.Datatype],
-) -> tuple[dso.model.ArtefactMetadata]:
-    component = ocm.ComponentIdentity(
-        name=artefact.component_name,
-        version=artefact.component_version,
-    )
-
-    findings = delivery_client.query_metadata(
-        components=(component,),
-        type=types,
-    )
-
-    return tuple(
-        finding for finding in findings
-        if finding.artefact == artefact
-    )
-
-
 def _create_backlog_item(
     cfg_name: str,
     namespace: str,
@@ -410,10 +389,9 @@ def _process_compliance_snapshots_of_artefact(
         update_is_required |= bdba_update_is_required
 
     if scan_config.issue_replicator_config:
-        findings = _findings_for_artefact(
-            delivery_client=delivery_client,
-            artefact=artefact,
-            types=types,
+        findings = delivery_client.query_metadata(
+            artefacts=(artefact,),
+            type=types,
         )
         compliance_snapshots, issue_update_is_required = _create_backlog_item(
             cfg_name=cfg_name,
