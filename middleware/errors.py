@@ -59,7 +59,7 @@ def errors_middleware(
             service='delivery-service',
             stacktrace=stacktrace,
             request=body,
-            params=request.rel_url.query,
+            params=dict(request.rel_url.query),
         )
 
         ccc.elasticsearch.metric_to_es(
