@@ -399,6 +399,7 @@ async def initialise_app():
 
     app = aiohttp.web.Application(
         middlewares=middlewares,
+        client_max_size=0, # max request body size is already configured via ingress
     )
 
     app = add_app_context_vars(
