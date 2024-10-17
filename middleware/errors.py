@@ -27,14 +27,16 @@ def errors_middleware(
         except aiohttp.web_exceptions.HTTPException as e:
             error = e
             stacktrace = traceback.format_exc()
+            log_to_es = False
         except Exception:
             # only raise internal server error in case error was not already handled properly
             error = aiohttp.web.HTTPInternalServerError
             stacktrace = traceback.format_exc()
+            log_to_es = True
 
         logger.error(stacktrace)
 
-        if not es_client:
+        if not es_client or not log_to_es:
             raise error
 
         content_length_limit = 4096
