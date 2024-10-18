@@ -14,7 +14,11 @@ def cors_middleware(
         request: aiohttp.web.Request,
         handler: aiohttp.typedefs.Handler,
     ) -> aiohttp.web.StreamResponse:
-        response = await handler(request)
+        try:
+            response = await handler(request)
+        except Exception as e:
+            response = e
+            pass
 
         if not (origin := request.headers.get('Origin')):
             return response
