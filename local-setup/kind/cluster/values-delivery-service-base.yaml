@@ -154,3 +154,13 @@ featuresCfg:
     sprintDateNameMappings:
       - dateName: release_decision
         displayName: Release Decision
+
+prometheus:
+  config:
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+    - job_name: delivery_service
+      static_configs:
+      - targets:
+        - delivery-service.delivery.svc.cluster.local:8080

@@ -16,6 +16,7 @@ own_dir = os.path.abspath(os.path.dirname(__file__))
 repo_dir = os.path.abspath(os.path.join(own_dir, os.pardir))
 CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
 FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
+PROMETHEUS_VERSIONFILE = os.path.join(repo_dir, 'PROMETHEUS_VERSION')
 
 
 def parse_component_descriptor():
@@ -56,6 +57,17 @@ def main():
         freshclam_cref,
     ):
         component.componentReferences.append(cref)
+
+    prometheus_version = version_from_file(PROMETHEUS_VERSIONFILE)
+    component.resources.append(ocm.Resource(
+        name='prometheus',
+        version=prometheus_version,
+        type=ocm.ArtefactType.OCI_IMAGE,
+        access=ocm.OciAccess(
+            imageReference=f'quay.io/prometheus/prometheus:{prometheus_version}',
+        ),
+        relation=ocm.ResourceRelation.EXTERNAL,
+    ))
 
     with open(component_descriptor_path, 'w') as f:
         yaml.dump(

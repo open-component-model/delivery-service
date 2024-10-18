@@ -325,6 +325,11 @@ class FeatureIssues(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
+class FeaturePrometheus(FeatureBase):
+    name: str = 'prometheus'
+
+
+@dataclasses.dataclass(frozen=True)
 class FeatureTests(FeatureBase):
     name: str = 'tests'
     components_with_tests: tuple[ComponentWithDownloadableTestResults] = tuple()
@@ -955,6 +960,11 @@ async def init_features(
             )
 
     feature_cfgs.append(extension_feature)
+
+    if parsed_arguments.prometheus:
+        feature_cfgs.append(FeaturePrometheus(FeatureStates.AVAILABLE))
+    else:
+        feature_cfgs.append(FeaturePrometheus(FeatureStates.UNAVAILABLE))
 
     event_handler = CfgFileChangeEventHandler()
     watch_for_file_changes(event_handler, paths.features_cfg_path())

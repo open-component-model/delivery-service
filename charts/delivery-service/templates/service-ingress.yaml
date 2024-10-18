@@ -22,6 +22,15 @@ spec:
             name: delivery-service
             port:
               number: {{ default 8080 $.Values.servicePort }}
+      {{- if default dict $.Values.prometheus }}
+      - path: /prometheus
+        pathType: Prefix
+        backend:
+          service:
+            name: prometheus
+            port:
+              number: {{ default 8080 $.Values.prometheus.servicePort }}
+      {{- end }}
   {{- end }}
   {{- if default dict .Values.ingress.tlsHostNames }}
   tls:

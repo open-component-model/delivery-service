@@ -6,6 +6,7 @@ dataclasses-json
 github3-py
 htmllistparse
 jsonschema
+prometheus_client
 psycopg[binary]
 pyjwt
 pyyaml
