@@ -25,6 +25,7 @@ import metadata
 import middleware.auth
 import middleware.cors
 import middleware.errors
+import middleware.prometheus
 import middleware.route_feature_check as rfc
 import osinfo
 import paths
@@ -74,6 +75,12 @@ def parse_args():
     parser.add_argument(
         '--k8s-namespace',
         help='specify kubernetes cluster namespace to interact with extensions (and logs)',
+    )
+    parser.add_argument(
+        '--prometheus',
+        action='store_true',
+        default=False,
+        help='if set, the `/metrics` route is available and a prometheus middleware is created',
     )
 
     return parser.parse_args()
@@ -401,6 +408,10 @@ async def initialise_app():
         middlewares=middlewares,
         client_max_size=0, # max request body size is already configured via ingress
     )
+
+    prometheus_feature = features.get_feature(features.FeaturePrometheus)
+    if prometheus_feature.state is features.FeatureStates.AVAILABLE:
+        app = middleware.prometheus.add_prometheus_middleware(app=app)
 
     app = add_app_context_vars(
         app=app,

@@ -1,0 +1,16 @@
+{{- if default dict .Values.prometheus }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ default 8080 .Values.prometheus.servicePort }}
+    targetPort: {{ default 9090 .Values.prometheus.containerPort }}
+    name: default
+  selector:
+    app: prometheus
+{{- end }}

@@ -1,0 +1,9 @@
+{{- if default dict (.Values.prometheus).config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus
+data:
+  prometheus.yml: |
+    {{ toYaml .Values.prometheus.config | nindent 4 }}
+{{- end }}

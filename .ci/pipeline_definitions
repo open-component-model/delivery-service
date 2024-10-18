@@ -111,6 +111,10 @@ delivery-service:
               attribute: image.repository
             - ref: ocm-resource:delivery-service.tag
               attribute: image.tag
+            - ref: ocm-resource:prometheus.repository
+              attribute: prometheusImage.repository
+            - ref: ocm-resource:prometheus.tag
+              attribute: prometheusImage.tag
           - name: extensions
             dir: charts/extensions
             registry: europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear
