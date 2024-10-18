@@ -711,7 +711,10 @@ async def greatest_component_versions(
 
                 yield version
 
-        versions = list(await filter_by_date_range(versions))
+        versions = [
+            version async for version
+            in filter_by_date_range(versions)
+        ]
 
     if greatest_version:
         versions = versions[:versions.index(greatest_version) + 1]
