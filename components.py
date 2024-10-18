@@ -690,9 +690,9 @@ async def greatest_component_versions(
 
     # Handle date range filtering only if start_date is provided
     if start_date:
-        def filter_by_date_range(versions):
+        async def filter_by_date_range(versions):
             for version in reversed(versions):
-                component_descriptor = util.retrieve_component_descriptor(
+                component_descriptor = await util.retrieve_component_descriptor(
                     ocm.ComponentIdentity(
                         name=component_name,
                         version=version,
@@ -711,7 +711,7 @@ async def greatest_component_versions(
 
                 yield version
 
-        versions = list(filter_by_date_range(versions))
+        versions = list(await filter_by_date_range(versions))
 
     if greatest_version:
         versions = versions[:versions.index(greatest_version) + 1]
