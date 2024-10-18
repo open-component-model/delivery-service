@@ -25,6 +25,7 @@ import metadata
 import middleware.auth
 import middleware.cors
 import middleware.errors
+import middleware.prometheus
 import middleware.route_feature_check as rfc
 import osinfo
 import paths
@@ -360,6 +361,10 @@ def add_routes(
         path='/dora/dora-metrics',
         handler=dora.DoraMetrics,
     )
+    app.router.add_view(
+        path='/metrics',
+        handler=middleware.prometheus.Metrics,
+    )
 
     return app
 
@@ -401,6 +406,8 @@ async def initialise_app():
         middlewares=middlewares,
         client_max_size=0, # max request body size is already configured via ingress
     )
+
+    app = middleware.prometheus.add_prometheus_middleware(app=app)
 
     app = add_app_context_vars(
         app=app,
