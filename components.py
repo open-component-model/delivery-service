@@ -847,6 +847,7 @@ async def resolve_component_dependencies(
         label_present = False
         # if no sources present we cannot add the source
         if not len(component_node.component.sources) > 0:
+            yield component_node
             continue
 
         for source in component_node.component.sources:
