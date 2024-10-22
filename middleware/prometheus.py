@@ -1,5 +1,4 @@
 import datetime
-import socket
 
 import aiohttp.typedefs
 import aiohttp.web
@@ -35,7 +34,6 @@ class Metrics(aiohttp.web.View):
 def add_prometheus_middleware(
     app: aiohttp.web.Application,
 ) -> aiohttp.typedefs.Middleware:
-    host = socket.gethostname()
 
     @aiohttp.web.middleware
     async def middleware(
@@ -43,31 +41,31 @@ def add_prometheus_middleware(
         handler: aiohttp.typedefs.Handler,
     ) -> aiohttp.web.StreamResponse:
         start_time = datetime.datetime.now()
-        request.app[APP_REQUESTS_CONCURRENCY].labels(host, request.path, request.method).inc()
+        request.app[APP_REQUESTS_CONCURRENCY].labels(request.path, request.method).inc()
 
         response = await handler(request)
 
         latency = datetime.datetime.now() - start_time
-        request.app[APP_REQUEST_LATENCY_SECONDS].labels(host, request.path, request.method).observe(latency.total_seconds()) # noqa: E501
-        request.app[APP_REQUESTS_CONCURRENCY].labels(host, request.path, request.method).dec()
-        request.app[APP_REQUESTS_TOTAL].labels(host, request.path, request.method, response.status).inc() # noqa: E501
+        request.app[APP_REQUEST_LATENCY_SECONDS].labels(request.path, request.method).observe(latency.total_seconds()) # noqa: E501
+        request.app[APP_REQUESTS_CONCURRENCY].labels(request.path, request.method).dec()
+        request.app[APP_REQUESTS_TOTAL].labels(request.path, request.method, response.status).inc()
 
         return response
 
     app[APP_REQUEST_LATENCY_SECONDS] = prometheus_client.Histogram(
         name=APP_REQUEST_LATENCY_SECONDS,
         documentation='Request latency (seconds)',
-        labelnames=['host', 'endpoint', 'method'],
+        labelnames=['endpoint', 'method'],
     )
     app[APP_REQUESTS_CONCURRENCY] = prometheus_client.Gauge(
         name=APP_REQUESTS_CONCURRENCY,
         documentation='Requests currently in progress',
-        labelnames=['host', 'endpoint', 'method'],
+        labelnames=['endpoint', 'method'],
     )
     app[APP_REQUESTS_TOTAL] = prometheus_client.Counter(
         name=APP_REQUESTS_TOTAL,
         documentation='Requests total',
-        labelnames=['host', 'endpoint', 'method', 'status'],
+        labelnames=['endpoint', 'method', 'status'],
     )
 
     app.middlewares.insert(0, middleware)
