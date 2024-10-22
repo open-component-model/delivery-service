@@ -35,6 +35,5 @@ subjects:
 roleRef:
   kind: Role
   name: ocm-gear
-  namespace: {{ .Release.Namespace }}
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
