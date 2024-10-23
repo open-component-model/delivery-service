@@ -48,7 +48,7 @@ def add_prometheus_middleware(
         latency = datetime.datetime.now() - start_time
         request.app[APP_REQUEST_LATENCY_SECONDS].labels(request.path, request.method).observe(latency.total_seconds()) # noqa: E501
         request.app[APP_REQUESTS_CONCURRENCY].labels(request.path, request.method).dec()
-        request.app[APP_REQUESTS_TOTAL].labels(request.path, request.method, response.status).inc()
+        request.app[APP_REQUESTS_TOTAL].labels(request.path, request.headers.get('User-Agent'), request.method, response.status).inc() # noqa: E501
 
         return response
 
@@ -65,7 +65,7 @@ def add_prometheus_middleware(
     app[APP_REQUESTS_TOTAL] = prometheus_client.Counter(
         name=APP_REQUESTS_TOTAL,
         documentation='Requests total',
-        labelnames=['endpoint', 'method', 'status'],
+        labelnames=['endpoint', 'user_agent', 'method', 'status'],
     )
 
     app.middlewares.insert(0, middleware)
