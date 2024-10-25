@@ -229,6 +229,8 @@ def _delivery_dashboard_url(
     base_url: str,
     component_name: str,
     component_version: str,
+    artefact_name: str=None,
+    artefact_versions: collections.abc.Iterable[str]=[],
     sprint_name: str=None,
 ):
     url = ci.util.urljoin(
@@ -246,6 +248,14 @@ def _delivery_dashboard_url(
 
     if sprint_name:
         query_params['sprints'] = sprint_name
+
+    query_params = list(query_params.items())
+
+    if artefact_name and artefact_versions:
+        query_params.extend(
+            ('rescoreArtefacts', f'{artefact_name}:{artefact_version}')
+            for artefact_version in artefact_versions
+        )
 
     query = urllib.parse.urlencode(
         query=query_params,
@@ -376,6 +386,8 @@ def _vulnerability_template_vars(
                 component_name=ocm_node.component.name,
                 component_version=ocm_node.component.version,
                 sprint_name=sprint_name,
+                artefact_name=ocm_node.artefact.name,
+                artefact_versions=(ocm_node.artefact.version,),
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
@@ -448,6 +460,8 @@ def _malware_template_vars(
                 component_name=artefact.component_name,
                 component_version=artefact.component_version,
                 sprint_name=sprint_name,
+                artefact_name=artefact.artefact.artefact_name,
+                artefact_versions=(artefact.artefact.artefact_version,),
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
@@ -536,6 +550,8 @@ def _license_template_vars(
                 component_name=artefact.component_name,
                 component_version=artefact.component_version,
                 sprint_name=sprint_name,
+                artefact_name=artefact.artefact.artefact_name,
+                artefact_versions=(artefact.artefact.artefact_version,),
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
