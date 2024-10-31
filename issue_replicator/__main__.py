@@ -27,7 +27,7 @@ import k8s.logging
 import k8s.model
 import k8s.util
 import lookups
-import rescoring_util
+import rescore.util
 
 
 logger = logging.getLogger(__name__)
@@ -145,7 +145,7 @@ def _iter_findings_for_artefact(
         if not artefact_kind is finding.artefact.artefact_kind:
             continue
 
-        filtered_rescorings = rescoring_util.rescorings_for_finding_by_specificity(
+        filtered_rescorings = rescore.util.rescorings_for_finding_by_specificity(
             finding=finding,
             rescorings=rescorings,
         )
