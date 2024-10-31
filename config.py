@@ -20,6 +20,7 @@ import bdba.model
 import config_filter
 import ctx_util
 import lookups
+import rescore.model
 
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ class BDBAConfig:
     processing_mode: bdba.model.ProcessingMode
     artefact_types: tuple[str]
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
-    cve_rescoring_rules: tuple[dso.cvss.RescoringRule]
+    cve_rescoring_rules: tuple[rescore.model.RescoringRule]
     auto_assess_max_severity: dso.cvss.CVESeverity
     license_cfg: image_scan.LicenseCfg
     delete_inactive_products_after_seconds: int
@@ -213,7 +214,7 @@ class IssueReplicatorConfig:
     number_included_closed_issues: int
     artefact_types: tuple[str]
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
-    cve_rescoring_rules: tuple[dso.cvss.RescoringRule]
+    cve_rescoring_rules: tuple[rescore.model.RescoringRule]
     finding_type_issue_replication_cfgs: tuple[FindingTypeIssueReplicationCfgBase]
     milestone_cfg: gcmi.MilestoneConfiguration
 
@@ -517,7 +518,7 @@ def deserialise_bdba_config(
         default_config=default_config,
         default_value=[],
     )
-    cve_rescoring_rules = tuple(dso.cvss.rescoring_rules_from_dicts(cve_rescoring_rules_raw))
+    cve_rescoring_rules = tuple(rescore.model.rescoring_rules_from_dicts(cve_rescoring_rules_raw))
 
     if cve_rescoring_rules:
         auto_assess_max_severity_raw = deserialise_config_property(
@@ -800,7 +801,7 @@ def deserialise_issue_replicator_config(
         default_config=default_config,
         default_value=[],
     )
-    cve_rescoring_rules = tuple(dso.cvss.rescoring_rules_from_dicts(cve_rescoring_rules_raw))
+    cve_rescoring_rules = tuple(rescore.model.rescoring_rules_from_dicts(cve_rescoring_rules_raw))
 
     finding_type_issue_replication_cfgs_raw = deserialise_config_property(
         config=issue_replicator_config,

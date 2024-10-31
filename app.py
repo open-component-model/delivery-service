@@ -29,7 +29,7 @@ import middleware.prometheus
 import middleware.route_feature_check as rfc
 import osinfo
 import paths
-import rescore
+import rescore.artefacts
 import service_extensions
 import special_component
 import sprint
@@ -330,7 +330,7 @@ def add_routes(
     )
     app.router.add_view(
         path='/rescore',
-        handler=rescore.Rescore,
+        handler=rescore.artefacts.Rescore,
     )
 
     app.router.add_view(

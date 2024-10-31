@@ -26,6 +26,9 @@ import bdba.client
 import bdba.model
 import bdba.scanning
 import ocm_util
+import rescore.artefacts as ra
+import rescore.utility as ru
+import rescore.model as rm
 
 
 __cmd_name__ = 'bdba'
@@ -163,7 +166,7 @@ def rescore(
         categorisation = categorisation_label.value
 
     rescoring_rules = tuple(
-        dso.cvss.rescoring_rules_from_dicts(
+        rm.rescoring_rules_from_dicts(
             ci.util.parse_yaml_file(rescoring_rules)
         )
     )
@@ -198,13 +201,13 @@ def rescore(
             if not v.cvss:
                 continue # happens if only cvss-v2 is available - ignore for now
 
-            rules = tuple(dso.cvss.matching_rescore_rules(
+            rules = tuple(ru.matching_rescore_rules(
                 rescoring_rules=rescoring_rules,
                 categorisation=categorisation,
                 cvss=v.cvss,
             ))
             orig_severity = dso.cvss.CVESeverity.from_cve_score(v.cve_severity())
-            rescored = dso.cvss.rescore(
+            rescored = ra.rescore_severity(
                 rescoring_rules=rules,
                 severity=orig_severity,
             )

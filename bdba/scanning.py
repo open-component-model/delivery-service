@@ -27,7 +27,7 @@ import bdba.client
 import bdba.model as bm
 import bdba.rescore
 import bdba.util
-
+import rescore.model
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging(print_thread_id=True)
@@ -288,7 +288,7 @@ class ResourceGroupProcessor:
         processing_mode: bm.ProcessingMode,
         delivery_client: delivery.client.DeliveryServiceClient=None,
         license_cfg: image_scan.LicenseCfg=None,
-        cve_rescoring_rules: tuple[dso.cvss.RescoringRule]=tuple(),
+        cve_rescoring_rules: tuple[rescore.model.RescoringRule]=tuple(),
         auto_assess_max_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
         use_product_cache: bool=True,
         delete_inactive_products_after_seconds: int=None,
