@@ -1,7 +1,10 @@
 import collections.abc
 import enum
+import typing
 
 import dso.model
+import dso.cvss
+import rescore.model
 
 
 class RescoringSpecificity(enum.IntEnum):
@@ -136,3 +139,17 @@ def rescorings_for_finding_by_specificity(
         ),
         reverse=True,
     ))
+
+
+def matching_rescore_rules(
+    rescoring_rules: typing.Iterable[rescore.model.RescoringRule],
+    categorisation: dso.cvss.CveCategorisation,
+    cvss: dso.cvss.CVSSV3 | dict,
+) -> typing.Generator[rescore.model.RescoringRule, None, None]:
+    for rescoring_rule in rescoring_rules:
+        if not rescoring_rule.matches_categorisation(categorisation):
+            continue
+        if not rescoring_rule.matches_cvss(cvss):
+            continue
+
+        yield rescoring_rule

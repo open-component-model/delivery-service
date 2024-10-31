@@ -31,6 +31,8 @@ import github.compliance.report as gcr
 import github.retry
 import github.user
 import github.util
+import rescore.artefacts
+import rescore.utility
 import version as version_util
 
 import config
@@ -338,13 +340,13 @@ def _vulnerability_template_vars(
 
             orig_sev = dso.cvss.CVESeverity[finding.data.severity]
 
-            rules = tuple(dso.cvss.matching_rescore_rules(
+            rules = tuple(rescore.utility.matching_rescore_rules(
                 rescoring_rules=cve_rescoring_rules,
                 categorisation=cve_categorisation,
                 cvss=finding.data.cvss,
             ))
 
-            rescored = dso.cvss.rescore(
+            rescored = rescore.artefacts.rescore_severity(
                 rescoring_rules=rules,
                 severity=orig_sev,
             )

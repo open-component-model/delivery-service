@@ -16,7 +16,6 @@ import yaml
 
 import ci.util
 import cnudie.retrieve
-import dso.cvss
 import model.base
 import model.bdba
 import ocm
@@ -28,6 +27,7 @@ import middleware.auth
 import middleware.db_session
 import paths
 import util
+import rescore.model
 import yp
 
 
@@ -434,7 +434,7 @@ class CveRescoringRuleSet:
     '''
     name: str
     description: str
-    rules: list[dso.cvss.RescoringRule]
+    rules: list[rescore.model.RescoringRule]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -646,7 +646,9 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
             data_class=CveRescoringRuleSet,
             data=dict(
                 **rescoring_rule_set_raw,
-                rules=list(dso.cvss.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])),
+                rules=list(
+                    rescore.model.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])
+                ),
             ),
         )
         for rescoring_rule_set_raw in rescoring_raw['rescoringRuleSets']

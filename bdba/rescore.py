@@ -8,6 +8,9 @@ import dso.labels
 
 import bdba.client
 import bdba.model as bm
+import rescore.artefacts as ra
+import rescore.model as rm
+import rescore.utility as ru
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,7 @@ def rescore(
     bdba_client: bdba.client.BDBAApi,
     scan_result: bm.AnalysisResult,
     scanned_element: cnudie.iter.ResourceNode,
-    rescoring_rules: collections.abc.Sequence[dso.cvss.RescoringRule],
+    rescoring_rules: collections.abc.Sequence[rm.RescoringRule],
     max_rescore_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
     assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
 ) -> dict[str, list[str]]:
@@ -78,12 +81,12 @@ def rescore(
             if orig_severity > max_rescore_severity:
                 continue
 
-            matching_rules = dso.cvss.matching_rescore_rules(
+            matching_rules = ru.matching_rescore_rules(
                 rescoring_rules=rescoring_rules,
                 categorisation=categorisation,
                 cvss=v.cvss,
             )
-            rescored = dso.cvss.rescore(
+            rescored = ra.rescore_severity(
                 rescoring_rules=tuple(matching_rules),
                 severity=orig_severity,
             )
