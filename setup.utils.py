@@ -28,7 +28,7 @@ def modules():
         'lookups',
         'ocm_util',
         'paths',
-        'rescore.util',
+        'rescore.utility',
     ]
 
 

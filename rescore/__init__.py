@@ -27,7 +27,7 @@ import k8s.backlog
 import k8s.model
 import k8s.util
 import middleware.auth
-import rescore.util
+import rescore.utility
 import util
 import yp
 
@@ -330,7 +330,7 @@ def _rescorings_and_sprint(
     max_processing_days: gcm.MaxProcessingTimesDays | None=None,
     sprints: list[yp.Sprint]=[],
 ) -> tuple[tuple[dso.model.ArtefactMetadata], yp.Sprint]:
-    current_rescorings = rescore.util.rescorings_for_finding_by_specificity(
+    current_rescorings = rescore.utility.rescorings_for_finding_by_specificity(
         finding=artefact_metadatum,
         rescorings=rescorings,
     )
