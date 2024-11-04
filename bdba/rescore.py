@@ -34,7 +34,7 @@ def rescore(
     bdba_client: bdba.client.BDBAApi,
     scan_result: bm.AnalysisResult,
     scanned_element: cnudie.iter.ResourceNode,
-    rescoring_rules: collections.abc.Sequence[rm.RescoringRule],
+    cve_rescoring_ruleset: rm.CveRescoringRuleSet,
     max_rescore_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
     assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
 ) -> dict[str, list[str]]:
@@ -82,7 +82,7 @@ def rescore(
                 continue
 
             matching_rules = ru.matching_rescore_rules(
-                rescoring_rules=rescoring_rules,
+                rescoring_rules=cve_rescoring_ruleset.rules,
                 categorisation=categorisation,
                 cvss=v.cvss,
             )

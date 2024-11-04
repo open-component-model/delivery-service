@@ -288,7 +288,7 @@ class ResourceGroupProcessor:
         processing_mode: bm.ProcessingMode,
         delivery_client: delivery.client.DeliveryServiceClient=None,
         license_cfg: image_scan.LicenseCfg=None,
-        cve_rescoring_rules: tuple[rescore.model.RescoringRule]=tuple(),
+        cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet=None,
         auto_assess_max_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
         use_product_cache: bool=True,
         delete_inactive_products_after_seconds: int=None,
@@ -370,12 +370,12 @@ class ResourceGroupProcessor:
             assessed_vulns_by_component=assessed_vulns_by_component,
         )
 
-        if cve_rescoring_rules:
+        if cve_rescoring_ruleset:
             assessed_vulns_by_component = bdba.rescore.rescore(
                 bdba_client=self.bdba_client,
                 scan_result=scan_result,
                 scanned_element=scanned_element,
-                rescoring_rules=cve_rescoring_rules,
+                cve_rescoring_ruleset=cve_rescoring_ruleset,
                 max_rescore_severity=auto_assess_max_severity,
                 assessed_vulns_by_component=assessed_vulns_by_component,
             )
