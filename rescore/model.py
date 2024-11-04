@@ -122,6 +122,22 @@ class RescoringRule:
         return value == getattr(categorisation, attr)
 
 
+@dataclasses.dataclass(frozen=True)
+class CveRescoringRuleSet:
+    '''
+    Represents configuration for a single rescoring rule set.
+    A single rule set is used to perform a CVSS rescoring according to a well-defined contract.
+    One of the rule sets can be defined as default, used as fallback for rescoring if no rule set is
+    specified.
+    See rescoring documentation for more details:
+
+    TODO: publish rescoring-docs (removed SAP-internal reference prior to open-sourcing)
+    '''
+    name: str
+    description: str
+    rules: list[RescoringRule]
+
+
 def rescoring_rules_from_dicts(rules: list[dict]) -> typing.Generator[RescoringRule, None, None]:
     '''
     deserialises rescoring rules. Each dict is expected to have the following form:

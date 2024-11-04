@@ -27,7 +27,7 @@ import middleware.auth
 import middleware.db_session
 import paths
 import util
-import rescore.model
+import rescore.model as rm
 import yp
 
 
@@ -422,25 +422,9 @@ class FeatureSpecialComponents(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
-class CveRescoringRuleSet:
-    '''
-    Represents configuration for a single rescoring rule set.
-    A single rule set is used to perform a CVSS rescoring according to a well-defined contract.
-    One of the rule sets can be defined as default, used as fallback for rescoring if no rule set is
-    specified.
-    See rescoring documentation for more details:
-
-    TODO: publish rescoring-docs (removed SAP-internal reference prior to open-sourcing)
-    '''
-    name: str
-    description: str
-    rules: list[rescore.model.RescoringRule]
-
-
-@dataclasses.dataclass(frozen=True)
 class FeatureRescoring(FeatureBase):
     name: str = 'rescoring'
-    rescoring_rule_sets: list[CveRescoringRuleSet] = dataclasses.field(default_factory=list)
+    rescoring_rule_sets: list[rm.CveRescoringRuleSet] = dataclasses.field(default_factory=list)
     default_rescoring_rule_set_name: str = None
     cve_categorisation_label_url: str = None
     cve_severity_url: str = None
@@ -448,14 +432,14 @@ class FeatureRescoring(FeatureBase):
     def find_rule_set_by_name(
         self,
         name: str,
-    ) -> CveRescoringRuleSet | None:
+    ) -> rm.CveRescoringRuleSet | None:
         for rs in self.rescoring_rule_sets:
-            rs: CveRescoringRuleSet
+            rs: rm.CveRescoringRuleSet
             if rs.name == name:
                 return rs
         return None
 
-    def default_rule_set(self) -> CveRescoringRuleSet | None:
+    def default_rule_set(self) -> rm.CveRescoringRuleSet | None:
         return self.find_rule_set_by_name(self.default_rescoring_rule_set_name)
 
 
@@ -643,11 +627,11 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
     rescoring_rule_sets = [
         dacite.from_dict(
-            data_class=CveRescoringRuleSet,
+            data_class=rm.CveRescoringRuleSet,
             data=dict(
                 **rescoring_rule_set_raw,
                 rules=list(
-                    rescore.model.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])
+                    rm.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])
                 ),
             ),
         )

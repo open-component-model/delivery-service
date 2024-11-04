@@ -37,7 +37,7 @@ import yp
 logger = logging.getLogger(__name__)
 CveRescoringRuleSetLookup = collections.abc.Callable[
     [str],
-    features.CveRescoringRuleSet | None,
+    rm.CveRescoringRuleSet | None,
 ]
 Severity = str # sap-specific categorisation (see cc-utils github/compliance/model/Severity)
 
@@ -83,10 +83,10 @@ class RescoringProposal:
 
 
 def _find_cve_rescoring_rule_set(
-    default_cve_rescoring_rule_set: features.CveRescoringRuleSet,
+    default_cve_rescoring_rule_set: rm.CveRescoringRuleSet,
     cve_rescoring_rule_set_lookup: CveRescoringRuleSetLookup,
     cve_rescoring_rule_set_name: str | None,
-) -> features.CveRescoringRuleSet | None:
+) -> rm.CveRescoringRuleSet | None:
     if not cve_rescoring_rule_set_name:
         return default_cve_rescoring_rule_set
 
