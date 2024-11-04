@@ -52,16 +52,16 @@ Currently `SQLite3` and `PostgreSQL 16` are supported.
 ### SQLite3
 
 ```
-adev runserver --port 5000 . -- --delivery-db-url sqlite:///test.db
+adev runserver --port 5000 . -- --delivery-db-url sqlite+aiosqlite:///test.db
 ```
 
 #### SQLite3 hints
 
 ```
 Valid SQLite URL forms are:
-  sqlite:///:memory: (or, sqlite://)
-  sqlite:///relative/path/to/file.db
-  sqlite:////absolute/path/to/file.db
+  sqlite+aiosqlite:///:memory: (or, sqlite://)
+  sqlite+aiosqlite:///relative/path/to/file.db
+  sqlite+aiosqlite:////absolute/path/to/file.db
 ```
 > Note: _Four_ slashes for abs-path.
 
