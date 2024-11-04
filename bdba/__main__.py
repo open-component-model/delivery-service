@@ -164,7 +164,7 @@ def scan(
         known_scan_results=known_scan_results,
         delivery_client=delivery_client,
         license_cfg=bdba_config.license_cfg,
-        cve_rescoring_rules=bdba_config.cve_rescoring_rules,
+        cve_rescoring_ruleset=bdba_config.cve_rescoring_ruleset,
         auto_assess_max_severity=bdba_config.auto_assess_max_severity,
         use_product_cache=False,
         delete_inactive_products_after_seconds=bdba_config.delete_inactive_products_after_seconds,
