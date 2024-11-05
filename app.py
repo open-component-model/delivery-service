@@ -374,16 +374,18 @@ async def initialise_app():
 
     cfg_factory = ctx_util.cfg_factory()
 
+    middlewares = [
+        middleware.cors.cors_middleware(),
+    ]
+
     middlewares = await features.init_features(
         parsed_arguments=parsed_arguments,
         cfg_factory=cfg_factory,
+        middlewares=middlewares,
     )
 
     es_client = features.get_feature(features.FeatureElasticSearch).get_es_client()
-    middlewares.extend([
-        middleware.cors.cors_middleware(),
-        middleware.errors.errors_middleware(es_client),
-    ])
+    middlewares.append(middleware.errors.errors_middleware(es_client))
 
     if (unavailable_features := tuple(
         f for f in features.feature_cfgs

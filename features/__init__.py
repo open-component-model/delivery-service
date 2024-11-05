@@ -859,10 +859,10 @@ def watch_for_file_changes(
 async def init_features(
     parsed_arguments,
     cfg_factory,
-) -> list[any]:
+    middlewares: collections.abc.Iterable,
+) -> list:
     global feature_cfgs
     feature_cfgs = []
-    middlewares = []
 
     delivery_cfg = None
     try:
