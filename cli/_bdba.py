@@ -26,7 +26,6 @@ import bdba.client
 import bdba.model
 import bdba.scanning
 import ocm_util
-import rescore.artefacts as ra
 import rescore.utility as ru
 import rescore.model as rm
 
@@ -207,7 +206,7 @@ def rescore(
                 cvss=v.cvss,
             ))
             orig_severity = dso.cvss.CVESeverity.from_cve_score(v.cve_severity())
-            rescored = ra.rescore_severity(
+            rescored = ru.rescore_severity(
                 rescoring_rules=rules,
                 severity=orig_severity,
             )

@@ -8,7 +8,6 @@ import dso.labels
 
 import bdba.client
 import bdba.model as bm
-import rescore.artefacts as ra
 import rescore.model as rm
 import rescore.utility as ru
 
@@ -86,7 +85,7 @@ def rescore(
                 categorisation=categorisation,
                 cvss=v.cvss,
             )
-            rescored = ra.rescore_severity(
+            rescored = ru.rescore_severity(
                 rescoring_rules=tuple(matching_rules),
                 severity=orig_severity,
             )

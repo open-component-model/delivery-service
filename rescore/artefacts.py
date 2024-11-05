@@ -3,7 +3,6 @@ import dataclasses
 import datetime
 import http
 import logging
-import typing
 
 import aiohttp.web
 import dacite
@@ -260,7 +259,7 @@ def _rescore_vulnerabilitiy(
         cvss=cvss,
     )
 
-    return rescore_severity(
+    return rescore.utility.rescore_severity(
         rescoring_rules=rules,
         severity=severity,
     )
@@ -986,24 +985,3 @@ class Rescore(aiohttp.web.View):
         return aiohttp.web.Response(
             status=http.HTTPStatus.NO_CONTENT,
         )
-
-
-def rescore_severity(
-    rescoring_rules: typing.Iterable[rm.RescoringRule],
-    severity: dso.cvss.CVESeverity,
-    minimum_severity: int=dso.cvss.CVESeverity.NONE,
-) -> dso.cvss.CVESeverity:
-    for rule in rescoring_rules:
-        if rule.rescore is rm.Rescore.NO_CHANGE:
-            continue
-        elif rule.rescore is rm.Rescore.REDUCE:
-            severity = severity.reduce(
-                severity_classes=1,
-                minimum_severity=minimum_severity,
-            )
-        elif rule.rescore is rm.Rescore.NOT_EXPLOITABLE:
-            return dso.cvss.CVESeverity(minimum_severity)
-        else:
-            raise NotImplementedError(rule.rescore)
-
-    return severity
