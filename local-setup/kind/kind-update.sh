@@ -41,7 +41,7 @@ kubectl config set-context --current --namespace=$NAMESPACE
 echo ">>> Installing delivery-database from ${DELIVERY_DATABASE_CHART}"
 # First, install custom pv and pvc to allow re-usage of host's filesystem mount
 kubectl apply -f "${CHART}/delivery-db-pv" --namespace $NAMESPACE
-helm upgrade delivery-db oci://${DELIVERY_DATABASE_CHART%:*} \
+helm upgrade -i delivery-db oci://${DELIVERY_DATABASE_CHART%:*} \
     --namespace $NAMESPACE \
     --version ${DELIVERY_DATABASE_CHART#*:} \
     --values ${CHART}/values-delivery-db.yaml
@@ -52,7 +52,7 @@ python3 ${CHART}/delivery-service-mounts/render_sprints.py
 kubectl apply -f "${CHART}/delivery-service-mounts/addressbook.yaml" --namespace $NAMESPACE
 kubectl apply -f "${CHART}/delivery-service-mounts/github_mappings.yaml" --namespace $NAMESPACE
 kubectl apply -f "${CHART}/delivery-service-mounts/sprints.yaml" --namespace $NAMESPACE
-helm upgrade delivery-service oci://${DELIVERY_SERVICE_CHART%:*} \
+helm upgrade -i delivery-service oci://${DELIVERY_SERVICE_CHART%:*} \
     --namespace $NAMESPACE \
     --version ${DELIVERY_SERVICE_CHART#*:} \
     --values ${CHART}/values-delivery-service.yaml
@@ -61,13 +61,13 @@ kubectl rollout restart deployment delivery-service # required to use updated co
 kubectl rollout status deployment delivery-service
 
 echo ">>> Installing delivery-dashboard from ${DELIVERY_DASHBOARD_CHART}"
-helm upgrade delivery-dashboard oci://${DELIVERY_DASHBOARD_CHART%:*} \
+helm upgrade -i delivery-dashboard oci://${DELIVERY_DASHBOARD_CHART%:*} \
     --namespace $NAMESPACE \
     --version ${DELIVERY_DASHBOARD_CHART#*:} \
     --values ${CHART}/values-delivery-dashboard.yaml
 
 echo ">>> Installing extensions from ${EXTENSIONS_CHART}"
-helm upgrade extensions oci://${EXTENSIONS_CHART%:*} \
+helm upgrade -i extensions oci://${EXTENSIONS_CHART%:*} \
     --namespace $NAMESPACE \
     --version ${EXTENSIONS_CHART#*:} \
     --values ${CHART}/values-extensions.yaml
