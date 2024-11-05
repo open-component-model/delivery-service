@@ -61,26 +61,43 @@ spec:
                                   type: string
                                 matching_semantics:
                                   type: string
-                    cve_rescoring_rules:
-                      type: array
-                      items:
-                        x-kubernetes-preserve-unknown-fields: true
-                        type: object
-                        properties:
-                          category_value:
-                            type: string
-                          rules:
-                            type: array
-                            items:
-                              x-kubernetes-preserve-unknown-fields: true
-                              type: object
-                              properties:
-                                cve_values:
-                                  type: array
-                                  items:
-                                    type: string
-                                rescore:
-                                  type: string
+                    rescoring:
+                      type: object
+                      properties:
+                        defaultRuleSetName:
+                          type: string
+                        rescoringRuleSets:
+                          type: array
+                          items:
+                            x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                              description:
+                                type: string
+                              rule_set:
+                                type: array
+                                items:
+                                  x-kubernetes-preserve-unknown-fields: true
+                                  type: object
+                                  properties:
+                                    category_value:
+                                      type: string
+                                    name:
+                                      type: string
+                                    rules:
+                                      type: array
+                                      items:
+                                        x-kubernetes-preserve-unknown-fields: true
+                                        type: object
+                                        properties:
+                                          cve_values:
+                                            type: array
+                                            items:
+                                              type: string
+                                          rescore:
+                                            type: string
                 artefactEnumerator:
                   x-kubernetes-preserve-unknown-fields: true
                   type: object
