@@ -68,23 +68,24 @@ def dict_factory_date_serialisiation(data):
     return dict((k, convert_value(v)) for k, v in data)
 
 
-def dict_to_json_factory(data: dict) -> str:
-    def convert_value(obj):
-        if isinstance(obj, str):
-            return obj
-        elif isinstance(obj, (datetime.date, datetime.datetime)):
-            return obj.isoformat()
-        elif isinstance(obj, enum.Enum):
-            return obj.value
-        elif dataclasses.is_dataclass(obj):
-            return convert_value(dataclasses.asdict(obj))
-        elif isinstance(obj, dict):
-            return dict((k, convert_value(v)) for k, v in obj.items())
-        elif isinstance(obj, collections.abc.Iterable):
-            return [convert_value(o) for o in obj]
-        return obj
+def dict_serialisation(data) -> dict:
+    if isinstance(data, enum.Enum):
+        return data.value
+    elif isinstance(data, str):
+        return data
+    elif isinstance(data, (datetime.date, datetime.datetime)):
+        return data.isoformat()
+    elif dataclasses.is_dataclass(data):
+        return dict_serialisation(dataclasses.asdict(data))
+    elif isinstance(data, dict):
+        return dict((k, dict_serialisation(v)) for k, v in data.items())
+    elif isinstance(data, collections.abc.Iterable):
+        return [dict_serialisation(o) for o in data]
+    return data
 
-    return json.dumps(convert_value(data))
+
+def dict_to_json_factory(data: dict) -> str:
+    return json.dumps(dict_serialisation(data))
 
 
 async def retrieve_component_descriptor(
