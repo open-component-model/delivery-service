@@ -632,13 +632,13 @@ def decode_jwt(
         )
 
     except (jwt.exceptions.InvalidIssuedAtError) as e:
-        raise aiohttp.web.HTTPBadRequest(
+        raise aiohttp.web.HTTPUnauthorized(
             reason='Bad Request, iat is in future',
             text=str(e),
         )
 
     except (jwt.exceptions.ImmatureSignatureError) as e:
-        raise aiohttp.web.HTTPBadRequest(
+        raise aiohttp.web.HTTPUnauthorized(
             reason='Bad Request, token not yet valid',
             text=str(e),
         )
@@ -663,7 +663,7 @@ def check_jwt_header_content(header: dict[str, str]):
                 text=f'Algorithm {algorithm} is not supported',
             )
     else:
-        raise aiohttp.web.HTTPBadRequest(
+        raise aiohttp.web.HTTPUnauthorized(
             text='Please define an "alg" entry in your token header',
         )
 
@@ -672,10 +672,10 @@ def validate_jwt_payload(decoded_jwt: dict):
     try:
         jsonschema.validate(decoded_jwt, token_payload_schema())
     except jsonschema.exceptions.ValidationError as e:
-        raise aiohttp.web.HTTPBadRequest(text=e.message)
+        raise aiohttp.web.HTTPUnauthorized(text=e.message)
 
     if (version := decoded_jwt.get('version')) and version != 'v1':
-        raise aiohttp.web.HTTPBadRequest(text='Token version does not match')
+        raise aiohttp.web.HTTPUnauthorized(text='Token version does not match')
 
 
 def get_token_from_request(request: aiohttp.web.Request) -> str:
@@ -689,20 +689,20 @@ def _get_token_from_cookie(request: aiohttp.web.Request) -> str:
     if token := request.cookies.get('bearer_token'):
         return token
 
-    raise aiohttp.web.HTTPBadRequest(text='Please provide a bearer token in your cookie')
+    raise aiohttp.web.HTTPUnauthorized(text='Please provide a bearer token in your cookie')
 
 
 def _get_token_from_auth_header(auth_header: str | None) -> str:
     if not auth_header:
-        raise aiohttp.web.HTTPBadRequest(text='Auth header not set')
+        raise aiohttp.web.HTTPUnauthorized(text='Auth header not set')
     if not auth_header.startswith('Bearer '):
-        raise aiohttp.web.HTTPBadRequest(
+        raise aiohttp.web.HTTPUnauthorized(
             text='Please provide a correctly formatted auth header',
         )
 
     auth_header_parts = auth_header.split(' ')
     if len(auth_header_parts) != 2:
-        raise aiohttp.web.HTTPBadRequest(text='Auth header malformed')
+        raise aiohttp.web.HTTPUnauthorized(text='Auth header malformed')
 
     return auth_header_parts[1]
 
