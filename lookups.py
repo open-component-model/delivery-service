@@ -1,6 +1,9 @@
 import collections.abc
 import dacite
+import dataclasses
+import datetime
 import functools
+import logging
 import urllib.parse
 
 import ccc.oci
@@ -14,7 +17,13 @@ import oci.client_async
 import ocm
 
 import ctx_util
+import deliverydb.cache
+import deliverydb.model
 import paths
+import util
+
+
+logger = logging.getLogger(__name__)
 
 
 def semver_sanitised_oci_client(
@@ -71,6 +80,137 @@ def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
     return ocm_repository_lookup
 
 
+def db_cache_component_descriptor_lookup_async(
+    db_url: str,
+    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
+    encoding_format: deliverydb.cache.EncodingFormat | str=deliverydb.cache.EncodingFormat.PICKLE,
+    ttl_seconds: int=0,
+    keep_at_least_seconds: int=0,
+    max_size_octets: int=0,
+) -> cnudie.retrieve_async.ComponentDescriptorLookupById:
+    '''
+    Used to lookup referenced component descriptors in the database cache. In case of a cache miss,
+    the required component descriptor can be added to the cache by using the writeback function.
+
+    @param db_url:
+        url of the database containing the cache relation
+    @param ocm_repository_lookup:
+        lookup for OCM repositories
+    @param encoding_format:
+        format used to store the serialised component descriptor (this will have an impact on
+        (de-)serialisation efficiency and storage size
+    @param ttl_seconds:
+        the maximum allowed time a cache item is valid in seconds
+    @param keep_at_least_seconds:
+        the minimum time a cache item should be kept
+    @param max_size_octets:
+        the maximum size of an individual cache entry, if the result exceeds this limit, it is not
+        persistet in the database cache
+    '''
+    if ttl_seconds and ttl_seconds < keep_at_least_seconds:
+        raise ValueError(
+            'If time-to-live (`ttl_seconds`) and `keep_at_least_seconds` are both specified, '
+            '`ttl_seconds` must be greater or equal than `keep_at_least_seconds`.'
+        )
+
+    async def writeback(
+        component_id: ocm.ComponentIdentity,
+        component_descriptor: ocm.ComponentDescriptor,
+        start: datetime.datetime,
+    ):
+        descriptor = deliverydb.cache.CachedComponentDescriptor(
+            encoding_format=encoding_format,
+            component_name=component_id.name,
+            component_version=component_id.version,
+            ocm_repository=component_descriptor.component.current_ocm_repo,
+        )
+
+        value = deliverydb.cache.serialise_cache_value(
+            value=util.dict_serialisation(dataclasses.asdict(component_descriptor)),
+            encoding_format=encoding_format,
+        )
+
+        if max_size_octets > 0 and len(value) > max_size_octets:
+            # don't store result in cache if it exceeds max size for an individual cache entry
+            return
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        cache_entry = deliverydb.model.DBCache(
+            id=descriptor.id,
+            descriptor=util.dict_serialisation(dataclasses.asdict(descriptor)),
+            delete_after=now + datetime.timedelta(seconds=ttl_seconds) if ttl_seconds else None,
+            keep_until=now + datetime.timedelta(seconds=keep_at_least_seconds),
+            costs=int((now - start).total_seconds() * 1000),
+            size=len(value),
+            value=value,
+        )
+
+        db_session = await deliverydb.sqlalchemy_session(db_url)
+        try:
+            await deliverydb.cache.add_or_update_cache_entry(
+                db_session=db_session,
+                cache_entry=cache_entry,
+            )
+        except Exception:
+            raise
+        finally:
+            await db_session.close()
+
+    async def lookup(
+        component_id: cnudie.util.ComponentId,
+        ctx_repo: ocm.OcmRepository | str=None,
+        ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=ocm_repository_lookup,
+    ):
+        component_id = cnudie.util.to_component_id(component_id)
+
+        if ctx_repo:
+            ocm_repos = (ctx_repo, )
+        else:
+            ocm_repos = cnudie.retrieve.iter_ocm_repositories(
+                component_id,
+                ocm_repository_lookup,
+            )
+
+        db_session = await deliverydb.sqlalchemy_session(db_url)
+        try:
+            for ocm_repo in ocm_repos:
+                if isinstance(ocm_repo, str):
+                    ocm_repo = ocm.OciOcmRepository(
+                        baseUrl=ocm_repo,
+                    )
+
+                if not isinstance(ocm_repo, ocm.OciOcmRepository):
+                    raise NotImplementedError(ocm_repo)
+
+                descriptor = deliverydb.cache.CachedComponentDescriptor(
+                    encoding_format=encoding_format,
+                    component_name=component_id.name,
+                    component_version=component_id.version,
+                    ocm_repository=ocm_repo,
+                )
+
+                if value := await deliverydb.cache.find_cached_value(
+                    db_session=db_session,
+                    id=descriptor.id,
+                ):
+                    return ocm.ComponentDescriptor.from_dict(
+                        component_descriptor_dict=deliverydb.cache.deserialise_cache_value(
+                            value=value,
+                            encoding_format=encoding_format,
+                        ),
+                    )
+        except Exception:
+            raise
+        finally:
+            await db_session.close()
+
+        # component descriptor not found in lookup
+        start = datetime.datetime.now(tz=datetime.timezone.utc)
+        return cnudie.retrieve_async.WriteBack(functools.partial(writeback, start=start))
+
+    return lookup
+
+
 def init_component_descriptor_lookup(
     ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
     cache_dir: str=None,
@@ -122,6 +262,7 @@ def init_component_descriptor_lookup(
 def init_component_descriptor_lookup_async(
     ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
     cache_dir: str=None,
+    db_url: str=None,
     delivery_client: delivery.client.DeliveryServiceClient=None,
     oci_client: oci.client_async.Client=None,
     default_absent_ok: bool=False,
@@ -130,6 +271,7 @@ def init_component_descriptor_lookup_async(
     convenience function to create a composite component descriptor lookup consisting of:
     - in-memory cache lookup
     - file-system cache lookup (if `cache_dir` is specified)
+    - database (persistent) cache lookup (if `db_url` is specified)
     - delivery-client lookup (if `delivery_client` is specified)
     - oci-client lookup
     '''
@@ -147,6 +289,12 @@ def init_component_descriptor_lookup_async(
         lookups.append(cnudie.retrieve_async.file_system_cache_component_descriptor_lookup(
             ocm_repository_lookup=ocm_repository_lookup,
             cache_dir=cache_dir,
+        ))
+
+    if db_url:
+        lookups.append(db_cache_component_descriptor_lookup_async(
+            db_url=db_url,
+            ocm_repository_lookup=ocm_repository_lookup,
         ))
 
     if delivery_client:
