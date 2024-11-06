@@ -15,22 +15,6 @@ import ocm
 import deliverydb.model as dm
 
 
-def normalise_object(
-    object: dict,
-) -> str:
-    '''
-    generate stable representation of `object`
-
-    sorted by key in alphabetical order and concatinated following pattern:
-    key1:value1_key2:value2_ ...
-    '''
-    s = sorted(object.items(), key=lambda items: items[0])
-    return '_'.join([
-        f'{key}:{normalise_object(value) if isinstance(value, dict) else value}'
-        for key, value in s
-    ])
-
-
 def to_db_artefact_metadata(
     artefact_metadata: dso.model.ArtefactMetadata,
 ) -> dm.ArtefactMetaData:
