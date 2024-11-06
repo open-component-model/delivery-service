@@ -40,8 +40,8 @@ async def sqlalchemy_session(db_url: str) -> sqlasync.session.AsyncSession:
     '''
     Caller must close database-session.
 
-    Using session object managed by `DBSessionLifecycle` middleware is the preferred way to obtain
-    a database-session.
+    Using session object managed by `middleware.db_session_middleware` middleware is the preferred
+    way to obtain a database-session.
     '''
     sessionmaker = await _sqlalchemy_sessionmaker(db_url=db_url)
 

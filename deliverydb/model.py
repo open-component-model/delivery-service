@@ -61,3 +61,23 @@ sa.Index(
     ArtefactMetaData.type,
     ArtefactMetaData.artefact_type,
 )
+
+
+class DBCache(Base):
+    __tablename__ = 'cache'
+
+    id = sa.Column(sa.CHAR(length=32), primary_key=True)
+    descriptor = sa.Column(sa.JSON)
+
+    creation_date = sa.Column(sa.DateTime(timezone=True), server_default=sa.sql.func.now())
+    last_update = sa.Column(sa.DateTime(timezone=True), server_default=sa.sql.func.now())
+    delete_after = sa.Column(sa.DateTime(timezone=True))
+    keep_until = sa.Column(sa.DateTime(timezone=True))
+
+    last_read = sa.Column(sa.DateTime(timezone=True))
+    read_count = sa.Column(sa.Integer, default=0)
+    revision = sa.Column(sa.Integer, default=0)
+    costs = sa.Column(sa.Integer)
+
+    size = sa.Column(sa.Integer)
+    value = sa.Column(sa.LargeBinary)
