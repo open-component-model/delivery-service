@@ -47,7 +47,11 @@ def to_db_artefact_metadata(
             dict_factory=ci.util.dict_to_json_factory,
         )
 
-    data_key = hashlib.sha1(data.key.encode('utf-8')).hexdigest() if hasattr(data, 'key') else None
+    if hasattr(data, 'key'):
+        data_key = hashlib.sha1(data.key.encode('utf-8'), usedforsecurity=False).hexdigest()
+    else:
+        data_key = None
+
     cfg_name = data.cfg_name if hasattr(data, 'cfg_name') else None
     referenced_type = data.referenced_type if hasattr(data, 'referenced_type') else None
 

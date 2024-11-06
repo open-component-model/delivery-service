@@ -146,7 +146,7 @@ def cached(
     '''
     def decorator(func):
         def wrapper(*args, **kwargs):
-            key = hashlib.sha1()
+            key = hashlib.sha1(usedforsecurity=False)
             for key_part in key_func(*args, **kwargs):
                 key.update(str(key_part).encode('utf-8'))
 
@@ -177,7 +177,7 @@ def async_cached(
     '''
     def decorator(func):
         async def wrapper(*args, **kwargs):
-            key = hashlib.sha1()
+            key = hashlib.sha1(usedforsecurity=False)
             for key_part in key_func(*args, **kwargs):
                 key.update(str(key_part).encode('utf-8'))
 
