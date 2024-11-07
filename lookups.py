@@ -17,8 +17,6 @@ import oci.client_async
 import ocm
 
 import ctx_util
-import deliverydb.cache
-import deliverydb.model
 import paths
 import util
 
@@ -83,7 +81,7 @@ def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
 def db_cache_component_descriptor_lookup_async(
     db_url: str,
     ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    encoding_format: deliverydb.cache.EncodingFormat | str=deliverydb.cache.EncodingFormat.PICKLE,
+    encoding_format: 'deliverydb.cache.EncodingFormat'=None,
     ttl_seconds: int=0,
     keep_at_least_seconds: int=0,
     max_size_octets: int=0,
@@ -107,6 +105,13 @@ def db_cache_component_descriptor_lookup_async(
         the maximum size of an individual cache entry, if the result exceeds this limit, it is not
         persistet in the database cache
     '''
+    # late import to not require it in extensions which don't use async lookup
+    import deliverydb.cache
+    import deliverydb.model
+
+    if not encoding_format:
+        encoding_format = deliverydb.cache.EncodingFormat.PICKLE
+
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
             'If time-to-live (`ttl_seconds`) and `keep_at_least_seconds` are both specified, '
