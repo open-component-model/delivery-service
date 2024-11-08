@@ -107,7 +107,4 @@ Optionally enable caching using the `--cache-dir` parameter.
 
 # REST-API-Documentation
 
-Delivery-Service exposes generated documentation through the following routes:
-
-- `/apidoc/swagger`
-- `/apidoc/redoc`
+Delivery-Service exposes generated documentation through the following route: `/api/v1/doc`
