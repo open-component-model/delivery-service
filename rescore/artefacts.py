@@ -85,13 +85,16 @@ class RescoringProposal:
 
 def _find_cve_rescoring_rule_set(
     default_cve_rescoring_rule_set: rm.CveRescoringRuleSet,
-    cve_rescoring_rule_set_lookup: CveRescoringRuleSetLookup,
+    rescoring_rule_set_lookup: CveRescoringRuleSetLookup,
     cve_rescoring_rule_set_name: str | None,
 ) -> rm.CveRescoringRuleSet | None:
     if not cve_rescoring_rule_set_name:
         return default_cve_rescoring_rule_set
 
-    return cve_rescoring_rule_set_lookup(cve_rescoring_rule_set_name)
+    return rescoring_rule_set_lookup(
+        name=cve_rescoring_rule_set_name,
+        rule_set_type=rm.RuleSetType.CVE,
+    )
 
 
 def _find_cve_label(
@@ -194,7 +197,7 @@ async def _find_rescorings(
 
 
 def _rescore_vulnerabilitiy(
-    rescoring_rules: collections.abc.Iterable[rm.RescoringRule] | None,
+    rescoring_rules: collections.abc.Iterable[rm.CveRescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
     cvss: dso.cvss.CVSSV3 | dict,
     severity: dso.cvss.CVESeverity,
@@ -323,7 +326,7 @@ def _package_versions_and_filesystem_paths(
 def _iter_rescoring_proposals(
     artefact_metadata: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    rescoring_rules: collections.abc.Iterable[rm.RescoringRule] | None,
+    rescoring_rules: collections.abc.Iterable[rm.CveRescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
     max_processing_days: gcm.MaxProcessingTimesDays | None=None,
     sprints: list[yp.Sprint]=[],
@@ -782,9 +785,14 @@ class Rescore(aiohttp.web.View):
 
         cve_rescoring_rule_set_name = util.param(params, 'cveRescoringRuleSetName')
 
+        default_rule_set_for_type_callback = self.request.app[
+            consts.APP_DEFAULT_RULE_SET_FOR_TYPE_CALLBACK
+        ]
+        default_cve_rescoring_rule_set = default_rule_set_for_type_callback(rm.RuleSetType.CVE)
+
         cve_rescoring_rule_set = _find_cve_rescoring_rule_set(
-            default_cve_rescoring_rule_set=self.request.app[consts.APP_DEFAULT_RULE_SET_CALLBACK](),
-            cve_rescoring_rule_set_lookup=self.request.app[consts.APP_CVE_RESCORING_RULE_SET_LOOKUP],
+            default_cve_rescoring_rule_set=default_cve_rescoring_rule_set,
+            rescoring_rule_set_lookup=self.request.app[consts.APP_RESCORING_RULE_SET_LOOKUP],
             cve_rescoring_rule_set_name=cve_rescoring_rule_set_name,
         )
 

@@ -1,4 +1,5 @@
 import collections
+import collections.abc
 import dataclasses
 import enum
 import typing
@@ -15,8 +16,18 @@ class Rescore(enum.Enum):
     NO_CHANGE = 'no-change'
 
 
-@dataclasses.dataclass
-class RescoringRule:
+class RuleSetType(enum.StrEnum):
+    CVE = 'cve'
+
+
+@dataclasses.dataclass(frozen=True)
+class Rule:
+    name: str
+    rescore: Rescore
+
+
+@dataclasses.dataclass(frozen=True)
+class CveRescoringRule(Rule):
     '''
     a CVE rescoring rule intended to be used when re-scoring a CVE (see `CVSSV3` type) for an
     artefact that has a `CveCategorisation`.
@@ -34,8 +45,6 @@ class RescoringRule:
     '''
     category_value: str
     cve_values: list[str]
-    rescore: Rescore
-    name: typing.Optional[str] = None
 
     @property
     def category_attr(self):
@@ -123,24 +132,35 @@ class RescoringRule:
 
 
 @dataclasses.dataclass(frozen=True)
-class CveRescoringRuleSet:
-    '''
-    Represents configuration for a single rescoring rule set.
-    A single rule set is used to perform a CVSS rescoring according to a well-defined contract.
-    One of the rule sets can be defined as default, used as fallback for rescoring if no rule set is
-    specified.
-    See rescoring documentation for more details:
-
-    TODO: publish rescoring-docs (removed SAP-internal reference prior to open-sourcing)
-    '''
+class RuleSet[T: Rule]:
     name: str
-    description: str
-    rules: list[RescoringRule]
+    rules: list[T]
+    type: RuleSetType
+    description: str | None = None
 
 
-def rescoring_rules_from_dicts(rules: list[dict]) -> typing.Generator[RescoringRule, None, None]:
+@dataclasses.dataclass(frozen=True)
+class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
+    type: RuleSetType = RuleSetType.CVE
+
+
+def find_rule_set_for_type(
+    rule_sets: collections.abc.Iterable[RuleSet],
+    rule_set_type: RuleSetType,
+    absent_ok: bool=True,
+) -> RuleSet | None:
+    for rule_set in rule_sets:
+        if rule_set.type == rule_set_type:
+            return rule_set
+    if not absent_ok:
+        raise ValueError(f'No rule set found for {rule_set_type=}')
+
+
+def cve_rescoring_rules_from_dicts(
+    rules: list[dict]
+) -> typing.Generator[CveRescoringRule, None, None]:
     '''
-    deserialises rescoring rules. Each dict is expected to have the following form:
+    deserialises cve_rescoring rules. Each dict is expected to have the following form:
 
     category_value: <CveCategorisation-attr>:<value>
     name: <str> (optional)
@@ -158,7 +178,7 @@ def rescoring_rules_from_dicts(rules: list[dict]) -> typing.Generator[RescoringR
             rescore = subrule['rescore']
 
             yield dacite.from_dict(
-                data_class=RescoringRule,
+                data_class=CveRescoringRule,
                 data={
                     'category_value': category_value,
                     'cve_values': cve_values,

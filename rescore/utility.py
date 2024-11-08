@@ -142,10 +142,10 @@ def rescorings_for_finding_by_specificity(
 
 
 def matching_rescore_rules(
-    rescoring_rules: typing.Iterable[rescore.model.RescoringRule],
+    rescoring_rules: typing.Iterable[rescore.model.CveRescoringRule],
     categorisation: dso.cvss.CveCategorisation,
     cvss: dso.cvss.CVSSV3 | dict,
-) -> typing.Generator[rescore.model.RescoringRule, None, None]:
+) -> typing.Generator[rescore.model.CveRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
         if not rescoring_rule.matches_categorisation(categorisation):
             continue
@@ -156,7 +156,7 @@ def matching_rescore_rules(
 
 
 def rescore_severity(
-    rescoring_rules: typing.Iterable[rescore.model.RescoringRule],
+    rescoring_rules: typing.Iterable[rescore.model.CveRescoringRule],
     severity: dso.cvss.CVESeverity,
     minimum_severity: int=dso.cvss.CVESeverity.NONE,
 ) -> dso.cvss.CVESeverity:
