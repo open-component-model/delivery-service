@@ -31,6 +31,7 @@ import middleware.route_feature_check as rfc
 import osinfo
 import paths
 import rescore.artefacts
+import rescore.model
 import service_extensions
 import special_component
 import sprint
@@ -151,8 +152,8 @@ def add_app_context_vars(
     ).get_component_with_tests
 
     rescoring_feature = features.get_feature(features.FeatureRescoring)
-    cve_rescoring_rule_set_lookup = rescoring_feature.find_rule_set_by_name
-    default_rule_set_callback = rescoring_feature.default_rule_set
+    rescoring_rule_set_lookup = rescoring_feature.find_rule_set
+    default_rule_set_for_type_callback = rescoring_feature.default_rule_set_for_type
 
     service_extensions_feature = features.get_feature(features.FeatureServiceExtensions)
     kubernetes_api_callback = service_extensions_feature.get_kubernetes_api
@@ -189,8 +190,8 @@ def add_app_context_vars(
     app[consts.APP_CFG_FACTORY] = cfg_factory
     app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP] = component_descriptor_lookup
     app[consts.APP_COMPONENT_WITH_TESTS_CALLBACK] = component_with_tests_callback
-    app[consts.APP_CVE_RESCORING_RULE_SET_LOOKUP] = cve_rescoring_rule_set_lookup
-    app[consts.APP_DEFAULT_RULE_SET_CALLBACK] = default_rule_set_callback
+    app[consts.APP_RESCORING_RULE_SET_LOOKUP] = rescoring_rule_set_lookup
+    app[consts.APP_DEFAULT_RULE_SET_FOR_TYPE_CALLBACK] = default_rule_set_for_type_callback
     app[consts.APP_DELIVERY_CFG] = parsed_arguments.delivery_cfg
     app[consts.APP_EOL_CLIENT] = eol.EolClient()
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup

@@ -111,7 +111,7 @@ def rescore(
     )
 
     rescoring_rules = tuple(
-        rm.rescoring_rules_from_dicts(
+        rm.cve_rescoring_rules_from_dicts(
             ci.util.parse_yaml_file(rescoring_rules)
         )
     )

@@ -512,26 +512,35 @@ def deserialise_bdba_config(
         configs=matching_configs,
     )
 
-    cve_rescoring_ruleset = deserialise_config_property(
+    rescoring_rulesets_raw = deserialise_config_property(
         config=bdba_config,
         property_key='rescoring',
         default_config=default_config,
         absent_ok=True,
     )
-
-    if cve_rescoring_ruleset:
-        # only one ruleset for now, will be updated with cm06-related "typed" rulesets
-        rescoring_rule_set_raw = cve_rescoring_ruleset['rescoringRuleSets'][0]
-
-        cve_rescoring_ruleset = dacite.from_dict(
-            data_class=rescore.model.CveRescoringRuleSet,
-            data=dict(
-                **rescoring_rule_set_raw,
+    if rescoring_rulesets_raw:
+        cve_rescoring_rulesets = tuple(
+            rescore.model.CveRescoringRuleSet(
+                name=rule_set_raw['name'],
+                description=rule_set_raw.get('description'),
+                type=rule_set_raw['type'],
                 rules=list(
-                    rescore.model.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])
-                ),
-            ),
+                    rescore.model.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
+                )
+            )
+            for rule_set_raw in rescoring_rulesets_raw['rescoringRuleSets']
+            if rule_set_raw['type'] == rescore.model.RuleSetType.CVE
         )
+    else:
+        cve_rescoring_rulesets = ()
+
+    if cve_rescoring_rulesets:
+        cve_rescoring_ruleset = rescore.model.find_rule_set_for_type(
+            rule_sets=cve_rescoring_rulesets,
+            rule_set_type=rescore.model.RuleSetType.CVE,
+        )
+    else:
+        cve_rescoring_ruleset = None
 
     if cve_rescoring_ruleset:
         auto_assess_max_severity_raw = deserialise_config_property(
@@ -818,13 +827,11 @@ def deserialise_issue_replicator_config(
         # only one ruleset for now, will be updated with cm06-related "typed" rulesets
         rescoring_rule_set_raw = cve_rescoing_ruleset_raw['rescoringRuleSets'][0]
 
-        cve_rescoring_ruleset = dacite.from_dict(
-            data_class=rescore.model.CveRescoringRuleSet,
-            data=dict(
-                **rescoring_rule_set_raw,
-                rules=list(
-                    rescore.model.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set']),
-                )
+        cve_rescoring_ruleset = rescore.model.CveRescoringRuleSet(
+            name=rescoring_rule_set_raw['name'],
+            description=rescoring_rule_set_raw.get('description'),
+            rules=list(
+                rescore.model.cve_rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])
             )
         )
     else:

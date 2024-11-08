@@ -391,23 +391,31 @@ class FeatureSpecialComponents(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureRescoring(FeatureBase):
     name: str = 'rescoring'
-    rescoring_rule_sets: list[rm.CveRescoringRuleSet] = dataclasses.field(default_factory=list)
-    default_rescoring_rule_set_name: str = None
+    rescoring_rule_sets: list[rm.RuleSet] = dataclasses.field(default_factory=list)
     cve_categorisation_label_url: str = None
     cve_severity_url: str = None
 
-    def find_rule_set_by_name(
+    def find_rule_set(
         self,
         name: str,
-    ) -> rm.CveRescoringRuleSet | None:
+        rule_set_type: rm.RuleSetType,
+    ) -> rm.RuleSet | None:
         for rs in self.rescoring_rule_sets:
-            rs: rm.CveRescoringRuleSet
-            if rs.name == name:
+            if (
+                rs.name == name
+                and rs.type == rule_set_type
+            ):
                 return rs
         return None
 
-    def default_rule_set(self) -> rm.CveRescoringRuleSet | None:
-        return self.find_rule_set_by_name(self.default_rescoring_rule_set_name)
+    def default_rule_set_for_type(
+        self,
+        rule_set_type,
+    ) -> rm.RuleSet | None:
+        return rm.find_rule_set_for_type(
+            rule_sets=self.rescoring_rule_sets,
+            rule_set_type=rule_set_type,
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -592,23 +600,22 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 
 
 def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
-    rescoring_rule_sets = [
-        dacite.from_dict(
-            data_class=rm.CveRescoringRuleSet,
-            data=dict(
-                **rescoring_rule_set_raw,
-                rules=list(
-                    rm.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])
-                ),
-            ),
+    cve_rescoring_rule_sets = tuple(
+        rm.CveRescoringRuleSet(
+            name=rule_set_raw['name'],
+            description=rule_set_raw.get('description'),
+            type=rule_set_raw['type'],
+            rules=list(
+                rm.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
+            )
         )
-        for rescoring_rule_set_raw in rescoring_raw['rescoringRuleSets']
-    ]
+        for rule_set_raw in rescoring_raw['rescoringRuleSets']
+        if rule_set_raw['type'] == rm.RuleSetType.CVE
+    )
 
     return FeatureRescoring(
         state=FeatureStates.AVAILABLE,
-        rescoring_rule_sets=rescoring_rule_sets,
-        default_rescoring_rule_set_name=rescoring_raw['defaultRuleSetName'],
+        rescoring_rule_sets=cve_rescoring_rule_sets,
         cve_categorisation_label_url=rescoring_raw.get('cveCategorisationLabelUrl'),
         cve_severity_url=rescoring_raw.get('cveSeverityUrl'),
     )
