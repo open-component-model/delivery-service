@@ -1361,14 +1361,13 @@ class ComplianceSummary(aiohttp.web.View):
         )
 
         components = [
-            component_node.component
+            component_node.component_id
             async for component_node in components_dependencies
         ]
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
-        type_filter = (
-            dso.model.Datatype.ARTEFACT_SCAN_INFO,
+        finding_types = (
             dso.model.Datatype.LICENSE,
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.OS_IDS,
@@ -1376,56 +1375,20 @@ class ComplianceSummary(aiohttp.web.View):
             dso.model.Datatype.MALWARE_FINDING,
         )
 
-        db_statement_findings = sa.select(dm.ArtefactMetaData).where(
-            sa.or_(*[
-                query async for query in deliverydb.util.ArtefactMetadataQueries.component_queries(
-                    components=components,
-                    component_descriptor_lookup=component_descriptor_lookup,
-                )
-            ]),
-            dm.ArtefactMetaData.type.in_(type_filter),
-        )
-        db_statement_rescorings = sa.select(dm.ArtefactMetaData).where(
-            dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
-            sa.or_(*[
-                query async for query in deliverydb.util.ArtefactMetadataQueries.component_queries(
-                    components=components,
-                    none_ok=True,
-                    component_descriptor_lookup=component_descriptor_lookup,
-                )
-            ]),
-            deliverydb.util.ArtefactMetadataFilters.filter_for_rescoring_type(type_filter),
-        )
-
-        db_stream_findings = await db_session.stream(db_statement_findings)
-        findings = [
-            deliverydb.util.db_artefact_metadata_row_to_dso(row)
-            async for partition in db_stream_findings.partitions(size=50)
-            for row in partition
-        ]
-
-        db_stream_rescorings = await db_session.stream(db_statement_rescorings)
-        rescorings = [
-            deliverydb.util.db_artefact_metadata_row_to_dso(row)
-            async for partition in db_stream_rescorings.partitions(size=50)
-            for row in partition
+        compliance_summary = [
+            await cs.component_compliance_summary(
+                component=component,
+                finding_types=finding_types,
+                db_session=db_session,
+                component_descriptor_lookup=component_descriptor_lookup,
+                eol_client=eol_client,
+                artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+            ) for component in components
         ]
 
         return aiohttp.web.json_response(
             data={
-                'complianceSummary': [
-                    dataclasses.asdict(
-                        obj=summary,
-                        dict_factory=util.dict_factory_enum_name_serialisiation,
-                    )
-                    async for summary in cs.component_summaries(
-                        findings=findings,
-                        rescorings=rescorings,
-                        components=components,
-                        eol_client=eol_client,
-                        artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
-                    )
-                ]
+                'complianceSummary': compliance_summary,
             },
             dumps=util.dict_to_json_factory,
         )
