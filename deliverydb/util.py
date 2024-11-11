@@ -3,6 +3,7 @@ import dataclasses
 import hashlib
 
 import sqlalchemy as sa
+import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.sql.elements as sqle
 
 import ci.util
@@ -165,14 +166,14 @@ class ArtefactMetadataQueries:
     @staticmethod
     async def artefact_queries(
         artefacts: collections.abc.Iterable[ocm.Resource | ocm.Source]=None,
-        component: ocm.ComponentIdentity=None,
+        component: ocm.Component | ocm.ComponentIdentity=None,
         component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById=None,
         none_ok: bool=False,
     ) -> collections.abc.AsyncGenerator[sqle.BooleanClauseList, None, None]:
         '''
         Generates single SQL expressions which check for equality with one artefact of `artefacts`.
-        If `artefacts` is not specified, `component` and `component_descriptor_lookup` _must_ be
-        both specified to retrieve all artefacts of the given `component`.
+        If `artefacts` is not specified, `component` _must_ be specified to retrieve all artefacts
+        of the given `component`.
 
         Intended to be concatenated using an `OR` expression which semantically checks a database
         entry to be one of `artefacts`.
@@ -180,21 +181,20 @@ class ArtefactMetadataQueries:
         If a property mismatches but the value stored in the database is `None` and `none_ok` is set
         to `True`, the predecate evaluates to `True` anyways.
         '''
-        if not (artefacts or (component and component_descriptor_lookup)):
-            raise ValueError(
-                'either `artefacts` or `component` and `component_descriptor_lookup` '
-                'must be specified'
-            )
+        if not (artefacts or component):
+            raise ValueError('either `artefacts` or `component` must be specified')
 
         if not artefacts:
             if component.version:
-                component: ocm.Component = (await component_descriptor_lookup(component)).component
+                if isinstance(component, ocm.ComponentIdentity):
+                    component_descriptor = await component_descriptor_lookup(component)
+                    component: ocm.Component = component_descriptor.component
 
                 artefacts = [
                     artefact_node.artefact async for artefact_node in cnudie.iter_async.iter(
                         component=component,
-                        lookup=component_descriptor_lookup,
                         node_filter=cnudie.iter.Filter.artefacts,
+                        recursion_depth=0,
                     )
                 ]
             else:
@@ -289,3 +289,60 @@ class ArtefactMetadataQueries:
                     ),
                 ),
             )
+
+
+async def findings_for_component(
+    component: ocm.Component,
+    finding_type: str,
+    datasource: str,
+    db_session: sqlasync.session.AsyncSession,
+    chunk_size: int=50,
+) -> list[dso.model.ArtefactMetadata]:
+    query = await db_session.stream(sa.select(dm.ArtefactMetaData).where(
+        dm.ArtefactMetaData.component_name == component.name,
+        sa.or_(
+            dm.ArtefactMetaData.component_version == component.version,
+            sa.and_(
+                dm.ArtefactMetaData.component_version == None,
+                sa.or_(*[ # check if component versions contains the referenced artefact version
+                    query async for query in ArtefactMetadataQueries.artefact_queries(
+                        component=component,
+                    )
+                ]),
+            ),
+        ),
+        dm.ArtefactMetaData.type == finding_type,
+        dm.ArtefactMetaData.datasource == datasource,
+    ))
+
+    return [
+        db_artefact_metadata_row_to_dso(row)
+        async for partition in query.partitions(size=chunk_size)
+        for row in partition
+    ]
+
+
+async def rescorings_for_component(
+    component: ocm.Component | ocm.ComponentIdentity,
+    finding_type: str,
+    db_session: sqlasync.session.AsyncSession,
+    chunk_size: int=50,
+) -> list[dso.model.ArtefactMetadata]:
+    rescorings_query = await db_session.stream(sa.select(dm.ArtefactMetaData).where(
+        sa.or_(
+            dm.ArtefactMetaData.component_name == None,
+            dm.ArtefactMetaData.component_name == component.name,
+        ),
+        sa.or_(
+            dm.ArtefactMetaData.component_version == None,
+            dm.ArtefactMetaData.component_version == component.version,
+        ),
+        dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
+        dm.ArtefactMetaData.referenced_type == finding_type,
+    ))
+
+    return [
+        db_artefact_metadata_row_to_dso(row)
+        async for partition in rescorings_query.partitions(size=chunk_size)
+        for row in partition
+    ]
