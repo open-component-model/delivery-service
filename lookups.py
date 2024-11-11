@@ -17,6 +17,8 @@ import oci.client_async
 import ocm
 
 import ctx_util
+import deliverydb_cache.model as dcm
+import deliverydb_cache.util as dcu
 import paths
 import util
 
@@ -81,7 +83,7 @@ def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
 def db_cache_component_descriptor_lookup_async(
     db_url: str,
     ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    encoding_format: 'deliverydb.cache.EncodingFormat'=None,
+    encoding_format: dcm.EncodingFormat=dcm.EncodingFormat.PICKLE,
     ttl_seconds: int=0,
     keep_at_least_seconds: int=0,
     max_size_octets: int=0,
@@ -109,9 +111,6 @@ def db_cache_component_descriptor_lookup_async(
     import deliverydb.cache
     import deliverydb.model
 
-    if not encoding_format:
-        encoding_format = deliverydb.cache.EncodingFormat.PICKLE
-
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
             'If time-to-live (`ttl_seconds`) and `keep_at_least_seconds` are both specified, '
@@ -123,14 +122,14 @@ def db_cache_component_descriptor_lookup_async(
         component_descriptor: ocm.ComponentDescriptor,
         start: datetime.datetime,
     ):
-        descriptor = deliverydb.cache.CachedComponentDescriptor(
+        descriptor = dcm.CachedComponentDescriptor(
             encoding_format=encoding_format,
             component_name=component_id.name,
             component_version=component_id.version,
             ocm_repository=component_descriptor.component.current_ocm_repo,
         )
 
-        value = deliverydb.cache.serialise_cache_value(
+        value = dcu.serialise_cache_value(
             value=util.dict_serialisation(dataclasses.asdict(component_descriptor)),
             encoding_format=encoding_format,
         )
@@ -187,7 +186,7 @@ def db_cache_component_descriptor_lookup_async(
                 if not isinstance(ocm_repo, ocm.OciOcmRepository):
                     raise NotImplementedError(ocm_repo)
 
-                descriptor = deliverydb.cache.CachedComponentDescriptor(
+                descriptor = dcm.CachedComponentDescriptor(
                     encoding_format=encoding_format,
                     component_name=component_id.name,
                     component_version=component_id.version,
@@ -199,7 +198,7 @@ def db_cache_component_descriptor_lookup_async(
                     id=descriptor.id,
                 ):
                     return ocm.ComponentDescriptor.from_dict(
-                        component_descriptor_dict=deliverydb.cache.deserialise_cache_value(
+                        component_descriptor_dict=dcu.deserialise_cache_value(
                             value=value,
                             encoding_format=encoding_format,
                         ),
