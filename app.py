@@ -17,6 +17,7 @@ import compliance_summary as cs
 import components
 import consts
 import ctx_util
+import deliverydb.cache
 import dora
 import eol
 import features
@@ -364,6 +365,10 @@ def add_routes(
     app.router.add_view(
         path='/metrics',
         handler=middleware.prometheus.Metrics,
+    )
+    app.router.add_view(
+        path='/cache',
+        handler=deliverydb.cache.DeliveryDBCache,
     )
 
     return app
