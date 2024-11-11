@@ -1,10 +1,12 @@
 import collections.abc
 import dataclasses
 import datetime
+import http
 import logging
 import traceback
 
 import aiohttp.web
+import dacite
 import sqlalchemy.exc
 import sqlalchemy.ext.asyncio as sqlasync
 
@@ -12,6 +14,7 @@ import consts
 import deliverydb.model as dm
 import deliverydb_cache.model as dcm
 import deliverydb_cache.util as dcu
+import features
 import util
 
 
@@ -294,3 +297,138 @@ def dbcached_route(
         return wrapper
 
     return decorator
+
+
+async def mark_for_deletion(
+    db_session: sqlasync.session.AsyncSession,
+    id: str,
+    delete_after: datetime.datetime | None=None,
+) -> bool:
+    if not (cache_entry := await db_session.get(dm.DBCache, id)):
+        return True
+
+    if not delete_after:
+        delete_after = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    try:
+        cache_entry.delete_after = delete_after
+
+        await db_session.commit()
+        return True
+    except Exception:
+        stacktrace = traceback.format_exc()
+        logger.error(stacktrace)
+
+        await db_session.rollback()
+
+    return False
+
+
+async def mark_function_cache_for_deletion(
+    encoding_format: dcm.EncodingFormat | str,
+    function: collections.abc.Callable | str,
+    db_session: sqlasync.session.AsyncSession,
+    delete_after: datetime.datetime | None=None,
+    *args,
+    **kwargs,
+):
+    if isinstance(function, str):
+        function_name = function
+    else:
+        function_name = f'{function.__module__}.{function.__name__}'
+
+    descriptor = dcm.CachedPythonFunction(
+        encoding_format=encoding_format,
+        function_name=function_name,
+        args=dcu.normalise_and_serialise_object(args),
+        kwargs=dcu.normalise_and_serialise_object(kwargs),
+    )
+
+    await mark_for_deletion(
+        db_session=db_session,
+        id=descriptor.id,
+        delete_after=delete_after,
+    )
+
+
+class DeliveryDBCache(aiohttp.web.View):
+    required_features = (features.FeatureDeliveryDB,)
+
+    async def delete(self):
+        '''
+        ---
+        description: Mark the delivery-db cache entry with the given id for deletion.
+        tags:
+        - Artefact metadata
+        parameters:
+        - in: query
+          name: id
+          schema:
+            type: string
+          required: false
+          description:
+            The descriptor id of the cache entry which should be marked for deletion. See
+            `deliverydb_cache.model.CacheDescriptorBase` for available descriptor types and how
+            their id is composed. If not specified, the full descriptor must be passed in the body.
+        - in: query
+          name: deleteAfter
+          schema:
+            type: string
+          required: false
+          description:
+            Optional, timezone-aware iso-formated datetime to schedule the deletion of the
+            referenced cache entry. If not set, the entry will be marked for immediate deletion.
+        - in: body
+          name: descriptor
+          schema:
+            type: object
+          description:
+            If the descriptor id is not passed as param, this descriptor is used to calculate the
+            required id. The passed descriptor must be serialisable by one of the dataclasses which
+            inherits `deliverydb_cache.model.CacheDescriptorBase` base class.
+        responses:
+          "204":
+            description: Successful operation.
+        '''
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        params = self.request.rel_url.query
+
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        id = util.param(params, 'id', required=False)
+        delete_after_str = util.param(params, 'deleteAfter', default=now.isoformat())
+        delete_after = datetime.datetime.fromisoformat(delete_after_str)
+
+        if not id:
+            if not self.request.has_body:
+                raise aiohttp.web.HTTPBadRequest(
+                    text='Either `id` param or descriptor body must be specified.',
+                )
+
+            type_to_class = {
+                dcm.CacheValueType.COMPONENT_DESCRIPTOR: dcm.CachedComponentDescriptor,
+                dcm.CacheValueType.PYTHON_FUNCTION: dcm.CachedPythonFunction,
+                dcm.CacheValueType.HTTP_ROUTE: dcm.CachedHTTPRoute,
+            }
+
+            body = await self.request.json()
+            cache_value_type = util.get_enum_value_or_raise(body.get('type'), dcm.CacheValueType)
+
+            descriptor = dacite.from_dict(
+                data_class=type_to_class[cache_value_type],
+                data=body,
+                config=dacite.Config(
+                    cast=[dcm.CacheValueType],
+                ),
+            )
+            id = descriptor.id
+
+        await mark_for_deletion(
+            db_session=db_session,
+            id=id,
+            delete_after=delete_after,
+        )
+
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.NO_CONTENT,
+        )
