@@ -32,6 +32,7 @@ import version as versionutil
 
 import compliance_summary as cs
 import consts
+import deliverydb.cache
 import deliverydb.model as dm
 import deliverydb.util
 import features
@@ -1273,6 +1274,9 @@ async def _components(
 class ComplianceSummary(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
+    async def options(self):
+        return aiohttp.web.Response()
+
     async def get(self):
         '''
         ---
@@ -1375,6 +1379,8 @@ class ComplianceSummary(aiohttp.web.View):
             dso.model.Datatype.MALWARE_FINDING,
         )
 
+        shortcut_cache = deliverydb.cache.parse_shortcut_cache(self.request)
+
         compliance_summary = [
             await cs.component_compliance_summary(
                 component=component,
@@ -1383,6 +1389,7 @@ class ComplianceSummary(aiohttp.web.View):
                 component_descriptor_lookup=component_descriptor_lookup,
                 eol_client=eol_client,
                 artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+                shortcut_cache=shortcut_cache,
             ) for component in components
         ]
 

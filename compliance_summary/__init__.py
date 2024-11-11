@@ -16,6 +16,7 @@ import unixutil.model as um
 
 import delivery.model
 import delivery.util as du
+import deliverydb.cache
 import deliverydb.util
 import eol
 import osinfo
@@ -417,6 +418,10 @@ async def artefact_datatype_summary(
     )
 
 
+@deliverydb.cache.dbcached_function(
+    ttl_seconds=60 * 60 * 24, # 1 day
+    exclude_kwargs=('component_descriptor_lookup', 'eol_client', 'artefact_metadata_cfg'),
+)
 async def component_datatype_summaries(
     component: ocm.ComponentIdentity,
     finding_type: str,
@@ -425,6 +430,7 @@ async def component_datatype_summaries(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     eol_client: eol.EolClient,
     artefact_metadata_cfg: ArtefactMetadataCfg,
+    shortcut_cache: bool=False,
 ) -> list[tuple[dso.model.ComponentArtefactId, ComplianceSummaryEntry]]:
     component = (await component_descriptor_lookup(component)).component
 
@@ -524,6 +530,7 @@ async def component_compliance_summary(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     eol_client: eol.EolClient,
     artefact_metadata_cfg_by_type: dict[str, ArtefactMetadataCfg],
+    shortcut_cache: bool=False,
 ) -> ComponentComplianceSummary:
     component_entries = []
     artefacts_entries_by_artefact = collections.defaultdict(list)
@@ -537,6 +544,7 @@ async def component_compliance_summary(
             component_descriptor_lookup=component_descriptor_lookup,
             eol_client=eol_client,
             artefact_metadata_cfg=artefact_metadata_cfg_by_type.get(finding_type),
+            shortcut_cache=shortcut_cache,
         )
 
         # first entry is always the component summary
