@@ -142,6 +142,8 @@ def dbcached_function(
                 logger.warning(f'Could not parse `db_session` parameter from {function_name=}')
                 return await func(*args, **kwargs)
 
+            shortcut_cache = cachable_kwargs.pop('shortcut_cache', False)
+
             descriptor = dcm.CachedPythonFunction(
                 encoding_format=encoding_format,
                 function_name=function_name,
@@ -149,10 +151,10 @@ def dbcached_function(
                 kwargs=dcu.normalise_and_serialise_object(cachable_kwargs),
             )
 
-            if value := await find_cached_value(
+            if not shortcut_cache and (value := await find_cached_value(
                 db_session=db_session,
                 id=descriptor.id,
-            ):
+            )):
                 return dcu.deserialise_cache_value(
                     value=value,
                     encoding_format=encoding_format,
@@ -194,6 +196,23 @@ def dbcached_function(
     return decorator
 
 
+def parse_shortcut_cache(
+    request: aiohttp.web.Request,
+) -> bool:
+    '''
+    Parses the information, if existing cache entries should be ignored, from the given request
+    object. If the optional query parameter `shortcutCache` is set to a truthy value, it evaluates
+    to `True`. Otherwise, the value of the `Shortcut-Cache` http header is considered.
+    '''
+    if util.param_as_bool(request.rel_url.query, 'shortcutCache', default=False):
+        return True
+
+    if util.param_as_bool(request.headers, 'Shortcut-Cache', default=False):
+        return True
+
+    return False
+
+
 def dbcached_route(
     encoding_format: dcm.EncodingFormat | str=dcm.EncodingFormat.PICKLE,
     ttl_seconds: int=0,
@@ -226,10 +245,12 @@ def dbcached_route(
                 body=dcu.normalise_and_serialise_object(body) if body else None,
             )
 
-            if value := await find_cached_value(
+            shortcut_cache = parse_shortcut_cache(request)
+
+            if not shortcut_cache and (value := await find_cached_value(
                 db_session=db_session,
                 id=descriptor.id,
-            ):
+            )):
                 return dcu.deserialise_cache_value(
                     value=value,
                     encoding_format=encoding_format,
