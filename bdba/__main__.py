@@ -24,6 +24,8 @@ import bdba.scanning
 import bdba.util
 import config
 import ctx_util
+import deliverydb_cache.model as dcm
+import deliverydb_cache.util as dcu
 import k8s.backlog
 import k8s.logging
 import k8s.model
@@ -82,6 +84,27 @@ def deserialise_bdba_configuration(
         sys.exit(0)
 
     return bdba_config
+
+
+def _mark_compliance_summary_cache_for_deletion(
+    delivery_client: delivery.client.DeliveryServiceClient,
+    component: ocm.ComponentIdentity,
+    finding_type: str,
+):
+    descriptor = dcm.CachedPythonFunction(
+        encoding_format=dcm.EncodingFormat.PICKLE,
+        function_name='compliance_summary.component_datatype_summaries',
+        args=dcu.normalise_and_serialise_object(tuple()),
+        kwargs=dcu.normalise_and_serialise_object({
+            'component': component,
+            'finding_type': finding_type,
+            'datasource': dso.model.Datasource.BDBA,
+        }),
+    )
+
+    delivery_client.mark_cache_for_deletion(
+        id=descriptor.id,
+    )
 
 
 def scan(
@@ -176,6 +199,21 @@ def scan(
     )
 
     delivery_client.update_metadata(data=filtered_scan_results)
+
+    component = ocm.ComponentIdentity(
+        name=backlog_item.artefact.component_name,
+        version=backlog_item.artefact.component_version,
+    )
+    _mark_compliance_summary_cache_for_deletion(
+        delivery_client=delivery_client,
+        component=component,
+        finding_type=dso.model.Datatype.VULNERABILITY,
+    )
+    _mark_compliance_summary_cache_for_deletion(
+        delivery_client=delivery_client,
+        component=component,
+        finding_type=dso.model.Datatype.LICENSE,
+    )
 
     logger.info(
         f'finished scan of artefact {backlog_item.artefact.artefact.artefact_name}:'

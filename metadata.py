@@ -14,8 +14,10 @@ import ocm
 
 import compliance_summary as cs
 import consts
+import deliverydb.cache as dc
 import deliverydb.model as dm
 import deliverydb.util as du
+import deliverydb_cache.model as dcm
 import features
 import util
 
@@ -396,6 +398,11 @@ class ArtefactMetadata(aiohttp.web.View):
                         if found:
                             break
 
+                await _mark_compliance_summary_cache_for_deletion(
+                    db_session=db_session,
+                    artefact_metadata=metadata_entry,
+                )
+
                 if not found:
                     # did not find existing database entry that matches the supplied metadata entry
                     # -> create new entry (and re-use discovery date if possible)
@@ -463,6 +470,11 @@ class ArtefactMetadata(aiohttp.web.View):
                     du.ArtefactMetadataFilters.by_single_scan_result(artefact_metadata),
                 ))
 
+                await _mark_compliance_summary_cache_for_deletion(
+                    db_session=db_session,
+                    artefact_metadata=artefact_metadata,
+                )
+
             await db_session.commit()
         except:
             await db_session.rollback()
@@ -527,3 +539,31 @@ def _fill_default_values(
         meta['creation_date'] = datetime.datetime.now().isoformat()
 
     return raw
+
+
+async def _mark_compliance_summary_cache_for_deletion(
+    db_session: sqlasync.session.AsyncSession,
+    artefact_metadata: dm.ArtefactMetaData,
+):
+    if not (
+        artefact_metadata.component_name and artefact_metadata.component_version
+        and artefact_metadata.type and artefact_metadata.datasource
+    ):
+        # If one of these properties is not set, the cache id cannot be calculated properly.
+        # Currently, this is only the case for BDBA findings where the component version is left
+        # empty. In that case, the cache is invalidated upon successful finish of the scan.
+        return
+
+    component = ocm.ComponentIdentity(
+        name=artefact_metadata.component_name,
+        version=artefact_metadata.component_version,
+    )
+
+    await dc.mark_function_cache_for_deletion(
+        encoding_format=dcm.EncodingFormat.PICKLE,
+        function='compliance_summary.component_datatype_summaries',
+        db_session=db_session,
+        component=component,
+        finding_type=artefact_metadata.type,
+        datasource=artefact_metadata.datasource,
+    )
