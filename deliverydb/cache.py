@@ -127,7 +127,7 @@ def dbcached_function(
 
     def decorator(func):
         async def wrapper(*args, **kwargs):
-            function_name = f'{func.__module__}.{func.__name__}'
+            function_name = f'{func.__module__}.{func.__qualname__}'
 
             cachable_args = tuple(
                 arg
@@ -335,7 +335,7 @@ async def mark_function_cache_for_deletion(
     if isinstance(function, str):
         function_name = function
     else:
-        function_name = f'{function.__module__}.{function.__name__}'
+        function_name = f'{function.__module__}.{function.__qualname__}'
 
     descriptor = dcm.CachedPythonFunction(
         encoding_format=encoding_format,
