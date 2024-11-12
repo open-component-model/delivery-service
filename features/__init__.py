@@ -163,12 +163,6 @@ class SpecialComponentsCfg:
 
 
 @dataclasses.dataclass(frozen=True)
-class ComponentNameRepoMapping:
-    componentName: str
-    repoName: str
-
-
-@dataclasses.dataclass(frozen=True)
 class ComponentWithDownloadableTestResults:
     '''
     Represents configuration for a single component which contains test results as asset.
@@ -295,18 +289,6 @@ class FeatureDeliveryDB(FeatureBase):
             'state': self.state,
             'name': self.name,
         }
-
-
-@dataclasses.dataclass(frozen=True)
-class FeatureIssues(FeatureBase):
-    name: str = 'issues'
-    issue_repo_mappings: tuple[ComponentNameRepoMapping] = tuple()
-
-    def get_issue_repo(self, component_name) -> str:
-        for mapping in self.issue_repo_mappings:
-            if mapping.componentName == component_name:
-                return mapping.repoName
-        return None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -695,21 +677,6 @@ def deserialise_upgrade_prs(upgrade_prs_raw: dict) -> FeatureUpgradePRs:
         )
 
 
-def deserialise_issues(issues_raw: dict) -> FeatureIssues:
-    issue_repo_mappings = [
-        dacite.from_dict(
-            data_class=ComponentNameRepoMapping,
-            data=issue_repo_mapping,
-        )
-        for issue_repo_mapping in issues_raw['issueRepoMappings']
-    ]
-
-    return FeatureIssues(
-        FeatureStates.AVAILABLE,
-        issue_repo_mappings=issue_repo_mappings,
-    )
-
-
 def deserialise_authentication(delivery_cfg) -> FeatureAuthentication:
     if not delivery_cfg:
         logger.warning('Authentication config not found')
@@ -792,15 +759,6 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
         yield upgrade_prs
     else:
         yield deserialise_upgrade_prs(upgrade_prs)
-
-    issues = raw.get(
-        'issues',
-        FeatureIssues(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(issues, FeatureIssues):
-        yield issues
-    else:
-        yield deserialise_issues(issues)
 
     # if no custom config is provided, fallback to default config of feature
     version_filter = raw.get(

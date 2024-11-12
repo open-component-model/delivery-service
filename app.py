@@ -154,8 +154,6 @@ def add_app_context_vars(
     cve_rescoring_rule_set_lookup = rescoring_feature.find_rule_set_by_name
     default_rule_set_callback = rescoring_feature.default_rule_set
 
-    issue_repo_callback = features.get_feature(features.FeatureIssues).get_issue_repo
-
     service_extensions_feature = features.get_feature(features.FeatureServiceExtensions)
     kubernetes_api_callback = service_extensions_feature.get_kubernetes_api
     namespace_callback = service_extensions_feature.get_namespace
@@ -198,7 +196,6 @@ def add_app_context_vars(
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup
     app[consts.APP_GITHUB_REPO_LOOKUP] = github_repo_lookup
     app[consts.APP_INVALID_SEMVER_OK] = parsed_arguments.invalid_semver_ok
-    app[consts.APP_ISSUE_REPO_CALLBACK] = issue_repo_callback
     app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
     app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
     app[consts.APP_OCI_CLIENT] = oci_client
@@ -249,11 +246,6 @@ def add_routes(
     app.router.add_view(
         path='/components/diff',
         handler=components.ComponentDescriptorDiff,
-    )
-
-    app.router.add_view(
-        path='/components/issues',
-        handler=components.Issues,
     )
 
     app.router.add_view(

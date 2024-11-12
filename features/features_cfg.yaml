@@ -107,7 +107,3 @@ sprints:
 upgradePRs:
   identificationMethod: title
   titleRegex: ^\[ci:(\S*):(\S*):(\S*)->(\S*)\]$
-issues:
-  issueRepoMappings:
-  - componentName: ocm.software/example/component
-    repoName: github.com/example/example-issues-repository
