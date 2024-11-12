@@ -1072,6 +1072,7 @@ class ComponentDescriptorDiff(aiohttp.web.View):
     async def options(self):
         return aiohttp.web.Response()
 
+    @deliverydb.cache.dbcached_route()
     async def post(self):
         '''
         ---
