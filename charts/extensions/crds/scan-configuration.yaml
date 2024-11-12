@@ -202,26 +202,6 @@ spec:
                                   type: string
                                 matching_semantics:
                                   type: string
-                    cve_rescoring_rules:
-                      type: array
-                      items:
-                        x-kubernetes-preserve-unknown-fields: true
-                        type: object
-                        properties:
-                          category_value:
-                            type: string
-                          rules:
-                            type: array
-                            items:
-                              x-kubernetes-preserve-unknown-fields: true
-                              type: object
-                              properties:
-                                cve_values:
-                                  type: array
-                                  items:
-                                    type: string
-                                rescore:
-                                  type: string
                     auto_assess_max_severity:
                       type: string
                     delete_inactive_products_after_seconds:
@@ -301,24 +281,4 @@ spec:
                                 expression:
                                   type: string
                                 matching_semantics:
-                                  type: string
-                    cve_rescoring_rules:
-                      type: array
-                      items:
-                        x-kubernetes-preserve-unknown-fields: true
-                        type: object
-                        properties:
-                          category_value:
-                            type: string
-                          rules:
-                            type: array
-                            items:
-                              x-kubernetes-preserve-unknown-fields: true
-                              type: object
-                              properties:
-                                cve_values:
-                                  type: array
-                                  items:
-                                    type: string
-                                rescore:
                                   type: string

@@ -196,7 +196,7 @@ class IssueReplicatorConfig:
         list of artefact types for which issues should be created, other artefact types are skipped
     :param Callable[Node, bool] node_filter:
         filter of artefact nodes to explicitly in- or exclude artefacts from the issue replication
-    :param tuple[RescoringRule] cve_rescoring_rules:
+    :param CveRescoringRuleSet cve_rescoring_ruleset:
         these rules are applied to calculate proposed rescorings which are displayed in the issue
     :param tuple[FindingTypeIssueReplicationCfgBase] finding_type_issue_replication_cfgs:
         these cfgs are finding type specific and allow fine granular configuration
@@ -214,7 +214,7 @@ class IssueReplicatorConfig:
     number_included_closed_issues: int
     artefact_types: tuple[str]
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
-    cve_rescoring_rules: tuple[rescore.model.RescoringRule]
+    cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet | None
     finding_type_issue_replication_cfgs: tuple[FindingTypeIssueReplicationCfgBase]
     milestone_cfg: gcmi.MilestoneConfiguration
 
@@ -808,13 +808,27 @@ def deserialise_issue_replicator_config(
         configs=matching_configs,
     )
 
-    cve_rescoring_rules_raw = deserialise_config_property(
+    cve_rescoing_ruleset_raw = deserialise_config_property(
         config=issue_replicator_config,
-        property_key='cve_rescoring_rules',
+        property_key='rescoring',
         default_config=default_config,
-        default_value=[],
+        absent_ok=True,
     )
-    cve_rescoring_rules = tuple(rescore.model.rescoring_rules_from_dicts(cve_rescoring_rules_raw))
+    if cve_rescoing_ruleset_raw:
+        # only one ruleset for now, will be updated with cm06-related "typed" rulesets
+        rescoring_rule_set_raw = cve_rescoing_ruleset_raw['rescoringRuleSets'][0]
+
+        cve_rescoring_ruleset = dacite.from_dict(
+            data_class=rescore.model.CveRescoringRuleSet,
+            data=dict(
+                **rescoring_rule_set_raw,
+                rules=list(
+                    rescore.model.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set']),
+                )
+            )
+        )
+    else:
+        cve_rescoring_ruleset = None
 
     finding_type_issue_replication_cfgs_raw = deserialise_config_property(
         config=issue_replicator_config,
@@ -854,7 +868,7 @@ def deserialise_issue_replicator_config(
         number_included_closed_issues=number_included_closed_issues,
         artefact_types=artefact_types,
         node_filter=node_filter,
-        cve_rescoring_rules=cve_rescoring_rules,
+        cve_rescoring_ruleset=cve_rescoring_ruleset,
         finding_type_issue_replication_cfgs=finding_type_issue_replication_cfgs,
         milestone_cfg=milestone_cfg,
     )

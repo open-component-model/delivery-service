@@ -281,7 +281,10 @@ def _vulnerability_template_vars(
         if ocm_node.component_id.version == greatest_version:
             break
 
-    cve_rescoring_rules = issue_replicator_config.cve_rescoring_rules
+    cve_rescoring_rules = []
+    if issue_replicator_config.cve_rescoring_ruleset:
+        cve_rescoring_rules = issue_replicator_config.cve_rescoring_ruleset.rules
+
     rescore_label = ocm_node.artefact.find_label(
         name=dso.labels.CveCategorisationLabel.name,
     )
