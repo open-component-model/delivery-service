@@ -12,7 +12,7 @@ cc_utils_version="$(cat "${repo_dir}/CC_UTILS_VERSION")"
 apk add --no-cache xz
 
 # retrieve packages from cc-utils from OCM (prefer over publishing via PYPI)
-for resource in gardener-cicd-libs gardener-oci; do
+for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
   echo "downloading ${resource}:${cc_utils_version}"
   ocm download resources \
     "OCIRegistry::${ocm_repo}//github.com/gardener/cc-utils:${cc_utils_version}" \
