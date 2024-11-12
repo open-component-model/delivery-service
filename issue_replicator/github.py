@@ -958,6 +958,8 @@ def _create_or_update_issue(
         extra=extra_title,
     )
 
+    is_overdue = latest_processing_date < datetime.date.today()
+
     template_variables = _template_vars(
         cfg_name=cfg_name,
         issue_replicator_config=issue_replicator_config,
@@ -967,7 +969,7 @@ def _create_or_update_issue(
         findings=findings,
         artefact_versions_without_scan=artefact_versions_without_scan,
         latest_processing_date=latest_processing_date,
-        sprint_name=sprint_name,
+        sprint_name='Overdue' if is_overdue else sprint_name,
     )
 
     for issue_template_cfg in issue_replicator_config.github_issue_template_cfgs:
@@ -978,7 +980,7 @@ def _create_or_update_issue(
 
     body = issue_template_cfg.body.format(**template_variables)
 
-    if latest_processing_date < datetime.date.today():
+    if is_overdue:
         labels.add(gci._label_overdue)
 
     if not is_scanned:
