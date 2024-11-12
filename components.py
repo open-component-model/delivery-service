@@ -106,6 +106,7 @@ async def greatest_version_if_none(
     oci_client: oci.client_async.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
+    db_session: sqlasync.session.AsyncSession=None,
 ):
     if version is None:
         version = await greatest_component_version(
@@ -115,6 +116,7 @@ async def greatest_version_if_none(
             oci_client=oci_client,
             version_filter=version_filter,
             invalid_semver_ok=invalid_semver_ok,
+            db_session=db_session,
         )
 
     if not version:
@@ -132,6 +134,7 @@ async def _component_descriptor(
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     version_filter: features.VersionFilter,
     invalid_semver_ok: bool=False,
+    db_session: sqlasync.session.AsyncSession=None,
 ) -> ocm.ComponentDescriptor:
     component_name = util.param(params, 'component_name', required=True)
 
@@ -153,6 +156,7 @@ async def _component_descriptor(
             ocm_repo=ocm_repo,
             version_filter=version_filter,
             invalid_semver_ok=invalid_semver_ok,
+            db_session=db_session,
         )
 
     component_id = ocm.ComponentIdentity(
@@ -273,6 +277,7 @@ class Component(aiohttp.web.View):
             version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
             version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
             invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+            db_session=self.request[consts.REQUEST_DB_SESSION],
         )
 
         return aiohttp.web.json_response(
@@ -345,6 +350,7 @@ class ComponentDependencies(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+                db_session=self.request[consts.REQUEST_DB_SESSION],
             )
 
         component_dependencies = resolve_component_dependencies(
@@ -451,6 +457,7 @@ class ComponentResponsibles(aiohttp.web.View):
             version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
             version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
             invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+            db_session=self.request[consts.REQUEST_DB_SESSION],
         )
         component = component_descriptor.component
         main_source = cnudie.util.main_source(component_descriptor.component)
@@ -560,11 +567,16 @@ class ComponentResponsibles(aiohttp.web.View):
         )
 
 
+@deliverydb.cache.dbcached_function(
+    ttl_seconds=60,
+    exclude_kwargs=('version_lookup', 'oci_client'),
+)
 async def component_versions(
     component_name: str,
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
+    db_session: sqlasync.session.AsyncSession=None, # required for db-cache
 ) -> list[str]:
     if not ocm_repo and not version_lookup:
         raise ValueError('At least one of `ocm_repo` and `version_lookup` must be specified')
@@ -600,12 +612,14 @@ async def greatest_component_version(
     oci_client: oci.client_async.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
+    db_session: sqlasync.session.AsyncSession=None,
 ) -> str | None:
     versions = await component_versions(
         component_name=component_name,
         version_lookup=version_lookup,
         ocm_repo=ocm_repo,
         oci_client=oci_client,
+        db_session=db_session,
     )
 
     greatest_candidate = None
@@ -652,12 +666,14 @@ async def greatest_component_versions(
     invalid_semver_ok: bool=False,
     start_date: datetime.date=None,
     end_date: datetime.date=None,
+    db_session: sqlasync.session.AsyncSession=None,
 ) -> list[str]:
     versions = await component_versions(
         component_name=component_name,
         version_lookup=version_lookup,
         ocm_repo=ocm_repo,
         oci_client=oci_client,
+        db_session=db_session,
     )
 
     if not versions:
@@ -805,6 +821,7 @@ class GreatestComponentVersions(aiohttp.web.View):
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 start_date=start_date,
                 end_date=end_date,
+                db_session=self.request[consts.REQUEST_DB_SESSION],
             )
         except ValueError:
             raise aiohttp.web.HTTPNotFound(text=f'Version {version} not found')
@@ -938,6 +955,7 @@ class UpgradePRs(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+                db_session=self.request[consts.REQUEST_DB_SESSION],
             )
 
             component_descriptor = await util.retrieve_component_descriptor(
@@ -1279,6 +1297,8 @@ class ComplianceSummary(aiohttp.web.View):
 
         recursion_depth = int(util.param(params, 'recursion_depth', default=-1))
 
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+
         if version == 'greatest':
             version = await greatest_version_if_none(
                 component_name=component_name,
@@ -1287,6 +1307,7 @@ class ComplianceSummary(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
                 invalid_semver_ok=invalid_semver_ok,
+                db_session=db_session,
             )
 
         components_dependencies = resolve_component_dependencies(
@@ -1301,8 +1322,6 @@ class ComplianceSummary(aiohttp.web.View):
             component_node.component_id
             async for component_node in components_dependencies
         ]
-
-        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         finding_types = (
             dso.model.Datatype.LICENSE,
@@ -1473,15 +1492,16 @@ class ComponentMetadata(aiohttp.web.View):
                 text=f'"select" must not be "{Select.GREATEST.value}" if "version" is given',
             )
 
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+
         if select is Select.GREATEST:
             component_version = await greatest_component_version(
                 component_name=component_name,
                 version_lookup=version_lookup,
                 version_filter=version_filter,
                 invalid_semver_ok=invalid_semver_ok,
+                db_session=db_session,
             )
-
-        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         if component_version:
             db_statement = self._metadata_query_for_version(
