@@ -117,6 +117,7 @@ def dbcached_function(
     ttl_seconds: int=0,
     keep_at_least_seconds: int=0,
     max_size_octets: int=0,
+    exclude_args_at_idx: collections.abc.Sequence[int]=tuple(),
     exclude_kwargs: collections.abc.Sequence[str]=tuple(),
 ):
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
@@ -131,13 +132,13 @@ def dbcached_function(
 
             cachable_args = tuple(
                 arg
-                for arg in args
-                if not isinstance(arg, collections.abc.Callable)
+                for idx, arg in enumerate(args)
+                if idx not in exclude_args_at_idx
             )
             cachable_kwargs = dict(
                 [key, value]
                 for key, value in kwargs.items()
-                if key not in exclude_kwargs and not isinstance(value, collections.abc.Callable)
+                if key not in exclude_kwargs
             )
 
             # remove `db_session` from kwargs to allow proper serialisation
