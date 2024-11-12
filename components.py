@@ -6,6 +6,7 @@ import enum
 import http
 import io
 import logging
+import re
 import tarfile
 
 import aiohttp.web
@@ -974,38 +975,9 @@ class UpgradePRs(aiohttp.web.View):
 
             repo_url = source.access.repoUrl if source else component_name
 
-        gh_api = self.request.app[consts.APP_GITHUB_API_LOOKUP](
-            repo_url,
-            absent_ok=True,
-        )
-        if not gh_api:
-            # todo: rather raise/return http-error?
-            logger.warning(f'no github-cfg found for {repo_url=}')
-            return aiohttp.web.json_response(
-                data=[],
-            )
-
-        parsed_url = ci.util.urlparse(repo_url)
-        org, repo = parsed_url.path.strip('/').split('/')
-
-        try:
-            pr_helper = github.util.PullRequestUtil(
-                owner=org,
-                name=repo,
-                github_api=gh_api,
-            )
-        except RuntimeError:
-            # Component source repository not found
-            return aiohttp.web.json_response(
-                data=[],
-            )
-
-        upgrade_prs: collections.abc.Iterable[github.util.UpgradePullRequest] = pr_helper.enumerate_upgrade_pull_requests( # noqa:E501
-            state=pr_state,
-            pattern=self.request.app[consts.APP_UPR_REGEX_CALLBACK](),
-        )
-
-        def upgrade_pr_to_dict(upgrade_pr):
+        def upgrade_pr_to_dict(
+            upgrade_pr: github.util.UpgradePullRequest,
+        ) -> dict:
             from_ref: ocm.ComponentReference = upgrade_pr.from_ref
             to_ref: ocm.ComponentReference = upgrade_pr.to_ref
             pr = upgrade_pr.pull_request
@@ -1027,8 +999,57 @@ class UpgradePRs(aiohttp.web.View):
                 }
             }
 
+        @deliverydb.cache.dbcached_function(
+            ttl_seconds=60 * 60, # 1 hour
+        )
+        async def retrieve_upgrade_prs(
+            repo_url: str,
+            state: str,
+            pattern: re.Pattern,
+            db_session: sqlasync.session.AsyncSession, # required for db-cache
+        ) -> list[dict]:
+            gh_api = self.request.app[consts.APP_GITHUB_API_LOOKUP](
+                repo_url,
+                absent_ok=True,
+            )
+            if not gh_api:
+                logger.warning(f'no github-cfg found for {repo_url=}')
+                raise aiohttp.web.HTTPBadRequest(
+                    text=f'No GitHub cfg found for {repo_url=}',
+                )
+
+            parsed_url = ci.util.urlparse(repo_url)
+            org, repo = parsed_url.path.strip('/').split('/')
+
+            try:
+                pr_helper = github.util.PullRequestUtil(
+                    owner=org,
+                    name=repo,
+                    github_api=gh_api,
+                )
+            except RuntimeError:
+                # Component source repository not found
+                return []
+
+            upgrade_prs = pr_helper.enumerate_upgrade_pull_requests(
+                state=state,
+                pattern=pattern,
+            )
+
+            return [
+                upgrade_pr_to_dict(upgrade_pr=upgrade_pr)
+                for upgrade_pr in upgrade_prs
+            ]
+
+        upgrade_prs = await retrieve_upgrade_prs(
+            repo_url=repo_url,
+            state=pr_state,
+            pattern=self.request.app[consts.APP_UPR_REGEX_CALLBACK](),
+            db_session=self.request[consts.REQUEST_DB_SESSION],
+        )
+
         return aiohttp.web.json_response(
-            data=[upgrade_pr_to_dict(upgrade_pr) for upgrade_pr in upgrade_prs],
+            data=upgrade_prs,
             dumps=util.dict_to_json_factory,
         )
 
