@@ -298,21 +298,6 @@ class FeatureDeliveryDB(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
-class FeatureElasticSearch(FeatureBase):
-    name: str = 'elastic-search'
-    es_client: 'ccc.elasticsearch.ElasticSearchClient' = None
-
-    def get_es_client(self) -> 'ccc.elasticsearch.ElasticSearchClient | None':
-        return self.es_client
-
-    def serialize(self) -> dict[str, any]:
-        return {
-            'state': self.state,
-            'name': self.name,
-        }
-
-
-@dataclasses.dataclass(frozen=True)
 class FeatureIssues(FeatureBase):
     name: str = 'issues'
     issue_repo_mappings: tuple[ComponentNameRepoMapping] = tuple()
@@ -899,20 +884,6 @@ async def init_features(
         ))
 
     feature_cfgs.append(FeatureDeliveryDB(delivery_db_feature_state, db_url=db_url))
-
-    es_config = None
-    try:
-        es_config = cfg_factory.elasticsearch(parsed_arguments.es_config_name)
-    except (AttributeError, model.base.ConfigElementNotFoundError):
-        logger.warning('Elastic search config not found')
-
-    if parsed_arguments.productive and es_config:
-        import ccc.elasticsearch
-        logger.info('Elastic search logging enabled')
-        es_client = ccc.elasticsearch.from_cfg(es_config)
-        feature_cfgs.append(FeatureElasticSearch(FeatureStates.AVAILABLE, es_client=es_client))
-    else:
-        feature_cfgs.append(FeatureElasticSearch(FeatureStates.UNAVAILABLE))
 
     extension_feature = FeatureServiceExtensions(FeatureStates.UNAVAILABLE)
     if services := parsed_arguments.service_extensions:
