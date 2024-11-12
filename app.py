@@ -149,24 +149,16 @@ def add_app_context_vars(
         features.FeatureTests,
     ).get_component_with_tests
 
-    cve_rescoring_rule_set_lookup = features.get_feature(
-        features.FeatureRescoring,
-    ).find_rule_set_by_name
-    default_rule_set_callback = features.get_feature(features.FeatureRescoring).default_rule_set
+    rescoring_feature = features.get_feature(features.FeatureRescoring)
+    cve_rescoring_rule_set_lookup = rescoring_feature.find_rule_set_by_name
+    default_rule_set_callback = rescoring_feature.default_rule_set
 
     issue_repo_callback = features.get_feature(features.FeatureIssues).get_issue_repo
 
-    kubernetes_api_callback = features.get_feature(
-        features.FeatureServiceExtensions,
-    ).get_kubernetes_api
-
-    namespace_callback = features.get_feature(
-        features.FeatureServiceExtensions,
-    ).get_namespace
-
-    service_extensions_callback = features.get_feature(
-        features.FeatureServiceExtensions,
-    ).get_services
+    service_extensions_feature = features.get_feature(features.FeatureServiceExtensions)
+    kubernetes_api_callback = service_extensions_feature.get_kubernetes_api
+    namespace_callback = service_extensions_feature.get_namespace
+    service_extensions_callback = service_extensions_feature.get_services
 
     special_component_callback = features.get_feature(
         features.FeatureSpecialComponents,
