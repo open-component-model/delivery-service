@@ -374,13 +374,39 @@ def add_routes(
     return app
 
 
+def initialise_elasticsearch_client(
+    cfg_factory,
+    es_config_name: str | None=None,
+    productive: bool=False,
+):
+    if not productive:
+        return None
+
+    try:
+        es_config = cfg_factory.elasticsearch(es_config_name)
+    except (AttributeError, ValueError):
+        logger.warning('Elastic search config not found')
+        return None
+
+    import ccc.elasticsearch
+    logger.info('Elastic search logging enabled')
+    return ccc.elasticsearch.from_cfg(es_config)
+
+
 async def initialise_app():
     parsed_arguments = parse_args()
 
     cfg_factory = ctx_util.cfg_factory()
 
+    es_client = initialise_elasticsearch_client(
+        cfg_factory=cfg_factory,
+        es_config_name=parsed_arguments.es_config_name,
+        productive=parsed_arguments.productive,
+    )
+
     middlewares = [
         middleware.cors.cors_middleware(),
+        middleware.errors.errors_middleware(es_client),
     ]
 
     middlewares = await features.init_features(
@@ -388,9 +414,6 @@ async def initialise_app():
         cfg_factory=cfg_factory,
         middlewares=middlewares,
     )
-
-    es_client = features.get_feature(features.FeatureElasticSearch).get_es_client()
-    middlewares.append(middleware.errors.errors_middleware(es_client))
 
     if (unavailable_features := tuple(
         f for f in features.feature_cfgs
