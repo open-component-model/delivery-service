@@ -11,6 +11,7 @@ import cnudie.iter
 import cnudie.iter_async
 import cnudie.retrieve_async
 import dso.model
+import oci.model
 import ocm
 
 import deliverydb.model as dm
@@ -187,7 +188,12 @@ class ArtefactMetadataQueries:
         if not artefacts:
             if component.version:
                 if isinstance(component, ocm.ComponentIdentity):
-                    component_descriptor = await component_descriptor_lookup(component)
+                    try:
+                        component_descriptor = await component_descriptor_lookup(component)
+                    except oci.model.OciImageNotFoundException:
+                        yield False
+                        return
+
                     component: ocm.Component = component_descriptor.component
 
                 artefacts = [
