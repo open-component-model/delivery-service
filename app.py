@@ -31,7 +31,6 @@ import middleware.route_feature_check as rfc
 import osinfo
 import paths
 import rescore.artefacts
-import rescore.model
 import service_extensions
 import special_component
 import sprint

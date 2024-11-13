@@ -150,7 +150,7 @@ def find_rule_set_for_type(
     absent_ok: bool=True,
 ) -> RuleSet | None:
     for rule_set in rule_sets:
-        if rule_set.type == rule_set_type:
+        if rule_set.type is rule_set_type:
             return rule_set
     if not absent_ok:
         raise ValueError(f'No rule set found for {rule_set_type=}')
