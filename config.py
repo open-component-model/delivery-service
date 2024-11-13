@@ -520,7 +520,7 @@ def deserialise_bdba_config(
     )
     if rescoring_rulesets_raw:
         cve_rescoring_rulesets = tuple(
-            rescore.model.CveRescoringRuleSet(
+            rescore.model.CveRescoringRuleSet( #noqa:E1123
                 name=rule_set_raw['name'],
                 description=rule_set_raw.get('description'),
                 type=rule_set_raw['type'],
@@ -827,7 +827,7 @@ def deserialise_issue_replicator_config(
         # only one ruleset for now, will be updated with cm06-related "typed" rulesets
         rescoring_rule_set_raw = cve_rescoing_ruleset_raw['rescoringRuleSets'][0]
 
-        cve_rescoring_ruleset = rescore.model.CveRescoringRuleSet(
+        cve_rescoring_ruleset = rescore.model.CveRescoringRuleSet( #noqa:E1123
             name=rescoring_rule_set_raw['name'],
             description=rescoring_rule_set_raw.get('description'),
             rules=list(

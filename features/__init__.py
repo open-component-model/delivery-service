@@ -601,7 +601,7 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 
 def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
     cve_rescoring_rule_sets = tuple(
-        rm.CveRescoringRuleSet(
+        rm.CveRescoringRuleSet( #noqa:E1123
             name=rule_set_raw['name'],
             description=rule_set_raw.get('description'),
             type=rule_set_raw['type'],
