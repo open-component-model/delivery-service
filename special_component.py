@@ -1,6 +1,7 @@
 import aiohttp.web
 
 import consts
+import deliverydb.cache
 import features
 import util
 
@@ -8,6 +9,7 @@ import util
 class CurrentDependencies(aiohttp.web.View):
     required_features = (features.FeatureSpecialComponents,)
 
+    @deliverydb.cache.dbcached_route()
     async def get(self):
         '''
         ---
