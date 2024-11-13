@@ -519,28 +519,19 @@ def deserialise_bdba_config(
         absent_ok=True,
     )
     if rescoring_rulesets_raw:
-        cve_rescoring_rulesets = tuple(
+        cve_rescoring_ruleset = tuple(
             rescore.model.CveRescoringRuleSet( #noqa:E1123
                 name=rule_set_raw['name'],
                 description=rule_set_raw.get('description'),
-                type=rule_set_raw['type'],
                 rules=list(
                     rescore.model.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
                 )
             )
             for rule_set_raw in rescoring_rulesets_raw['rescoringRuleSets']
-            if rule_set_raw['type'] == rescore.model.RuleSetType.CVE
+            if rule_set_raw['type'] is rescore.model.RuleSetType.CVE
         )
     else:
-        cve_rescoring_rulesets = ()
-
-    if cve_rescoring_rulesets:
-        cve_rescoring_ruleset = rescore.model.find_rule_set_for_type(
-            rule_sets=cve_rescoring_rulesets,
-            rule_set_type=rescore.model.RuleSetType.CVE,
-        )
-    else:
-        cve_rescoring_ruleset = None
+        cve_rescoring_ruleset = ()
 
     if cve_rescoring_ruleset:
         auto_assess_max_severity_raw = deserialise_config_property(

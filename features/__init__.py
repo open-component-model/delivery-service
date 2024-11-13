@@ -403,7 +403,7 @@ class FeatureRescoring(FeatureBase):
         for rs in self.rescoring_rule_sets:
             if (
                 rs.name == name
-                and rs.type == rule_set_type
+                and rs.type is rule_set_type
             ):
                 return rs
         return None
@@ -604,13 +604,12 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
         rm.CveRescoringRuleSet( #noqa:E1123
             name=rule_set_raw['name'],
             description=rule_set_raw.get('description'),
-            type=rule_set_raw['type'],
             rules=list(
                 rm.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
             )
         )
         for rule_set_raw in rescoring_raw['rescoringRuleSets']
-        if rule_set_raw['type'] == rm.RuleSetType.CVE
+        if rule_set_raw['type'] is rm.RuleSetType.CVE
     )
 
     return FeatureRescoring(
