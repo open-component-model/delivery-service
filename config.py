@@ -817,15 +817,14 @@ def deserialise_issue_replicator_config(
         configs=matching_configs,
     )
 
-    cve_rescoing_ruleset_raw = deserialise_config_property(
-        config=issue_replicator_config,
+    cve_rescoring_ruleset_raw = deserialise_config_property(
+        config=default_config,
         property_key='rescoring',
-        default_config=default_config,
         absent_ok=True,
     )
-    if cve_rescoing_ruleset_raw:
+    if cve_rescoring_ruleset_raw:
         # only one ruleset for now, will be updated with cm06-related "typed" rulesets
-        rescoring_rule_set_raw = cve_rescoing_ruleset_raw['rescoringRuleSets'][0]
+        rescoring_rule_set_raw = cve_rescoring_ruleset_raw['rescoringRuleSets'][0]
 
         cve_rescoring_ruleset = rescore.model.CveRescoringRuleSet( #noqa:E1123
             name=rescoring_rule_set_raw['name'],
