@@ -393,6 +393,9 @@ class ComponentDependencies(aiohttp.web.View):
 
 
 class ComponentResponsibles(aiohttp.web.View):
+    @deliverydb.cache.dbcached_route(
+        ttl_seconds=60 * 60 * 24, # 1 day
+    )
     async def get(self):
         '''
         ---
