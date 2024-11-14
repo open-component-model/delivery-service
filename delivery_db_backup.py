@@ -335,6 +335,7 @@ def main():
     additional_args = backup_cfg.get('extra_pg_dump_args', [])
     delivery_service_url = delivery_gear_extension_cfg.defaults()['delivery_service_url']
     backup_retention_count = backup_cfg.get('backup_retention_count')
+    initial_version = backup_cfg.get('initial_version', '0.1.0')
 
     delivery_service_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
@@ -343,16 +344,19 @@ def main():
         cfg_factory=cfg_factory,
     )
 
-    greatest_version = delivery_service_client.greatest_component_versions(
+    greatest_versions = delivery_service_client.greatest_component_versions(
         component_name=component_name,
         max_versions=1,
         ocm_repo=ocm.OciOcmRepository(baseUrl=ocm_repo),
-    )[0]
-
-    component_version = version.process_version(
-        version_str=greatest_version,
-        operation='bump_minor',
     )
+
+    if greatest_versions:
+        component_version = version.process_version(
+            version_str=greatest_versions[0],
+            operation='bump_minor',
+        )
+    else:
+        component_version = initial_version
 
     outfile = os.path.abspath('./delivery-db-backup.tar')
 
