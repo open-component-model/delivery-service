@@ -395,6 +395,7 @@ class ComponentDependencies(aiohttp.web.View):
 class ComponentResponsibles(aiohttp.web.View):
     @deliverydb.cache.dbcached_route(
         ttl_seconds=60 * 60 * 24, # 1 day
+        skip_http_status=(http.HTTPStatus.ACCEPTED,)
     )
     async def get(self):
         '''

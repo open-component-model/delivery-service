@@ -222,6 +222,7 @@ def dbcached_route(
     ttl_seconds: int=0,
     keep_at_least_seconds: int=0,
     max_size_octets: int=0,
+    skip_http_status: collections.abc.Sequence[int]=tuple(),
 ):
     if not encoding_format.startswith('pickle'):
         raise ValueError(
@@ -264,7 +265,7 @@ def dbcached_route(
             result: aiohttp.web.Response = await func(*args, **kwargs)
             duration = datetime.datetime.now() - start
 
-            if result.status >= 400:
+            if result.status >= 400 or result.status in skip_http_status:
                 # don't cache error responses -> those might only be temporarily
                 return result
 
