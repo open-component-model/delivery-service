@@ -563,6 +563,7 @@ async def _mark_compliance_summary_cache_for_deletion(
         encoding_format=dcm.EncodingFormat.PICKLE,
         function='compliance_summary.component_datatype_summaries',
         db_session=db_session,
+        defer_db_commit=True, # only commit at the end of the query
         component=component,
         finding_type=artefact_metadata.type,
         datasource=artefact_metadata.datasource,

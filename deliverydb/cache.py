@@ -305,6 +305,7 @@ async def mark_for_deletion(
     db_session: sqlasync.session.AsyncSession,
     id: str,
     delete_after: datetime.datetime | None=None,
+    defer_db_commit: bool=False,
 ) -> bool:
     if not (cache_entry := await db_session.get(dm.DBCache, id)):
         return True
@@ -315,7 +316,8 @@ async def mark_for_deletion(
     try:
         cache_entry.delete_after = delete_after
 
-        await db_session.commit()
+        if not defer_db_commit:
+            await db_session.commit()
         return True
     except Exception:
         stacktrace = traceback.format_exc()
@@ -331,6 +333,7 @@ async def mark_function_cache_for_deletion(
     function: collections.abc.Callable | str,
     db_session: sqlasync.session.AsyncSession,
     delete_after: datetime.datetime | None=None,
+    defer_db_commit: bool=False,
     *args,
     **kwargs,
 ):
@@ -350,6 +353,7 @@ async def mark_function_cache_for_deletion(
         db_session=db_session,
         id=descriptor.id,
         delete_after=delete_after,
+        defer_db_commit=defer_db_commit,
     )
 
 
