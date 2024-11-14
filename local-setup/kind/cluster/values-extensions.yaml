@@ -161,6 +161,7 @@ configuration:
         #   ocm_repo: ...
         #   extra_pg_dump_args: []
         #   backup_retention_count: 14
+        #   initial_version: 0.1.0
 
         # issueReplicator:
         #   delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
