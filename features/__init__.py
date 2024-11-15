@@ -391,6 +391,7 @@ class FeatureSpecialComponents(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureRescoring(FeatureBase):
     name: str = 'rescoring'
+    default_rule_sets: list[rm.DefaultRuleSet] = dataclasses.field(default_factory=list)
     rescoring_rule_sets: list[rm.RuleSet] = dataclasses.field(default_factory=list)
     cve_categorisation_label_url: str = None
     cve_severity_url: str = None
@@ -407,15 +408,6 @@ class FeatureRescoring(FeatureBase):
             ):
                 return rs
         return None
-
-    def default_rule_set_for_type(
-        self,
-        rule_set_type,
-    ) -> rm.RuleSet | None:
-        return rm.find_rule_set_for_type(
-            rule_sets=self.rescoring_rule_sets,
-            rule_set_type=rule_set_type,
-        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -601,6 +593,7 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 
 def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
     cve_rescoring_rule_sets = tuple(
+        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
         rm.CveRescoringRuleSet( #noqa:E1123
             name=rule_set_raw['name'],
             description=rule_set_raw.get('description'),
@@ -609,11 +602,21 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
             )
         )
         for rule_set_raw in rescoring_raw['rescoringRuleSets']
-        if rule_set_raw['type'] is rm.RuleSetType.CVE
     )
+    default_rule_sets = [
+        dacite.from_dict(
+            data_class=rm.DefaultRuleSet,
+            data=default_rule_set_raw,
+            config=dacite.Config(
+                cast=[rm.RuleSetType],
+            )
+        )
+        for default_rule_set_raw in rescoring_raw['defaultRuleSetNames']
+    ]
 
     return FeatureRescoring(
         state=FeatureStates.AVAILABLE,
+        default_rule_sets=default_rule_sets,
         rescoring_rule_sets=cve_rescoring_rule_sets,
         cve_categorisation_label_url=rescoring_raw.get('cveCategorisationLabelUrl'),
         cve_severity_url=rescoring_raw.get('cveSeverityUrl'),

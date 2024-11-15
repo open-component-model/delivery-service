@@ -512,14 +512,15 @@ def deserialise_bdba_config(
         configs=matching_configs,
     )
 
-    rescoring_rulesets_raw = deserialise_config_property(
+    rescoring_cfg_raw = deserialise_config_property(
         config=bdba_config,
         property_key='rescoring',
         default_config=default_config,
         absent_ok=True,
     )
-    if rescoring_rulesets_raw:
-        cve_rescoring_ruleset = tuple(
+    if rescoring_cfg_raw:
+        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
+        cve_rescoring_rulesets = tuple(
             rescore.model.CveRescoringRuleSet( #noqa:E1123
                 name=rule_set_raw['name'],
                 description=rule_set_raw.get('description'),
@@ -527,21 +528,34 @@ def deserialise_bdba_config(
                     rescore.model.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
                 )
             )
-            for rule_set_raw in rescoring_rulesets_raw['rescoringRuleSets']
-            if rule_set_raw['type'] is rescore.model.RuleSetType.CVE
+            for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
         )
-    else:
-        cve_rescoring_ruleset = ()
-
-    if cve_rescoring_ruleset:
+        default_rule_sets = [
+            dacite.from_dict(
+                data_class=rescore.model.DefaultRuleSet,
+                data=default_rule_set_raw,
+                config=dacite.Config(
+                    cast=[rescore.model.RuleSetType],
+                )
+            )
+            for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
+        ]
+        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
+            default_rule_set=rescore.model.find_default_rule_set_for_type(
+                default_rule_sets=default_rule_sets,
+                rule_set_type=rescore.model.RuleSetType.CVE,
+            ),
+            rule_sets=cve_rescoring_rulesets,
+        )
         auto_assess_max_severity_raw = deserialise_config_property(
             config=bdba_config,
             property_key='auto_assess_max_severity',
         )
         auto_assess_max_severity = dso.cvss.CVESeverity[auto_assess_max_severity_raw]
     else:
-        logger.info('no cve rescoring rules specified, rescoring will not be available')
+        default_rule_set = None
         auto_assess_max_severity = None
+        logger.info('no cve rescoring rules specified, rescoring will not be available')
 
     prohibited_licenses = deserialise_config_property(
         config=bdba_config,
@@ -587,7 +601,7 @@ def deserialise_bdba_config(
         processing_mode=processing_mode,
         artefact_types=artefact_types,
         node_filter=node_filter,
-        cve_rescoring_ruleset=cve_rescoring_ruleset,
+        cve_rescoring_ruleset=default_rule_set,
         auto_assess_max_severity=auto_assess_max_severity,
         license_cfg=license_cfg,
         delete_inactive_products_after_seconds=delete_inactive_products_after_seconds,
@@ -808,24 +822,42 @@ def deserialise_issue_replicator_config(
         configs=matching_configs,
     )
 
-    cve_rescoring_ruleset_raw = deserialise_config_property(
+    cve_rescoring_cfg_raw = deserialise_config_property(
         config=default_config,
         property_key='rescoring',
         absent_ok=True,
     )
-    if cve_rescoring_ruleset_raw:
-        # only one ruleset for now, will be updated with cm06-related "typed" rulesets
-        rescoring_rule_set_raw = cve_rescoring_ruleset_raw['rescoringRuleSets'][0]
-
-        cve_rescoring_ruleset = rescore.model.CveRescoringRuleSet( #noqa:E1123
-            name=rescoring_rule_set_raw['name'],
-            description=rescoring_rule_set_raw.get('description'),
-            rules=list(
-                rescore.model.cve_rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])
+    if cve_rescoring_cfg_raw:
+        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
+        cve_rescoring_rulesets = tuple(
+            rescore.model.CveRescoringRuleSet( #noqa:E1123
+                name=rule_set_raw['name'],
+                description=rule_set_raw.get('description'),
+                rules=list(
+                    rescore.model.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
+                )
             )
+            for rule_set_raw in cve_rescoring_cfg_raw['rescoringRuleSets']
+        )
+        default_rule_sets = [
+            dacite.from_dict(
+                data_class=rescore.model.DefaultRuleSet,
+                data=default_rule_set_raw,
+                config=dacite.Config(
+                    cast=[rescore.model.RuleSetType],
+                )
+            )
+            for default_rule_set_raw in cve_rescoring_cfg_raw['defaultRuleSetNames']
+        ]
+        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
+            default_rule_set=rescore.model.find_default_rule_set_for_type(
+                default_rule_sets=default_rule_sets,
+                rule_set_type=rescore.model.RuleSetType.CVE,
+            ),
+            rule_sets=cve_rescoring_rulesets,
         )
     else:
-        cve_rescoring_ruleset = None
+        default_rule_set = None
 
     finding_type_issue_replication_cfgs_raw = deserialise_config_property(
         config=issue_replicator_config,
@@ -865,7 +897,7 @@ def deserialise_issue_replicator_config(
         number_included_closed_issues=number_included_closed_issues,
         artefact_types=artefact_types,
         node_filter=node_filter,
-        cve_rescoring_ruleset=cve_rescoring_ruleset,
+        cve_rescoring_ruleset=default_rule_set,
         finding_type_issue_replication_cfgs=finding_type_issue_replication_cfgs,
         milestone_cfg=milestone_cfg,
     )

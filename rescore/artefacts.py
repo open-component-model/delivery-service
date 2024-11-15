@@ -37,7 +37,7 @@ import ocm_util
 
 logger = logging.getLogger(__name__)
 CveRescoringRuleSetLookup = collections.abc.Callable[
-    [str],
+    [str, rm.RuleSetType],
     rm.CveRescoringRuleSet | None,
 ]
 Severity = str # sap-specific categorisation (see cc-utils github/compliance/model/Severity)
