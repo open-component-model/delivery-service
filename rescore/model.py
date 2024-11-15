@@ -131,7 +131,7 @@ class CveRescoringRule(Rule):
         return value == getattr(categorisation, attr)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class RuleSet[T: Rule]:
     name: str
     rules: list[T]
@@ -139,21 +139,40 @@ class RuleSet[T: Rule]:
     description: str | None = None
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
     type: RuleSetType = RuleSetType.CVE
 
 
-def find_rule_set_for_type(
-    rule_sets: collections.abc.Iterable[RuleSet],
+@dataclasses.dataclass(frozen=True)
+class DefaultRuleSet:
+    name: str
+    type: RuleSetType
+
+
+def find_default_rule_set_for_type_and_name(
+    default_rule_set: DefaultRuleSet,
+    rule_sets: tuple[RuleSet],
+) -> RuleSet:
+    for ruleset in rule_sets:
+        if (
+            ruleset.name == default_rule_set.name
+            and ruleset.type is default_rule_set.type
+        ):
+            return ruleset
+
+    raise ValueError(f'No default rule_set found for the {ruleset.type}.')
+
+
+def find_default_rule_set_for_type(
+    default_rule_sets: list[DefaultRuleSet],
     rule_set_type: RuleSetType,
-    absent_ok: bool=True,
-) -> RuleSet | None:
-    for rule_set in rule_sets:
-        if rule_set.type is rule_set_type:
-            return rule_set
-    if not absent_ok:
-        raise ValueError(f'No rule set found for {rule_set_type=}')
+) -> DefaultRuleSet:
+    for default_rule_set in default_rule_sets:
+        if default_rule_set.type is rule_set_type:
+            return default_rule_set
+
+    raise ValueError(f'No default rule_set_name found for {default_rule_set.type}.')
 
 
 def cve_rescoring_rules_from_dicts(
