@@ -193,12 +193,13 @@ def scan(
         delete_inactive_products_after_seconds=bdba_config.delete_inactive_products_after_seconds,
     )
 
-    filtered_scan_results = tuple(
-        scan_result for scan_result in scan_results
-        if scan_result.meta.type not in bdba_config.blacklist_finding_types
-    )
+    if bdba_config.blacklist_finding_types:
+        scan_results = tuple(
+            scan_result for scan_result in scan_results
+            if scan_result.meta.type not in bdba_config.blacklist_finding_types
+        )
 
-    delivery_client.update_metadata(data=filtered_scan_results)
+    delivery_client.update_metadata(data=scan_results)
 
     component = ocm.ComponentIdentity(
         name=backlog_item.artefact.component_name,
