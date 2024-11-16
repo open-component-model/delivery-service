@@ -35,7 +35,7 @@ class BacklogPriorities(enum.IntEnum):
     CRITICAL = 8
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class BacklogItem:
     timestamp: datetime.datetime
     artefact: dso.model.ComponentArtefactId
