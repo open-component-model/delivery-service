@@ -37,13 +37,13 @@ def iter_existing_findings(
     )
 
     findings = delivery_client.query_metadata(
-        components=[resource_node.component_id],
+        artefacts=(artefact,),
         type=finding_type,
     )
 
     return (
         finding for finding in findings
-        if finding.meta.datasource == datasource and finding.artefact == artefact
+        if finding.meta.datasource == datasource
     )
 
 

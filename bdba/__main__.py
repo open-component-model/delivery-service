@@ -216,11 +216,7 @@ def scan(
         finding_type=dso.model.Datatype.LICENSE,
     )
 
-    logger.info(
-        f'finished scan of artefact {backlog_item.artefact.artefact.artefact_name}:'
-        f'{backlog_item.artefact.artefact.artefact_version} of component '
-        f'{backlog_item.artefact.component_name}:{backlog_item.artefact.component_version}'
-    )
+    logger.info(f'finished scan of artefact {backlog_item.artefact}')
 
 
 def parse_args():
