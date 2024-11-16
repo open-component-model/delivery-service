@@ -108,15 +108,14 @@ def deserialise_issue_replicator_configuration(
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
-    artefact_kind: dso.model.ArtefactKind,
+    chunk_size: int=10,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding]:
     if not artefacts:
-        return tuple()
+        return
 
     findings: list[dso.model.ArtefactMetadata] = []
     rescorings: list[dso.model.ArtefactMetadata] = []
 
-    chunk_size = 10
     for idx in range(0, len(artefacts), chunk_size):
         chunked_artefacts = artefacts[idx:min(idx + chunk_size, len(artefacts))]
 
@@ -142,9 +141,6 @@ def _iter_findings_for_artefact(
         ))
 
     for finding in findings:
-        if not artefact_kind is finding.artefact.artefact_kind:
-            continue
-
         filtered_rescorings = rescore.utility.rescorings_for_finding_by_specificity(
             finding=finding,
             rescorings=rescorings,
@@ -293,7 +289,6 @@ def replicate_issue(
     findings = tuple(_iter_findings_for_artefact(
         delivery_client=delivery_client,
         artefacts=artefacts,
-        artefact_kind=artefact.artefact_kind,
     ))
     logger.info(f'{len(findings)=}')
 
