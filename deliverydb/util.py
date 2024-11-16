@@ -278,6 +278,7 @@ class ArtefactMetadataQueries:
                     dm.ArtefactMetaData.component_name == component.name,
                 ),
                 sa.or_(
+                    component.version is None,
                     dm.ArtefactMetaData.component_version == component.version,
                     sa.and_(
                         none_ok,
