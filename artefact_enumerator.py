@@ -160,18 +160,18 @@ def _iter_ocm_artefact_nodes(
         )
 
         for version in versions:
-            if component.ocm_repo:
-                ocm_repo_url = component.ocm_repo.oci_ref
-            else:
-                ocm_repo_url = None
+            component_id = ocm.ComponentIdentity(
+                name=component.component_name,
+                version=version,
+            )
 
-            component = component_descriptor_lookup(
-                ocm.ComponentIdentity(
-                    name=component.component_name,
-                    version=version,
-                ),
-                ctx_repo=ocm_repo_url,
-            ).component
+            if ocm_repo := component.ocm_repo:
+                component = component_descriptor_lookup(
+                    component_id,
+                    ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+                ).component
+            else:
+                component = component_descriptor_lookup(component_id).component
 
             # note: adjust node filter here once other artefacts become processable as well
             yield from cnudie.iter.iter(

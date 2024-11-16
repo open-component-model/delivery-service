@@ -162,18 +162,14 @@ def db_cache_component_descriptor_lookup_async(
 
     async def lookup(
         component_id: cnudie.util.ComponentId,
-        ctx_repo: ocm.OcmRepository | str=None,
         ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=ocm_repository_lookup,
     ):
         component_id = cnudie.util.to_component_id(component_id)
 
-        if ctx_repo:
-            ocm_repos = (ctx_repo, )
-        else:
-            ocm_repos = cnudie.retrieve.iter_ocm_repositories(
-                component_id,
-                ocm_repository_lookup,
-            )
+        ocm_repos = cnudie.retrieve.iter_ocm_repositories(
+            component_id,
+            ocm_repository_lookup,
+        )
 
         db_session = await deliverydb.sqlalchemy_session(db_url)
         try:

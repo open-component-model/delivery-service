@@ -162,7 +162,6 @@ def upload_from_file(
 
 def iter_components_to_purge(
     backup_retention_count: int,
-    ocm_repo: str,
     component: ocm.Component,
     oci_client: oci.client.Client,
     lookup,
@@ -181,7 +180,6 @@ def iter_components_to_purge(
                 name=component.name,
                 version=v,
             ),
-            ctx_repo=ocm_repo,
         )
         for v in sorted_versions[:-backup_retention_count]
     )
@@ -233,11 +231,13 @@ def delete_old_backup_versions(
         tag_postprocessing_callback=cnudie.util.desanitise_version,
     )
 
-    lookup = cnudie.retrieve.oci_component_descriptor_lookup(oci_client=oci_client)
+    lookup = cnudie.retrieve.oci_component_descriptor_lookup(
+        ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+        oci_client=oci_client,
+    )
 
     for component in iter_components_to_purge(
         backup_retention_count=backup_retention_count,
-        ocm_repo=ocm_repo,
         component=component,
         oci_client=oci_client,
         lookup=lookup,

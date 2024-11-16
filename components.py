@@ -596,7 +596,7 @@ async def component_versions(
         try:
             return await cnudie.retrieve_async.component_versions(
                 component_name=component_name,
-                ctx_repo=ocm_repo,
+                ocm_repo=ocm_repo,
                 oci_client=oci_client,
             )
         except aiohttp.ClientResponseError:

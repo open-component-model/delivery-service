@@ -10,6 +10,7 @@ import urllib.parse
 import aiohttp.web
 
 import cnudie.iter
+import cnudie.retrieve
 import cnudie.retrieve_async
 import oci.model as om
 import ocm
@@ -95,10 +96,12 @@ async def retrieve_component_descriptor(
     ocm_repo: ocm.OcmRepository=None,
 ) -> ocm.ComponentDescriptor:
     try:
-        return await component_descriptor_lookup(
-            component_id,
-            ctx_repo=ocm_repo,
-        )
+        if ocm_repo:
+            return await component_descriptor_lookup(
+                component_id,
+                ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+            )
+        return await component_descriptor_lookup(component_id)
     except om.OciImageNotFoundException:
         err_str = f'Component descriptor "{component_id.name}" in version "' \
         f'{component_id.version}" not found in {ocm_repo=}.'
