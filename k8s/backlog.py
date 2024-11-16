@@ -126,16 +126,10 @@ def iter_existing_backlog_items_for_artefact(
                 yield backlog_crd
         elif service is config.Services.ISSUE_REPLICATOR:
             if (
-                crd_artefact.artefact_kind == artefact.artefact_kind
+                crd_artefact.artefact_kind is artefact.artefact_kind
                 and crd_artefact.component_name == artefact.component_name
                 and crd_artefact.artefact.artefact_name == artefact.artefact.artefact_name
                 and crd_artefact.artefact.artefact_type == artefact.artefact.artefact_type
-                # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-                # and crd_artefact.artefact.normalised_artefact_extra_id(
-                #     remove_duplicate_version=True,
-                # ) == artefact.artefact.normalised_artefact_extra_id(
-                #     remove_duplicate_version=True,
-                # )
             ):
                 yield backlog_crd
         else:
