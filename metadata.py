@@ -345,11 +345,8 @@ class ArtefactMetadata(aiohttp.web.View):
             if (
                 existing_entry.component_version != metadata_entry.component_version
                 or existing_entry.artefact_version != metadata_entry.artefact_version
-                # do not include extra id (yet) because there is only one entry for
-                # all ocm resources with different extra ids at the moment
-                # TODO include extra id as soon as there is one entry for each extra id
-                # or existing_entry.artefact_extra_id_normalised
-                #     != metadata_entry.artefact_extra_id_normalised
+                or existing_entry.artefact_extra_id_normalised
+                    != metadata_entry.artefact_extra_id_normalised
                 or existing_entry.data_key != metadata_entry.data_key
             ):
                 return None, reusable_discovery_date
