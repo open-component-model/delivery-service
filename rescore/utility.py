@@ -56,8 +56,8 @@ def _iter_rescorings_for_finding(
 
         if (
             rescoring.artefact.artefact.artefact_extra_id
-            and rescoring.artefact.artefact.normalised_artefact_extra_id()
-                != finding.artefact.artefact.normalised_artefact_extra_id()
+            and rescoring.artefact.artefact.normalised_artefact_extra_id
+                != finding.artefact.artefact.normalised_artefact_extra_id
         ):
             continue
 

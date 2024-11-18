@@ -1,9 +1,18 @@
 import collections.abc
+import logging
 
+import cnudie.iter
+import cnudie.retrieve_async
+import dso.model
 import ioutil
 import oci.client
 import ocm
 import tarutil
+
+import util
+
+
+logger = logging.getLogger(__name__)
 
 
 def iter_local_blob_content(
@@ -38,3 +47,57 @@ def iter_local_blob_content(
             )
         ],
     )
+
+
+async def find_artefact_node(
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    artefact: dso.model.ComponentArtefactId,
+    absent_ok: bool=False,
+) -> cnudie.iter.ResourceNode | cnudie.iter.SourceNode | None:
+    if not dso.model.is_ocm_artefact(artefact.artefact_kind):
+        return None
+
+    component = (await util.retrieve_component_descriptor(
+        ocm.ComponentIdentity(
+            name=artefact.component_name,
+            version=artefact.component_version,
+        ),
+        component_descriptor_lookup=component_descriptor_lookup,
+    )).component
+
+    if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+        artefacts = component.resources
+    elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+        artefacts = component.sources
+    else:
+        raise RuntimeError('this line should never be reached')
+
+    for a in artefacts:
+        if a.name != artefact.artefact.artefact_name:
+            continue
+        if a.version != artefact.artefact.artefact_version:
+            continue
+        if a.type != artefact.artefact.artefact_type:
+            continue
+        if (
+            dso.model.normalise_artefact_extra_id(a.extraIdentity)
+            != artefact.artefact.normalised_artefact_extra_id
+        ):
+            continue
+
+        # found artefact in component's artefacts
+        if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+            return cnudie.iter.ResourceNode(
+                path=(cnudie.iter.NodePathEntry(component),),
+                resource=a,
+            )
+        elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+            return cnudie.iter.SourceNode(
+                path=(cnudie.iter.NodePathEntry(component),),
+                source=a,
+            )
+        else:
+            raise RuntimeError('this line should never be reached')
+
+    if not absent_ok:
+        raise ValueError(f'could not find OCM node for {artefact=}')
