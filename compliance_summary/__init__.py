@@ -383,7 +383,7 @@ async def artefact_datatype_summary(
             and finding.artefact.artefact.artefact_name == artefact.name
             and finding.artefact.artefact.artefact_version == artefact.version
             and finding.artefact.artefact.artefact_type == artefact.type
-            and finding.artefact.artefact.normalised_artefact_extra_id()
+            and finding.artefact.artefact.normalised_artefact_extra_id
                 == dso.model.normalise_artefact_extra_id(artefact.extraIdentity)
         )
     ]
@@ -399,7 +399,7 @@ async def artefact_datatype_summary(
                 and artefact_scan_info.artefact.artefact.artefact_name == artefact.name
                 and artefact_scan_info.artefact.artefact.artefact_version == artefact.version
                 and artefact_scan_info.artefact.artefact.artefact_type == artefact.type
-                and artefact_scan_info.artefact.artefact.normalised_artefact_extra_id()
+                and artefact_scan_info.artefact.artefact.normalised_artefact_extra_id
                     == dso.model.normalise_artefact_extra_id(artefact.extraIdentity)
             ):
                 scan_exists = True
