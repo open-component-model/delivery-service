@@ -64,7 +64,7 @@ def to_db_artefact_metadata(
         artefact_type=artefact.artefact_type,
         artefact_version=artefact.artefact_version,
         artefact_extra_id=artefact.artefact_extra_id,
-        artefact_extra_id_normalised=artefact.normalised_artefact_extra_id(),
+        artefact_extra_id_normalised=artefact.normalised_artefact_extra_id,
         data=data_raw,
         data_key=data_key,
         meta=meta_raw,
