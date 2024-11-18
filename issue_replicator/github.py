@@ -46,7 +46,7 @@ class IssueComments(enum.StrEnum):
     NOT_IN_BOM = 'closing ticket because scanned element is no longer present in BoM'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class AggregatedFinding:
     finding: dso.model.ArtefactMetadata
     severity: gcm.Severity
@@ -77,6 +77,57 @@ class AggregatedFinding:
             return date
 
         return sprint
+
+
+@dataclasses.dataclass
+class GroupedFindings:
+    component_name: str
+    component_versions: set[str]
+    artefact_kind: dso.model.ArtefactKind
+    artefact: dso.model.LocalArtefactId
+    findings: tuple[AggregatedFinding]
+
+    def summary(
+        self,
+        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+        delivery_dashboard_url: str | None=None,
+        cfg_name: str | None=None,
+        sprint_name: str | None=None,
+    ) -> str:
+        component_version = version_util.greatest_version(
+            versions=self.component_versions,
+        )
+
+        ocm_node = k8s.util.get_ocm_node(
+            component_descriptor_lookup=component_descriptor_lookup,
+            artefact=dso.model.ComponentArtefactId(
+                component_name=self.component_name,
+                component_version=component_version,
+                artefact_kind=self.artefact_kind,
+                artefact=self.artefact,
+            ),
+        )
+
+        summary = textwrap.dedent(f'''\
+            ### {self.artefact.artefact_name}:{self.artefact.artefact_version}
+            {_artefact_id_to_str(artefact_id=self.artefact, include_version=False)}
+            {_artefact_url(ocm_node=ocm_node)}
+
+        ''')
+
+        if delivery_dashboard_url:
+            delivery_dashboard_url = _delivery_dashboard_url(
+                cfg_name=cfg_name,
+                base_url=delivery_dashboard_url,
+                component_name=self.component_name,
+                component_version=component_version,
+                sprint_name=sprint_name,
+                artefact_name=self.artefact.artefact_name,
+                artefact_versions=(self.artefact.artefact_version,),
+            )
+            summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+
+        return summary
 
 
 def is_remaining_quota_too_low(
@@ -218,11 +269,37 @@ def _issue_title(
     return title
 
 
-def _artefact_to_str(artefact: dso.model.ComponentArtefactId) -> str:
-    return (
-        f'{artefact.component_name}:{artefact.component_version}:'
-        f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_version}'
+def _artefact_id_to_str(
+    artefact_id: dso.model.LocalArtefactId,
+    include_version: bool=True,
+) -> str:
+    id = {
+        **({'version': artefact_id.artefact_version} if include_version else {}),
+        **artefact_id.artefact_extra_id,
+    }
+
+    if not id:
+        return ''
+
+    id_str = '<br>'.join(
+        f'{k}: {v}'
+        for k, v in id.items()
     )
+
+    # <pre>...</pre> is a code block like ```...``` which allows linebreaks using <br>
+    # (this is required for markdown tables)
+    return '<pre>' + id_str + '</pre>'
+
+
+def _artefact_url(
+    ocm_node: cnudie.iter.ArtefactNode,
+) -> str:
+    artefact_url = gcr._artifact_url(
+        component=ocm_node.component,
+        artifact=ocm_node.artefact,
+    )
+
+    return '<details><summary>Artefact-URL</summary><pre>' + artefact_url + '</pre></details>'
 
 
 def _delivery_dashboard_url(
@@ -268,39 +345,11 @@ def _delivery_dashboard_url(
 def _vulnerability_template_vars(
     cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
-    ocm_nodes: collections.abc.Iterable[cnudie.iter.ResourceNode | cnudie.iter.SourceNode],
-    findings_by_versions: dict[str, tuple[AggregatedFinding]],
+    grouped_findings: list[GroupedFindings],
     summary: str,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     sprint_name: str=None,
 ) -> dict[str, str]:
-    # find artefact with greatest version to use its label
-    greatest_version = version_util.greatest_version(
-        versions=set(ocm_node.component_id.version for ocm_node in ocm_nodes)
-    )
-    for ocm_node in ocm_nodes:
-        if ocm_node.component_id.version == greatest_version:
-            break
-
-    cve_rescoring_rules = []
-    if issue_replicator_config.cve_rescoring_ruleset:
-        cve_rescoring_rules = issue_replicator_config.cve_rescoring_ruleset.rules
-
-    rescore_label = ocm_node.artefact.find_label(
-        name=dso.labels.CveCategorisationLabel.name,
-    )
-    if not rescore_label:
-        rescore_label = ocm_node.component.find_label(
-            name=dso.labels.CveCategorisationLabel.name,
-        )
-
-    if rescore_label:
-        rescore_label: dso.labels.CveCategorisationLabel = dso.labels.deserialise_label(
-            label=rescore_label,
-        )
-        cve_categorisation = rescore_label.value
-    else:
-        cve_categorisation = None
-
     summary += '# Summary of found vulnerabilities'
 
     def _group_findings(
@@ -309,17 +358,18 @@ def _vulnerability_template_vars(
         '''
         returns `findings` grouped by the affected package of the finding and the CVE
         '''
-        grouped_findings = dict()
+        grouped_findings_by_package = dict()
 
         for finding in findings:
             package_name = finding.finding.data.package_name
+            cve = finding.finding.data.cve
 
-            if not package_name in grouped_findings:
-                grouped_findings[package_name] = collections.defaultdict(list)
+            if not package_name in grouped_findings_by_package:
+                grouped_findings_by_package[package_name] = collections.defaultdict(list)
 
-            grouped_findings[package_name][finding.finding.data.cve].append(finding)
+            grouped_findings_by_package[package_name][cve].append(finding)
 
-        return grouped_findings
+        return grouped_findings_by_package
 
     def _grouped_findings_to_table_row(
         findings: list[AggregatedFinding],
@@ -368,40 +418,53 @@ def _vulnerability_template_vars(
 
         return f'\n| `{finding.data.package_name}` | {_vulnerability_str()} | {versions} |'
 
-    for version_key, findings in sorted(
-        findings_by_versions.items(),
-        key=lambda version: version[0],
-    ):
-        for ocm_node in ocm_nodes:
-            if f'{ocm_node.component.version}:{ocm_node.artefact.version}' == version_key:
-                break
-        else:
-            raise ValueError(version_key) # this line should never be reached
+    cve_rescoring_rules = []
+    if issue_replicator_config.cve_rescoring_ruleset:
+        cve_rescoring_rules = issue_replicator_config.cve_rescoring_ruleset.rules
 
-        summary += f'\n### {(
-            f'{ocm_node.component.name}:{ocm_node.component.version}:'
-            f'{ocm_node.artefact.name}:{ocm_node.artefact.version}'
-        )}\n'
-
-        if issue_replicator_config.delivery_dashboard_url:
-            delivery_dashboard_url = _delivery_dashboard_url(
-                cfg_name=cfg_name,
-                base_url=issue_replicator_config.delivery_dashboard_url,
-                component_name=ocm_node.component.name,
-                component_version=ocm_node.component.version,
-                sprint_name=sprint_name,
-                artefact_name=ocm_node.artefact.name,
-                artefact_versions=(ocm_node.artefact.version,),
-            )
-            summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+    for grouped_finding in grouped_findings:
+        summary += '\n' + grouped_finding.summary(
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=issue_replicator_config.delivery_dashboard_url,
+            cfg_name=cfg_name,
+            sprint_name=sprint_name,
+        )
 
         report_urls = {(
             f'[BDBA {finding.finding.data.product_id}]'
             f'({finding.finding.data.report_url})'
-        ) for finding in findings}
+        ) for finding in grouped_finding.findings}
         report_urls_str = '\n'.join(sorted(report_urls))
-
         summary += f'{report_urls_str}\n'
+
+        component_version = version_util.greatest_version(
+            versions=grouped_finding.component_versions,
+        )
+        ocm_node = k8s.util.get_ocm_node(
+            component_descriptor_lookup=component_descriptor_lookup,
+            artefact=dso.model.ComponentArtefactId(
+                component_name=grouped_finding.component_name,
+                component_version=component_version,
+                artefact_kind=grouped_finding.artefact_kind,
+                artefact=grouped_finding.artefact,
+            ),
+        )
+
+        rescore_label = ocm_node.artefact.find_label(
+            name=dso.labels.CveCategorisationLabel.name,
+        )
+        if not rescore_label:
+            rescore_label = ocm_node.component.find_label(
+                name=dso.labels.CveCategorisationLabel.name,
+            )
+
+        if rescore_label:
+            rescore_label: dso.labels.CveCategorisationLabel = dso.labels.deserialise_label(
+                label=rescore_label,
+            )
+            cve_categorisation = rescore_label.value
+        else:
+            cve_categorisation = None
 
         summary += (
             '\n| Affected Package | CVE | CVE Score | Severity | Rescoring Suggestion | Package Version(s) |' # noqa: E501
@@ -409,14 +472,14 @@ def _vulnerability_template_vars(
         ) + ''.join(
             _grouped_findings_to_table_row(findings=grouped_findings_by_cve)
             for _, grouped_findings_by_package in sorted(
-                _group_findings(findings=findings).items(),
+                _group_findings(findings=grouped_finding.findings).items(),
                 key=lambda grouped_finding: grouped_finding[0], # sort by package name
             )
             for grouped_findings_by_cve in sorted(
                 grouped_findings_by_package.values(),
-                key=lambda grouped_findings: (
-                    -grouped_findings[0].finding.data.cvss_v3_score,
-                    grouped_findings[0].finding.data.cve,
+                key=lambda group: (
+                    -group[0].finding.data.cvss_v3_score,
+                    group[0].finding.data.cve,
                 ),
             )
         )
@@ -430,11 +493,12 @@ def _vulnerability_template_vars(
 def _malware_template_vars(
     cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
-    findings_by_versions: dict[str, tuple[AggregatedFinding]],
+    grouped_findings: list[GroupedFindings],
     summary: str,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     sprint_name: str=None,
 ) -> dict[str, str]:
+    summary += '# Summary of found Malware'
 
     def iter_findings(
         aggregated_findings: tuple[AggregatedFinding],
@@ -443,38 +507,20 @@ def _malware_template_vars(
             finding_details: dso.model.MalwareFindingDetails = af.finding.data.finding
             yield finding_details.malware, finding_details.filename, finding_details.content_digest
 
-    summary += '# Summary of found Malware'
-
-    for version_key, findings in sorted(
-        findings_by_versions.items(),
-        key=lambda version: version[0],
-    ):
-        for artefact in artefacts:
-            if f'{artefact.component_version}:{artefact.artefact.artefact_version}' == version_key:
-                break
-        else:
-            raise ValueError(version_key) # this line should never be reached
-
-        summary += f'\n### {_artefact_to_str(artefact=artefact)}\n'
-
-        if issue_replicator_config.delivery_dashboard_url:
-            delivery_dashboard_url = _delivery_dashboard_url(
-                cfg_name=cfg_name,
-                base_url=issue_replicator_config.delivery_dashboard_url,
-                component_name=artefact.component_name,
-                component_version=artefact.component_version,
-                sprint_name=sprint_name,
-                artefact_name=artefact.artefact.artefact_name,
-                artefact_versions=(artefact.artefact.artefact_version,),
-            )
-            summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+    for grouped_finding in grouped_findings:
+        summary += '\n' + grouped_finding.summary(
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=issue_replicator_config.delivery_dashboard_url,
+            cfg_name=cfg_name,
+            sprint_name=sprint_name,
+        )
 
         summary += (
             '\n| Malware | Filename | Content Digest |'
             '\n| --- | --- | --- |'
         ) + ''.join(
             f'\n| {malware} | {filename} | {content_digest} |'
-            for malware, filename, content_digest in iter_findings(findings)
+            for malware, filename, content_digest in iter_findings(grouped_finding.findings)
         )
         summary += '\n---'
 
@@ -486,9 +532,9 @@ def _malware_template_vars(
 def _license_template_vars(
     cfg_name: str,
     issue_replicator_config: config.IssueReplicatorConfig,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
-    findings_by_versions: dict[str, tuple[AggregatedFinding]],
+    grouped_findings: list[GroupedFindings],
     summary: str,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     sprint_name: str=None,
 ) -> dict[str, str]:
     summary += '# Summary of found licenses'
@@ -499,17 +545,18 @@ def _license_template_vars(
         '''
         returns `findings` grouped by the affected package of the finding and the license name
         '''
-        grouped_findings = dict()
+        grouped_findings_by_package = dict()
 
         for finding in findings:
             package_name = finding.finding.data.package_name
+            license_name = finding.finding.data.license.name
 
-            if not package_name in grouped_findings:
-                grouped_findings[package_name] = collections.defaultdict(list)
+            if not package_name in grouped_findings_by_package:
+                grouped_findings_by_package[package_name] = collections.defaultdict(list)
 
-            grouped_findings[package_name][finding.finding.data.license.name].append(finding)
+            grouped_findings_by_package[package_name][license_name].append(finding)
 
-        return grouped_findings
+        return grouped_findings_by_package
 
     def _grouped_findings_to_table_row(
         findings: list[AggregatedFinding],
@@ -535,36 +582,19 @@ def _license_template_vars(
 
         return f'\n| `{finding.data.package_name}` | {_license_str()} | {versions} |'
 
-    for version_key, findings in sorted(
-        findings_by_versions.items(),
-        key=lambda version: version[0],
-    ):
-        for artefact in artefacts:
-            if f'{artefact.component_version}:{artefact.artefact.artefact_version}' == version_key:
-                break
-        else:
-            raise ValueError(version_key) # this line should never be reached
-
-        summary += f'\n### {_artefact_to_str(artefact=artefact)}\n'
-
-        if issue_replicator_config.delivery_dashboard_url:
-            delivery_dashboard_url = _delivery_dashboard_url(
-                cfg_name=cfg_name,
-                base_url=issue_replicator_config.delivery_dashboard_url,
-                component_name=artefact.component_name,
-                component_version=artefact.component_version,
-                sprint_name=sprint_name,
-                artefact_name=artefact.artefact.artefact_name,
-                artefact_versions=(artefact.artefact.artefact_version,),
-            )
-            summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+    for grouped_finding in grouped_findings:
+        summary += '\n' + grouped_finding.summary(
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=issue_replicator_config.delivery_dashboard_url,
+            cfg_name=cfg_name,
+            sprint_name=sprint_name,
+        )
 
         report_urls = {(
             f'[BDBA {finding.finding.data.product_id}]'
             f'({finding.finding.data.report_url})'
-        ) for finding in findings}
+        ) for finding in grouped_finding.findings}
         report_urls_str = '\n'.join(sorted(report_urls))
-
         summary += f'{report_urls_str}\n'
 
         summary += (
@@ -573,7 +603,7 @@ def _license_template_vars(
         ) + ''.join(
             _grouped_findings_to_table_row(findings=grouped_findings_by_license)
             for _, grouped_findings_by_package in sorted(
-                _group_findings(findings=findings).items(),
+                _group_findings(findings=grouped_finding.findings).items(),
                 key=lambda grouped_finding: grouped_finding[0], # sort by package name
             )
             for grouped_findings_by_license in sorted(
@@ -589,12 +619,15 @@ def _license_template_vars(
 
 
 def _diki_template_vars(
-    findings_by_versions: dict[str, tuple[AggregatedFinding]],
+    grouped_findings: list[GroupedFindings],
     summary: str,
 ) -> dict[str, str]:
     # GitHub has a maximum character limit of 65,536
     MAX_SUMMARY_SIZE = 60000
-    findings_list = list(findings_by_versions.values())
+
+    findings: list[AggregatedFinding] = []
+    for grouped_finding in grouped_findings:
+        findings.extend(grouped_finding.findings)
 
     def _targets_table(
         targets: list[dict],
@@ -629,45 +662,46 @@ def _diki_template_vars(
         return table
 
     shortened_summary = summary
-    for findings in findings_list:
-        for finding in findings:
+    for finding in findings:
 
-            finging_rule = finding.finding.data
-            finding_str = '\n'
-            finding_str += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
-            finding_str += f' rule with ID {finging_rule.rule_id}\n'
-            finding_str += '\n'
-            finding_str += '### Failed checks:\n'
+        finging_rule = finding.finding.data
+        finding_str = '\n'
+        finding_str += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
+        finding_str += f' rule with ID {finging_rule.rule_id}\n'
+        finding_str += '\n'
+        finding_str += '### Failed checks:\n'
 
-            summary += finding_str
-            shortened_summary += finding_str
+        summary += finding_str
+        shortened_summary += finding_str
 
-            for check in finging_rule.checks:
-                check_msg_str = '\n'
-                check_msg_str += f'Message: {check.message}\n'
-                check_msg_str += 'Targets:\n'
-                check_msg_str += '\n'
+        for check in finging_rule.checks:
+            check_msg_str = '\n'
+            check_msg_str += f'Message: {check.message}\n'
+            check_msg_str += 'Targets:\n'
+            check_msg_str += '\n'
 
-                summary += check_msg_str
-                shortened_summary += check_msg_str
+            summary += check_msg_str
+            shortened_summary += check_msg_str
 
-                match check.targets:
-                    # process merged checks
-                    case dict():
-                        for key, value in check.targets.items():
-                            shortened_summary += f'{key}: {len(value)} targets\n'
-                            summary += '<details>\n'
-                            summary += f'<summary>{key}:</summary>\n'
-                            summary += '\n'
-                            summary += _targets_table(value)
-                            summary += '</details>\n'
-                            summary += '\n'
-                    # process single checks
-                    case list():
-                        shortened_summary += f'{len(check.targets)} targets\n'
-                        summary += _targets_table(check.targets)
-                    case _:
-                        raise TypeError(check.targets) # this line should never be reached
+            match check.targets:
+                # process merged checks
+                case dict():
+                    for key, value in check.targets.items():
+                        shortened_summary += f'{key}: {len(value)} targets\n'
+                        summary += textwrap.dedent(f'''\
+                            <details>
+                            <summary>{key}:</summary>
+
+                            {_targets_table(value)}
+                            </details>
+
+                        ''')
+                # process single checks
+                case list():
+                    shortened_summary += f'{len(check.targets)} targets\n'
+                    summary += _targets_table(check.targets)
+                case _:
+                    raise TypeError(check.targets) # this line should never be reached
 
     return {
         'summary': summary if len(summary) <= MAX_SUMMARY_SIZE else shortened_summary,
@@ -681,119 +715,82 @@ def _template_vars(
     issue_type: str,
     artefacts: tuple[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
-    artefact_versions_without_scan: set[str],
+    artefact_ids_without_scan: set[dso.model.LocalArtefactId],
     latest_processing_date: datetime.date,
     sprint_name: str=None,
 ) -> dict:
-    # retrieve all distinct component- and artefact-versions and store information whether their
-    # artefact has findings or not (required for explicit depiction afterwards)
-    findings_by_versions: dict[str, tuple[dso.model.ArtefactMetadata]] = dict()
+    # contained `artefacts` may only differ in their `component_version`, `artefact_version`,
+    # and `artefact_extra_id` (we aggregate the issues across those properties)
+    artefact = artefacts[0]
+    component_name = artefact.component_name
+    artefact_kind = artefact.artefact_kind
+    artefact_name = artefact.artefact.artefact_name
+    artefact_type = artefact.artefact.artefact_type
 
-    c_versions_have_findings: dict[str, bool] = dict()
-    a_versions_have_findings: dict[str, bool] = dict()
-    artefact_urls: set[str] = set()
-    ocm_nodes: list[cnudie.iter.ResourceNode | cnudie.iter.SourceNode] = []
+    # all component versions which have artefacts with findings -> required for summary table
+    component_versions: set[str] = set()
+    # findings per artefact id for the detailed view
+    grouped_findings: dict[dso.model.LocalArtefactId, GroupedFindings] = dict()
 
     for artefact in artefacts:
-        c_version = artefact.component_version
-        a_version = artefact.artefact.artefact_version
+        component_version = artefact.component_version
+        artefact_id = artefact.artefact
+
+        if artefact_id in grouped_findings:
+            component_versions.add(component_version)
+            grouped_findings[artefact_id].component_versions.add(component_version)
+            continue
 
         filtered_findings = tuple(
             finding for finding in findings
-            if (
-                finding.finding.artefact.artefact.artefact_version == a_version
-                and (
-                    not finding.finding.artefact.component_version
-                    or finding.finding.artefact.component_version == c_version
-                )
-            )
+            if finding.finding.artefact.artefact == artefact_id
         )
 
-        ocm_node = k8s.util.get_ocm_node(
-            component_descriptor_lookup=component_descriptor_lookup,
-            artefact=artefact,
+        if not filtered_findings:
+            # artefact has no findings for this datatype-sprint combination
+            continue
+
+        component_versions.add(component_version)
+        grouped_findings[artefact_id] = GroupedFindings(
+            component_name=component_name,
+            component_versions={component_version},
+            artefact_kind=artefact_kind,
+            artefact=artefact_id,
+            findings=filtered_findings,
         )
-        if ocm_node:
-            artefact_urls.add(
-                gcr._artifact_url(
-                    component=ocm_node.component,
-                    artifact=ocm_node.artefact,
-                )
-            )
-            ocm_nodes.append(ocm_node)
 
-        if filtered_findings:
-            findings_by_versions[f'{c_version}:{a_version}'] = filtered_findings
+    c_versions_str = ', '.join(sorted(component_versions))
 
-            c_versions_have_findings[c_version] = True
-            a_versions_have_findings[a_version] = True
-        else:
-            c_versions_have_findings[c_version] = c_versions_have_findings.get(c_version, False)
-            a_versions_have_findings[a_version] = a_versions_have_findings.get(a_version, False)
-
-    c_versions = tuple(
-        version for version
-        in c_versions_have_findings.keys()
-        if version
+    artefact_ids = sorted(grouped_findings.keys(), key=lambda id: id.artefact_version)
+    artefact_ids_str = ''.join(
+        _artefact_id_to_str(artefact_id=artefact_id)
+        for artefact_id in artefact_ids
     )
-    c_versions_str = ', '.join(sorted(c_versions))
 
-    c_versions_with_findings = tuple(
-        version for version, has_findings
-        in c_versions_have_findings.items()
-        if version and has_findings
+    artefacts_without_scan_str = ''.join(
+        _artefact_id_to_str(artefact_id=artefact_id_without_scan)
+        for artefact_id_without_scan in artefact_ids_without_scan
     )
-    c_versions_with_findings_str = ', '.join(sorted(c_versions_with_findings))
-
-    a_versions = tuple(
-        version for version
-        in a_versions_have_findings.keys()
-        if version
-    )
-    a_versions_str = ', '.join(sorted(a_versions))
-
-    a_versions_with_findings = tuple(
-        version for version, has_findings
-        in a_versions_have_findings.items()
-        if version and has_findings
-    )
-    a_versions_with_findings_str = ', '.join(sorted(a_versions_with_findings))
-    a_versions_without_scan_str = ', '.join(sorted(artefact_versions_without_scan))
-
-    a_urls_str = '<br/>'.join(sorted(artefact_urls))
-
-    artefact = artefacts[0]
 
     summary = textwrap.dedent(f'''\
         # Compliance Status Summary
 
         |    |    |
         | -- | -- |
-        | Component | {artefact.component_name} |
-        | {gcr._pluralise('Component-Version', len(c_versions))} | {c_versions_str} |
-        | {gcr._pluralise(
-            prefix='Component-Version',
-            count=len(c_versions_with_findings),
-        )} with Findings | {c_versions_with_findings_str} |
-        | Artefact  | {artefact.artefact.artefact_name} |
-        | {gcr._pluralise('Artefact-Version', len(a_versions))} | {a_versions_str} |
-        | {gcr._pluralise(
-            prefix='Artefact-Version',
-            count=len(a_versions_with_findings),
-        )} with Findings | {a_versions_with_findings_str} |
-        | {gcr._pluralise(
-            prefix='Artefact-Version',
-            count=len(a_versions_with_findings),
-        )} without Scan | {a_versions_without_scan_str} |
-        | Artefact-Type | {artefact.artefact.artefact_type} |
-        | {gcr._pluralise('URL', len(artefact_urls))} | {a_urls_str} |
+        | Component | {component_name} |
+        | {gcr._pluralise('Component-Version', len(component_versions))} | {c_versions_str} |
+        | Artefact | {artefact_name} |
+        | Artefact-Type | {artefact_type} |
+        | {gcr._pluralise('Artefact-Id', len(artefact_ids))} | {artefact_ids_str} |
         | Latest Processing Date | {latest_processing_date} |
     ''')
 
+    if artefact_ids_without_scan:
+        summary += f'| {gcr._pluralise('Artefact', len(artefact_ids_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
+
     if findings:
         summary += (
-            '\nThe aforementioned '
-            f'{gcr._pluralise(artefact.artefact.artefact_type, len(a_versions_with_findings))} '
+            f'\nThe aforementioned {gcr._pluralise(artefact_type, len(artefact_ids))} '
             'yielded findings relevant for future release decisions.\n'
         )
     else:
@@ -803,15 +800,18 @@ def _template_vars(
         )
 
     template_variables = {
-        'component_name': artefact.component_name,
-        'component_version': c_versions_with_findings_str,
-        'resource_name': artefact.artefact.artefact_name,
-        'resource_version': a_versions_with_findings_str,
-        'resource_type': artefact.artefact.artefact_type,
-        'artifact_name': artefact.artefact.artefact_name,
-        'artifact_version': a_versions_with_findings_str,
-        'artifact_type': artefact.artefact.artefact_type,
+        'component_name': component_name,
+        'component_version': c_versions_str,
+        'artefact_kind': artefact_kind,
+        'artefact_name': artefact_name,
+        'artefact_type': artefact_type,
+        'resource_type': artefact_type, # TODO deprecated -> remove once all templates are adjusted
     }
+
+    sorted_grouped_findings = sorted(
+        (grouped_finding for grouped_finding in grouped_findings.values()),
+        key=lambda grouped_finding: grouped_finding.artefact.artefact_version,
+    )
 
     if not findings:
         template_variables |= {
@@ -821,32 +821,32 @@ def _template_vars(
         template_variables |= _vulnerability_template_vars(
             cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
-            ocm_nodes=ocm_nodes,
-            findings_by_versions=findings_by_versions,
+            grouped_findings=sorted_grouped_findings,
             summary=summary,
+            component_descriptor_lookup=component_descriptor_lookup,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_licenses:
         template_variables |= _license_template_vars(
             cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
-            artefacts=artefacts,
-            findings_by_versions=findings_by_versions,
+            grouped_findings=sorted_grouped_findings,
             summary=summary,
+            component_descriptor_lookup=component_descriptor_lookup,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_malware:
         template_variables |= _malware_template_vars(
             cfg_name=cfg_name,
             issue_replicator_config=issue_replicator_config,
-            artefacts=artefacts,
-            findings_by_versions=findings_by_versions,
+            grouped_findings=sorted_grouped_findings,
             summary=summary,
+            component_descriptor_lookup=component_descriptor_lookup,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_diki:
         template_variables |= _diki_template_vars(
-            findings_by_versions=findings_by_versions,
+            grouped_findings=sorted_grouped_findings,
             summary=summary,
         )
 
@@ -919,7 +919,7 @@ def _create_or_update_issue(
     failed_milestones: None | list[github3.issues.milestone.Milestone],
     latest_processing_date: datetime.date,
     is_scanned: bool,
-    artefact_versions_without_scan: set[str],
+    artefact_ids_without_scan: set[dso.model.LocalArtefactId],
     extra_title: str=None,
     sprint_name: str=None,
     assignees: set[str]=set(),
@@ -968,7 +968,7 @@ def _create_or_update_issue(
         issue_type=issue_type,
         artefacts=artefacts,
         findings=findings,
-        artefact_versions_without_scan=artefact_versions_without_scan,
+        artefact_ids_without_scan=artefact_ids_without_scan,
         latest_processing_date=latest_processing_date,
         sprint_name=sprint_name,
     )
@@ -1023,7 +1023,7 @@ def _create_or_update_or_close_issue_per_finding(
     failed_milestones: None | list[github3.issues.milestone.Milestone],
     latest_processing_date: datetime.date,
     is_scanned: bool,
-    artefact_versions_without_scan: set[str],
+    artefact_ids_without_scan: set[dso.model.LocalArtefactId],
     sprint_name: str=None,
     assignees: set[str]=set(),
     assignees_statuses: set[str]=set(),
@@ -1056,7 +1056,7 @@ def _create_or_update_or_close_issue_per_finding(
             failed_milestones=failed_milestones,
             latest_processing_date=latest_processing_date,
             is_scanned=is_scanned,
-            artefact_versions_without_scan=artefact_versions_without_scan,
+            artefact_ids_without_scan=artefact_ids_without_scan,
             extra_title=data.key,
             sprint_name=sprint_name,
             assignees=assignees,
@@ -1085,9 +1085,9 @@ def create_or_update_or_close_issue(
     correlation_id: str,
     latest_processing_date: datetime.date,
     is_in_bom: bool,
-    artefact_versions_without_scan: set[str],
+    artefact_ids_without_scan: set[dso.model.LocalArtefactId],
 ):
-    is_scanned = len(artefact_versions_without_scan) == 0
+    is_scanned = len(artefact_ids_without_scan) == 0
 
     labels = {
         correlation_id,
@@ -1169,7 +1169,7 @@ def create_or_update_or_close_issue(
             failed_milestones=failed_milestones,
             latest_processing_date=latest_processing_date,
             is_scanned=is_scanned,
-            artefact_versions_without_scan=artefact_versions_without_scan,
+            artefact_ids_without_scan=artefact_ids_without_scan,
             sprint_name=sprint_name,
             assignees=assignees,
             assignees_statuses=assignees_statuses,
@@ -1188,7 +1188,7 @@ def create_or_update_or_close_issue(
         failed_milestones=failed_milestones,
         latest_processing_date=latest_processing_date,
         is_scanned=is_scanned,
-        artefact_versions_without_scan=artefact_versions_without_scan,
+        artefact_ids_without_scan=artefact_ids_without_scan,
         sprint_name=sprint_name,
         assignees=assignees,
         assignees_statuses=assignees_statuses,
