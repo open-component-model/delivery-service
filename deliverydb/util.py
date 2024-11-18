@@ -236,7 +236,7 @@ class ArtefactMetadataQueries:
                 sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_extra_id_normalised == None,
+                        dm.ArtefactMetaData.artefact_extra_id_normalised == '',
                     ),
                     dm.ArtefactMetaData.artefact_extra_id_normalised
                         == dso.model.normalise_artefact_extra_id(
