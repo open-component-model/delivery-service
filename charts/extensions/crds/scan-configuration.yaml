@@ -282,3 +282,35 @@ spec:
                                   type: string
                                 matching_semantics:
                                   type: string
+                clamav:
+                  x-kubernetes-preserve-unknown-fields: true
+                  type: object
+                  properties:
+                    delivery_service_url:
+                      type: string
+                    rescan_interval:
+                      type: integer
+                    lookup_new_backlog_item_interval:
+                      type: integer
+                    aws_cfg_name:
+                      type: string
+                    matching_configs:
+                      type: array
+                      items:
+                        x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          rules:
+                            type: array
+                            items:
+                              x-kubernetes-preserve-unknown-fields: true
+                              type: object
+                              properties:
+                                target:
+                                  type: string
+                                expression:
+                                  type: string
+                                matching_semantics:
+                                  type: string
