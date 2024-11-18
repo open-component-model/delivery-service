@@ -83,14 +83,14 @@ class ClamAVConfig:
         time after which an artefact must be re-scanned at latest
     :param str aws_cfg_name
         cfg-element used to create s3 client to retrieve artefacts
-    :param tuple[str] artefact_types:
-        list of artefact types which should be scanned, other artefact types are skipped
+    :param Callable[Node, bool] node_filter:
+        filter of artefact nodes to explicitly in- or exclude artefacts from the clamav scan
     '''
     delivery_service_url: str
     lookup_new_backlog_item_interval: int
     rescan_interval: int
     aws_cfg_name: str
-    artefact_types: tuple[str]
+    node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -407,22 +407,25 @@ def deserialise_clamav_config(
         on_absent_message='artefacts of access type s3 will not be scanned'
     )
 
-    artefact_types = tuple(deserialise_config_property(
+    matching_configs_raw = deserialise_config_property(
         config=clamav_config,
-        property_key='artefact_types',
+        property_key='matching_configs',
         default_config=default_config,
-        default_value=(
-            ocm.ArtefactType.OCI_IMAGE,
-            'application/tar+vm-image-rootfs',
-        ),
-    ))
+        default_value=[],
+    )
+    matching_configs = config_filter.matching_configs_from_dicts(
+        dicts=matching_configs_raw,
+    )
+    node_filter = config_filter.filter_for_matching_configs(
+        configs=matching_configs,
+    )
 
     return ClamAVConfig(
         delivery_service_url=delivery_service_url,
         lookup_new_backlog_item_interval=lookup_new_backlog_item_interval,
         rescan_interval=rescan_interval,
         aws_cfg_name=aws_cfg_name,
-        artefact_types=artefact_types,
+        node_filter=node_filter,
     )
 
 
