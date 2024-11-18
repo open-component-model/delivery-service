@@ -37,10 +37,6 @@ spec:
                       type: string
                     lookup_new_backlog_item_interval:
                       type: integer
-                    artefact_types:
-                      type: array
-                      items:
-                        type: string
                     matching_configs:
                       type: array
                       items:
@@ -106,10 +102,6 @@ spec:
                       type: string
                     compliance_snapshot_grace_period:
                       type: integer
-                    artefact_types:
-                      type: array
-                      items:
-                        type: string
                     matching_configs:
                       type: array
                       items:
@@ -178,10 +170,6 @@ spec:
                       type: string
                     processing_mode:
                       type: string
-                    artefact_types:
-                      type: array
-                      items:
-                        type: string
                     matching_configs:
                       type: array
                       items:
@@ -258,10 +246,6 @@ spec:
                       type: integer
                     enable_issue_assignees:
                       type: boolean
-                    artefact_types:
-                      type: array
-                      items:
-                        type: string
                     matching_configs:
                       type: array
                       items:

@@ -145,7 +145,6 @@ def create_compliance_snapshot(
 
 def _iter_ocm_artefact_nodes(
     components: tuple[config.Component],
-    artefact_types: tuple[str],
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool],
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
@@ -178,23 +177,20 @@ def _iter_ocm_artefact_nodes(
                 component=component,
                 lookup=component_descriptor_lookup,
                 node_filter=lambda node: (
-                    cnudie.iter.Filter.resources(node) and
-                    node.artefact.type in artefact_types and
-                    node_filter(node)
+                    cnudie.iter.Filter.resources(node)
+                    and node_filter(node)
                 ),
             )
 
 
 def _iter_ocm_artefacts(
     components: tuple[config.Component],
-    artefact_types: tuple[str],
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool],
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:
     for artefact_node in _iter_ocm_artefact_nodes(
         components=components,
-        artefact_types=artefact_types,
         node_filter=node_filter,
         delivery_client=delivery_client,
         component_descriptor_lookup=component_descriptor_lookup,
@@ -545,7 +541,6 @@ def enumerate_artefacts(
 
     ocm_artefacts = set(_iter_ocm_artefacts(
         components=scan_config.artefact_enumerator_config.components,
-        artefact_types=scan_config.artefact_enumerator_config.artefact_types,
         node_filter=scan_config.artefact_enumerator_config.node_filter,
         delivery_client=delivery_client,
         component_descriptor_lookup=component_descriptor_lookup,

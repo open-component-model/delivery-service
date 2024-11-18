@@ -56,8 +56,6 @@ class ArtefactEnumeratorConfig:
     :param str delivery_service_url
     :param int compliance_snapshot_grace_period:
         time after which inactive compliance snapshots are deleted from the delivery-db
-    :param tuple[str] artefact_types:
-        list of artefact types for which compliance snapshots should be created
     :param Callable[Node, bool] node_filter:
         filter of artefact nodes to explicitly in- or exclude artefacts compliance snapshot creation
     :param tuple[Component] components:
@@ -67,7 +65,6 @@ class ArtefactEnumeratorConfig:
     '''
     delivery_service_url: str
     compliance_snapshot_grace_period: int
-    artefact_types: tuple[str]
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
     components: tuple[Component]
     sprints_time_range: TimeRange
@@ -112,8 +109,6 @@ class BDBAConfig:
         name of config element to use for creating a s3 client
     :param ProcessingMode processing_mode:
         defines the scanning behaviour in case there is already an existing scan
-    :param tuple[str] artefact_types:
-        list of artefact types which should be scanned, other artefact types are skipped
     :param Callable[Node, bool] node_filter:
         filter of artefact nodes to explicitly in- or exclude artefacts from the bdba scan
     :param CveRescoringRuleSet cve_rescoring_ruleset:
@@ -136,7 +131,6 @@ class BDBAConfig:
     cvss_version: bdba.model.CVSSVersion
     aws_cfg_set_name: str
     processing_mode: bdba.model.ProcessingMode
-    artefact_types: tuple[str]
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
     cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet | None
     auto_assess_max_severity: dso.cvss.CVESeverity
@@ -192,8 +186,6 @@ class IssueReplicatorConfig:
         labels matching one of these regexes won't be removed upon an issue update
     :param int number_included_closed_issues:
         number of closed issues to consider when evaluating creating vs re-opening an issue
-    :param tuple[str] artefact_types:
-        list of artefact types for which issues should be created, other artefact types are skipped
     :param Callable[Node, bool] node_filter:
         filter of artefact nodes to explicitly in- or exclude artefacts from the issue replication
     :param CveRescoringRuleSet cve_rescoring_ruleset:
@@ -212,7 +204,6 @@ class IssueReplicatorConfig:
     github_issue_template_cfgs: tuple[image_scan.GithubIssueTemplateCfg]
     github_issue_labels_to_preserve: set[str]
     number_included_closed_issues: int
-    artefact_types: tuple[str]
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
     cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet | None
     finding_type_issue_replication_cfgs: tuple[FindingTypeIssueReplicationCfgBase]
@@ -311,16 +302,6 @@ def deserialise_artefact_enumerator_config(
         default_value=60 * 60 * 24, # 24h
     )
 
-    artefact_types = tuple(deserialise_config_property(
-        config=artefact_enumerator_config,
-        property_key='artefact_types',
-        default_config=default_config,
-        default_value=(
-            ocm.ArtefactType.OCI_IMAGE,
-            'application/tar+vm-image-rootfs',
-        ),
-    ))
-
     matching_configs_raw = deserialise_config_property(
         config=artefact_enumerator_config,
         property_key='matching_configs',
@@ -365,7 +346,6 @@ def deserialise_artefact_enumerator_config(
     return ArtefactEnumeratorConfig(
         delivery_service_url=delivery_service_url,
         compliance_snapshot_grace_period=compliance_snapshot_grace_period,
-        artefact_types=artefact_types,
         node_filter=node_filter,
         components=components,
         sprints_time_range=sprints_time_range,
@@ -492,16 +472,6 @@ def deserialise_bdba_config(
     )
     processing_mode = bdba.model.ProcessingMode(processing_mode_raw)
 
-    artefact_types = tuple(deserialise_config_property(
-        config=bdba_config,
-        property_key='artefact_types',
-        default_config=default_config,
-        default_value=(
-            ocm.ArtefactType.OCI_IMAGE,
-            'application/tar+vm-image-rootfs',
-        ),
-    ))
-
     matching_configs_raw = deserialise_config_property(
         config=bdba_config,
         property_key='matching_configs',
@@ -588,7 +558,6 @@ def deserialise_bdba_config(
         cvss_version=cvss_version,
         aws_cfg_set_name=aws_cfg_set_name,
         processing_mode=processing_mode,
-        artefact_types=artefact_types,
         node_filter=node_filter,
         cve_rescoring_ruleset=cve_rescoring_ruleset,
         auto_assess_max_severity=auto_assess_max_severity,
@@ -788,16 +757,6 @@ def deserialise_issue_replicator_config(
         default_value=0,
     )
 
-    artefact_types = tuple(deserialise_config_property(
-        config=issue_replicator_config,
-        property_key='artefact_types',
-        default_config=default_config,
-        default_value=(
-            ocm.ArtefactType.OCI_IMAGE,
-            'application/tar+vm-image-rootfs',
-        ),
-    ))
-
     matching_configs_raw = deserialise_config_property(
         config=issue_replicator_config,
         property_key='matching_configs',
@@ -869,7 +828,6 @@ def deserialise_issue_replicator_config(
         github_issue_template_cfgs=github_issue_template_cfgs,
         github_issue_labels_to_preserve=github_issue_labels_to_preserve,
         number_included_closed_issues=number_included_closed_issues,
-        artefact_types=artefact_types,
         node_filter=node_filter,
         cve_rescoring_ruleset=cve_rescoring_ruleset,
         finding_type_issue_replication_cfgs=finding_type_issue_replication_cfgs,

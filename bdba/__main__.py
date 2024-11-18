@@ -127,9 +127,6 @@ def scan(
         artefact=backlog_item.artefact,
     )
 
-    if not resource_node.resource.type in bdba_config.artefact_types:
-        return
-
     if not bdba_config.node_filter(resource_node):
         return
 

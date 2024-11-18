@@ -36,9 +36,6 @@ configuration:
       spec: {}
         # artefactEnumerator:
         #   delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
-        #   artefact_types:
-        #     - ociImage
-        #     - application/tar+vm-image-rootfs
         #   components:
         #     - component_name: ocm.software/ocm-gear
         #     - component_name: ocm.software/ocmcli
@@ -51,9 +48,6 @@ configuration:
         #   rescan_interval: 3600 # 1h
         #   cfg_name: local
         #   group_id: ...
-        #   artefact_types:
-        #     - ociImage
-        #     - application/tar+vm-image-rootfs
         #   auto_assess_max_severity: MEDIUM
         #   cve_rescoring_rules:
         #     - category_value: network_exposure:public
@@ -260,9 +254,6 @@ configuration:
         #     - OSL
         #     - RPL-1.5
         #     - sleepycat
-        #   artefact_types:
-        #     - ociImage
-        #     - application/tar+vm-image-rootfs
         #   finding_type_issue_replication_configs:
         #   - finding_type: finding/vulnerability
         #     enable_issue_assignees: False
