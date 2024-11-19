@@ -30,6 +30,7 @@ class Services(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefactEnumerator'
     BACKLOG_CONTROLLER = 'backlogController'
     BDBA = 'bdba'
+    CACHE_MANAGER = 'cacheManager'
     CLAMAV = 'clamav'
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
     ISSUE_REPLICATOR = 'issueReplicator'
@@ -220,11 +221,49 @@ class IssueReplicatorConfig:
 
 
 @dataclasses.dataclass(frozen=True)
+class CachePruningWeights:
+    '''
+    The individual weights determine how much the respective values are being considered when
+    determining those cache entries which should be deleted next (in case the max cache size is
+    reached). The greater the weight, the less likely an entry will be considered for deletion.
+    Negative values may be also used to express a property which determines that an entry should
+    be deleted. 0 means the property does not affect the priority for the next deletion.
+    '''
+    creation_date_weight: float = 0
+    last_update_weight: float = 0
+    delete_after_weight: float = 0
+    keep_until_weight: float = 0
+    last_read_weight: float = 0
+    read_count_weight: float = 0
+    revision_weight: float = 0
+    costs_weight: float = 0
+    size_weight: float = 0
+
+
+@dataclasses.dataclass(frozen=True)
+class CacheManagerConfig:
+    '''
+    :param str delivery_db_cfg_name:
+        name of config element of the delivery database
+    :param int max_cache_size_bytes
+    :param int min_pruning_bytes:
+        If `max_cache_size_bytes` is reached, existing cache entries will be removed according to
+        the `cache_pruning_weights` until `min_pruning_bytes` is available again.
+    :param CachePruningWeights cache_pruning_weights
+    '''
+    delivery_db_cfg_name: str
+    max_cache_size_bytes: int
+    min_pruning_bytes: int
+    cache_pruning_weights: CachePruningWeights
+
+
+@dataclasses.dataclass(frozen=True)
 class ScanConfiguration:
     artefact_enumerator_config: ArtefactEnumeratorConfig
     bdba_config: BDBAConfig
     issue_replicator_config: IssueReplicatorConfig
     clamav_config: ClamAVConfig
+    cache_manager_config: CacheManagerConfig
 
 
 def deserialise_component_config(
@@ -903,6 +942,63 @@ def deserialise_issue_replicator_config(
     )
 
 
+def deserialise_cache_manager_config(
+    spec_config: dict,
+) -> CacheManagerConfig | None:
+    cache_manager_config = spec_config.get('cacheManager')
+
+    if not cache_manager_config:
+        return None
+
+    delivery_db_cfg_name = deserialise_config_property(
+        config=cache_manager_config,
+        property_key='delivery_db_cfg_name',
+    )
+
+    max_cache_size_bytes = deserialise_config_property(
+        config=cache_manager_config,
+        property_key='max_cache_size_bytes',
+        default_value=1000000000, # 1Gb
+    )
+
+    min_pruning_bytes = deserialise_config_property(
+        config=cache_manager_config,
+        property_key='min_pruning_bytes',
+        default_value=100000000, # 100Mb
+    )
+
+    cache_pruning_weights_raw = deserialise_config_property(
+        config=cache_manager_config,
+        property_key='cache_pruning_weights',
+        default_value=dict(),
+    )
+
+    if cache_pruning_weights_raw:
+        cache_pruning_weights = dacite.from_dict(
+            data_class=CachePruningWeights,
+            data=cache_pruning_weights_raw,
+        )
+    else:
+        cache_pruning_weights = CachePruningWeights(
+            creation_date_weight=0,
+            last_update_weight=0,
+            delete_after_weight=-1.5, # deletion (i.e. stale) flag -> delete
+            keep_until_weight=-1, # keep until has passed -> delete
+            last_read_weight=-1, # long time no read -> delete
+            read_count_weight=10, # has many reads -> rather not delete
+            revision_weight=0,
+            costs_weight=10, # is expensive to re-calculate -> rather not delete
+            size_weight=0,
+        )
+
+    return CacheManagerConfig(
+        delivery_db_cfg_name=delivery_db_cfg_name,
+        max_cache_size_bytes=max_cache_size_bytes,
+        min_pruning_bytes=min_pruning_bytes,
+        cache_pruning_weights=cache_pruning_weights,
+    )
+
+
 def deserialise_scan_configuration(
     spec_config: dict,
     included_services: tuple[Services],
@@ -935,11 +1031,19 @@ def deserialise_scan_configuration(
     else:
         clamav_config = None
 
+    if Services.CACHE_MANAGER in included_services:
+        cache_manager_config = deserialise_cache_manager_config(
+            spec_config=spec_config,
+        )
+    else:
+        cache_manager_config = None
+
     return ScanConfiguration(
         artefact_enumerator_config=artefact_enumerator_config,
         bdba_config=bdba_config,
         issue_replicator_config=issue_replicator_config,
         clamav_config=clamav_config,
+        cache_manager_config=cache_manager_config,
     )
 
 
