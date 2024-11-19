@@ -1,0 +1,42 @@
+{{- range $config := .Values.configurations }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name := print "cache-manager-" $config.envVars.CFG_NAME }}{{ $name }}
+spec:
+  schedule: {{ default "0 * * * *" $config.schedule | quote }} # schedule contains asterisks, quote to avoid yaml parser errors
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ default 1 $config.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ default 1 $config.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: cache-manager
+        spec:
+          containers:
+          - name: cache-manager
+            image: {{ include "image" $.Values.image }}
+            imagePullPolicy: IfNotPresent
+            command:
+            - python3
+            - -m
+            - cache_manager
+            env:
+            {{- range $key, $value := $config.envVars }}
+            - name: {{ $key }}
+              value: {{ $value }}
+            {{- end }}
+            volumeMounts:
+            - name: cfg-factory
+              mountPath: "/cfg_factory"
+              readOnly: true
+          volumes:
+            - name: cfg-factory
+              secret:
+                secretName: cfg-factory-secret
+                optional: true
+          restartPolicy: Never
+---
+{{- end }}

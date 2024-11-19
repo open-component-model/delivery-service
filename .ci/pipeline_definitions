@@ -95,6 +95,13 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+            extension-cache-manager: &extension-cache-manager-image
+              image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-cache-manager
+              dockerfile: Dockerfile.extensions.cache-manager
+              tag_as_latest: True
+              inputs:
+                steps:
+                  build_python_packages: ~
             extension-clamav: &extension-clamav-image
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-clamav
               dockerfile: Dockerfile.extensions.clamav
@@ -135,6 +142,10 @@ delivery-service:
               attribute: backlog-controller.issue-replicator.image.repository
             - ref: ocm-resource:extensions.tag
               attribute: backlog-controller.issue-replicator.image.tag
+            - ref: ocm-resource:extension-cache-manager.repository
+              attribute: cache-manager.image.repository
+            - ref: ocm-resource:extension-cache-manager.tag
+              attribute: cache-manager.image.tag
             - ref: ocm-resource:extensions.repository
               attribute: delivery-db-backup.image.repository
             - ref: ocm-resource:extensions.tag
@@ -167,6 +178,10 @@ delivery-service:
               <<: *extensions-image
               tag_as_latest: False
               image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/extensions
+            extension-cache-manager:
+              <<: *extension-cache-manager-image
+              tag_as_latest: False
+              image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/extension-cache-manager
             extension-clamav:
               <<: *extension-clamav-image
               tag_as_latest: False

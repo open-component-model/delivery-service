@@ -1,0 +1,19 @@
+FROM ghcr.io/gardener/cc-utils/alpine:3
+
+COPY VERSION requirements.utils.txt requirements.service.txt /
+
+RUN --mount=type=bind,source=/dist,target=/dist \
+    apk add --no-cache \
+    bash \
+    gcc \
+    libc-dev \
+    libffi-dev \
+    postgresql16-client \
+    python3-dev \
+&& pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service \
+&& apk del --no-cache \
+    libc-dev \
+    libffi-dev \
+    python3-dev
+
+ENTRYPOINT ["python3", "-m", "cache_manager"]

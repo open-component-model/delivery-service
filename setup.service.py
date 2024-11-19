@@ -24,6 +24,7 @@ def modules():
     return [
         'app',
         'artefacts',
+        'cache_manager',
         'compliance_tests',
         'components',
         'dora',
