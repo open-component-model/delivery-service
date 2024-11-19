@@ -559,12 +559,21 @@ async def _mark_compliance_summary_cache_for_deletion(
         version=artefact_metadata.component_version,
     )
 
-    await dc.mark_function_cache_for_deletion(
-        encoding_format=dcm.EncodingFormat.PICKLE,
-        function='compliance_summary.component_datatype_summaries',
-        db_session=db_session,
-        defer_db_commit=True, # only commit at the end of the query
-        component=component,
-        finding_type=artefact_metadata.type,
-        datasource=artefact_metadata.datasource,
-    )
+    if artefact_metadata.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+        # If the artefact scan info changes, the compliance summary for all datatypes related to
+        # this datasource has to be updated, because it may has changed from
+        # UNKNOWN -> CLEAN/FINDINGS
+        datatypes = dso.model.Datasource.datasource_to_datatypes(artefact_metadata.datasource)
+    else:
+        datatypes = (artefact_metadata.type,)
+
+    for datatype in datatypes:
+        await dc.mark_function_cache_for_deletion(
+            encoding_format=dcm.EncodingFormat.PICKLE,
+            function='compliance_summary.component_datatype_summaries',
+            db_session=db_session,
+            defer_db_commit=True, # only commit at the end of the query
+            component=component,
+            finding_type=datatype,
+            datasource=artefact_metadata.datasource,
+        )
