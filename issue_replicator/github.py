@@ -4,6 +4,7 @@ import dataclasses
 import enum
 import datetime
 import functools
+import json
 import logging
 import re
 import requests
@@ -98,14 +99,16 @@ class GroupedFindings:
             versions=self.component_versions,
         )
 
+        component_artefact_id = dso.model.ComponentArtefactId(
+            component_name=self.component_name,
+            component_version=component_version,
+            artefact_kind=self.artefact_kind,
+            artefact=self.artefact,
+        )
+
         ocm_node = k8s.util.get_ocm_node(
             component_descriptor_lookup=component_descriptor_lookup,
-            artefact=dso.model.ComponentArtefactId(
-                component_name=self.component_name,
-                component_version=component_version,
-                artefact_kind=self.artefact_kind,
-                artefact=self.artefact,
-            ),
+            artefact=component_artefact_id,
         )
 
         summary = textwrap.dedent(f'''\
@@ -119,11 +122,8 @@ class GroupedFindings:
             delivery_dashboard_url = _delivery_dashboard_url(
                 cfg_name=cfg_name,
                 base_url=delivery_dashboard_url,
-                component_name=self.component_name,
-                component_version=component_version,
+                component_artefact_id=component_artefact_id,
                 sprint_name=sprint_name,
-                artefact_name=self.artefact.artefact_name,
-                artefact_versions=(self.artefact.artefact_version,),
             )
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
@@ -305,10 +305,7 @@ def _artefact_url(
 def _delivery_dashboard_url(
     cfg_name: str,
     base_url: str,
-    component_name: str,
-    component_version: str,
-    artefact_name: str=None,
-    artefact_versions: collections.abc.Iterable[str]=[],
+    component_artefact_id: dso.model.ComponentArtefactId,
     sprint_name: str=None,
 ):
     url = ci.util.urljoin(
@@ -317,8 +314,8 @@ def _delivery_dashboard_url(
     )
 
     query_params = {
-        'name': component_name,
-        'version': component_version,
+        'name': component_artefact_id.component_name,
+        'version': component_artefact_id.component_version,
         'view': 'bom',
         'rootExpanded': True,
         'scanConfigName': cfg_name,
@@ -327,13 +324,16 @@ def _delivery_dashboard_url(
     if sprint_name:
         query_params['sprints'] = sprint_name
 
-    query_params = list(query_params.items())
-
-    if artefact_name and artefact_versions:
-        query_params.extend(
-            ('rescoreArtefacts', f'{artefact_name}:{artefact_version}')
-            for artefact_version in artefact_versions
+    if artefact_id := component_artefact_id.artefact:
+        rescore_artefacts = (
+            f'{artefact_id.artefact_name}|{artefact_id.artefact_version}|'
+            f'{artefact_id.artefact_type}|{component_artefact_id.artefact_kind}'
         )
+
+        if artefact_id.artefact_extra_id:
+            rescore_artefacts += f'|{json.dumps(artefact_id.artefact_extra_id)}'
+
+        query_params['rescoreArtefacts'] = rescore_artefacts
 
     query = urllib.parse.urlencode(
         query=query_params,
