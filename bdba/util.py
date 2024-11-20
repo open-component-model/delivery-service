@@ -5,7 +5,6 @@
 
 import collections.abc
 import datetime
-import hashlib
 import logging
 
 import ci.log
@@ -15,9 +14,6 @@ import delivery.client
 import dso.model
 import github.compliance.model as gcm
 import github.compliance.report as gcr
-import oci.client
-import oci.model
-import ocm
 
 import bdba.model as bm
 
@@ -283,52 +279,31 @@ def enum_triages(
 
 def component_artifact_metadata(
     resource_node: cnudie.iter.ResourceNode,
-    omit_resource_version: bool,
-    oci_client: oci.client.Client,
-):
-    ''' returns a dict for querying bdba scan results (use for custom-data query)
+    omit_resource_strict_id: bool=False,
+) -> dict:
+    '''
+    Returns a dict for querying bdba scan results (use for custom-data query). If
+    `omit_resource_strict_id` is set, the resource version and extra id are not included in the
+    result to allow querying of related (but not equal) scans.
     '''
     component = resource_node.component
     resource = resource_node.resource
 
-    metadata = {'COMPONENT_NAME': component.name}
+    metadata = {
+        'COMPONENT_NAME': component.name,
+        'IMAGE_REFERENCE_NAME': resource.name, # deprecated, will be replaced with `RESOURCE_NAME`
+        'RESOURCE_TYPE': resource.type,
+    }
 
-    if resource.access.type is ocm.AccessType.OCI_REGISTRY:
-        metadata['IMAGE_REFERENCE_NAME'] = resource.name
-        metadata['RESOURCE_TYPE'] = ocm.ArtefactType.OCI_IMAGE
-        if not omit_resource_version:
-            image_reference = oci.model.OciImageReference.to_image_ref(
-                resource.access.imageReference,
-            )
-            if not image_reference.has_digest_tag:
-                manifest_bytes = oci_client.manifest_raw(
-                    image_reference=image_reference,
-                    accept=oci.model.MimeTypes.prefer_multiarch,
-                ).content
-                manifest_digest = f'sha256:{hashlib.sha256(manifest_bytes).hexdigest()}'
-                image_reference = image_reference.with_tag(manifest_digest)
+    if omit_resource_strict_id:
+        return metadata
 
-            metadata['IMAGE_REFERENCE'] = image_reference.original_image_reference
-            metadata['IMAGE_VERSION'] = resource.version
+    metadata['RESOURCE_NAME'] = resource.name
+    metadata['RESOURCE_VERSION'] = resource.version
 
-    elif resource.access.type is ocm.AccessType.S3:
-        metadata['RESOURCE_TYPE'] = resource.type
-        if not omit_resource_version:
-            metadata['IMAGE_VERSION'] = resource.version
-
-    elif resource.access.type is ocm.AccessType.LOCAL_BLOB:
-        metadata['IMAGE_REFERENCE_NAME'] = resource.name
-        metadata['RESOURCE_TYPE'] = ocm.AccessType.LOCAL_BLOB
-        # do not use global access as it is optional
-        img_ref = component.current_ocm_repo.component_version_oci_ref(
-            name=component.name,
-            version=component.version,
-        )
-        digest = resource.access.localReference
-        metadata['IMAGE_REFERENCE'] = f'{img_ref}@sha256:{digest}'
-
-    else:
-        raise NotImplementedError(resource.access)
+    if resource.extraIdentity:
+        # peers are not required here as version is considered anyways
+        metadata['RESOURCE_EXTRA_ID'] = f'{resource.identity(peers=())}'
 
     return metadata
 
