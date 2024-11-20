@@ -13,7 +13,6 @@ import ci.util
 import cnudie.iter
 import cnudie.purge
 import cnudie.retrieve
-import cnudie.upload
 import cnudie.util
 import delivery.client
 import model.container_registry
@@ -21,6 +20,7 @@ import model.delivery_db
 import oci.auth
 import oci.client
 import ocm
+import ocm.upload
 import version
 
 import config
@@ -397,9 +397,9 @@ def main():
     )
     component = component_descriptor.component
 
-    cnudie.upload.upload_component_descriptor(
+    ocm.upload.upload_component_descriptor(
         component_descriptor=component_descriptor,
-        on_exist=cnudie.upload.UploadMode.OVERWRITE,
+        on_exist=ocm.upload.UploadMode.OVERWRITE,
         oci_client=oci_client,
     )
 
