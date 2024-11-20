@@ -5,6 +5,7 @@
 
 import collections.abc
 import datetime
+import hashlib
 import logging
 
 import ci.log
@@ -12,10 +13,10 @@ import cnudie.iter
 import concourse.model.traits.image_scan as image_scan
 import delivery.client
 import dso.model
-import gci.oci
 import github.compliance.model as gcm
 import github.compliance.report as gcr
 import oci.client
+import oci.model
 import ocm
 
 import bdba.model as bm
@@ -296,11 +297,17 @@ def component_artifact_metadata(
         metadata['IMAGE_REFERENCE_NAME'] = resource.name
         metadata['RESOURCE_TYPE'] = ocm.ArtefactType.OCI_IMAGE
         if not omit_resource_version:
-            image_reference = gci.oci.image_ref_with_digest(
-                image_reference=resource.access.imageReference,
-                digest=resource.digest,
-                oci_client=oci_client,
+            image_reference = oci.model.OciImageReference.to_image_ref(
+                resource.access.imageReference,
             )
+            if not image_reference.has_digest_tag:
+                manifest_bytes = oci_client.manifest_raw(
+                    image_reference=image_reference,
+                    accept=oci.model.MimeTypes.prefer_multiarch,
+                ).content
+                manifest_digest = f'sha256:{hashlib.sha256(manifest_bytes).hexdigest()}'
+                image_reference = image_reference.with_tag(manifest_digest)
+
             metadata['IMAGE_REFERENCE'] = image_reference.original_image_reference
             metadata['IMAGE_VERSION'] = resource.version
 

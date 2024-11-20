@@ -24,11 +24,11 @@ import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
 import dso.model
-import gci.oci
 import github.util
 import oci.client_async
 import oci.model as om
 import ocm
+import ocm.oci
 import version as versionutil
 
 import compliance_summary as cs
@@ -198,7 +198,7 @@ async def _component_descriptor(
         blob_fobj = io.BytesIO(raw)
 
         with tarfile.open(fileobj=blob_fobj, mode='r') as tf:
-            component_descriptor_info = tf.getmember(gci.oci.component_descriptor_fname)
+            component_descriptor_info = tf.getmember(ocm.oci.component_descriptor_fname)
             component_descriptor_bytes = tf.extractfile(component_descriptor_info).read()
 
         if raw:
