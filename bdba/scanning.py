@@ -341,11 +341,7 @@ class ResourceGroupProcessor:
             f'scan of {scan_result.display_name()} succeeded, going to post-process results'
         )
 
-        if version_hints := _package_version_hints(
-            component=component,
-            artefact=resource,
-            result=scan_result,
-        ):
+        if version_hints := _package_version_hints(resource=resource):
             logger.info(f'uploading package-version-hints for {scan_result.display_name()}')
             scan_result = bdba.assessments.upload_version_hints(
                 scan_result=scan_result,
@@ -409,34 +405,10 @@ class ResourceGroupProcessor:
 
 
 def _package_version_hints(
-    component: ocm.Component,
-    artefact: ocm.Artifact,
-    result: bm.AnalysisResult,
+    resource: ocm.Resource,
 ) -> list[dso.labels.PackageVersionHint] | None:
-    def result_matches(resource: ocm.Resource, result: bm.AnalysisResult):
-        '''
-        find matching result for package-version-hint
-        note: we require strict matching of resource-version
-        '''
-        cd = result.custom_data()
-        if not cd.get('COMPONENT_NAME') == component.name:
-            return False
-        if not cd.get('IMAGE_REFERENCE_NAME') == artefact.name:
-            return False
-        if not cd.get('IMAGE_VERSION') == artefact.version:
-            return False
+    package_hints_label = resource.find_label(name=dso.labels.PackageVersionHintLabel.name)
 
-        return True
-
-    if not result_matches(resource=artefact, result=result):
-        return None
-
-    if not isinstance(artefact, ocm.Resource):
-        raise NotImplementedError(artefact)
-
-    artefact: ocm.Resource
-
-    package_hints_label = artefact.find_label(name=dso.labels.PackageVersionHintLabel.name)
     if not package_hints_label:
         return None
 
