@@ -688,14 +688,10 @@ def _diki_template_vars(
                 case dict():
                     for key, value in check.targets.items():
                         shortened_summary += f'{key}: {len(value)} targets\n'
-                        summary += textwrap.dedent(f'''\
-                            <details>
-                            <summary>{key}:</summary>
-
-                            {_targets_table(value)}
-                            </details>
-
-                        ''')
+                        summary += '<details>\n'
+                        summary += f'<summary>{key}:</summary>\n\n'
+                        summary += _targets_table(value)
+                        summary += '</details>\n\n'
                 # process single checks
                 case list():
                     shortened_summary += f'{len(check.targets)} targets\n'
