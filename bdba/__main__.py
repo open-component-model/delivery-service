@@ -137,14 +137,12 @@ def scan(
         bdba_client=bdba_client,
         group_id=bdba_config.group_id,
         resource_node=resource_node,
-        oci_client=oci_client,
     )
 
     processor = bdba.scanning.ResourceGroupProcessor(
         group_id=bdba_config.group_id,
         reference_group_ids=bdba_config.reference_group_ids,
         bdba_client=bdba_client,
-        oci_client=oci_client,
     )
 
     access = resource_node.resource.access

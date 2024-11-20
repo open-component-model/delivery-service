@@ -19,7 +19,6 @@ import delivery.client
 import dso.cvss
 import dso.labels
 import dso.model
-import oci.client
 import ocm
 
 import bdba.assessments
@@ -45,13 +44,11 @@ class ResourceGroupProcessor:
     def __init__(
         self,
         bdba_client: bdba.client.BDBAApi,
-        oci_client: oci.client.Client,
         group_id: int=None,
         reference_group_ids: collections.abc.Sequence[int]=(),
         cvss_threshold: float=7.0,
     ):
         self.bdba_client = bdba_client
-        self.oci_client = oci_client
         self.group_id = group_id
         self.reference_group_ids = reference_group_ids
         self.cvss_threshold = cvss_threshold
@@ -66,8 +63,7 @@ class ResourceGroupProcessor:
         metadata = bdba.util.component_artifact_metadata(
             resource_node=resource_node,
             # we want to find all possibly relevant scans, so omit all version data
-            omit_resource_version=True,
-            oci_client=self.oci_client,
+            omit_resource_strict_id=True,
         )
 
         for id in relevant_group_ids:
@@ -156,8 +152,6 @@ class ResourceGroupProcessor:
 
         component_artifact_metadata = bdba.util.component_artifact_metadata(
             resource_node=resource_node,
-            omit_resource_version=False,
-            oci_client=self.oci_client
         )
 
         target_product_id = bdba.util._matching_analysis_result_id(
@@ -424,12 +418,10 @@ def retrieve_existing_scan_results(
     bdba_client: bdba.client.BDBAApi,
     group_id: int,
     resource_node: cnudie.iter.ResourceNode,
-    oci_client: oci.client.Client,
 ) -> list[bm.Product]:
     query_data = bdba.util.component_artifact_metadata(
         resource_node=resource_node,
-        omit_resource_version=True,
-        oci_client=oci_client,
+        omit_resource_strict_id=True,
     )
 
     return list(bdba_client.list_apps(
