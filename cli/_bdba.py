@@ -14,10 +14,8 @@ import cnudie.iter
 import cnudie.retrieve as cr
 import ctx
 import dso.cvss
-import dso.labels
 import dso.model
 import oci
-import oci.model as om
 import ocm
 import tarutil
 
@@ -91,14 +89,13 @@ def ls_products(
 def rescore(
     bdba_cfg_name: str,
     product_id: int,
+    categorisation: str,
     rescoring_rules: str,
-    ocm_repo: str=None,
-    categorisation: str=None,
     assess: bool=False,
 ):
     client = bdba.client.client(bdba_cfg_name)
 
-    if categorisation and not os.path.isfile(categorisation):
+    if not os.path.isfile(categorisation):
         print(f'{categorisation} must point to an existing file w/ CveCategorisation')
         exit(1)
 
@@ -109,60 +106,9 @@ def rescore(
     logger.info(f'retrieving bdba {product_id=}')
     result = client.scan_result(product_id=product_id)
 
-    if categorisation:
-        categorisation = dso.cvss.CveCategorisation.from_dict(
-            ci.util.parse_yaml_file(categorisation),
-        )
-    else:
-        if not ocm_repo:
-            ocm_lookup = ctx.cfg.ctx.ocm_lookup
-        else:
-            ocm_lookup = cr.create_default_component_descriptor_lookup(
-                ocm_repository_lookup=cr.ocm_repository_lookup(
-                    ocm_repo,
-                )
-            )
-
-        custom_data = result.custom_data()
-        component_name = custom_data['COMPONENT_NAME']
-        component_version = custom_data['COMPONENT_VERSION']
-        image_name = custom_data['IMAGE_REFERENCE_NAME']
-        image_version = custom_data['IMAGE_VERSION']
-        logger.info(f'retrieving component descriptor for {component_name}:{component_version}')
-
-        try:
-            component_descriptor = ocm_lookup(
-                ocm.ComponentIdentity(
-                    name=component_name,
-                    version=component_version,
-                ),
-            )
-        except om.OciImageNotFoundException:
-            logger.error(f'could not find {component_name}:{component_version} in {ocm_repo}')
-            exit(1)
-
-        logger.info(f'looking for {image_name}:{image_version} in component-descriptor')
-        for resource in component_descriptor.component.resources:
-            if resource.name != image_name:
-                continue
-            if resource.version != image_version:
-                continue
-            break # found it
-        else:
-            logger.error(
-                'did not find {image_name}:{image_version} in {component_name}:{component_version}'
-            )
-            exit(1)
-
-        label_name = dso.labels.CveCategorisationLabel.name
-        categorisation_label = resource.find_label(label_name)
-        if not categorisation_label:
-            logger.error(f'found image, but it did not have expected {label_name=}')
-            logger.error('consider passing categorisation via ARGV')
-            exit(1)
-
-        categorisation_label = dso.labels.deserialise_label(categorisation_label)
-        categorisation = categorisation_label.value
+    categorisation = dso.cvss.CveCategorisation.from_dict(
+        ci.util.parse_yaml_file(categorisation),
+    )
 
     rescoring_rules = tuple(
         rm.rescoring_rules_from_dicts(
