@@ -146,7 +146,11 @@ class ResourceGroupProcessor:
     ) -> bm.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
-        display_name = f'{resource.name}_{resource.version}_{component.name}'.replace('/', '_')
+        display_name = f'{resource.name}_{resource.version}_{component.name}_{resource.type}'.replace('/', '_') # noqa: E501
+
+        if resource.extraIdentity:
+            # peers are not required here as version is considered anyways
+            display_name += f'_{resource.identity(peers=())}'.replace('/', '_')
 
         component_artifact_metadata = bdba.util.component_artifact_metadata(
             resource_node=resource_node,
