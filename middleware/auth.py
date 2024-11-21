@@ -9,6 +9,7 @@ import urllib.parse
 import aiohttp
 import aiohttp.typedefs
 import aiohttp.web
+import dacite
 import jsonschema
 import jsonschema.exceptions
 import jwt
@@ -63,6 +64,9 @@ class GithubRoutes:
     def current_user_teams(self):
         return self._url('user', 'teams')
 
+    def current_user_orgs(self):
+        return self._url('user', 'orgs')
+
 
 class GithubApi:
     def __init__(self, routes: GithubRoutes, oauth_token: str):
@@ -86,6 +90,9 @@ class GithubApi:
 
     async def current_user_teams(self):
         return await self._get(self._routes.current_user_teams())
+
+    async def current_user_orgs(self):
+        return await self._get(self._routes.current_user_orgs())
 
     async def close_connection(self):
         await self.session.close()
@@ -199,6 +206,28 @@ class OAuthCfgs(aiohttp.web.View):
         )
 
 
+class SubjectType(enum.StrEnum):
+    GITHUB_USER = 'github-user'
+    GITHUB_ORG = 'github-org'
+    GITHUB_TEAM = 'github-team'
+
+
+class Role(enum.StrEnum):
+    ADMIN = 'admin'
+
+
+@dataclasses.dataclass(frozen=True)
+class Subject:
+    type: SubjectType
+    name: str
+
+
+@dataclasses.dataclass
+class RoleBinding:
+    subjects: list[Subject]
+    roles: list[Role]
+
+
 @noauth
 class OAuthLogin(aiohttp.web.View):
     async def get(self):
@@ -296,12 +325,12 @@ class OAuthLogin(aiohttp.web.View):
             github_cfg: model.github.GithubConfig = cfg_factory.github(oauth_cfg.github_cfg())
             api_url = github_cfg.api_url()
         else:
-            api_urls = [
-                cfg_factory.github(auth_cfg.github_cfg()).api_url()
-                for auth_cfg in feature_authentication.oauth_cfgs
-            ]
+            for oauth_cfg in feature_authentication.oauth_cfgs:
+                github_cfg: model.github.GithubConfig = cfg_factory.github(oauth_cfg.github_cfg())
+                if github_cfg.api_url() == api_url:
+                    break
 
-            if api_url not in api_urls:
+            else:
                 raise aiohttp.web.HTTPUnauthorized
 
         gh_routes = GithubRoutes(api_url=api_url)
@@ -309,15 +338,22 @@ class OAuthLogin(aiohttp.web.View):
             routes=gh_routes,
             oauth_token=access_token,
         )
-
         github_host = urllib.parse.urlparse(api_url).hostname.lower()
 
         try:
-            user = await gh_api.current_user()
-            team_names = [
-                '/'.join((github_host, t['organization']['login'], t['name']))
-                for t in await gh_api.current_user_teams()
+            github_orgs = [
+                org['login']
+                for org in await gh_api.current_user_orgs()
             ]
+
+            github_teams = [
+                '/'.join((team['organization']['login'], team['name']))
+                for team in await gh_api.current_user_teams()
+            ]
+
+            user = await gh_api.current_user()
+            username = user['login']
+
         except Exception as e:
             logger.warning(f'failed to retrieve user info for {api_url=}: {e}')
             raise aiohttp.web.HTTPUnauthorized
@@ -325,6 +361,52 @@ class OAuthLogin(aiohttp.web.View):
             await gh_api.close_connection()
 
         delivery_cfg = cfg_factory.delivery(self.request.app[consts.APP_DELIVERY_CFG])
+        role_bindings = [
+            dacite.from_dict(
+                data=rb,
+                data_class=RoleBinding,
+                config=dacite.Config(
+                    cast=[enum.Enum],
+                ),
+            )
+            for rb in oauth_cfg.role_bindings()
+        ]
+
+        def find_subject(
+            subjects: list[Subject],
+            username: str,
+            github_orgs: list[str],
+            github_teams: list[str],
+        ) -> Subject | None:
+            for subject in subjects:
+                if subject.type is SubjectType.GITHUB_USER:
+                    if subject.name == username:
+                        return subject
+
+                elif subject.type is SubjectType.GITHUB_ORG:
+                    if subject.name in github_orgs:
+                        return subject
+
+                elif subject.type is SubjectType.GITHUB_TEAM:
+                    if subject.name in github_teams:
+                        return subject
+
+        roles = set()
+
+        for role_binding in role_bindings:
+            if find_subject(
+                subjects=role_binding.subjects,
+                username=username,
+                github_orgs=github_orgs,
+                github_teams=github_teams,
+            ):
+                roles.update(role_binding.roles)
+
+        if Role.ADMIN not in roles:
+            raise aiohttp.web.HTTPUnauthorized(
+                text='user is not authorised to access this service',
+            )
+
         signing_cfgs: list[model.delivery.SigningCfg] = list(delivery_cfg.service().signing_cfgs())
 
         if not signing_cfgs:
@@ -344,12 +426,13 @@ class OAuthLogin(aiohttp.web.View):
 
         token = {
             'version': 'v1',
-            'sub': user['login'],
+            'sub': username,
             'iss': self.request.app[consts.APP_BASE_URL],
             'iat': int(now.timestamp()),
             'github_oAuth': {
                 'host': github_host,
-                'team_names': team_names,
+                'team_names': github_teams,
+                'org_names': github_orgs,
                 'email_address': user.get('email'),
             },
             'exp': int((now + time_delta).timestamp()),
