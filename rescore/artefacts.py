@@ -353,6 +353,14 @@ def _iter_rescoring_proposals(
         )
         severity = dso.cvss.CVESeverity[am.data.severity]
 
+        if current_rescorings:
+            rescoring = current_rescorings[0].data
+            current_severity = dso.cvss.CVESeverity[rescoring.severity]
+            matching_rules = rescoring.matching_rules
+        else:
+            current_severity = severity
+            matching_rules = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
+
         if am.meta.type == dso.model.Datatype.MALWARE_FINDING:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
@@ -364,8 +372,8 @@ def _iter_rescoring_proposals(
                         'severity': severity.name,
                     },
                     'finding_type': dso.model.Datatype.MALWARE_FINDING,
-                    'severity': severity.name,
-                    'matching_rules': [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY],
+                    'severity': current_severity.name,
+                    'matching_rules': matching_rules,
                     'applicable_rescorings': current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
                     'sprint': sprint,
@@ -436,22 +444,29 @@ def _iter_rescoring_proposals(
                             'filesystem_paths': filesystem_paths,
                         },
                         'finding_type': dso.model.Datatype.VULNERABILITY,
-                        'severity': _rescore_vulnerabilitiy(
-                            rescoring_rules=rescoring_rules,
-                            categorisation=categorisation,
-                            cvss=cvss,
-                            severity=severity,
-                        ).name,
-                        'matching_rules': [
-                            rule.name if rule.name else rule.category_value
-                            for rule in rescore.utility.matching_rescore_rules(
+                        'severity': (
+                            # don't propose rescoring if finding is already rescored
+                            current_severity.name
+                            if current_rescorings
+                            else _rescore_vulnerabilitiy(
                                 rescoring_rules=rescoring_rules,
                                 categorisation=categorisation,
                                 cvss=cvss,
-                            )
-                        ] if rescoring_rules and categorisation else [
-                            dso.model.MetaRescoringRules.ORIGINAL_SEVERITY,
-                        ],
+                                severity=severity,
+                            ).name
+                        ),
+                        'matching_rules': (
+                            [
+                                rule.name if rule.name else rule.category_value
+                                for rule in rescore.utility.matching_rescore_rules(
+                                    rescoring_rules=rescoring_rules,
+                                    categorisation=categorisation,
+                                    cvss=cvss,
+                                )
+                            ]
+                            if not current_rescorings and rescoring_rules and categorisation
+                            else matching_rules
+                        ),
                         'applicable_rescorings': current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
                         'sprint': sprint,
@@ -492,8 +507,8 @@ def _iter_rescoring_proposals(
                             'filesystem_paths': filesystem_paths,
                         },
                         'finding_type': dso.model.Datatype.LICENSE,
-                        'severity': severity.name,
-                        'matching_rules': [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY],
+                        'severity': current_severity.name,
+                        'matching_rules': matching_rules,
                         'applicable_rescorings': current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
                         'sprint': sprint,
