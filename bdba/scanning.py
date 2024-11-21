@@ -46,12 +46,10 @@ class ResourceGroupProcessor:
         bdba_client: bdba.client.BDBAApi,
         group_id: int=None,
         reference_group_ids: collections.abc.Sequence[int]=(),
-        cvss_threshold: float=7.0,
     ):
         self.bdba_client = bdba_client
         self.group_id = group_id
         self.reference_group_ids = reference_group_ids
-        self.cvss_threshold = cvss_threshold
 
     def _products_with_relevant_triages(
         self,
