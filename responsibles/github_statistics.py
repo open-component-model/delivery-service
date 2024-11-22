@@ -14,8 +14,6 @@ import github3.repos.commit
 import github3.repos.repo
 import github3.repos.stats
 import github3.users
-import numpy as np
-import scipy.optimize
 
 import ccc.github
 import ci.util
@@ -61,7 +59,9 @@ class ResponsiblesDetectionHeuristicsParameters:
 
 
 def sigmoid(x, x0, k):
-    y = 1 / (1 + np.exp(-k*(x-x0)))
+    import numpy
+
+    y = 1 / (1 + numpy.exp(-k*(x-x0)))
     return y
 
 
@@ -71,8 +71,11 @@ def fit_sigmoid_for_repo_days(
     '''
     fits a sigmoid function for given upper limit on x axis, considering inital data points.
     '''
+    import numpy
+    import scipy.optimize
+
     # describe expected function
-    xdata = np.array([
+    xdata = numpy.array([
         0,
         repo_age_in_days/4,
         repo_age_in_days/5*2,
@@ -81,7 +84,7 @@ def fit_sigmoid_for_repo_days(
         repo_age_in_days/4*3,
         repo_age_in_days,
     ])
-    ydata = np.array([
+    ydata = numpy.array([
         0.01,
         0.05,
         0.30,
@@ -148,11 +151,13 @@ def n_percentile_with_member_count(
         <[identifiers in that percentile]>
     )
     '''
+    import numpy
+
     first_match = True
     first_count = None
 
     for n in range(50, 100, 1):
-        n_percentile = np.percentile([value for value in usernames_values.values()], n)
+        n_percentile = numpy.percentile([value for value in usernames_values.values()], n)
         in_percentile = [u for u, v in usernames_values.items() if v >= n_percentile]
         contributor_count = len(in_percentile)
         if contributor_count > member_count:
