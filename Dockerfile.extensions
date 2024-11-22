@@ -1,9 +1,8 @@
 FROM ghcr.io/gardener/cc-utils/alpine:3
 
-RUN --mount=type=bind,source=VERSION,target=/VERSION \
-    --mount=type=bind,source=requirements.utils.txt,target=/requirements.utils.txt \
-    --mount=type=bind,source=requirements.extensions.txt,target=/requirements.extensions.txt \
-    --mount=type=bind,source=/dist,target=/dist \
+COPY VERSION requirements.utils.txt requirements.extensions.txt /
+
+RUN --mount=type=bind,source=/dist,target=/dist \
     apk add --no-cache \
     bash \
     gcc \
