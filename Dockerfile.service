@@ -19,8 +19,6 @@ RUN --mount=type=bind,source=VERSION,target=/VERSION \
 && apk del --no-cache \
     libc-dev \
     libffi-dev \
-    python3-dev \
-&& ln /VERSION /usr/lib/python3.12/site-packages/VERSION
-# TODO: placing VERSION-file here is quite an ugly hack/workaround. should be cleaned-up
+    python3-dev
 
 ENTRYPOINT ["python3", "-m", "app"]
