@@ -1,29 +1,24 @@
 FROM ghcr.io/gardener/cc-utils/alpine:3
 
-# makes debugging easier
-COPY VERSION CC_UTILS_VERSION requirements.utils.txt requirements.extensions.txt /
-COPY clamd.conf /etc/clamav/clamd.conf
-COPY clamav_entrypoint.sh /clamav_entrypoint.sh
-COPY /dist /dist
-
-RUN apk add --no-cache \
+RUN --mount=type=bind,source=VERSION,target=/VERSION \
+    --mount=type=bind,source=requirements.utils.txt,target=/requirements.utils.txt \
+    --mount=type=bind,source=requirements.extensions.txt,target=/requirements.extensions.txt \
+    --mount=type=bind,source=clamd.conf,target=/etc/clamav/clamd.conf \
+    --mount=type=bind,source=clamav_entrypoint.sh,target=/clamav_entrypoint.sh \
+    --mount=type=bind,source=/dist,target=/dist \
+    apk add --no-cache \
     bash \
     clamav \
     clamav-libunrar \
     gcc \
     libc-dev \
     libffi-dev \
-    python3 \
     python3-dev \
-    py3-pip \
-&& mkdir -p $HOME/.config/pip \
-&& echo -e "[global]\nbreak-system-packages = true" >> $HOME/.config/pip/pip.conf \
 && pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-extensions \
 && apk del --no-cache \
     libc-dev \
     libffi-dev \
     python3-dev \
-&& rm -rf /dist \
 && ln -sf /etc/ssl/certs/ca-certificates.crt "$(python3 -m certifi)"
 
 ENTRYPOINT ["/bin/sh", "/clamav_entrypoint.sh"]
