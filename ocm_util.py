@@ -6,6 +6,7 @@ import cnudie.retrieve_async
 import dso.model
 import ioutil
 import oci.client
+import oci.model
 import ocm
 import tarutil
 
@@ -37,6 +38,22 @@ def iter_local_blob_content(
         digest=digest,
         stream=True,
     )
+
+    if not size:
+        manifest = oci_client.manifest(
+            image_reference=image_reference,
+            accept=oci.model.MimeTypes.prefer_multiarch,
+        )
+
+        if isinstance(manifest, oci.model.OciImageManifestList):
+            raise ValueError('component-descriptor manifest must not be a manifest list')
+
+        for layer in manifest.layers:
+            if layer.digest == digest:
+                size = layer.size
+                break
+        else:
+            raise ValueError('`size` must not be empty to stream local blob')
 
     return tarutil.concat_blobs_as_tarstream(
         blobs=[
