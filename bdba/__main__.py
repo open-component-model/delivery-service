@@ -326,7 +326,7 @@ def main():
         cfg_factory=cfg_factory,
     )
 
-    oci_client = lookups.semver_sanitised_oci_client(
+    oci_client = lookups.semver_sanitising_oci_client(
         cfg_factory=cfg_factory,
     )
 

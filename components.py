@@ -182,7 +182,7 @@ async def _component_descriptor(
             raw = await cnudie.retrieve_async.raw_component_descriptor_from_oci(
                 component_id=component_id,
                 ocm_repos=ocm_repos,
-                oci_client=lookups.semver_sanitised_oci_client_async(),
+                oci_client=lookups.semver_sanitising_oci_client_async(),
             )
 
         except om.OciImageNotFoundException:
@@ -591,7 +591,7 @@ async def component_versions(
             raise NotImplementedError(ocm_repo)
 
         if not oci_client:
-            oci_client = lookups.semver_sanitised_oci_client_async()
+            oci_client = lookups.semver_sanitising_oci_client_async()
 
         try:
             return await cnudie.retrieve_async.component_versions(

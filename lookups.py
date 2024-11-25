@@ -26,7 +26,7 @@ import util
 logger = logging.getLogger(__name__)
 
 
-def semver_sanitised_oci_client(
+def semver_sanitising_oci_client(
     cfg_factory=None,
 ) -> oci.client.Client:
     if not cfg_factory:
@@ -39,7 +39,7 @@ def semver_sanitised_oci_client(
     )
 
 
-def semver_sanitised_oci_client_async(
+def semver_sanitising_oci_client_async(
     cfg_factory=None,
 ) -> oci.client_async.Client:
     if not cfg_factory:
@@ -229,7 +229,7 @@ def init_component_descriptor_lookup(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = semver_sanitised_oci_client()
+        oci_client = semver_sanitising_oci_client()
 
     lookups = [cnudie.retrieve.in_memory_cache_component_descriptor_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
@@ -279,7 +279,7 @@ def init_component_descriptor_lookup_async(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = semver_sanitised_oci_client_async()
+        oci_client = semver_sanitising_oci_client_async()
 
     lookups = [cnudie.retrieve_async.in_memory_cache_component_descriptor_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
@@ -324,7 +324,7 @@ def init_version_lookup(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = semver_sanitised_oci_client()
+        oci_client = semver_sanitising_oci_client()
 
     return cnudie.retrieve.version_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
@@ -342,7 +342,7 @@ def init_version_lookup_async(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = semver_sanitised_oci_client_async()
+        oci_client = semver_sanitising_oci_client_async()
 
     return cnudie.retrieve_async.version_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
