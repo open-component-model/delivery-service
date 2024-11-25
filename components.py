@@ -572,6 +572,9 @@ class ComponentResponsibles(aiohttp.web.View):
         )
 
 
+# Note: The cache manager expects this function to use the persistent db-cache annotator. If this
+# would be removed in a future change, the cache manager also had to be adjusted to prevent
+# unnecessary load.
 @deliverydb.cache.dbcached_function(
     ttl_seconds=60,
     exclude_kwargs=('version_lookup', 'oci_client'),
