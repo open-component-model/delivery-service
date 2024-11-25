@@ -240,6 +240,17 @@ class CachePruningWeights:
     size_weight: float = 0
 
 
+class FunctionNames(enum.StrEnum):
+    COMPLIANCE_SUMMARY = 'compliance-summary'
+    COMPONENT_VERSIONS = 'component-versions'
+
+
+@dataclasses.dataclass(frozen=True)
+class PrefillFunctionCaches:
+    components: tuple[Component]
+    function_names: tuple[FunctionNames]
+
+
 @dataclasses.dataclass(frozen=True)
 class CacheManagerConfig:
     '''
@@ -250,11 +261,15 @@ class CacheManagerConfig:
         If `max_cache_size_bytes` is reached, existing cache entries will be removed according to
         the `cache_pruning_weights` until `min_pruning_bytes` is available again.
     :param CachePruningWeights cache_pruning_weights
+    :param PrefillFunctionCaches prefill_function_caches:
+        Configures components for which to pre-calculate and cache the desired functions. If no
+        specific functions are set, all available functions will be considered.
     '''
     delivery_db_cfg_name: str
     max_cache_size_bytes: int
     min_pruning_bytes: int
     cache_pruning_weights: CachePruningWeights
+    prefill_function_caches: PrefillFunctionCaches
 
 
 @dataclasses.dataclass(frozen=True)
@@ -991,11 +1006,41 @@ def deserialise_cache_manager_config(
             size_weight=0,
         )
 
+    prefill_function_caches_raw = deserialise_config_property(
+        config=cache_manager_config,
+        property_key='prefill_function_caches',
+        default_value=dict(),
+    )
+
+    if prefill_function_caches_raw:
+        components_raw = prefill_function_caches_raw.get('components', [])
+        components = tuple(
+            deserialise_component_config(component_config=component_raw)
+            for component_raw in components_raw
+        )
+
+        if functions := prefill_function_caches_raw.get('functions'):
+            function_names = tuple(FunctionNames(function_name) for function_name in functions)
+        else:
+            # if no functions are explicitly configured, fallback to prefill cache for all functions
+            function_names = tuple(function_name for function_name in FunctionNames)
+
+        prefill_function_caches = PrefillFunctionCaches(
+            components=components,
+            function_names=function_names,
+        )
+    else:
+        prefill_function_caches = PrefillFunctionCaches(
+            components=tuple(),
+            function_names=tuple(),
+        )
+
     return CacheManagerConfig(
         delivery_db_cfg_name=delivery_db_cfg_name,
         max_cache_size_bytes=max_cache_size_bytes,
         min_pruning_bytes=min_pruning_bytes,
         cache_pruning_weights=cache_pruning_weights,
+        prefill_function_caches=prefill_function_caches,
     )
 
 

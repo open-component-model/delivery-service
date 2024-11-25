@@ -418,6 +418,9 @@ async def artefact_datatype_summary(
     )
 
 
+# Note: The cache manager expects this function to use the persistent db-cache annotator. If this
+# would be removed in a future change, the cache manager also had to be adjusted to prevent
+# unnecessary load.
 @deliverydb.cache.dbcached_function(
     ttl_seconds=60 * 60 * 24, # 1 day
     exclude_kwargs=('component_descriptor_lookup', 'eol_client', 'artefact_metadata_cfg'),

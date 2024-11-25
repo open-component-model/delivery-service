@@ -8,6 +8,7 @@ supplied configuration.
 import asyncio
 import argparse
 import atexit
+import collections.abc
 import datetime
 import logging
 import os
@@ -18,19 +19,35 @@ import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.sql.elements
 
 import ci.log
+import ci.util
+import cnudie.iter
+import cnudie.iter_async
+import cnudie.retrieve_async
+import dso.model
+import oci.client_async
+import ocm
 
+import compliance_summary
+import components as components_module
 import config
 import ctx_util
 import deliverydb
 import deliverydb.model as dm
+import eol
+import features
 import k8s.logging
 import k8s.model
 import k8s.util
+import lookups
+import paths
 
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
+
+own_dir = os.path.abspath(os.path.dirname(__file__))
+default_cache_dir = os.path.join(own_dir, '.cache')
 
 
 def deserialise_cache_manager_cfg(
@@ -145,6 +162,138 @@ async def prune_cache(
         raise
 
 
+async def prefill_compliance_summary_cache(
+    component_id: ocm.ComponentIdentity,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    eol_client: eol.EolClient,
+    finding_types: collections.abc.Sequence[str],
+    artefact_metadata_cfg_by_type: dict[str, compliance_summary.ArtefactMetadataCfg],
+    db_session: sqlasync.session.AsyncSession,
+):
+    logger.info(f'Updating compliance summary for {component_id.name}:{component_id.version}')
+
+    for finding_type in finding_types:
+        await compliance_summary.component_datatype_summaries(
+            component=component_id,
+            finding_type=finding_type,
+            datasource=dso.model.Datatype.datatype_to_datasource(finding_type),
+            db_session=db_session,
+            component_descriptor_lookup=component_descriptor_lookup,
+            eol_client=eol_client,
+            artefact_metadata_cfg=artefact_metadata_cfg_by_type.get(finding_type),
+        )
+
+
+async def prefill_compliance_summary_caches(
+    components: collections.abc.Iterable[config.Component],
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
+    oci_client: oci.client_async.Client,
+    eol_client: eol.EolClient,
+    finding_types: collections.abc.Sequence[str],
+    artefact_metadata_cfg_by_type: dict[str, compliance_summary.ArtefactMetadataCfg],
+    invalid_semver_ok: bool,
+    db_session: sqlasync.session.AsyncSession,
+):
+    seen_component_ids = set()
+
+    for component in components:
+        if component.version_filter:
+            version_filter = features.VersionFilter(component.version_filter)
+        else:
+            version_filter = features.VersionFilter.RELEASES_ONLY
+
+        versions = await components_module.greatest_component_versions(
+            component_name=component.component_name,
+            component_descriptor_lookup=component_descriptor_lookup,
+            ocm_repo=component.ocm_repo,
+            version_lookup=version_lookup,
+            max_versions=component.max_versions_limit,
+            greatest_version=component.version,
+            oci_client=oci_client,
+            version_filter=version_filter,
+            invalid_semver_ok=invalid_semver_ok,
+            db_session=db_session,
+        )
+
+        for version in versions:
+            component_descriptor = await component_descriptor_lookup(ocm.ComponentIdentity(
+                name=component.component_name,
+                version=version,
+            ))
+
+            async for component_node in cnudie.iter_async.iter(
+                component=component_descriptor.component,
+                lookup=component_descriptor_lookup,
+                node_filter=cnudie.iter.Filter.components,
+            ):
+                component_id = component_node.component_id
+
+                if component_id in seen_component_ids:
+                    continue
+                seen_component_ids.add(component_id)
+
+                await prefill_compliance_summary_cache(
+                    component_id=component_id,
+                    component_descriptor_lookup=component_descriptor_lookup,
+                    eol_client=eol_client,
+                    finding_types=finding_types,
+                    artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+                    db_session=db_session,
+                )
+
+
+async def prefill_component_versions_caches(
+    components: collections.abc.Iterable[config.Component],
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
+    db_session: sqlasync.session.AsyncSession,
+):
+    for component in components:
+        await components_module.component_versions(
+            component_name=component.component_name,
+            version_lookup=version_lookup,
+            ocm_repo=component.ocm_repo,
+            db_session=db_session,
+        )
+
+
+async def prefill_function_caches(
+    function_names: collections.abc.Iterable[config.FunctionNames],
+    components: collections.abc.Iterable[config.Component],
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
+    oci_client: oci.client_async.Client,
+    eol_client: eol.EolClient,
+    finding_types: collections.abc.Sequence[str],
+    artefact_metadata_cfg_by_type: dict[str, compliance_summary.ArtefactMetadataCfg],
+    invalid_semver_ok: bool,
+    db_session: sqlasync.session.AsyncSession,
+):
+    for function_name in function_names:
+        logger.info(f'Prefilling cache for {function_name=} and {components=}')
+
+        match function_name:
+            case config.FunctionNames.COMPLIANCE_SUMMARY:
+                await prefill_compliance_summary_caches(
+                    components=components,
+                    component_descriptor_lookup=component_descriptor_lookup,
+                    version_lookup=version_lookup,
+                    oci_client=oci_client,
+                    eol_client=eol_client,
+                    finding_types=finding_types,
+                    artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+                    invalid_semver_ok=invalid_semver_ok,
+                    db_session=db_session,
+                )
+
+            case config.FunctionNames.COMPONENT_VERSIONS:
+                await prefill_component_versions_caches(
+                    components=components,
+                    version_lookup=version_lookup,
+                    db_session=db_session,
+                )
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -170,6 +319,13 @@ def parse_args():
         help='specify the context the process should run in',
         default=os.environ.get('CFG_NAME'),
     )
+    parser.add_argument(
+        '--invalid-semver-ok',
+        action='store_true',
+        default=os.environ.get('INVALID_SEMVER_OK') or False,
+        help='whether to raise on invalid (semver) version when resolving greatest version',
+    )
+    parser.add_argument('--cache-dir', default=default_cache_dir)
 
     parsed_arguments = parser.parse_args()
 
@@ -221,6 +377,32 @@ async def main():
 
     db_url = cfg_factory.delivery_db(cache_manager_cfg.delivery_db_cfg_name).as_url()
 
+    oci_client = lookups.semver_sanitising_oci_client_async(cfg_factory)
+    eol_client = eol.EolClient()
+
+    component_descriptor_lookup = lookups.init_component_descriptor_lookup_async(
+        cache_dir=parsed_arguments.cache_dir,
+        db_url=db_url,
+        oci_client=oci_client,
+    )
+
+    version_lookup = lookups.init_version_lookup_async(
+        oci_client=oci_client,
+        default_absent_ok=True,
+    )
+
+    finding_types = (
+        dso.model.Datatype.LICENSE,
+        dso.model.Datatype.VULNERABILITY,
+        dso.model.Datatype.OS_IDS,
+        dso.model.Datatype.CODECHECKS_AGGREGATED,
+        dso.model.Datatype.MALWARE_FINDING,
+    )
+
+    artefact_metadata_cfg_by_type = compliance_summary.artefact_metadata_cfg_by_type(
+        artefact_metadata_cfg=ci.util.parse_yaml_file(paths.artefact_metadata_cfg),
+    )
+
     db_session = await deliverydb.sqlalchemy_session(db_url)
     try:
         cache_size_bytes = await db_size(db_session=db_session)
@@ -235,8 +417,22 @@ async def main():
                 db_session=db_session,
             )
 
+        await prefill_function_caches(
+            function_names=cache_manager_cfg.prefill_function_caches.function_names,
+            components=cache_manager_cfg.prefill_function_caches.components,
+            component_descriptor_lookup=component_descriptor_lookup,
+            version_lookup=version_lookup,
+            oci_client=oci_client,
+            eol_client=eol_client,
+            finding_types=finding_types,
+            artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+            invalid_semver_ok=parsed_arguments.invalid_semver_ok,
+            db_session=db_session,
+        )
     finally:
         await db_session.close()
+        await oci_client.session.close()
+        await eol_client.session.close()
 
 
 if __name__ == '__main__':
