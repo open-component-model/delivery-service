@@ -2,5 +2,6 @@
 -r requirements.service.txt
 -r requirements.utils.txt
 aiohttp-devtools
+aiosqlite
 numpy
 scipy
