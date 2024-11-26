@@ -55,7 +55,6 @@ def parse_args():
     parser.add_argument('--delivery-endpoints', default='internal')
     parser.add_argument('--delivery-db-url', default=None)
     parser.add_argument('--cache-dir', default=default_cache_dir)
-    parser.add_argument('--es-config-name', default='sap_internal')
     parser.add_argument(
         '--invalid-semver-ok',
         action='store_true',
@@ -375,39 +374,14 @@ def add_routes(
     return app
 
 
-def initialise_elasticsearch_client(
-    cfg_factory,
-    es_config_name: str | None=None,
-    productive: bool=False,
-):
-    if not productive:
-        return None
-
-    try:
-        es_config = cfg_factory.elasticsearch(es_config_name)
-    except (AttributeError, ValueError):
-        logger.warning('Elastic search config not found')
-        return None
-
-    import ccc.elasticsearch
-    logger.info('Elastic search logging enabled')
-    return ccc.elasticsearch.from_cfg(es_config)
-
-
 async def initialise_app():
     parsed_arguments = parse_args()
 
     cfg_factory = ctx_util.cfg_factory()
 
-    es_client = initialise_elasticsearch_client(
-        cfg_factory=cfg_factory,
-        es_config_name=parsed_arguments.es_config_name,
-        productive=parsed_arguments.productive,
-    )
-
     middlewares = [
         middleware.cors.cors_middleware(),
-        middleware.errors.errors_middleware(es_client),
+        middleware.errors.errors_middleware(),
     ]
 
     middlewares = await features.init_features(
