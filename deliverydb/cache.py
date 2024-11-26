@@ -91,7 +91,12 @@ async def find_cached_value(
 
     now = datetime.datetime.now(datetime.timezone.utc)
 
-    if cache_entry.delete_after and now > cache_entry.delete_after:
+    # explicitly cast timezone to UTC to also support sqlite usage since it drops the timezone
+    # information and always casts to UTC internally
+    if (
+        cache_entry.delete_after
+        and now > cache_entry.delete_after.astimezone(datetime.timezone.utc)
+    ):
         # cache entry is already stale -> don't used it
         # TODO: return stale entry already to client and calculate new value in the background and
         # update client once new value is available
