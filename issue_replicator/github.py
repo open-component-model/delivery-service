@@ -697,11 +697,10 @@ def _diki_template_vars(
                         summary += '</details>\n\n'
                 # process single checks
                 case list():
+                    shortened_summary += f'{len(check.targets)} targets\n'
                     if len(check.targets) == 0:
-                        shortened_summary += '0 targets\n'
                         summary += '0 targets\n'
                     else:
-                        shortened_summary += f'{len(check.targets)} targets\n'
                         summary += _targets_table(check.targets)
                 case None:
                     shortened_summary += '0 targets\n'
