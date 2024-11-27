@@ -700,9 +700,9 @@ def _diki_template_vars(
                     if len(check.targets) == 0:
                         shortened_summary += '0 targets\n'
                         summary += '0 targets\n'
-                        continue
-                    shortened_summary += f'{len(check.targets)} targets\n'
-                    summary += _targets_table(check.targets)
+                    else:
+                        shortened_summary += f'{len(check.targets)} targets\n'
+                        summary += _targets_table(check.targets)
                 case None:
                     shortened_summary += '0 targets\n'
                     summary += '0 targets\n'
