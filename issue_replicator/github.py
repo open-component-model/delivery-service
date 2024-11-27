@@ -766,12 +766,19 @@ def _template_vars(
 
     c_versions_str = ', '.join(sorted(component_versions))
 
-    artefact_ids = sorted(grouped_findings.keys(), key=lambda id: id.artefact_version)
+    artefact_ids = sorted(
+        grouped_findings.keys(),
+        key=lambda id: (id.artefact_version, id.normalised_artefact_extra_id),
+    )
     artefact_ids_str = ''.join(
         _artefact_id_to_str(artefact_id=artefact_id)
         for artefact_id in artefact_ids
     )
 
+    artefact_ids_without_scan = sorted(
+        artefact_ids_without_scan,
+        key=lambda id: (id.artefact_version, id.normalised_artefact_extra_id),
+    )
     artefacts_without_scan_str = ''.join(
         _artefact_id_to_str(artefact_id=artefact_id_without_scan)
         for artefact_id_without_scan in artefact_ids_without_scan
@@ -815,7 +822,10 @@ def _template_vars(
 
     sorted_grouped_findings = sorted(
         (grouped_finding for grouped_finding in grouped_findings.values()),
-        key=lambda grouped_finding: grouped_finding.artefact.artefact_version,
+        key=lambda grouped_finding: (
+            grouped_finding.artefact.artefact_version,
+            grouped_finding.artefact.normalised_artefact_extra_id,
+        ),
     )
 
     if not findings:
