@@ -23,9 +23,9 @@ spec:
             - python3
             - -m
             - cache_manager
-            {{- if default list .Values.args }}
+            {{- if default list $config.args }}
             args:
-            {{- range $arg := .Values.args }}
+            {{- range $arg := $config.args }}
             - {{ $arg }}
             {{- end }}
             {{- end }}
