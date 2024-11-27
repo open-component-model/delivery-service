@@ -601,6 +601,19 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
             )
         )
         for rule_set_raw in rescoring_raw['rescoringRuleSets']
+        if rule_set_raw['type'] == rm.RuleSetType.CVE
+    )
+    sast_rescoring_rule_sets = tuple(
+        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
+        rm.SastRescoringRuleSet( #noqa:E1123
+            name=rule_set_raw['name'],
+            description=rule_set_raw.get('description'),
+            rules=list(
+                rm.sast_rescoring_rules(rule_set_raw['rules'])
+            )
+        )
+        for rule_set_raw in rescoring_raw['rescoringRuleSets']
+        if rule_set_raw['type'] == rm.RuleSetType.SAST
     )
     default_rule_sets = [
         dacite.from_dict(
@@ -616,7 +629,7 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
     return FeatureRescoring(
         state=FeatureStates.AVAILABLE,
         default_rule_sets=default_rule_sets,
-        rescoring_rule_sets=cve_rescoring_rule_sets,
+        rescoring_rule_sets=cve_rescoring_rule_sets + sast_rescoring_rule_sets,
         cve_categorisation_label_url=rescoring_raw.get('cveCategorisationLabelUrl'),
         cve_severity_url=rescoring_raw.get('cveSeverityUrl'),
     )
