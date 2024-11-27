@@ -666,7 +666,7 @@ def _diki_template_vars(
         finging_rule = finding.finding.data
         finding_str = '\n'
         finding_str += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
-        finding_str += f' rule with ID {finging_rule.rule_id}\n'
+        finding_str += f' rule with ID {finging_rule.rule_id} - {finging_rule.severity}\n'
         finding_str += '\n'
         finding_str += '### Failed checks:\n'
 
@@ -686,6 +686,10 @@ def _diki_template_vars(
                 # process merged checks
                 case dict():
                     for key, value in check.targets.items():
+                        if value is None:
+                            shortened_summary += f'{key}: 0 targets\n'
+                            summary += f'{key}: 0 targets\n'
+                            continue
                         shortened_summary += f'{key}: {len(value)} targets\n'
                         summary += '<details>\n'
                         summary += f'<summary>{key}:</summary>\n\n'
@@ -694,7 +698,13 @@ def _diki_template_vars(
                 # process single checks
                 case list():
                     shortened_summary += f'{len(check.targets)} targets\n'
-                    summary += _targets_table(check.targets)
+                    if len(check.targets) == 0:
+                        summary += '0 targets\n'
+                    else:
+                        summary += _targets_table(check.targets)
+                case None:
+                    shortened_summary += '0 targets\n'
+                    summary += '0 targets\n'
                 case _:
                     raise TypeError(check.targets) # this line should never be reached
 
