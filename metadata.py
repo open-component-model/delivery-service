@@ -336,13 +336,7 @@ class ArtefactMetadata(aiohttp.web.View):
                 new_metadata=metadata_entry,
             )
 
-            if (
-                existing_entry.component_version != metadata_entry.component_version
-                or existing_entry.artefact_version != metadata_entry.artefact_version
-                or existing_entry.artefact_extra_id_normalised
-                    != metadata_entry.artefact_extra_id_normalised
-                or existing_entry.data_key != metadata_entry.data_key
-            ):
+            if existing_entry.id != metadata_entry.id:
                 return None, reusable_discovery_date
 
             return existing_entry, reusable_discovery_date
@@ -461,7 +455,7 @@ class ArtefactMetadata(aiohttp.web.View):
                 )
 
                 await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
-                    du.ArtefactMetadataFilters.by_single_scan_result(artefact_metadata),
+                    dm.ArtefactMetaData.id == artefact_metadata.id,
                 ))
 
                 await _mark_compliance_summary_cache_for_deletion(

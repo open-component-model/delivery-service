@@ -80,7 +80,7 @@ class RescoringProposal:
     finding_type: str
     severity: Severity
     matching_rules: list[str]
-    applicable_rescorings: tuple[dso.model.ArtefactMetadata, ...] # "..." for dacite.from_dict
+    applicable_rescorings: tuple[dict, ...] # "..." for dacite.from_dict
     discovery_date: str
     sprint: yp.Sprint | None
 
@@ -365,6 +365,14 @@ async def _iter_rescoring_proposals(
             current_severity = severity
             matching_rules = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
 
+        # patch in `id` because it is required in order to be able to delete rescorings
+        serialised_current_rescorings = tuple(
+            {
+                **dataclasses.asdict(rescoring),
+                'id': rescoring.id,
+            } for rescoring in current_rescorings
+        )
+
         if am.meta.type == dso.model.Datatype.MALWARE_FINDING:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
@@ -378,7 +386,7 @@ async def _iter_rescoring_proposals(
                     'finding_type': dso.model.Datatype.MALWARE_FINDING,
                     'severity': current_severity.name,
                     'matching_rules': matching_rules,
-                    'applicable_rescorings': current_rescorings,
+                    'applicable_rescorings': serialised_current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
                     'sprint': sprint,
                 },
@@ -471,7 +479,7 @@ async def _iter_rescoring_proposals(
                             if not current_rescorings and rescoring_rules and categorisation
                             else matching_rules
                         ),
-                        'applicable_rescorings': current_rescorings,
+                        'applicable_rescorings': serialised_current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
                         'sprint': sprint,
                     },
@@ -513,7 +521,7 @@ async def _iter_rescoring_proposals(
                         'finding_type': dso.model.Datatype.LICENSE,
                         'severity': current_severity.name,
                         'matching_rules': matching_rules,
-                        'applicable_rescorings': current_rescorings,
+                        'applicable_rescorings': serialised_current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
                         'sprint': sprint,
                     },
@@ -703,7 +711,7 @@ class Rescore(aiohttp.web.View):
 
                 # avoid adding rescoring duplicates -> purge old entries
                 await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
-                    du.ArtefactMetadataFilters.by_single_scan_result(rescoring_db),
+                    dm.ArtefactMetaData.id == rescoring_db.id,
                 ))
 
                 db_session.add(rescoring_db)
@@ -922,7 +930,7 @@ class Rescore(aiohttp.web.View):
           name: id
           type: array
           items:
-            type: integer
+            type: string
           required: true
         - in: query
           name: scanConfigName
@@ -941,7 +949,7 @@ class Rescore(aiohttp.web.View):
 
         try:
             db_statement = sa.select(dm.ArtefactMetaData).where(
-                dm.ArtefactMetaData.id.cast(sa.String).in_(ids),
+                dm.ArtefactMetaData.id.in_(ids),
             )
             db_stream = await db_session.stream(db_statement)
 
@@ -952,7 +960,7 @@ class Rescore(aiohttp.web.View):
             ]
 
             await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
-                dm.ArtefactMetaData.id.cast(sa.String).in_(ids),
+                dm.ArtefactMetaData.id.in_(ids),
             ))
             await db_session.commit()
         except:

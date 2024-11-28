@@ -19,7 +19,7 @@ class ArtefactMetaData(Base):
     '''
     __tablename__ = 'artefact_metadata'
 
-    id = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
+    id = sa.Column(sa.CHAR(length=32), primary_key=True)
     creation_date = sa.Column(
         sa.DateTime(timezone=True),
         server_default=sa.sql.func.now(),
