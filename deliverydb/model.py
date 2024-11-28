@@ -1,11 +1,9 @@
 import sqlalchemy as sa
-
-from sqlalchemy import Column, Integer
-from sqlalchemy.ext.declarative import declarative_base
+import sqlalchemy.ext.declarative
 import sqlalchemy.orm.decl_api
 
 
-Base: sqlalchemy.orm.decl_api.DeclarativeMeta = declarative_base()
+Base: sqlalchemy.orm.decl_api.DeclarativeMeta = sqlalchemy.ext.declarative.declarative_base()
 
 
 class ArtefactMetaData(Base):
@@ -21,37 +19,37 @@ class ArtefactMetaData(Base):
     '''
     __tablename__ = 'artefact_metadata'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    creation_date = Column(
+    id = sa.Column(sa.Integer, primary_key=True, autoincrement=True)
+    creation_date = sa.Column(
         sa.DateTime(timezone=True),
         server_default=sa.sql.func.now(),
     )
 
-    type = Column(sa.String(length=64)) # e.g. finding/vulnerability, malware, ...
+    type = sa.Column(sa.String(length=64)) # e.g. finding/vulnerability, malware, ...
 
     # component-id
-    component_name = Column(sa.String(length=256))
-    component_version = Column(sa.String(length=64))
+    component_name = sa.Column(sa.String(length=256))
+    component_version = sa.Column(sa.String(length=64))
 
     # artefact-id
-    artefact_kind = Column(sa.String(length=32)) # resource | source
+    artefact_kind = sa.Column(sa.String(length=32)) # resource | source | runtime
 
-    artefact_name = Column(sa.String(length=128))
-    artefact_version = Column(sa.String(length=64))
-    artefact_type = Column(sa.String(length=64))
+    artefact_name = sa.Column(sa.String(length=128))
+    artefact_version = sa.Column(sa.String(length=64))
+    artefact_type = sa.Column(sa.String(length=64))
 
-    artefact_extra_id_normalised = Column(sa.String(length=1024))
-    artefact_extra_id = Column(sa.JSON)
+    artefact_extra_id_normalised = sa.Column(sa.String(length=1024))
+    artefact_extra_id = sa.Column(sa.JSON)
 
-    meta = Column(sa.JSON, default=dict)
-    data = Column(sa.JSON, default=dict)
-    data_key = Column(sa.CHAR(length=40))
-    datasource = Column(sa.String(length=64)) # bdba, checkmarx
+    meta = sa.Column(sa.JSON, default=dict)
+    data = sa.Column(sa.JSON, default=dict)
+    data_key = sa.Column(sa.CHAR(length=40))
+    datasource = sa.Column(sa.String(length=64)) # bdba, checkmarx
 
-    cfg_name = Column(sa.String(length=64)) # relevant for compliance snapshots
-    referenced_type = Column(sa.String(length=64)) # type of finding a rescoring applies to
+    cfg_name = sa.Column(sa.String(length=64)) # relevant for compliance snapshots
+    referenced_type = sa.Column(sa.String(length=64)) # type of finding a rescoring applies to
 
-    discovery_date = Column(sa.Date)
+    discovery_date = sa.Column(sa.Date)
 
 
 sa.Index(
