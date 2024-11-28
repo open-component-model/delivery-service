@@ -47,6 +47,7 @@ def to_db_artefact_metadata(
     )
 
     return dm.ArtefactMetaData(
+        id=artefact_metadata.id,
         type=meta.type,
         component_name=artefact_ref.component_name,
         component_version=artefact_ref.component_version,
@@ -71,7 +72,6 @@ def db_artefact_metadata_to_dict(
     artefact_metadata: dm.ArtefactMetaData,
 ) -> dict:
     return {
-        'id': artefact_metadata.id,
         'artefact': {
             'component_name': artefact_metadata.component_name,
             'component_version': artefact_metadata.component_version,
@@ -117,28 +117,6 @@ class ArtefactMetadataFilters:
             dm.ArtefactMetaData.artefact_name == artefact_metadata.artefact_name,
             dm.ArtefactMetaData.type == artefact_metadata.type,
             dm.ArtefactMetaData.datasource == artefact_metadata.datasource,
-        )
-
-    @staticmethod
-    def by_artefact_id_and_type(
-        artefact_metadata: dm.ArtefactMetaData,
-    ):
-        return sa.and_(
-            ArtefactMetadataFilters.by_name_and_type(artefact_metadata=artefact_metadata),
-            dm.ArtefactMetaData.component_version == artefact_metadata.component_version,
-            dm.ArtefactMetaData.artefact_type == artefact_metadata.artefact_type,
-            dm.ArtefactMetaData.artefact_version == artefact_metadata.artefact_version,
-            dm.ArtefactMetaData.artefact_extra_id_normalised
-                == artefact_metadata.artefact_extra_id_normalised,
-        )
-
-    @staticmethod
-    def by_single_scan_result(
-        artefact_metadata: dm.ArtefactMetaData,
-    ):
-        return sa.and_(
-            ArtefactMetadataFilters.by_artefact_id_and_type(artefact_metadata=artefact_metadata),
-            dm.ArtefactMetaData.data_key == artefact_metadata.data_key,
         )
 
     @staticmethod
