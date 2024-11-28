@@ -46,15 +46,6 @@ def to_db_artefact_metadata(
         dict_factory=ci.util.dict_to_json_factory,
     )
 
-    # following attributes are about to be removed from artefact-extra-id
-    IMAGE_VECTOR_REPO = 'imagevector-gardener-cloud+repository'
-    IMAGE_VECTOR_TAG = 'imagevector-gardener-cloud+tag'
-
-    if artefact.artefact_extra_id.get(IMAGE_VECTOR_REPO):
-        del artefact.artefact_extra_id[IMAGE_VECTOR_REPO]
-    if artefact.artefact_extra_id.get(IMAGE_VECTOR_TAG):
-        del artefact.artefact_extra_id[IMAGE_VECTOR_TAG]
-
     return dm.ArtefactMetaData(
         type=meta.type,
         component_name=artefact_ref.component_name,
