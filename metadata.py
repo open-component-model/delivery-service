@@ -241,13 +241,7 @@ class ArtefactMetadata(aiohttp.web.View):
     async def put(self):
         '''
         ---
-        description:
-            Update artefact-metadata in delivery-db.
-
-            Only the data from the supplied request body is kept (created/updated), other database
-            tuples for the same artefact and meta.type are removed. Check
-            https://github.com/gardener/cc-utils/blob/master/dso/model.py for allowed values of
-            meta.type (-> dso.model/Datatype) and meta.datasource (-> dso.model.Datasource).
+        description: Update artefact-metadata in delivery-db.
         tags:
         - Artefact metadata
         parameters:
