@@ -2,10 +2,13 @@ import collections.abc
 import dataclasses
 import datetime
 import http
+import logging
+import traceback
 
 import aiohttp.web
 import dacite
 import sqlalchemy as sa
+import sqlalchemy.exc
 import sqlalchemy.ext.asyncio as sqlasync
 
 import ci.util
@@ -21,6 +24,8 @@ import deliverydb_cache.model as dcm
 import features
 import util
 
+
+logger = logging.getLogger(__name__)
 
 types_with_reusable_discovery_dates = (
     dso.model.Datatype.VULNERABILITY,
@@ -412,6 +417,18 @@ class ArtefactMetadata(aiohttp.web.View):
                 )
 
             await db_session.commit()
+
+        except sqlalchemy.exc.IntegrityError:
+            # Integrity error may be caused by duplicate keys. This can happen if there are multiple
+            # attempts to add a new entry for a specific OCM artefact which did not exist before.
+            # Because the existing entries are retrieved at the very beginning, both attempts might
+            # evaluate to "entry does not exist yet" and try to add it, whereby the second one will
+            # fail to do so. In that case, just ignore the error since the data was already uploaded
+            # in the meantime anyways.
+            stacktrace = traceback.format_exc()
+            logger.error(stacktrace)
+            await db_session.rollback()
+
         except:
             await db_session.rollback()
             raise
