@@ -27,7 +27,7 @@ spec:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ default 50 (.Values.autoscaler).targetUtilisation }}
+          averageUtilization: {{ default 80 (.Values.autoscaler).targetUtilisation }}
   behavior:
     scaleDown:
       # scale-down up to max(1 pod, 10% of current pods) every 30s if utilisation is below 50%
@@ -37,16 +37,10 @@ spec:
         - type: Pods
           value: 1
           periodSeconds: 30
-        - type: Percent
-          value: 10
-          periodSeconds: 30
     scaleUp:
       stabilizationWindowSeconds: {{ default 0 (.Values.autoscaler).scaleUpStabilizationWindowSeconds }}
       # scale-up up to max(4 pods, 100% of current pods) every 15s if utilisation is above 50%
       policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 15
         - type: Pods
-          value: 4
-          periodSeconds: 15
+          value: 1
+          periodSeconds: 5
