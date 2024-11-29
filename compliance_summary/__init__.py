@@ -1,3 +1,4 @@
+import asyncio
 import collections
 import collections.abc
 import dataclasses
@@ -305,6 +306,7 @@ async def calculate_summary_entry(
     )
 
     for finding in findings:
+        await asyncio.sleep(0) # allow processing of other requests as this is CPU intensive work
         severity_name = await severity_for_finding(
             finding=finding,
             rescorings=rescorings,
