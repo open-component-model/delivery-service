@@ -1,3 +1,4 @@
+import asyncio
 import collections.abc
 import dataclasses
 import datetime
@@ -323,14 +324,14 @@ def _package_versions_and_filesystem_paths(
     return package_versions, filesystem_paths
 
 
-def _iter_rescoring_proposals(
+async def _iter_rescoring_proposals(
     artefact_metadata: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescoring_rules: collections.abc.Iterable[rm.CveRescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
     max_processing_days: gcm.MaxProcessingTimesDays | None=None,
     sprints: list[yp.Sprint]=[],
-) -> collections.abc.Generator[RescoringProposal, None, None]:
+) -> collections.abc.AsyncGenerator[RescoringProposal, None, None]:
     '''
     yield rescorings for supported finding types
     implements special handling for BDBA findings (grouping across different package-versions)
@@ -344,6 +345,8 @@ def _iter_rescoring_proposals(
             or am.id in seen_ids
         ):
             continue
+
+        await asyncio.sleep(0)
 
         current_rescorings, sprint = _rescorings_and_sprint(
             artefact_metadatum=am,
@@ -891,14 +894,16 @@ class Rescore(aiohttp.web.View):
             else:
                 max_processing_days = gcm.MaxProcessingTimesDays()
 
-        rescoring_proposals = _iter_rescoring_proposals(
-            artefact_metadata=artefact_metadata,
-            rescorings=rescorings,
-            rescoring_rules=cve_rescoring_rule_set.rules if cve_rescoring_rule_set else None,
-            categorisation=categorisation,
-            max_processing_days=max_processing_days,
-            sprints=self.request.app[consts.APP_SPRINTS],
-        )
+        rescoring_proposals = [
+            rescoring_proposal async for rescoring_proposal in _iter_rescoring_proposals(
+                artefact_metadata=artefact_metadata,
+                rescorings=rescorings,
+                rescoring_rules=cve_rescoring_rule_set.rules if cve_rescoring_rule_set else None,
+                categorisation=categorisation,
+                max_processing_days=max_processing_days,
+                sprints=self.request.app[consts.APP_SPRINTS],
+            )
+        ]
 
         return aiohttp.web.json_response(
             data=rescoring_proposals,
