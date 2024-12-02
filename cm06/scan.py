@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import argparse
+import atexit
 import datetime
 import enum
-import json
 import logging
 import os
-
 import semver
+import sys
 
 import ci.log
 import cnudie.iter
@@ -16,7 +16,12 @@ import dso.labels
 import dso.model
 import ocm
 
+import config
 import ctx_util
+import github.compliance.model
+import k8s.util
+import k8s.model
+import k8s.logging
 import lookups
 import rescore.model
 import rescore.utility
@@ -30,156 +35,201 @@ default_cache_dir = os.path.join(own_dir, '.cache')
 
 
 class AnalysisLabel(enum.StrEnum):
-    LINT = 'lint'
     SAST = 'sast'
-
-
-def load_json_file(
-    file_path: str
-) -> dict:
-    try:
-        with open(file_path, 'r') as file:
-            return json.load(file)
-    except FileNotFoundError:
-        logger.error(f'File {file_path} not found')
-        raise
-    except json.JSONDecodeError:
-        logger.error(f'File {file_path} is not a valid JSON file')
-        raise
 
 
 def sast_status(
     component: ocm.Component
 ) -> rescore.model.SastStatus:
-    has_local_linting = False
-    has_central_linting = False
+    local_lint = False
+    central_lint = True # default case if no label and no sast evidence artefact
 
     for source in component.sources:
-        label = source.find_label(name=dso.labels.SourceScanLabel.name)
-        if label:
+        if label := source.find_label(name=dso.labels.SourceScanLabel.name):
             label_content = dso.labels.deserialise_label(label)
-            if label_content.value.policy.value in dso.labels.ScanPolicy.SKIP.value:
-                has_local_linting = True
-                break
+            if label_content.value.policy is dso.labels.ScanPolicy.SKIP:
+                central_lint = False
 
     for resource in component.resources:
-        label = resource.find_label(name=dso.labels.ResourceScanLabel.name)
-        if label:
+        if label := resource.find_label(name=dso.labels.ResourceScanLabel.name):
             label_content = dso.labels.deserialise_label(label)
             if AnalysisLabel.SAST.value in label_content.value:
-                has_central_linting = True
-                break
+                local_lint = True
 
-    if has_local_linting and has_central_linting:
-        return rescore.model.SastStatus.CENTRAL_AND_LOCAL_LINTING
-    elif has_local_linting:
+    if local_lint:
         return rescore.model.SastStatus.LOCAL_LINTING
-    elif has_central_linting:
+    elif central_lint:
         return rescore.model.SastStatus.CENTRAL_LINTING
     else:
         return rescore.model.SastStatus.NO_LINTING
 
 
 def determine_component_context(
-    component: ocm.Component
-) -> str:
-    for resource in component.resources:
-        if resource.type == 'ociImage' and resource.access:
-            image_reference = resource.access.imageReference
-
-            if (
-                image_reference
-                and 'europe-docker_pkg_dev/gardener-project/' in image_reference
-            ):
-                return rescore.model.ComponentContext.PUBLIC.value
-
-    return rescore.model.ComponentContext.SAP_INTERNAL.value
-
-
-def generate_findings(
     component: ocm.Component,
-    sast_status_value: rescore.model.SastStatus,
-    time_now: datetime.datetime
-) -> dso.model.ArtefactMetadata:
+    cfg: config.CM06Config
+) -> str:
+    for mapping in cfg.component_context_mapping:
+        for prefix in mapping.ocm_repo_prefixes:
+            if component.name.startswith(prefix):
+                return mapping.context_name
 
-    data_field = dso.model.SastFinding(
-        component_context=determine_component_context(
-            component=component
-        ),
-        sast_status=sast_status_value.value,
-        severity=rescore.model.Rescore.BLOCKER.value,
+    return dso.model.ComponentContext.INTERNAL.value
+
+
+def deserialise_cm06_configuration(
+    cfg_name: str,
+    namespace: str,
+    kubernetes_api: k8s.util.KubernetesApi,
+) -> config.CM06Config:
+    scan_cfg_crd = kubernetes_api.custom_kubernetes_api.get_namespaced_custom_object(
+        group=k8s.model.ScanConfigurationCrd.DOMAIN,
+        version=k8s.model.ScanConfigurationCrd.VERSION,
+        plural=k8s.model.ScanConfigurationCrd.PLURAL_NAME,
+        namespace=namespace,
+        name=cfg_name,
+    )
+    if scan_cfg_crd and (spec := scan_cfg_crd.get('spec')):
+        cm06_config = config.deserialise_cm06_config(spec_config=spec)
+    else:
+        cm06_config = None
+
+    if not cm06_config:
+        logger.warning(
+            f'No CM06 configuration found for scan configuration {cfg_name} in namespace {namespace}'
+        )
+        sys.exit(0)
+
+    return cm06_config
+
+
+def get_landscape_versions(
+    cm06_config,
+    delivery_client
+) -> list[str]:
+    # If both component_version and audit_timerange_months are provided, raise an error
+    if cm06_config.component_version and cm06_config.audit_timerange_months:
+        raise ValueError(
+            'Cannot use both component_version and audit_timerange_months simultaneously.'
+        )
+
+    # If a specific component version is provided, return it
+    if cm06_config.component_version:
+        return [cm06_config.component_version]
+
+    # Default start_date to today
+    start_date = cm06_config.audit_start_date or datetime.date.today()
+
+    # Calculate end_date based on audit_timerange_months
+    if cm06_config.audit_timerange_months:
+        end_date = start_date - datetime.timedelta(
+            days=cm06_config.audit_timerange_months * 30
+        )
+    else:
+        # Default end_date to start_date if no range is given
+        end_date = start_date
+
+    return delivery_client.greatest_component_versions(
+        component_name=cm06_config.component_name,
+        start_date=end_date,
+        end_date=start_date,
     )
 
-    return dso.model.ArtefactMetadata(
-        artefact=dso.model.ComponentArtefactId(
-            component_name=component.name,
-            component_version=component.version,
-            artefact=dso.model.LocalArtefactId(
-                artefact_name=None,
-                artefact_type=None,
-            )
-        ),
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.CM06,
-            type=dso.model.Datatype.SAST_FINDING,
-            creation_date=time_now,
-            last_update=time_now,
-        ),
-        data=data_field
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--k8s-cfg-name',
+        help='specify kubernetes cluster to interact with',
+        default=os.environ.get('K8S_CFG_NAME'),
     )
+    parser.add_argument(
+        '--kubeconfig',
+        help='''
+            specify kubernetes cluster to interact with extensions (and logs); if both
+            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
+        ''',
+    )
+    parser.add_argument(
+        '--k8s-namespace',
+        help='specify kubernetes cluster namespace to interact with',
+        default=os.environ.get('K8S_TARGET_NAMESPACE'),
+    )
+    parser.add_argument(
+        '--cfg-name',
+        help='''
+            specify the context the process should run in, not relevant for the artefact
+            enumerator as well as backlog controller as these are context independent
+        ''',
+        default=os.environ.get('CFG_NAME'),
+    )
+    parser.add_argument(
+        '--delivery-service-url',
+        help='''
+            specify the url of the delivery service to use instead of the one configured in the
+            respective scan configuration
+        ''',
+    )
+    parser.add_argument('--cache-dir', default=default_cache_dir)
+
+    parsed_arguments = parser.parse_args()
+
+    if not parsed_arguments.k8s_namespace:
+        raise ValueError(
+            'k8s namespace must be set, either via argument "--k8s-namespace" '
+            'or via environment variable "K8S_TARGET_NAMESPACE"'
+        )
+
+    if not parsed_arguments.cfg_name:
+        raise ValueError(
+            'name of the to-be-used scan configuration must be set, either via '
+            'argument "--cfg-name" or via environment variable "CFG_NAME"'
+        )
+
+    return parsed_arguments
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Upload CM06 scan results to delivery database')
-
-    parser.add_argument(
-        '--delivery-service-url',
-        type=str,
-    )
-    parser.add_argument(
-        '--component-name',
-        type=str,
-    )
-    parser.add_argument(
-        '--rescoring-config',
-        required=True,
-        help='Path to rescoring configuration file'
-    )
-    parser.add_argument(
-        '--audit-start-date',
-        default=(datetime.date.today() - datetime.timedelta(days=5)),
-        help='Audit start date in YYYY-MM-DD format'
-    )
-    parser.add_argument(
-        '--audit-end-date',
-        default=datetime.date.today(),
-        help='Audit end date in YYYY-MM-DD format'
-    )
-    args = parser.parse_args()
-
-    sast_rescoring_cfg_raw = load_json_file(args.rescoring_config)
-
-    sast_rescoring_rulesets = [
-        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
-        rescore.model.SastRescoringRuleSet( #noqa:E1123
-            name=rule_set_raw['name'],
-            description=rule_set_raw.get('description'),
-            rules=list(
-                rescore.model.sast_rescoring_rules(rule_set_raw['rules'])
-            )
-        )
-        for rule_set_raw in sast_rescoring_cfg_raw['rescoringRuleSets']
-    ]
-
-    if not sast_rescoring_rulesets:
-        logger.error('No SAST rescoring rulesets found in the configuration file')
-        return
+    parsed_arguments = parse_args()
+    cfg_name = parsed_arguments.cfg_name
+    namespace = parsed_arguments.k8s_namespace
+    delivery_service_url = parsed_arguments.delivery_service_url
 
     cfg_factory = ctx_util.cfg_factory()
 
+    if parsed_arguments.k8s_cfg_name:
+        kubernetes_cfg = cfg_factory.kubernetes_cfg(parsed_arguments.k8s_cfg_name)
+        kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
+    else:
+        kubernetes_api = k8s.util.kubernetes_api(
+            kubeconfig_path=parsed_arguments.kubeconfig,
+        )
+
+    k8s.logging.init_logging_thread(
+        service=config.Services.CM06,
+        namespace=namespace,
+        kubernetes_api=kubernetes_api,
+
+    )
+    atexit.register(
+        k8s.logging.log_to_crd,
+        service=config.Services.CM06,
+        namespace=namespace,
+        kubernetes_api=kubernetes_api,
+    )
+
+    cm06_config = deserialise_cm06_configuration(
+        cfg_name=cfg_name,
+        namespace=namespace,
+        kubernetes_api=kubernetes_api,
+    )
+
+    if not delivery_service_url:
+        delivery_service_url = cm06_config.delivery_service_url
+
     delivery_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
-            base_url=args.delivery_service_url,
+            base_url=parsed_arguments.delivery_service_url,
         ),
         cfg_factory=cfg_factory,
     )
@@ -189,10 +239,9 @@ def main():
         delivery_client=delivery_client,
     )
 
-    landscape_versions = delivery_client.greatest_component_versions(
-        component_name=args.component_name,
-        start_date=args.audit_start_date,
-        end_date=args.audit_end_date,
+    landscape_versions = get_landscape_versions(
+        cm06_config=cm06_config,
+        delivery_client=delivery_client,
     )
 
     new_metadata = []
@@ -201,7 +250,7 @@ def main():
     for component_version in sorted(landscape_versions, key=semver.VersionInfo.parse):
         component_descriptor = component_descriptor_lookup(
             ocm.ComponentIdentity(
-                name=args.component_name,
+                name=cm06_config.component_name,
                 version=component_version,
             )
         )
@@ -219,14 +268,36 @@ def main():
             sast_status_value = sast_status(
                 component=cnode.component
             )
-            original_finding = generate_findings(
-                component=cnode.component,
-                sast_status_value=sast_status_value,
-                time_now=time_now
+
+            data_field = dso.model.SastFinding(
+                component_context=determine_component_context(
+                    component=cnode.component,
+                    cfg=cm06_config
+                ),
+                sast_statuses=sast_status_value.value,
+                severity=github.compliance.model.Severity.BLOCKER,
+            )
+
+            original_finding = dso.model.ArtefactMetadata(
+                artefact=dso.model.ComponentArtefactId(
+                    component_name=cnode.component.name,
+                    component_version=cnode.component.version,
+                    artefact=dso.model.LocalArtefactId(
+                        artefact_name=None,
+                        artefact_type=None,
+                    )
+                ),
+                meta=dso.model.Metadata(
+                    datasource=dso.model.Datasource.CM06,
+                    type=dso.model.Datatype.SAST_FINDING,
+                    creation_date=time_now,
+                    last_update=time_now,
+                ),
+                data=data_field
             )
             new_metadata.append(original_finding)
 
-            for ruleset in sast_rescoring_rulesets:
+            for ruleset in cm06_config.sast_rescoring_rulesets:
                 rescored_metadata = rescore.utility.generate_sast_rescorings(
                     findings=[original_finding],
                     sast_rescoring_ruleset=ruleset,
