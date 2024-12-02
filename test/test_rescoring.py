@@ -3,20 +3,49 @@ import dacite
 import datetime
 
 import dso.model
+import github.compliance.model
 import rescore.model
 import rescore.utility
 
 
 @pytest.fixture
-def cve_rescoring_rules_raw() -> dict:
+def rescoring_rules_raw() -> dict:
     return {
         'defaultRuleSetNames': [
             {
+                'name': 'my-sast-rescoring',
+                'type': 'sast',
+            },
+            {
                 'name': 'my-cve-rescoring',
                 'type': 'cve',
-            }
+            },
         ],
         'rescoringRuleSets': [
+            {
+                'name': 'my-sast-rescoring',
+                'type': 'sast',
+                'rules': [
+                    {
+                        'name': 'public-no-linting',
+                        'component_context': 'public',
+                        'sast_status': 'no-linting',
+                        'rescore': 'blocker'
+                    },
+                    {
+                        'name': 'internal-local-linting',
+                        'component_context': 'internal',
+                        'sast_status': 'local-linting',
+                        'rescore': 'to-none'
+                    },
+                    {
+                        'name': 'internal-central-linting',
+                        'component_context': 'internal',
+                        'sast_status': 'central-linting',
+                        'rescore': 'to-none'
+                    },
+                ],
+            },
             {
                 'name': 'my-cve-rescoring',
                 'type': 'cve',
@@ -46,7 +75,7 @@ def cve_rescoring_rules_raw() -> dict:
 
 
 def test_deserialise_rescoring_rule_sets(
-    cve_rescoring_rules_raw: dict,
+    rescoring_rules_raw: dict,
 ):
     cve_rescoring_rule_sets = tuple(
         rescore.model.CveRescoringRuleSet(
@@ -56,7 +85,8 @@ def test_deserialise_rescoring_rule_sets(
                 rescore.model.cve_rescoring_rules_from_dicts(cve_rule_set_raw['rules'])
             )
         )
-        for cve_rule_set_raw in cve_rescoring_rules_raw['rescoringRuleSets']
+        for cve_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
+        if cve_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
     )
 
     assert isinstance(cve_rescoring_rule_sets[0], rescore.model.CveRescoringRuleSet)
@@ -70,19 +100,19 @@ def test_deserialise_rescoring_rule_sets(
     assert rule3.rescore is rescore.model.Rescore.NOT_EXPLOITABLE
 
 
-# deserialization of default rule set names
 def test_deserialise_rescoring_rule_sets_default_rule_set_names(
-    cve_rescoring_rules_raw: dict,
+    rescoring_rules_raw: dict,
 ):
     default_rule_sets = [
         dacite.from_dict(
             data_class=rescore.model.DefaultRuleSet,
-            data=item,
+            data=default_ruleset,
             config=dacite.Config(
                 cast=[rescore.model.RuleSetType],
             )
         )
-        for item in cve_rescoring_rules_raw['defaultRuleSetNames']
+        for default_ruleset in rescoring_rules_raw['defaultRuleSetNames']
+        if default_ruleset['type'] == rescore.model.RuleSetType.CVE
     ]
 
     cve_rescoring_rule_sets = tuple(
@@ -93,7 +123,8 @@ def test_deserialise_rescoring_rule_sets_default_rule_set_names(
                 rescore.model.cve_rescoring_rules_from_dicts(cve_rule_set_raw['rules'])
             )
         )
-        for cve_rule_set_raw in cve_rescoring_rules_raw['rescoringRuleSets']
+        for cve_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
+        if cve_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
     )
 
     default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
@@ -111,9 +142,9 @@ def test_deserialise_rescoring_rule_sets_default_rule_set_names(
 
 # deserialization with extra attributes
 def test_deserialise_with_extra_attributes(
-    cve_rescoring_rules_raw: dict
+    rescoring_rules_raw: dict
 ):
-    cve_rescoring_rules_raw['rescoringRuleSets'][0]['extra_attribute'] = 'extra_value'
+    rescoring_rules_raw['rescoringRuleSets'][0]['extra_attribute'] = 'extra_value'
 
     cve_rescoring_rule_sets = tuple(
         rescore.model.CveRescoringRuleSet(
@@ -124,63 +155,27 @@ def test_deserialise_with_extra_attributes(
                 rescore.model.cve_rescoring_rules_from_dicts(cve_rule_set_raw['rules'])
             )
         )
-        for cve_rule_set_raw in cve_rescoring_rules_raw['rescoringRuleSets']
+        for cve_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
+        if cve_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
     )
 
     assert isinstance(cve_rescoring_rule_sets[0], rescore.model.CveRescoringRuleSet)
     assert len(cve_rescoring_rule_sets[0].rules) == 3
 
 
-@pytest.fixture
-def sast_rescoring_rules_raw() -> dict:
-    return {
-        'defaultRuleSetNames': [
-            {
-                'name': 'my-sast-rescoring',
-                'type': 'sast',
-            }
-        ],
-        'rescoringRuleSets': [
-            {
-                'name': 'my-sast-rescoring',
-                'type': 'sast',
-                'rules': [
-                    {
-                        'name': 'public-no-linting',
-                        'component_context': 'public',
-                        'sast_status': 'no-linting',
-                        'rescore': 'blocker'
-                    },
-                    {
-                        'name': 'internal-local-linting',
-                        'component_context': 'sap-internal',
-                        'sast_status': 'local-linting',
-                        'rescore': 'to-none'
-                    },
-                    {
-                        'name': 'internal-central-linting',
-                        'component_context': 'sap-internal',
-                        'sast_status': 'central-linting',
-                        'rescore': 'to-none'
-                    },
-                ],
-            }
-        ]
-    }
-
-
 def test_deserialise_sast_rescoring_rule_sets(
-    sast_rescoring_rules_raw: dict,
+    rescoring_rules_raw: dict,
 ):
     sast_rescoring_rule_sets = tuple(
         rescore.model.SastRescoringRuleSet(
             name=sast_rule_set_raw['name'],
             description=sast_rule_set_raw.get('description'),
             rules=list(
-                rescore.model.sast_rescoring_rules(sast_rule_set_raw['rules'])
+                rescore.model.sast_rescoring_rules_from_dict(sast_rule_set_raw['rules'])
             )
         )
-        for sast_rule_set_raw in sast_rescoring_rules_raw['rescoringRuleSets']
+        for sast_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
+        if sast_rule_set_raw['type'] == rescore.model.RuleSetType.SAST
     )
 
     assert isinstance(sast_rescoring_rule_sets[0], rescore.model.SastRescoringRuleSet)
@@ -195,17 +190,18 @@ def test_deserialise_sast_rescoring_rule_sets(
 
 
 def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
-    sast_rescoring_rules_raw: dict,
+    rescoring_rules_raw: dict,
 ):
     default_rule_sets = [
         dacite.from_dict(
             data_class=rescore.model.DefaultRuleSet,
-            data=item,
+            data=default_ruleset,
             config=dacite.Config(
                 cast=[rescore.model.RuleSetType],
             )
         )
-        for item in sast_rescoring_rules_raw['defaultRuleSetNames']
+        for default_ruleset in rescoring_rules_raw['defaultRuleSetNames']
+        if default_ruleset['type'] == rescore.model.RuleSetType.SAST
     ]
 
     sast_rescoring_rule_sets = tuple(
@@ -213,10 +209,11 @@ def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
             name=sast_rule_set_raw['name'],
             description=sast_rule_set_raw.get('description'),
             rules=list(
-                rescore.model.sast_rescoring_rules(sast_rule_set_raw['rules'])
+                rescore.model.sast_rescoring_rules_from_dict(sast_rule_set_raw['rules'])
             )
         )
-        for sast_rule_set_raw in sast_rescoring_rules_raw['rescoringRuleSets']
+        for sast_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
+        if sast_rule_set_raw['type'] == rescore.model.RuleSetType.SAST
     )
 
     default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
@@ -250,9 +247,9 @@ def sast_finding_public():
             last_update=datetime.datetime.now(),
         ),
         data=dso.model.SastFinding(
-            component_context=rescore.model.ComponentContext.SAP_INTERNAL.value,
-            sast_status=rescore.model.SastStatus.CENTRAL_LINTING.value,
-            severity=rescore.model.Rescore.BLOCKER.value,
+            component_context=dso.model.ComponentContext.INTERNAL.value,
+            sast_statuses=rescore.model.SastStatus.CENTRAL_LINTING.value,
+            severity=github.compliance.model.Severity.BLOCKER.value,
         )
     )
 
@@ -275,42 +272,47 @@ def sast_finding_internal():
             last_update=datetime.datetime.now(),
         ),
         data=dso.model.SastFinding(
-            component_context=rescore.model.ComponentContext.SAP_INTERNAL.value,
-            sast_status=rescore.model.SastStatus.CENTRAL_LINTING.value,
-            severity=rescore.model.Rescore.BLOCKER.value,
+            component_context=dso.model.ComponentContext.INTERNAL.value,
+            sast_statuses=rescore.model.SastStatus.CENTRAL_LINTING.value,
+            severity=github.compliance.model.Severity.BLOCKER.value,
         )
     )
 
 
 def test_generate_sast_rescorings(
-    sast_rescoring_rules_raw: dict,
+    rescoring_rules_raw: dict,
     sast_finding_public: dso.model.ArtefactMetadata,
-    sast_finding_internal: dso.model.ArtefactMetadata,
 ):
     sast_rescoring_rule_sets = tuple(
         rescore.model.SastRescoringRuleSet(
             name=sast_rule_set_raw['name'],
             description=sast_rule_set_raw.get('description'),
             rules=list(
-                rescore.model.sast_rescoring_rules(sast_rule_set_raw['rules'])
+                rescore.model.sast_rescoring_rules_from_dict(sast_rule_set_raw['rules'])
             )
         )
-        for sast_rule_set_raw in sast_rescoring_rules_raw['rescoringRuleSets']
+        for sast_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
+        if sast_rule_set_raw['type'] == rescore.model.RuleSetType.SAST
     )
     sast_rescoring_ruleset = sast_rescoring_rule_sets[0]
 
-    rescored_metadata = rescore.utility.generate_sast_rescorings(
-        findings=[sast_finding_public, sast_finding_internal],
+    # Convert the generator to a list for testing
+    rescored_metadata = list(rescore.utility.generate_sast_rescorings(
+        findings=[sast_finding_public],
         sast_rescoring_ruleset=sast_rescoring_ruleset,
         user=dso.model.User(
             username="test_user",
         ),
+    ))
+
+    rescored_intern = rescored_metadata[0]
+    assert isinstance(rescored_intern.data, dso.model.CustomRescoring)
+    assert rescored_intern.data.matching_rules == ['internal-central-linting']
+    assert rescored_intern.data.user.username == 'test_user'
+    assert rescored_intern.data.comment == 'Automatically rescored based on rules.'
+    assert (
+        rescored_intern.data.finding.component_context is dso.model.ComponentContext.INTERNAL.value
     )
-
-    # 2 rescored & 2 original Findings
-    assert len(rescored_metadata) == 4
-
-    original_public, rescored_public = rescored_metadata[:2]
-    assert original_public.data.sast_status == rescore.model.SastStatus.CENTRAL_LINTING.value
-    assert rescored_public.data.severity == 'to-none'
-    assert rescored_public.data.matching_rules == ['internal-central-linting']
+    assert (
+        rescored_intern.data.finding.sast_statuses is rescore.model.SastStatus.CENTRAL_LINTING.value
+    )
