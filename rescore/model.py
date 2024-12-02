@@ -8,6 +8,7 @@ import dacite
 import yaml
 
 import dso.cvss
+import dso.model
 
 
 class Rescore(enum.Enum):
@@ -21,11 +22,6 @@ class Rescore(enum.Enum):
 class RuleSetType(enum.StrEnum):
     CVE = 'cve'
     SAST = 'sast'
-
-
-class ComponentContext(enum.StrEnum):
-    SAP_INTERNAL = 'sap-internal'
-    PUBLIC = 'public'
 
 
 class SastStatus(enum.StrEnum):
@@ -43,7 +39,7 @@ class Rule:
 
 @dataclasses.dataclass(frozen=True)
 class SastRescoringRule(Rule):
-    component_context: ComponentContext
+    component_context: dso.model.ComponentContext
     sast_status: SastStatus
 
 
@@ -236,13 +232,13 @@ def cve_rescoring_rules_from_dicts(
             )
 
 
-def sast_rescoring_rules(
+def sast_rescoring_rules_from_dict(
     rules: list[dict]
 ) -> typing.Generator[SastRescoringRule, None, None]:
     for rule in rules:
         yield SastRescoringRule(
             name=rule['name'],
             rescore=Rescore(rule['rescore']),
-            component_context=ComponentContext(rule['component_context']),
+            component_context=dso.model.ComponentContext(rule['component_context']),
             sast_status=rule['sast_status'],
         )
