@@ -10,29 +10,27 @@ import urllib.parse
 
 import aiohttp.web
 import cachetools.keys
-import cnudie.iter_async
 import dateutil.parser
-import dora_result_calcs
-import ocm
 import github3
-
-import ci.util
-import cnudie.retrieve
-import cnudie.util
-import semver
 import version as versionutil
 
+import ci.util
+import cnudie.iter_async
+import cnudie.retrieve
+import cnudie.retrieve_async
+import cnudie.util
+import ocm
+
+import dora_result_calcs
 import caching
 import components
 import consts
-import middleware
-import middleware.auth
 import util
 
 
 def _cache_key_gen_all_versions_sorted(
     component: cnudie.retrieve.ComponentName,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     only_releases: bool = True,
     invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
@@ -51,7 +49,7 @@ def _cache_key_gen_all_versions_sorted(
 )
 async def all_versions_sorted(
     component: cnudie.retrieve.ComponentName,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     only_releases: bool = True,
     invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc'
@@ -99,41 +97,45 @@ async def all_versions_sorted(
 
 
 async def filter_versions_newer_than(
-        component: cnudie.retrieve.ComponentName,
-        all_versions: list[semver.VersionInfo],
-        date: datetime.datetime,
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-) -> list[semver.VersionInfo]:
+    component: cnudie.retrieve.ComponentName,
+    all_versions: list[str],
+    date: datetime.datetime,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+) -> list[str]:
     '''
     Filter list of versions of a component for versions that are newer than a specified date.
 
     Returns:
         A list of version information objects representing versions newer than the specified date.
     '''
-    all_versions = sorted(
-        all_versions,
-        key=lambda v: versionutil.parse_to_semver(v),
-        reverse=True,
-    )
+    print(all_versions)
+    print(type(all_versions))
 
-    component_versions: list[semver.VersionInfo] = []
-
-    for version in all_versions:
-        descriptor: ocm.ComponentDescriptor = await component_descriptor_lookup(
-            ocm.ComponentIdentity(
-                name=cnudie.util.to_component_name(component),
-                version=version,
+    async def iter_versions_after(
+        all_versions: list[str],
+        date: datetime.datetime,
+        component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    ) -> collections.abc.AsyncGenerator[str, None, None]:
+        for version in all_versions:
+            descriptor: ocm.ComponentDescriptor = await component_descriptor_lookup(
+                ocm.ComponentIdentity(
+                    name=cnudie.util.to_component_name(component),
+                    version=version,
+                )
             )
-        )
-        creation_date = components.get_creation_date(descriptor.component)
+            creation_date = components.get_creation_date(descriptor.component)
 
-        date = date.astimezone(datetime.timezone.utc)
-        creation_date = creation_date.astimezone(datetime.timezone.utc)
+            date = date.astimezone(datetime.timezone.utc)
+            creation_date = creation_date.astimezone(datetime.timezone.utc)
 
-        if creation_date > date:
-            component_versions.append(version)
-        else:
-            break
+            if creation_date > date:
+                yield version
+
+    component_versions: list[str] = list(iter_versions_after(
+        all_versions=all_versions,
+        date=date,
+        component_descriptor_lookup=component_descriptor_lookup,
+    ))
 
     return component_versions
 
@@ -143,7 +145,6 @@ def _cache_key_gen_latest_componentversions_in_tree(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ):
     return cachetools.keys.hashkey(
-        cnudie.util.to_component_name(component),
         component.identity()
     )
 
@@ -154,7 +155,7 @@ def _cache_key_gen_latest_componentversions_in_tree(
 )
 async def latest_referenced_component_versions(
     component: ocm.Component,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
 ) -> dict[str, ocm.Component]:
     '''
     Retrieve the latest versions of all components referenced in the component tree.
@@ -168,11 +169,8 @@ async def latest_referenced_component_versions(
 
     Notes:
         - Only the highest version of each component is retained.
- 
     '''
-    def default_factory():
-        return None
-    components_by_name = collections.defaultdict(default_factory)
+    components_by_name = {}
 
     referenced_components = [
         c.component async for c in cnudie.iter_async.iter(
@@ -182,20 +180,17 @@ async def latest_referenced_component_versions(
         )
     ]
 
-    def version_key(c):
-        if c is not None:
-            return versionutil.parse_to_semver(c.version)
-        else:
-            return semver.VersionInfo(0, 0, 0)
-
     for referenced_component in referenced_components:
-        components_by_name[referenced_component.name] = max(
-            components_by_name[referenced_component.name],
-            referenced_component,
-            key=version_key,
-        )
+        if referenced_component.name not in components_by_name:
+            components_by_name[referenced_component.name] = referenced_component
+        else:
+            components_by_name[referenced_component.name] = max(
+                components_by_name[referenced_component.name],
+                referenced_component,
+                key=lambda component: versionutil.parse_to_semver(component.version)
+            )
 
-    return dict(components_by_name)
+    return components_by_name
 
 
 @dataclasses.dataclass(frozen=True)
@@ -282,19 +277,14 @@ def commits_between(
 
 
 async def create_deployment_objects(
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    component_version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     github_api_lookup,
     target_component_name: str,
     time_span_days: int,
-    filter_component_name: str,
     target_updates: list[ComponentVersionUpdate],
-) -> list[dora_result_calcs.ReturnDeploymentObject]:
-    '''
-    Create objects containing the information about the target component updates in which the referenced component was updated.
-    '''
+) -> list[dora_result_calcs.DoraDeployment]:
 
-    deployment_objects: list[dora_result_calcs.ReturnDeploymentObject] = []
+    deployment_objects: list[dora_result_calcs.DoraDeployment] = []
 
     _github_api = functools.cache(github_api_lookup)
 
@@ -321,16 +311,12 @@ async def create_deployment_objects(
             )
         )).component
 
-        if not old_ref_component or not new_ref_component:
-            print ("ERROR, bad input data")
-
         if not can_process(
             components.ComponentVector(
                 start=old_ref_component,
                 end=new_ref_component,
             )
         ):
-            print("can't process")
             return
 
         old_access = cnudie.util.main_source(old_ref_component).access
@@ -340,14 +326,13 @@ async def create_deployment_objects(
         new_repo_url = ci.util.urlparse(new_access.repoUrl)
 
         if not old_repo_url == new_repo_url:
-            print("repo urls are not equal")
-            return # ensure there was no repository-change between component-versions
+            return
 
         old_commit = old_access.commit or old_access.ref
         new_commit = new_access.commit or new_access.ref
 
         github_repo = _github_repo(
-            repo_url=old_repo_url, # already checked for equality; choose either
+            repo_url=old_repo_url,
         )
 
         commits = commits_between(
@@ -366,18 +351,18 @@ async def create_deployment_objects(
         )
 
         for commit in commits:
-            commit_objects: list[dora_result_calcs.ReturnCommitObject] = []
+            commit_objects: list[dora_result_calcs.DoraCommit] = []
             for commit in commits:
                 if (
                     (
-                        commit_date := components.ensure_utc(dateutil.parser.isoparse(commit.commit.author['date']))
+                        commit_date := util.as_timezone(dateutil.parser.isoparse(commit.commit.author['date']))
                     ) > (
                         datetime.datetime.now(datetime.timezone.utc) -
                         datetime.timedelta(days=time_span_days)
                     )
                 ):
                     commit_objects.append(
-                        dora_result_calcs.ReturnCommitObject(
+                        dora_result_calcs.DoraCommit(
                             commitDate=commit_date,
                             commitSha=commit.sha,
                             deploymentDate=deployment_date,
@@ -387,13 +372,13 @@ async def create_deployment_objects(
                     )
 
         deployment_objects.append(
-            dora_result_calcs.ReturnDeploymentObject(
+            dora_result_calcs.DoraDeployment(
                 targetComponentVersionNew=target_update.target_component_version_new,
                 targetComponentVersionOld=target_update.target_component_version_old,
                 deployedComponentVersion=target_update.referenced_component_version_newer_release,
                 oldComponentVersion=target_update.referenced_component_version_older_release,
                 deploymentDate=deployment_date,
-                commits=commit_objects
+                commits=tuple(commit_objects)
             )
         )
 
@@ -405,7 +390,7 @@ async def create_deployment_objects(
     await asyncio.gather(*tasks)
     return deployment_objects
 
-@middleware.auth.noauth
+
 class DoraMetrics(aiohttp.web.View):
     async def get(self):
         '''
@@ -421,124 +406,22 @@ class DoraMetrics(aiohttp.web.View):
           name: target_component_name
           type: string
           required: true
-          description: The name of the target component.
         - in: query
           name: time_span_days
           type: integer
           required: false
-          default: 90
-          description: The number of days for the time span (default is 90).
         - in: query
           name: filter_component_name
           type: string
           required: true
           description: The name of the component to calculate the Dora Metrics for.
-                responses:
           responses:
           "200":
             description: Successful operation. Returns DORA metrics for the specified components.
             content:
               application/json:
                 schema:
-                  type: object
-                  properties:
-                    targetComponentName:
-                      type: string
-                      description: The name of the target component.
-                    timePeriod:
-                      type: number
-                      format: float
-                      description: The time period over which metrics were calculated.
-                    componentName:
-                      type: string
-                      description: The name of the component for which DORA metrics are calculated.
-                    medianDeploymentFrequency:
-                      type: number
-                      format: float
-                      description: Median deployment frequency.
-                    medianLeadTime:
-                      type: number
-                      format: float
-                      description: Median lead time in seconds.
-                    deploymentsPerMonth:
-                      type: object
-                      additionalProperties:
-                        type: integer
-                      description: Deployments per month.
-                    deploymentsPerWeek:
-                      type: object
-                      additionalProperties:
-                        type: integer
-                      description: Deployments per week.
-                    deploymentsPerDay:
-                      type: object
-                      additionalProperties:
-                        type: integer
-                      description: Deployments per day.
-                    leadTimePerMonth:
-                      type: object
-                      additionalProperties:
-                        type: number
-                        format: float
-                      description: Median lead time per month in seconds.
-                    leadTimePerWeek:
-                      type: object
-                      additionalProperties:
-                        type: number
-                        format: float
-                      description: Median lead time per week in seconds.
-                    leadTimePerDay:
-                      type: object
-                      additionalProperties:
-                        type: number
-                        format: float
-                      description: Median lead time per day in seconds.
-                    deployments:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          targetComponentVersionNew:
-                            type: string
-                            description: New version of the target component.
-                          targetComponentVersionOld:
-                            type: string
-                            description: Previous version of the target component.
-                          deployedComponentVersion:
-                            type: string
-                            description: New version of the deployed component.
-                          oldComponentVersion:
-                            type: string
-                            description: Previous version of the deployed component.
-                          deploymentDate:
-                            type: string
-                            format: date-time
-                            description: Date and time of deployment.
-                          commits:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                commitSha:
-                                  type: string
-                                  description: SHA of the commit.
-                                commitDate:
-                                  type: string
-                                  format: date-time
-                                  description: Date of the commit.
-                                deploymentDate:
-                                  type: string
-                                  format: date-time
-                                  description: Date of deployment.
-                                leadTime:
-                                  type: number
-                                  format: float
-                                  description: Lead time in seconds.
-                                url:
-                                  type: string
-                                  format: uri
-                                  description: URL to the commit.
-                      description: List of deployments with associated commits.
+                    $ref: '#/definitions/DoraSummary'
           "202":
             description: Dora metric calculation pending, client should retry.
         '''
@@ -547,8 +430,8 @@ class DoraMetrics(aiohttp.web.View):
 
         target_component_name: str = util.param(
             params,
-           'target_component_name',
-           required=True
+            'target_component_name',
+            required=True
         )
 
         time_span_days: int = int(util.param(
@@ -563,8 +446,8 @@ class DoraMetrics(aiohttp.web.View):
             required=True,
         )
 
-        component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
-        version_lookup: cnudie.retrieve.VersionLookupByComponent = self.request.app[consts.APP_VERSION_LOOKUP]
+        component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
+        version_lookup: cnudie.retrieve_async.VersionLookupByComponent = self.request.app[consts.APP_VERSION_LOOKUP]
         github_api_lookup = self.request.app[consts.APP_GITHUB_API_LOOKUP]
 
         await components.check_if_component_exists(
@@ -599,7 +482,7 @@ class DoraMetrics(aiohttp.web.View):
             target_component_versions.append(all_target_component_versions[len(target_component_versions)])
         # TODO how to handle if first release of target component is within the date range
 
-        target_version_updates: list[ComponentVersionUpdate] = []
+        target_update_with_ref_updates: list[ComponentVersionUpdate] = []
 
         for id in range(0, target_component_verisons_amount - 1):
 
@@ -644,32 +527,23 @@ class DoraMetrics(aiohttp.web.View):
                 filter_component_name
             ].version
 
-            target_version_updates.append(
-                ComponentVersionUpdate(
-                    target_component=target_component_name,
-                    target_component_version_old=target_version_old,
-                    target_component_version_new=target_version_new,
-                    referenced_component=filter_component_name,
-                    referenced_component_version_older_release=referenced_component_version_older_release,
-                    referenced_component_version_newer_release=referenced_component_version_newer_release,
-                )
+            target_version_update = ComponentVersionUpdate(
+                target_component=target_component_name,
+                target_component_version_old=target_version_old,
+                target_component_version_new=target_version_new,
+                referenced_component=filter_component_name,
+                referenced_component_version_older_release=referenced_component_version_older_release,
+                referenced_component_version_newer_release=referenced_component_version_newer_release,
             )
 
-        # filter out target version updates where the referenced component version did not change
-        target_update_with_ref_updates = [
-            target_version_update
-            for target_version_update in target_version_updates
-            if target_version_update.referenced_component_version_older_release
-            < target_version_update.referenced_component_version_newer_release
-        ]
+            if target_version_update.referenced_component_version_older_release < target_version_update.referenced_component_version_newer_release:
+                target_update_with_ref_updates.append(target_version_update)
 
         deployment_objects = await create_deployment_objects(
             component_descriptor_lookup=component_descriptor_lookup,
-            component_version_lookup=version_lookup,
             github_api_lookup=github_api_lookup,
             target_component_name=target_component_name,
             time_span_days=time_span_days,
-            filter_component_name=filter_component_name,
             target_updates=target_update_with_ref_updates,
         )
 
@@ -677,32 +551,32 @@ class DoraMetrics(aiohttp.web.View):
             deployment_objects=deployment_objects,
         )
 
-        median_deployment_frequency = statistics.mean(deployments_per['deploymentsPerMonth'].values())
+        median_deployment_frequency = statistics.mean(deployments_per.deploymentsPerMonth.values())
 
         lead_time_per = dora_result_calcs.calc_lead_time_per(
             deployment_objects=deployment_objects,
         )
 
         median_lead_time = statistics.median(
-            lead_time_per['medianLeadTimePerMonth'].values()
+            lead_time_per.medianLeadTimePerMonth.values()
         )
 
-        return_object = dora_result_calcs.ReturnObject(
+        doraSummary = dora_result_calcs.DoraSummary(
             targetComponentName=target_component_name,
             timePeriod=time_span_days,
             componentName=filter_component_name,
-            deploymentsPerMonth=deployments_per['deploymentsPerMonth'],
-            deploymentsPerWeek=deployments_per['deploymentsPerWeek'],
-            deploymentsPerDay=deployments_per['deploymentsPerDay'],
+            deploymentsPerMonth=deployments_per.deploymentsPerMonth,
+            deploymentsPerWeek=deployments_per.deploymentsPerWeek,
+            deploymentsPerDay=deployments_per.deploymentsPerDay,
             medianDeploymentFrequency=median_deployment_frequency,
-            leadTimePerMonth=lead_time_per['medianLeadTimePerMonth'],
-            leadTimePerWeek=lead_time_per['medianLeadTimePerWeek'],
-            leadTimePerDay=lead_time_per['medianLeadTimePerDay'],
+            leadTimePerMonth=lead_time_per.medianLeadTimePerMonth,
+            leadTimePerWeek=lead_time_per.medianLeadTimePerWeek,
+            leadTimePerDay=lead_time_per.medianLeadTimePerDay,
             medianLeadTime=median_lead_time,
             deployments=deployment_objects
         )
 
         return aiohttp.web.json_response(
-            data=return_object.to_dict(),
+            data=doraSummary.to_dict(),
             dumps=util.dict_to_json_factory,
         )

@@ -2,10 +2,11 @@ import collections
 import dataclasses
 import datetime
 import statistics
+import typing
 
 
 @dataclasses.dataclass(frozen=True)
-class ReturnCommitObject:
+class DoraCommit:
     commitSha: str
     commitDate: datetime.datetime
     deploymentDate: datetime.datetime
@@ -23,13 +24,13 @@ class ReturnCommitObject:
 
 
 @dataclasses.dataclass(frozen=True)
-class ReturnDeploymentObject:
+class DoraDeployment:
     targetComponentVersionNew: str
     targetComponentVersionOld: str
     deployedComponentVersion: str
     oldComponentVersion: str
     deploymentDate: datetime.datetime
-    commits: list[ReturnCommitObject]
+    commits: tuple[DoraCommit]
 
     def to_dict(self):
         return {
@@ -43,7 +44,7 @@ class ReturnDeploymentObject:
 
 
 @dataclasses.dataclass(frozen=True)
-class ReturnObject:
+class DoraSummary:
     targetComponentName: str
     timePeriod: float
     componentName: str
@@ -55,7 +56,7 @@ class ReturnObject:
     leadTimePerMonth: dict
     leadTimePerWeek: dict
     leadTimePerDay: dict
-    deployments: list[ReturnDeploymentObject]
+    deployments: list[DoraDeployment]
 
     def to_dict(self):
         return {
@@ -73,8 +74,21 @@ class ReturnObject:
             'deployents': [deployment.to_dict() for deployment in self.deployments],
         }
 
+@dataclasses.dataclass(frozen=True)
+class DeploymentFrequencies:
+    deploymentsPerMonth: dict[typing.Any, int]
+    deploymentsPerWeek: dict[typing.Any, int]
+    deploymentsPerDay: dict[typing.Any, int]
 
-def calc_deployments_per(deployment_objects: list[ReturnDeploymentObject]):
+    def to_dict(self):
+        return {
+            'deploymentsPerMonth': self.deploymentsPerMonth,
+            'deploymentsPerWeek': self.deploymentsPerWeek,
+            'deploymentsPerDay': self.deploymentsPerDay,
+        }
+
+
+def calc_deployments_per(deployment_objects: list[DoraDeployment]):
     deployments_per_month = collections.defaultdict(int)
     deployments_per_week = collections.defaultdict(int)
     deployments_per_day = collections.defaultdict(int)
@@ -82,29 +96,43 @@ def calc_deployments_per(deployment_objects: list[ReturnDeploymentObject]):
     for deployment in deployment_objects:
 
         # First day of the month
-        first_day_month = deployment.deploymentDate.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        month_key = first_day_month.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        first_day_month = deployment.deploymentDate.date().replace(day=1)
+        month_key = first_day_month.isoformat()
         deployments_per_month[month_key] += 1
 
         # First day of the week
-        first_day_week = deployment.deploymentDate - datetime.timedelta(
+        first_day_week = (deployment.deploymentDate - datetime.timedelta(
             days=deployment.deploymentDate.weekday()
-        )
-        week_key = first_day_week.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        )).date()
+        week_key = first_day_week.isoformat()
         deployments_per_week[week_key] += 1
 
         # Exact day
-        day_key = deployment.deploymentDate.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        day_key = deployment.deploymentDate.date().isoformat()
         deployments_per_day[day_key] += 1
 
-    return {
-        'deploymentsPerMonth': dict(deployments_per_month),
-        'deploymentsPerWeek': dict(deployments_per_week),
-        'deploymentsPerDay': dict(deployments_per_day)
-    }
+    return DeploymentFrequencies(
+        deploymentsPerMonth=dict(deployments_per_month),
+        deploymentsPerWeek=dict(deployments_per_week),
+        deploymentsPerDay=dict(deployments_per_day),
+    )
 
 
-def calc_lead_time_per(deployment_objects: list[ReturnDeploymentObject]):
+@dataclasses.dataclass(frozen=True)
+class LeadTimes:
+    medianLeadTimePerMonth: dict[typing.Any, float]
+    medianLeadTimePerWeek: dict[typing.Any, float]
+    medianLeadTimePerDay: dict[typing.Any, float]
+
+    def to_dict(self):
+        return {
+            'medianLeadTimePerMonth': self.medianLeadTimePerMonth,
+            'medianLeadTimePerWeek': self.medianLeadTimePerWeek,
+            'medianLeadTimePerDay': self.medianLeadTimePerDay,
+        }
+
+
+def calc_lead_time_per(deployment_objects: list[DoraDeployment]):
     lead_times_per_month = collections.defaultdict(list)
     lead_times_per_week = collections.defaultdict(list)
     lead_times_per_day = collections.defaultdict(list)
@@ -133,8 +161,8 @@ def calc_lead_time_per(deployment_objects: list[ReturnDeploymentObject]):
     median_lead_time_per_week = {k: statistics.median(v) for k, v in lead_times_per_week.items()}
     median_lead_time_per_day = {k: statistics.median(v) for k, v in lead_times_per_day.items()}
 
-    return {
-        'medianLeadTimePerMonth': median_lead_time_per_month,
-        'medianLeadTimePerWeek': median_lead_time_per_week,
-        'medianLeadTimePerDay': median_lead_time_per_day,
-    }
+    return LeadTimes(
+        medianLeadTimePerMonth=dict(median_lead_time_per_month),
+        medianLeadTimePerWeek=dict(median_lead_time_per_week),
+        medianLeadTimePerDay=dict(median_lead_time_per_day),
+    )
