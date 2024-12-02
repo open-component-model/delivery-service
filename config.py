@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 class Services(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefactEnumerator'
     BACKLOG_CONTROLLER = 'backlogController'
+    CM06 = 'cm06'
     BDBA = 'bdba'
     CACHE_MANAGER = 'cacheManager'
     CLAMAV = 'clamav'
@@ -91,6 +92,41 @@ class ClamAVConfig:
     rescan_interval: int
     aws_cfg_name: str
     artefact_types: tuple[str]
+
+
+@dataclasses.dataclass
+class ComponentContextMapping:
+    context_name: str
+    ocm_repo_prefixes: list[str]
+
+
+@dataclasses.dataclass
+class CM06Config:
+    '''
+    :param list[ComponentContextMapping] component_context_mapping:
+        A list of mappings defining the component context (e.g., public, internal)
+        based on repository prefixes.
+    :param str delivery_service_url:
+    :param str component_name:
+        The name of the component being analyzed.
+    :param str component_version:
+        The specific version of the component being analyzed. If not provided,
+        the latest version will be used.
+    :param datetime.date audit_start_date:
+        The start date for the audit. Defaults to today's date if not specified.
+    :param int audit_timerange_months:
+        The number of months to include in the audit range.
+        Used to determine the audit's start and end dates.
+    :param SastRescoringRuleSet sast_rescoring_rulesets:
+        A set of rules for rescoring SAST findings based on specified criteria.
+    '''
+    component_context_mapping: list[ComponentContextMapping]
+    delivery_service_url: str
+    component_name: str
+    component_version: str | None = None
+    audit_start_date: datetime.date | None = None
+    audit_timerange_months: int | None = None
+    sast_rescoring_rulesets: rescore.model.SastRescoringRuleSet | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -511,6 +547,89 @@ def deserialise_clamav_config(
     )
 
 
+def deserialise_cm06_config(
+    spec_config: dict,
+) -> CM06Config:
+    default_config = spec_config.get('defaults', dict())
+    cm06_config = spec_config.get('cm06')
+    if not cm06_config:
+        return
+
+    # Deserialise main configuration properties
+    delivery_service_url = deserialise_config_property(
+        config=cm06_config,
+        property_key='delivery_service_url',
+        default_config=default_config,
+    )
+    component_name = deserialise_config_property(
+        config=cm06_config,
+        property_key='component_name',
+    )
+    component_version = deserialise_config_property(
+        config=cm06_config,
+        property_key='component_version',
+        absent_ok=True,  # Optional property
+    )
+    audit_start_date = deserialise_config_property(
+        config=cm06_config,
+        property_key='audit_start_date',
+        default_value=datetime.date.today(),  # Default to today's date
+    )
+    audit_timerange_months = deserialise_config_property(
+        config=cm06_config,
+        property_key='audit_timerange_months',
+        default_value=6,  # Default range in months if not provided
+    )
+
+    # Parse audit_start_date if provided as a string
+    audit_start_date = (
+        datetime.datetime.strptime(audit_start_date, '%Y-%m-%d').date()
+        if isinstance(audit_start_date, str)
+        else audit_start_date
+    )
+
+    # Deserialise rescoring rules
+    rescoring_cfg_raw = deserialise_config_property(
+        config=cm06_config,
+        property_key='rescoring',
+        default_config=default_config,
+        absent_ok=True,
+    )
+    sast_rescoring_rulesets = None
+    if rescoring_cfg_raw:
+        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
+        sast_rescoring_rulesets = tuple(
+            rescore.model.SastRescoringRuleSet(#noqa:E1123
+                name=rule_set_raw['name'],
+                description=rule_set_raw.get('description'),
+                rules=list(
+                    rescore.model.sast_rescoring_rules_from_dict(rule_set_raw['rules'])
+                )
+            )
+            for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
+            if rule_set_raw['type'] == rescore.model.RuleSetType.SAST
+        )
+
+    # Deserialise component context mapping
+    component_context_mapping = tuple(
+        ComponentContextMapping(
+            context_name=mapping_raw['context_name'],
+            ocm_repo_prefixes=tuple(mapping_raw['ocm_repo_prefixes'])
+        )
+        for mapping_raw in cm06_config.get('component_context_mapping', [])
+    )
+
+    return CM06Config(
+        component_context_mapping=component_context_mapping,
+        delivery_service_url=delivery_service_url,
+        component_name=component_name,
+        component_version=component_version,
+        audit_start_date=audit_start_date,
+        audit_timerange_months=audit_timerange_months,
+        sast_rescoring_rulesets=sast_rescoring_rulesets,
+    )
+
+
 def deserialise_bdba_config(
     spec_config: dict,
 ) -> BDBAConfig:
@@ -614,6 +733,7 @@ def deserialise_bdba_config(
                 )
             )
             for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
+            if rule_set_raw['type'] == rescore.model.RuleSetType.CVE
         )
         default_rule_sets = [
             dacite.from_dict(
@@ -624,6 +744,7 @@ def deserialise_bdba_config(
                 )
             )
             for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
+            if default_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
         ]
         default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
             default_rule_set=rescore.model.find_default_rule_set_for_type(
