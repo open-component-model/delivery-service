@@ -1,7 +1,9 @@
+import asyncio
 import collections
 import collections.abc
 import dataclasses
 import enum
+import functools
 import logging
 
 import awesomeversion
@@ -263,10 +265,12 @@ async def severity_for_finding(
     Raises `RuntimeError` if no severity mapping could be applied.
     '''
     if rescorings:
-        rescored_severity = rescored_severity_if_any(
+        loop = asyncio.get_running_loop()
+        rescored_severity = await loop.run_in_executor(None, functools.partial(
+            rescored_severity_if_any,
             finding=finding,
             rescorings=rescorings,
-        )
+        ))
         if rescored_severity:
             return rescored_severity
 
