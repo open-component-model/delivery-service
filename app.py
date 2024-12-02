@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
+import concurrent.futures
 import logging
 import os
 
@@ -49,6 +50,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--productive', action='store_true', default=False)
     parser.add_argument('--port', default=5000, type=int)
+    parser.add_argument('--max-workers', default=4, type=int)
     parser.add_argument('--shortcut-auth', action='store_true', default=False)
     parser.add_argument('--delivery-cfg', default='internal')
     parser.add_argument('--delivery-db-cfg', default='internal')
@@ -376,6 +378,10 @@ def add_routes(
 
 async def initialise_app():
     parsed_arguments = parse_args()
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=parsed_arguments.max_workers)
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(executor)
 
     cfg_factory = ctx_util.cfg_factory()
 
