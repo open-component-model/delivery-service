@@ -609,7 +609,7 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
             name=rule_set_raw['name'],
             description=rule_set_raw.get('description'),
             rules=list(
-                rm.sast_rescoring_rules(rule_set_raw['rules'])
+                rm.sast_rescoring_rules_from_dict(rule_set_raw['rules'])
             )
         )
         for rule_set_raw in rescoring_raw['rescoringRuleSets']
