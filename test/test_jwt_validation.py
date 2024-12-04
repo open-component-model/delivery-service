@@ -43,8 +43,8 @@ def signing_cfg(
     algorithm: str = JWT_ALGORITHM,
 ):
     signing_cfg_mock = unittest.mock.Mock()
-    signing_cfg_mock.secret = lambda: key
-    signing_cfg_mock.algorithm = lambda: algorithm
+    signing_cfg_mock.private_key = key
+    signing_cfg_mock.algorithm = algorithm
 
     return signing_cfg_mock
 

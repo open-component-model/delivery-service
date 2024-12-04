@@ -9,6 +9,7 @@ import urllib.parse
 import aiohttp
 import aiohttp.typedefs
 import aiohttp.web
+import Crypto.PublicKey.RSA
 import dacite
 import jsonschema
 import jsonschema.exceptions
@@ -16,10 +17,10 @@ import jwt
 import yaml
 
 import ci.util
+import config
 import consts
 import delivery.jwt
 import model
-import model.delivery
 import model.github
 
 import paths
@@ -166,32 +167,32 @@ class OAuthCfgs(aiohttp.web.View):
             schema:
               $ref: '#/definitions/AuthConfig'
         '''
-        def oauth_cfg_to_dict(oauth_cfg: model.delivery.OAuth):
+        def oauth_cfg_to_dict(oauth_cfg: config.OAuthCfg):
             cfg_factory = self.request.app[consts.APP_CFG_FACTORY]
-            github_cfg = cfg_factory.github(oauth_cfg.github_cfg())
+            github_cfg = cfg_factory.github(oauth_cfg.github_cfg)
             github_host = urllib.parse.urlparse(github_cfg.api_url()).hostname.lower()
 
             redirect_uri = ci.util.urljoin(
                 self.request.app[consts.APP_BASE_URL],
                 'auth',
             ) + '?' + urllib.parse.urlencode({
-                'client_id': oauth_cfg.client_id(),
+                'client_id': oauth_cfg.client_id,
             })
 
-            oauth_url = oauth_cfg.oauth_url().rstrip('?') + '?' + urllib.parse.urlencode({
-                'client_id': oauth_cfg.client_id(),
-                'scope': oauth_cfg.scope(),
+            oauth_url = oauth_cfg.oauth_url.rstrip('?') + '?' + urllib.parse.urlencode({
+                'client_id': oauth_cfg.client_id,
+                'scope': oauth_cfg.scope,
                 'redirect_uri': redirect_uri,
             })
 
             return {
-                'name': oauth_cfg.name(),
-                'github_name': oauth_cfg.github_cfg(),
+                'name': oauth_cfg.name,
+                'github_name': oauth_cfg.github_cfg,
                 'github_host': github_host,
                 'api_url': github_cfg.api_url(),
-                'oauth_url': oauth_cfg.oauth_url(),
-                'client_id': oauth_cfg.client_id(),
-                'scope': oauth_cfg.scope(),
+                'oauth_url': oauth_cfg.oauth_url,
+                'client_id': oauth_cfg.client_id,
+                'scope': oauth_cfg.scope,
                 'redirect_uri': redirect_uri,
                 'oauth_url_with_redirect': oauth_url,
             }
@@ -204,28 +205,6 @@ class OAuthCfgs(aiohttp.web.View):
                 for oauth_cfg in feature_authentication.oauth_cfgs
             ],
         )
-
-
-class SubjectType(enum.StrEnum):
-    GITHUB_USER = 'github-user'
-    GITHUB_ORG = 'github-org'
-    GITHUB_TEAM = 'github-team'
-
-
-class Role(enum.StrEnum):
-    ADMIN = 'admin'
-
-
-@dataclasses.dataclass(frozen=True)
-class Subject:
-    type: SubjectType
-    name: str
-
-
-@dataclasses.dataclass
-class RoleBinding:
-    subjects: list[Subject]
-    roles: list[Role]
 
 
 @noauth
@@ -285,11 +264,11 @@ class OAuthLogin(aiohttp.web.View):
 
         if not access_token:
             for oauth_cfg in feature_authentication.oauth_cfgs:
-                if oauth_cfg.client_id() == client_id:
+                if oauth_cfg.client_id == client_id:
                     break
             else:
                 client_ids = [
-                    oauth_cfg.client_id() for oauth_cfg in feature_authentication.oauth_cfgs
+                    oauth_cfg.client_id for oauth_cfg in feature_authentication.oauth_cfgs
                 ]
                 raise aiohttp.web.HTTPUnauthorized(
                     headers={
@@ -300,10 +279,10 @@ class OAuthLogin(aiohttp.web.View):
                 )
 
             # exchange code for bearer token
-            github_oauth_url = oauth_cfg.token_url() + '?' + \
+            github_oauth_url = oauth_cfg.token_url + '?' + \
                 urllib.parse.urlencode({
-                    'client_id': oauth_cfg.client_id(),
-                    'client_secret': oauth_cfg.client_secret(),
+                    'client_id': oauth_cfg.client_id,
+                    'client_secret': oauth_cfg.client_secret,
                     'code': code,
                 })
 
@@ -322,11 +301,11 @@ class OAuthLogin(aiohttp.web.View):
 
             access_token = access_token[0]
 
-            github_cfg: model.github.GithubConfig = cfg_factory.github(oauth_cfg.github_cfg())
+            github_cfg: model.github.GithubConfig = cfg_factory.github(oauth_cfg.github_cfg)
             api_url = github_cfg.api_url()
         else:
             for oauth_cfg in feature_authentication.oauth_cfgs:
-                github_cfg: model.github.GithubConfig = cfg_factory.github(oauth_cfg.github_cfg())
+                github_cfg: model.github.GithubConfig = cfg_factory.github(oauth_cfg.github_cfg)
                 if github_cfg.api_url() == api_url:
                     break
 
@@ -361,39 +340,36 @@ class OAuthLogin(aiohttp.web.View):
             await gh_api.close_connection()
 
         delivery_cfg = cfg_factory.delivery(self.request.app[consts.APP_DELIVERY_CFG])
-        role_bindings = [
-            dacite.from_dict(
-                data=rb,
-                data_class=RoleBinding,
-                config=dacite.Config(
-                    cast=[enum.Enum],
-                ),
-            )
-            for rb in oauth_cfg.role_bindings()
-        ]
+        delivery_cfg = dacite.from_dict(
+            data=delivery_cfg.raw,
+            data_class=config.DeliveryCfg,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
+        )
 
         def find_subject(
-            subjects: list[Subject],
+            subjects: list[config.Subject],
             username: str,
             github_orgs: list[str],
             github_teams: list[str],
-        ) -> Subject | None:
+        ) -> config.Subject | None:
             for subject in subjects:
-                if subject.type is SubjectType.GITHUB_USER:
+                if subject.type is config.SubjectType.GITHUB_USER:
                     if subject.name == username:
                         return subject
 
-                elif subject.type is SubjectType.GITHUB_ORG:
+                elif subject.type is config.SubjectType.GITHUB_ORG:
                     if subject.name in github_orgs:
                         return subject
 
-                elif subject.type is SubjectType.GITHUB_TEAM:
+                elif subject.type is config.SubjectType.GITHUB_TEAM:
                     if subject.name in github_teams:
                         return subject
 
         roles = set()
 
-        for role_binding in role_bindings:
+        for role_binding in oauth_cfg.role_bindings:
             if find_subject(
                 subjects=role_binding.subjects,
                 username=username,
@@ -402,24 +378,21 @@ class OAuthLogin(aiohttp.web.View):
             ):
                 roles.update(role_binding.roles)
 
-        if Role.ADMIN not in roles:
+        if config.Role.ADMIN not in roles:
             raise aiohttp.web.HTTPUnauthorized(
                 text='user is not authorised to access this service',
             )
 
-        signing_cfgs: list[model.delivery.SigningCfg] = list(delivery_cfg.service().signing_cfgs())
-
-        if not signing_cfgs:
+        if not delivery_cfg.signing_cfgs:
             raise aiohttp.web.HTTPInternalServerError(
                 text='could not retrieve matching signing cfgs',
             )
 
-        # prefer asymmetric signing algorithms before symmetric ones (which don't have a public key)
-        signing_cfgs = sorted(
-            signing_cfgs,
-            key=lambda signing_cfg: 0 if signing_cfg.public_key() else 1,
-        )
-        signing_cfg = signing_cfgs[0]
+        signing_cfg = sorted(
+            delivery_cfg.signing_cfgs,
+            key=lambda cfg: cfg.priority,
+            reverse=True,
+        )[0]
 
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         time_delta = datetime.timedelta(days=730) # 2 years
@@ -436,7 +409,7 @@ class OAuthLogin(aiohttp.web.View):
                 'email_address': user.get('email'),
             },
             'exp': int((now + time_delta).timestamp()),
-            'key_id': signing_cfg.id(),
+            'key_id': signing_cfg.id,
         }
 
         response = aiohttp.web.json_response(
@@ -447,8 +420,8 @@ class OAuthLogin(aiohttp.web.View):
             name=delivery.jwt.JWT_KEY,
             value=jwt.encode(
                 token,
-                signing_cfg.secret(),
-                algorithm=signing_cfg.algorithm(),
+                signing_cfg.private_key,
+                algorithm=signing_cfg.algorithm,
             ),
             httponly=True,
             samesite='Lax',
@@ -540,25 +513,50 @@ class OpenIDJwks(aiohttp.web.View):
         '''
         cfg_factory = self.request.app[consts.APP_CFG_FACTORY]
         delivery_cfg = cfg_factory.delivery(self.request.app[consts.APP_DELIVERY_CFG])
-        signing_cfgs: tuple[model.delivery.SigningCfg] = tuple(
-            delivery_cfg.service().signing_cfgs()
+        delivery_cfg = dacite.from_dict(
+            data=delivery_cfg.raw,
+            data_class=config.DeliveryCfg,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
         )
 
         import util
         return aiohttp.web.json_response(
             data={
                 'keys': [
-                    delivery.jwt.JSONWebKey.from_signing_cfg(signing_cfg)
-                    for signing_cfg in signing_cfgs
-                    if signing_cfg.public_key()
+                    jwt_from_signing_cfg(signing_cfg)
+                    for signing_cfg in delivery_cfg.signing_cfgs
                 ],
             },
             dumps=util.dict_to_json_factory,
         )
 
 
+def jwt_from_signing_cfg(signing_cfg: config.SigningCfg) -> delivery.jwt.JSONWebKey:
+    algorithm = delivery.jwt.Algorithm(signing_cfg.algorithm.upper())
+    use = delivery.jwt.Use.SIGNATURE
+    kid = signing_cfg.id
+
+    if algorithm is delivery.jwt.Algorithm.RS256:
+        public_key = Crypto.PublicKey.RSA.import_key(signing_cfg.public_key)
+
+        return delivery.jwt.RSAPublicKey(
+            use=use,
+            kid=kid,
+            n=delivery.jwt.encodeBase64urlUInt(public_key.n),
+            e=delivery.jwt.encodeBase64urlUInt(public_key.e),
+        )
+    elif algorithm is delivery.jwt.Algorithm.HS256:
+        return delivery.jwt.SymmetricKey(
+            use=use,
+            kid=kid,
+            k=delivery.jwt.encodeBase64url(signing_cfg.private_key.encode('utf-8')),
+        )
+
+
 def auth_middleware(
-    signing_cfgs: collections.abc.Iterable[model.delivery.SigningCfg],
+    signing_cfgs: collections.abc.Iterable[config.SigningCfg],
     default_auth: AuthType=AuthType.BEARER,
 ) -> aiohttp.typedefs.Middleware:
 
@@ -668,14 +666,14 @@ def get_user_permissions(
 
 
 def get_signing_cfg_for_key(
-    signing_cfgs: collections.abc.Iterable[model.delivery.SigningCfg],
+    signing_cfgs: collections.abc.Iterable[config.SigningCfg],
     key_id: str | None,
-) -> model.delivery.SigningCfg:
+) -> config.SigningCfg:
     if not key_id:
         raise aiohttp.web.HTTPUnauthorized(text='Please specify a key_id')
 
     for signing_cfg in signing_cfgs:
-        if signing_cfg.id() == key_id:
+        if signing_cfg.id == key_id:
             return signing_cfg
 
     raise aiohttp.web.HTTPUnauthorized(text='key_id is unknown')
@@ -691,7 +689,7 @@ def decode_jwt(
         raise aiohttp.web.HTTPInternalServerError(text='Error decoding token')
 
     if signing_cfg:
-        json_web_key = delivery.jwt.JSONWebKey.from_signing_cfg(signing_cfg)
+        json_web_key = jwt_from_signing_cfg(signing_cfg)
     else:
         json_web_key = None
 

@@ -20,6 +20,7 @@ import model.base
 import model.bdba
 import ocm
 
+import config
 import ctx_util
 import k8s.util
 import lookups
@@ -266,8 +267,8 @@ class FeatureAddressbook(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureAuthentication(FeatureBase):
     name: str = 'authentication'
-    signing_cfgs: tuple = tuple()
-    oauth_cfgs: tuple = tuple()
+    signing_cfgs: tuple[config.SigningCfg, ...] = tuple()
+    oauth_cfgs: tuple[config.OAuthCfg, ...] = tuple()
 
     def serialize(self) -> dict[str, any]:
         return {
@@ -686,22 +687,19 @@ def deserialise_upgrade_prs(upgrade_prs_raw: dict) -> FeatureUpgradePRs:
         )
 
 
-def deserialise_authentication(delivery_cfg) -> FeatureAuthentication:
+def deserialise_authentication(delivery_cfg: config.DeliveryCfg | None) -> FeatureAuthentication:
     if not delivery_cfg:
         logger.warning('Authentication config not found')
         return FeatureAuthentication(FeatureStates.UNAVAILABLE)
 
-    signing_cfgs = tuple(delivery_cfg.service().signing_cfgs())
-    oauth_cfgs = tuple(delivery_cfg.auth().oauth_cfgs())
-
-    if not signing_cfgs or not oauth_cfgs:
+    if not delivery_cfg.signing_cfgs or not delivery_cfg.oauth_cfgs:
         logger.warning('Authentication config not found')
         return FeatureAuthentication(FeatureStates.UNAVAILABLE)
 
     return FeatureAuthentication(
         state=FeatureStates.AVAILABLE,
-        signing_cfgs=signing_cfgs,
-        oauth_cfgs=oauth_cfgs,
+        signing_cfgs=tuple(delivery_cfg.signing_cfgs),
+        oauth_cfgs=tuple(delivery_cfg.oauth_cfgs),
     )
 
 
@@ -821,6 +819,17 @@ async def init_features(
         delivery_cfg = cfg_factory.delivery(parsed_arguments.delivery_cfg)
     except ValueError as e:
         logger.warning(f'Delivery config not found: {e}')
+
+    delivery_cfg: model.base.NamedModelElement | None
+
+    if delivery_cfg:
+        delivery_cfg = dacite.from_dict(
+            data=delivery_cfg.raw,
+            data_class=config.DeliveryCfg,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
+        )
 
     feature_authentication = deserialise_authentication(delivery_cfg)
     if (
