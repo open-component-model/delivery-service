@@ -1126,3 +1126,53 @@ def deserialise_config_property(
             raise ValueError(on_absent_message or f'missing "{property_key}" in config')
 
     return property
+
+
+class SubjectType(enum.StrEnum):
+    GITHUB_USER = 'github-user'
+    GITHUB_ORG = 'github-org'
+    GITHUB_TEAM = 'github-team'
+
+
+class Role(enum.StrEnum):
+    ADMIN = 'admin'
+
+
+@dataclasses.dataclass(frozen=True)
+class Subject:
+    type: SubjectType
+    name: str
+
+
+@dataclasses.dataclass
+class RoleBinding:
+    subjects: list[Subject]
+    roles: list[Role]
+
+
+@dataclasses.dataclass
+class OAuthCfg:
+    name: str
+    type: str
+    github_cfg: str
+    oauth_url: str
+    token_url: str
+    client_id: str
+    client_secret: str
+    scope: str | None
+    role_bindings: list[RoleBinding] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass
+class SigningCfg:
+    id: str
+    private_key: str
+    public_key: str
+    algorithm: str = 'RS256'
+    priority: int = 0 # lower value means lower priority (useful e.g. for rotation)
+
+
+@dataclasses.dataclass
+class DeliveryCfg:
+    oauth_cfgs: list[OAuthCfg]
+    signing_cfgs: list[SigningCfg] = dataclasses.field(default_factory=list)
