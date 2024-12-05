@@ -9,12 +9,15 @@ ocmRepoMappings:
   repository: europe-docker.pkg.dev/gardener-project/releases
 specialComponents: []
 rescoring:
-  defaultRuleSetName: example-rescoring-v1
+  defaultRuleSetNames:
+  - name: example-rescoring-v1
+    type: cve
   rescoringRuleSets:
   - name: example-rescoring-v1
+    type: cve
     # todo: create example repository
     description: https://github.com/pages/open-component-model/compliance-reporting-example/cvss-rescoring.html#rescoring-rules
-    rule_set:
+    rules:
     - category_value: 'network_exposure:public'
       name: network-exposure-public
       rules:
