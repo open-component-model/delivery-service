@@ -13,7 +13,7 @@ RUN --mount=type=bind,source=/dist,target=/dist \
     libffi-dev \
     python3-dev \
 && CFLAGS='-Wno-int-conversion' \
-    pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service \
+    pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-extensions \
 && apk del --no-cache \
     libc-dev \
     libffi-dev \
