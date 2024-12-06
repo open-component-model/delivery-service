@@ -14,7 +14,6 @@ import ci.log
 import cnudie.access
 import cnudie.iter
 import cnudie.retrieve
-import concourse.model.traits.image_scan as image_scan
 import delivery.client
 import dso.cvss
 import dso.labels
@@ -283,7 +282,7 @@ class ResourceGroupProcessor:
         known_scan_results: tuple[bm.Product],
         processing_mode: bm.ProcessingMode,
         delivery_client: delivery.client.DeliveryServiceClient=None,
-        license_cfg: image_scan.LicenseCfg=None,
+        license_cfg: config.LicenseCfg=None,
         cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet=None,
         auto_assess_max_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
         use_product_cache: bool=True,

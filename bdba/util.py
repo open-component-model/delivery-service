@@ -9,12 +9,12 @@ import logging
 
 import ci.log
 import cnudie.iter
-import concourse.model.traits.image_scan as image_scan
 import delivery.client
 import dso.model
 import github.compliance.model as gcm
 import github.compliance.report as gcr
 
+import config
 import bdba.model as bm
 
 
@@ -47,7 +47,7 @@ def iter_existing_findings(
 def iter_artefact_metadata(
     scanned_element: cnudie.iter.ResourceNode,
     scan_result: bm.AnalysisResult,
-    license_cfg: image_scan.LicenseCfg=None,
+    license_cfg: config.LicenseCfg=None,
     delivery_client: delivery.client.DeliveryServiceClient=None,
 ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
     now = datetime.datetime.now(tz=datetime.timezone.utc)
