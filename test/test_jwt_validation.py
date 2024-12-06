@@ -126,11 +126,6 @@ def test_no_sub():
         middleware.auth.validate_jwt_payload(payload)
 
 
-def test_sub_not_found():
-    with pytest.raises(aiohttp.web.HTTPUnauthorized):
-        middleware.auth.get_user_permissions('foo_bar_test_user')
-
-
 def test_wrong_version():
     payload = gen_jwt_payload()
     payload['version'] = 'versionNotSet5000'

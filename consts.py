@@ -33,4 +33,3 @@ APP_VERSION_LOOKUP = 'version_lookup'
 
 REQUEST_DB_SESSION = 'db_session'
 REQUEST_GITHUB_USER = 'github_user'
-REQUEST_USER_PERMISSIONS = 'user_permissions'

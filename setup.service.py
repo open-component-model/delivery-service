@@ -42,7 +42,6 @@ def modules():
 
 def packages():
     return [
-        'auth',
         'compliance_summary',
         'deliverydb',
         'features',
@@ -57,7 +56,6 @@ def packages():
 
 def package_data():
     return {
-        'auth': ['*.yaml'],
         'compliance_summary': ['*.yaml'],
         'features': ['*.yaml'],
         'osinfo': ['*.yaml'],

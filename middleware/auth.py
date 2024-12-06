@@ -30,19 +30,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass(frozen=True)
-class RoleMapping:
-    name: str
-    permissions: list[str]
-
-
-@dataclasses.dataclass(frozen=True)
-class GithubTeamMapping:
-    name: str
-    roles: list[str]
-    host: str
-
-
-@dataclasses.dataclass(frozen=True)
 class GithubUser():
     username: str
     github_hostname: str
@@ -115,21 +102,6 @@ def noauth(cls):
 @functools.cache
 def token_payload_schema():
     return yaml.safe_load(open(paths.token_jsonschema_path, 'rb'))
-
-
-@functools.cache
-def _teams_dict():
-    return yaml.safe_load(open(paths.teams_path, 'rb'))['github_team_mappings']
-
-
-@functools.cache
-def _users_dict():
-    return yaml.safe_load(open(paths.users_path, 'rb'))['users']
-
-
-@functools.cache
-def _roles_dict():
-    return yaml.safe_load(open(paths.roles_path, 'rb'))['roles']
 
 
 def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication':
@@ -613,56 +585,9 @@ def auth_middleware(
             github_hostname=decoded_jwt['github_oAuth']['host'],
         )
 
-        github_oAuth = decoded_jwt.get('github_oAuth')
-
-        if github_oAuth:
-            request[consts.REQUEST_USER_PERMISSIONS] = get_permissions_for_github_oAuth(
-                github_oAuth=github_oAuth,
-            )
-        else:
-            request[consts.REQUEST_USER_PERMISSIONS] = get_user_permissions(
-                user_name=subject,
-            )
-
         return await handler(request)
 
     return middleware
-
-
-def get_permissions_for_github_oAuth(github_oAuth: dict) -> set[str]:
-    '''
-    we expect github oAuth to be a dict:
-
-        {
-            team_names: list[str]
-            host: str
-        }
-    '''
-    def permissions(github_oAuth):
-        for team_name in github_oAuth.get('team_names'):
-            if (team_mapping := _github_team_mapping(team_name, github_oAuth.get('host'))):
-                for role_name in team_mapping.roles:
-                    yield from _role_mapping(role_name).permissions
-
-    return {permission for permission in permissions(github_oAuth)}
-
-
-def get_user_permissions(
-    user_name: str,
-    raise_if_absent: aiohttp.web.HTTPError=aiohttp.web.HTTPUnauthorized,
-) -> set[str]:
-    def permissions(user_dict):
-        for role_name in user_dict['roles']:
-            yield from _role_mapping(role_name=role_name).permissions
-
-    for user_dict in _users_dict():
-        if user_dict.get('name') == user_name:
-            return {permission for permission in permissions(user_dict=user_dict)}
-
-    if raise_if_absent:
-        raise raise_if_absent()
-
-    return set()
 
 
 def get_signing_cfg_for_key(
@@ -786,19 +711,3 @@ def _get_token_from_auth_header(auth_header: str | None) -> str:
         raise aiohttp.web.HTTPUnauthorized(text='Auth header malformed')
 
     return auth_header_parts[1]
-
-
-@functools.cache
-def _github_team_mapping(team_name: str, host: str) -> GithubTeamMapping | None:
-    for team_dict in _teams_dict():
-        if team_dict.get('name') == team_name and host == team_dict.get('host'):
-            return GithubTeamMapping(**team_dict)
-
-
-@functools.cache
-def _role_mapping(role_name: str) -> RoleMapping:
-    for roles_dict in _roles_dict():
-        if roles_dict['name'] == role_name:
-            return RoleMapping(**roles_dict)
-
-    raise RuntimeError(f'no such role {role_name}')
