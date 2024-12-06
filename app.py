@@ -36,7 +36,6 @@ import rescore.model as rm
 import service_extensions
 import special_component
 import sprint
-import util
 
 
 ci.log.configure_default_logging(print_thread_id=True)
@@ -221,12 +220,27 @@ def add_app_context_vars(
     return app
 
 
+@middleware.auth.noauth
+class Ready(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        description: This endpoint allows to test that the service is up and running.
+        tags:
+        - Health check
+        responses:
+          "200":
+            description: Service is up and running
+        '''
+        return aiohttp.web.Response()
+
+
 def add_routes(
     app: aiohttp.web.Application,
 ) -> aiohttp.web.Application:
     app.router.add_view(
         path='/ready',
-        handler=util.Ready,
+        handler=Ready,
     )
 
     app.router.add_view(
