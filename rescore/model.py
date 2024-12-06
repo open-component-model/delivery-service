@@ -8,22 +8,39 @@ import dacite
 import yaml
 
 import dso.cvss
+import dso.model
 
 
 class Rescore(enum.Enum):
     REDUCE = 'reduce'
+    BLOCKER = 'blocker'
     NOT_EXPLOITABLE = 'not-exploitable'
     NO_CHANGE = 'no-change'
+    TO_NONE = 'to-none'
 
 
 class RuleSetType(enum.StrEnum):
     CVE = 'cve'
+    SAST = 'sast'
+
+
+class SastStatus(enum.StrEnum):
+    LOCAL_LINTING = 'local-linting'
+    NO_LINTING = 'no-linting'
+    CENTRAL_LINTING = 'central-linting'
+    CENTRAL_AND_LOCAL_LINTING = 'central-and-local-linting'
 
 
 @dataclasses.dataclass(frozen=True)
 class Rule:
     name: str
     rescore: Rescore
+
+
+@dataclasses.dataclass(frozen=True)
+class SastRescoringRule(Rule):
+    component_context: dso.model.ComponentContext
+    sast_status: SastStatus
 
 
 @dataclasses.dataclass(frozen=True)
@@ -144,6 +161,11 @@ class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
     type: RuleSetType = RuleSetType.CVE
 
 
+@dataclasses.dataclass
+class SastRescoringRuleSet(RuleSet[SastRescoringRule]):
+    type: RuleSetType = RuleSetType.SAST
+
+
 @dataclasses.dataclass(frozen=True)
 class DefaultRuleSet:
     name: str
@@ -208,3 +230,15 @@ def cve_rescoring_rules_from_dicts(
                     cast=(enum.Enum, tuple),
                 )
             )
+
+
+def sast_rescoring_rules_from_dict(
+    rules: list[dict]
+) -> typing.Generator[SastRescoringRule, None, None]:
+    for rule in rules:
+        yield SastRescoringRule(
+            name=rule['name'],
+            rescore=Rescore(rule['rescore']),
+            component_context=dso.model.ComponentContext(rule['component_context']),
+            sast_status=rule['sast_status'],
+        )
