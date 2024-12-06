@@ -3,12 +3,12 @@ import dataclasses
 import datetime
 import enum
 import logging
+import re
 
 import dacite
 import github3
 import github3.repos
 
-import concourse.model.traits.image_scan as image_scan
 import cnudie.iter
 import dso.cvss
 import dso.model
@@ -95,6 +95,64 @@ class ClamAVConfig:
 
 
 @dataclasses.dataclass(frozen=True)
+class FindingTypeIssueReplicationCfgBase:
+    '''
+    :param str finding_type:
+        finding type this configuration should be applied for
+        (see cc-utils dso/model.py for available "Datatype"s)
+    :param bool enable_issue_assignees
+    :param bool enable_issue_per_finding:
+        when set to true issues are created per finding for a
+        specific artefact as oppsed to a single issue with
+        all findings
+    '''
+    finding_type: str
+    enable_issue_assignees: bool
+    enable_issue_per_finding: bool
+
+
+@dataclasses.dataclass(frozen=True)
+class VulnerabilityIssueReplicationCfg(FindingTypeIssueReplicationCfgBase):
+    '''
+    :param int cve_threshold:
+        vulnerability findings below this threshold won't be reported in the issue(s)
+    '''
+    cve_threshold: int
+
+
+@dataclasses.dataclass(frozen=True)
+class GithubIssueTemplateCfg:
+    '''
+    a github-issue-template specific for an issue-type
+
+    note: this class was copy-pasted from https://github.com/gardener/cc-utils (where it is
+          planned for removal). Should not be changed incompatibly until removal is done upstream.
+    '''
+    body: str
+    type: str
+
+
+@dataclasses.dataclass
+class LicenseCfg:
+    '''
+    configures license policies for discovered licences
+
+    licenses are configured as lists of regular expressions (matching is done case-insensitive)
+    '''
+    prohibited_licenses: list[str] = None
+
+    def is_allowed(self, license: str):
+        if not self.prohibited_licenses:
+            return True
+
+        for prohibited in self.prohibited_licenses:
+            if re.fullmatch(prohibited, license, re.IGNORECASE):
+                return False
+        else:
+            return True
+
+
+@dataclasses.dataclass(frozen=True)
 class BDBAConfig:
     '''
     :param str delivery_service_url
@@ -141,35 +199,9 @@ class BDBAConfig:
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
     cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet | None
     auto_assess_max_severity: dso.cvss.CVESeverity
-    license_cfg: image_scan.LicenseCfg
+    license_cfg: LicenseCfg
     delete_inactive_products_after_seconds: int
     blacklist_finding_types: set[str]
-
-
-@dataclasses.dataclass(frozen=True)
-class FindingTypeIssueReplicationCfgBase:
-    '''
-    :param str finding_type:
-        finding type this configuration should be applied for
-        (see cc-utils dso/model.py for available "Datatype"s)
-    :param bool enable_issue_assignees
-    :param bool enable_issue_per_finding:
-        when set to true issues are created per finding for a
-        specific artefact as oppsed to a single issue with
-        all findings
-    '''
-    finding_type: str
-    enable_issue_assignees: bool
-    enable_issue_per_finding: bool
-
-
-@dataclasses.dataclass(frozen=True)
-class VulnerabilityIssueReplicationCfg(FindingTypeIssueReplicationCfgBase):
-    '''
-    :param int cve_threshold:
-        vulnerability findings below this threshold won't be reported in the issue(s)
-    '''
-    cve_threshold: int
 
 
 @dataclasses.dataclass(frozen=True)
@@ -206,11 +238,11 @@ class IssueReplicatorConfig:
     delivery_dashboard_url: str
     replication_interval: int
     lookup_new_backlog_item_interval: int
-    license_cfg: image_scan.LicenseCfg
+    license_cfg: LicenseCfg
     max_processing_days: github.compliance.model.MaxProcessingTimesDays
     github_api_lookup: collections.abc.Callable[[str], github3.GitHub]
     github_issues_repository: github3.repos.Repository
-    github_issue_template_cfgs: tuple[image_scan.GithubIssueTemplateCfg]
+    github_issue_template_cfgs: tuple[GithubIssueTemplateCfg]
     github_issue_labels_to_preserve: set[str]
     number_included_closed_issues: int
     artefact_types: tuple[str]
@@ -617,7 +649,7 @@ def deserialise_bdba_config(
         default_config=default_config,
         default_value=[],
     )
-    license_cfg = image_scan.LicenseCfg(prohibited_licenses=prohibited_licenses)
+    license_cfg = LicenseCfg(prohibited_licenses=prohibited_licenses)
 
     delete_inactive_products_after_seconds = deserialise_config_property(
         config=bdba_config,
@@ -799,7 +831,7 @@ def deserialise_issue_replicator_config(
         default_config=default_config,
         default_value=[],
     )
-    license_cfg = image_scan.LicenseCfg(prohibited_licenses=prohibited_licenses)
+    license_cfg = LicenseCfg(prohibited_licenses=prohibited_licenses)
 
     max_processing_days_raw = deserialise_config_property(
         config=issue_replicator_config,
@@ -836,7 +868,7 @@ def deserialise_issue_replicator_config(
     )
     github_issue_template_cfgs = tuple(
         dacite.from_dict(
-            data_class=image_scan.GithubIssueTemplateCfg,
+            data_class=GithubIssueTemplateCfg,
             data=ghit,
         ) for ghit in github_issue_templates
     )
