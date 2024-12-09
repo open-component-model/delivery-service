@@ -29,10 +29,13 @@ async def db_session_middleware(
     ) -> aiohttp.web.StreamResponse:
         request[consts.REQUEST_DB_SESSION] = await deliverydb.sqlalchemy_session(db_url)
 
-        response = await handler(request)
-
-        if db_session := request.get(consts.REQUEST_DB_SESSION):
-            await db_session.close()
+        try:
+            response = await handler(request)
+        except Exception:
+            raise
+        finally:
+            if db_session := request.get(consts.REQUEST_DB_SESSION):
+                await db_session.close()
 
         return response
 
