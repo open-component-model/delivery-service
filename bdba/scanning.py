@@ -25,6 +25,7 @@ import bdba.client
 import bdba.model as bm
 import bdba.rescore
 import bdba.util
+import config
 import rescore.model
 
 logger = logging.getLogger(__name__)
