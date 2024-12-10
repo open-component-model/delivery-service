@@ -27,21 +27,17 @@ def rescoring_rules_raw() -> dict:
                 'type': 'sast',
                 'rules': [
                     {
-                        'name': 'public-no-linting',
-                        'component_context': 'public',
-                        'sast_status': 'no-linting',
-                        'rescore': 'blocker'
-                    },
-                    {
-                        'name': 'internal-local-linting',
-                        'component_context': 'internal',
-                        'sast_status': 'local-linting',
+                        'name': 'local-linting-is-optional-for-internal-components',
+                        'match': [{'component-name': 'github.wdf.sap.corp/.*'}],
+                        'sub-types': ['local-linting'],
+                        'sast_status': 'no-linter',
                         'rescore': 'to-none'
                     },
                     {
-                        'name': 'internal-central-linting',
-                        'component_context': 'internal',
-                        'sast_status': 'central-linting',
+                        'name': 'central-linting-is-optional-for-external-components',
+                        'match': [{'component-name': 'github.com/.*'}],
+                        'sub-types': ['central-linting'],
+                        'sast_status': 'no-linter',
                         'rescore': 'to-none'
                     },
                 ],
@@ -137,7 +133,7 @@ def test_deserialise_rescoring_rule_sets_default_rule_set_names(
 
     assert default_rule_set is not None
     assert default_rule_set.name == "my-cve-rescoring"
-    assert default_rule_set.type == rescore.model.RuleSetType.CVE
+    assert default_rule_set.type is rescore.model.RuleSetType.CVE
 
 
 # deserialization with extra attributes
@@ -181,12 +177,11 @@ def test_deserialise_sast_rescoring_rule_sets(
     assert isinstance(sast_rescoring_rule_sets[0], rescore.model.SastRescoringRuleSet)
 
     ruleset = sast_rescoring_rule_sets[0]
-    assert len(ruleset.rules) == 3
+    assert len(ruleset.rules) == 2
 
-    rule1, rule2, rule3 = ruleset.rules
-    assert rule1.rescore is rescore.model.Rescore.BLOCKER
+    rule1, rule2 = ruleset.rules
+    assert rule1.rescore is rescore.model.Rescore.TO_NONE
     assert rule2.rescore is rescore.model.Rescore.TO_NONE
-    assert rule3.rescore is rescore.model.Rescore.TO_NONE
 
 
 def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
@@ -226,14 +221,14 @@ def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
 
     assert default_rule_set is not None
     assert default_rule_set.name == "my-sast-rescoring"
-    assert default_rule_set.type == rescore.model.RuleSetType.SAST
+    assert default_rule_set.type is rescore.model.RuleSetType.SAST
 
 
 @pytest.fixture
 def sast_finding_public():
     return dso.model.ArtefactMetadata(
         artefact=dso.model.ComponentArtefactId(
-            component_name='public-component',
+            component_name='github.com/public-component',
             component_version='1.0.0',
             artefact=dso.model.LocalArtefactId(
                 artefact_name=None,
@@ -247,33 +242,9 @@ def sast_finding_public():
             last_update=datetime.datetime.now(),
         ),
         data=dso.model.SastFinding(
-            component_context=dso.model.ComponentContext.INTERNAL.value,
-            sast_statuses=rescore.model.SastStatus.CENTRAL_LINTING.value,
-            severity=github.compliance.model.Severity.BLOCKER.value,
-        )
-    )
-
-
-@pytest.fixture
-def sast_finding_internal():
-    return dso.model.ArtefactMetadata(
-        artefact=dso.model.ComponentArtefactId(
-            component_name='internal-component',
-            component_version='1.0.0',
-            artefact=dso.model.LocalArtefactId(
-                artefact_name=None,
-                artefact_type=None,
-            )
-        ),
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.CM06,
-            type=dso.model.Datatype.SAST_FINDING,
-            creation_date=datetime.datetime.now(),
-            last_update=datetime.datetime.now(),
-        ),
-        data=dso.model.SastFinding(
-            component_context=dso.model.ComponentContext.INTERNAL.value,
-            sast_statuses=rescore.model.SastStatus.CENTRAL_LINTING.value,
+            component_context='github.com/public-component',
+            sub_type=dso.model.SastSubType.CENTRAL_LINTING,
+            sast_statuses=dso.model.SastStatus.NO_LINTER,
             severity=github.compliance.model.Severity.BLOCKER.value,
         )
     )
@@ -296,8 +267,7 @@ def test_generate_sast_rescorings(
     )
     sast_rescoring_ruleset = sast_rescoring_rule_sets[0]
 
-    # Convert the generator to a list for testing
-    rescored_metadata = list(rescore.utility.generate_sast_rescorings(
+    rescored_metadata = list(rescore.utility.iter_sast_rescorings(
         findings=[sast_finding_public],
         sast_rescoring_ruleset=sast_rescoring_ruleset,
         user=dso.model.User(
@@ -305,14 +275,10 @@ def test_generate_sast_rescorings(
         ),
     ))
 
-    rescored_intern = rescored_metadata[0]
-    assert isinstance(rescored_intern.data, dso.model.CustomRescoring)
-    assert rescored_intern.data.matching_rules == ['internal-central-linting']
-    assert rescored_intern.data.user.username == 'test_user'
-    assert rescored_intern.data.comment == 'Automatically rescored based on rules.'
-    assert (
-        rescored_intern.data.finding.component_context is dso.model.ComponentContext.INTERNAL.value
-    )
-    assert (
-        rescored_intern.data.finding.sast_statuses is rescore.model.SastStatus.CENTRAL_LINTING.value
-    )
+    assert len(rescored_metadata) == 1
+    rescored_entry = rescored_metadata[0]
+    assert isinstance(rescored_entry.data, dso.model.CustomRescoring)
+    assert rescored_entry.data.matching_rules == [
+        'central-linting-is-optional-for-external-components'
+    ]
+    assert rescored_entry.data.severity == github.compliance.model.Severity.NONE.value

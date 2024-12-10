@@ -14,11 +14,11 @@ import cnudie.retrieve
 import delivery.client
 import dso.labels
 import dso.model
+import github.compliance.model
 import ocm
 
 import config
 import ctx_util
-import github.compliance.model
 import k8s.util
 import k8s.model
 import k8s.logging
@@ -38,42 +38,28 @@ class AnalysisLabel(enum.StrEnum):
     SAST = 'sast'
 
 
-def sast_status(
+def has_local_linter(
     component: ocm.Component
-) -> rescore.model.SastStatus:
-    local_lint = False
-    central_lint = True # default case if no label and no sast evidence artefact
+) -> bool:
+    for resource in component.resources:
+        if label := resource.find_label(name=dso.labels.PurposeLabel.name):
+            label_content = dso.labels.deserialise_label(label)
+            if AnalysisLabel.SAST.value in label_content.value:
+                return True
 
+    return False
+
+
+def has_central_linter(
+    component: ocm.Component
+) -> bool:
     for source in component.sources:
         if label := source.find_label(name=dso.labels.SourceScanLabel.name):
             label_content = dso.labels.deserialise_label(label)
             if label_content.value.policy is dso.labels.ScanPolicy.SKIP:
-                central_lint = False
+                return True
 
-    for resource in component.resources:
-        if label := resource.find_label(name=dso.labels.ResourceScanLabel.name):
-            label_content = dso.labels.deserialise_label(label)
-            if AnalysisLabel.SAST.value in label_content.value:
-                local_lint = True
-
-    if local_lint:
-        return rescore.model.SastStatus.LOCAL_LINTING
-    elif central_lint:
-        return rescore.model.SastStatus.CENTRAL_LINTING
-    else:
-        return rescore.model.SastStatus.NO_LINTING
-
-
-def determine_component_context(
-    component: ocm.Component,
-    cfg: config.CM06Config
-) -> str:
-    for mapping in cfg.component_context_mapping:
-        for prefix in mapping.ocm_repo_prefixes:
-            if component.name.startswith(prefix):
-                return mapping.context_name
-
-    return dso.model.ComponentContext.INTERNAL.value
+    return False
 
 
 def deserialise_cm06_configuration(
@@ -103,35 +89,59 @@ def deserialise_cm06_configuration(
 
 
 def get_landscape_versions(
-    cm06_config,
-    delivery_client
+    cm06_config: config.CM06Config,
+    delivery_client: delivery.client.DeliveryServiceClient,
 ) -> list[str]:
-    # If both component_version and audit_timerange_months are provided, raise an error
-    if cm06_config.component_version and cm06_config.audit_timerange_months:
+    if cm06_config.component_version and cm06_config.audit_timerange_days:
         raise ValueError(
-            'Cannot use both component_version and audit_timerange_months simultaneously.'
+            'Cannot use both component_version and audit_timerange_days simultaneously.'
         )
 
-    # If a specific component version is provided, return it
     if cm06_config.component_version:
         return [cm06_config.component_version]
 
     # Default start_date to today
-    start_date = cm06_config.audit_start_date or datetime.date.today()
-
-    # Calculate end_date based on audit_timerange_months
-    if cm06_config.audit_timerange_months:
-        end_date = start_date - datetime.timedelta(
-            days=cm06_config.audit_timerange_months * 30
-        )
-    else:
-        # Default end_date to start_date if no range is given
-        end_date = start_date
+    start_date = datetime.date.today()
+    # Calculate end_date based on audit_timerange_days
+    end_date = start_date - datetime.timedelta(
+        days=cm06_config.audit_timerange_days
+    )
 
     return delivery_client.greatest_component_versions(
         component_name=cm06_config.component_name,
         start_date=end_date,
         end_date=start_date,
+    )
+
+
+def create_no_linter_finding(
+    component_name: str,
+    component_version: str,
+    sub_type: dso.model.SastSubType,
+    time_now: datetime.datetime,
+) -> dso.model.ArtefactMetadata:
+    return dso.model.ArtefactMetadata(
+        artefact=dso.model.ComponentArtefactId(
+            component_name=component_name,
+            component_version=component_version,
+            artefact=dso.model.LocalArtefactId(
+                artefact_name=None,
+                artefact_type=None,
+            )
+        ),
+        meta=dso.model.Metadata(
+            datasource=dso.model.Datasource.CM06,
+            type=dso.model.Datatype.SAST_FINDING,
+            creation_date=time_now,
+            last_update=time_now,
+        ),
+        data=dso.model.SastFinding(
+            component_context=component_name,
+            sast_statuses=dso.model.SastStatus.NO_LINTER,
+            severity=github.compliance.model.Severity.BLOCKER,
+            sub_type=sub_type,
+        ),
+        discovery_date=time_now,
     )
 
 
@@ -209,7 +219,6 @@ def main():
         service=config.Services.CM06,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
-
     )
     atexit.register(
         k8s.logging.log_to_crd,
@@ -229,13 +238,13 @@ def main():
 
     delivery_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
-            base_url=parsed_arguments.delivery_service_url,
+            base_url=delivery_service_url,
         ),
         cfg_factory=cfg_factory,
     )
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
-        cache_dir=default_cache_dir,
+        cache_dir=parsed_arguments.cache_dir,
         delivery_client=delivery_client,
     )
 
@@ -255,51 +264,63 @@ def main():
             )
         )
 
-        component_nodes = list(
-            cnudie.iter.iter(
-                component=component_descriptor.component,
-                lookup=component_descriptor_lookup,
-                node_filter=cnudie.iter.Filter.components,
-                prune_unique=True,
-            )
+        component_nodes = cnudie.iter.iter(
+            component=component_descriptor.component,
+            lookup=component_descriptor_lookup,
+            node_filter=cnudie.iter.Filter.components,
+            prune_unique=True,
         )
 
         for cnode in component_nodes:
-            sast_status_value = sast_status(
-                component=cnode.component
+            new_metadata.append(
+                dso.model.ArtefactMetadata(
+                    artefact=dso.model.ComponentArtefactId(
+                        component_name=cnode.component.name,
+                        component_version=cnode.component.version,
+                        artefact=dso.model.LocalArtefactId(
+                            artefact_name=None,
+                            artefact_type=None,
+                        )
+                    ),
+                    meta=dso.model.Metadata(
+                        datasource=dso.model.Datasource.CM06,
+                        type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+                        creation_date=time_now,
+                        last_update=time_now,
+                    ),
+                    data=None,
+                    discovery_date=time_now,
+                )
             )
 
-            data_field = dso.model.SastFinding(
-                component_context=determine_component_context(
-                    component=cnode.component,
-                    cfg=cm06_config
-                ),
-                sast_statuses=sast_status_value.value,
-                severity=github.compliance.model.Severity.BLOCKER,
-            )
+            all_findings_for_rescoring = []
 
-            original_finding = dso.model.ArtefactMetadata(
-                artefact=dso.model.ComponentArtefactId(
+            if not has_local_linter(cnode.component):
+                no_linter_local = create_no_linter_finding(
                     component_name=cnode.component.name,
                     component_version=cnode.component.version,
-                    artefact=dso.model.LocalArtefactId(
-                        artefact_name=None,
-                        artefact_type=None,
-                    )
-                ),
-                meta=dso.model.Metadata(
-                    datasource=dso.model.Datasource.CM06,
-                    type=dso.model.Datatype.SAST_FINDING,
-                    creation_date=time_now,
-                    last_update=time_now,
-                ),
-                data=data_field
-            )
-            new_metadata.append(original_finding)
+                    sub_type=dso.model.SastSubType.LOCAL_LINTING,
+                    time_now=time_now,
+                )
+                new_metadata.append(no_linter_local)
+                all_findings_for_rescoring.append(no_linter_local)
 
-            for ruleset in cm06_config.sast_rescoring_rulesets:
-                rescored_metadata = rescore.utility.generate_sast_rescorings(
-                    findings=[original_finding],
+            if not has_central_linter(cnode.component):
+                no_linter_central = create_no_linter_finding(
+                    component_name=cnode.component.name,
+                    component_version=cnode.component.version,
+                    sub_type=dso.model.SastSubType.CENTRAL_LINTING,
+                    time_now=time_now,
+                )
+                new_metadata.append(no_linter_central)
+                all_findings_for_rescoring.append(no_linter_central)
+
+            if not all_findings_for_rescoring or not cm06_config.sast_rescoring_ruleset:
+                continue
+
+            for ruleset in cm06_config.sast_rescoring_ruleset:
+                rescored_metadata = rescore.utility.iter_sast_rescorings(
+                    findings=all_findings_for_rescoring,
                     sast_rescoring_ruleset=ruleset,
                     user=dso.model.User(
                         username='sast-extension-auto-rescoring'

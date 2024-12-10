@@ -1,11 +1,12 @@
 import collections.abc
 import datetime
 import enum
+import re
 import typing
 
-import github.compliance.model
 import dso.model
 import dso.cvss
+import github.compliance.model
 import rescore.model
 
 
@@ -178,65 +179,58 @@ def rescore_severity(
     return severity
 
 
-def matching_sast_rescore_rules(
+def matching_sast_rescore_rule(
     rescoring_rules: typing.Iterable[rescore.model.SastRescoringRule],
-    sast_finding: dso.model.SastFinding,
-) -> typing.Generator[rescore.model.SastRescoringRule, None, None]:
+    finding: dso.model.ArtefactMetadata,
+) -> rescore.model.SastRescoringRule | None:
     for rescoring_rule in rescoring_rules:
-        if (
-            rescoring_rule.component_context == sast_finding.component_context
-            and rescoring_rule.sast_status == sast_finding.sast_statuses
-        ):
-            yield rescoring_rule
+        for condition in rescoring_rule.match:
+            if re.match(condition['component-name'], finding.artefact.component_name):
+                if finding.data.sub_type in rescoring_rule.sub_types:
+                    return rescoring_rule
+    return None
 
 
 def rescore_sast_severity(
-    rescoring_rules: typing.Iterable[rescore.model.SastRescoringRule],
-    severity: github.compliance.model.Severity,
+    rescoring_rule: rescore.model.SastRescoringRule,
 ) -> str:
-    for rule in rescoring_rules:
-        if rule.rescore == rescore.model.Rescore.BLOCKER:
-            return github.compliance.model.Severity.BLOCKER
-        elif rule.rescore == rescore.model.Rescore.TO_NONE:
-            return github.compliance.model.Severity.NONE
-        else:
-            raise NotImplementedError(rule.rescore)
+    if rescoring_rule.rescore is rescore.model.Rescore.BLOCKER:
+        return github.compliance.model.Severity.BLOCKER
+    elif rescoring_rule.rescore is rescore.model.Rescore.TO_NONE:
+        return github.compliance.model.Severity.NONE
 
-    return severity
+    raise NotImplementedError(rescoring_rule.rescore)
 
 
-def generate_sast_rescorings(
+def iter_sast_rescorings(
     findings: typing.Iterable[dso.model.ArtefactMetadata],
     sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet,
     user: dso.model.User,
 ) -> typing.Generator[dso.model.ArtefactMetadata, None, None]:
     for finding in findings:
-        matching_rules = list(
-            matching_sast_rescore_rules(
-                rescoring_rules=sast_rescoring_ruleset.rules,
-                sast_finding=finding.data,
-            )
+        matching_rule = matching_sast_rescore_rule(
+            rescoring_rules=sast_rescoring_ruleset.rules,
+            finding=finding,
         )
-        if matching_rules:
-            applied_rule = matching_rules[0]
-            new_severity = rescore_sast_severity(
-                rescoring_rules=matching_rules,
-                severity=finding.data.severity,
-            )
-            yield dso.model.ArtefactMetadata(
-                artefact=finding.artefact,
-                meta=dso.model.Metadata(
-                    datasource=finding.meta.datasource,
-                    type=finding.meta.type,
-                    creation_date=datetime.datetime.now(),
-                    last_update=datetime.datetime.now(),
+        if not matching_rule:
+            continue
+
+        yield dso.model.ArtefactMetadata(
+            artefact=finding.artefact,
+            meta=dso.model.Metadata(
+                datasource=finding.meta.datasource,
+                type=dso.model.Datatype.RESCORING,
+                creation_date=datetime.datetime.now(datetime.timezone.utc),
+                last_update=datetime.datetime.now(datetime.timezone.utc),
+            ),
+            data=dso.model.CustomRescoring(
+                finding=finding.data,
+                referenced_type=dso.model.Datatype.SAST_FINDING,
+                severity=rescore_sast_severity(
+                    rescoring_rule=matching_rule,
                 ),
-                data=dso.model.CustomRescoring(
-                    finding=finding.data,
-                    referenced_type=dso.model.Datatype.SAST_FINDING,
-                    severity=new_severity,
-                    user=user,
-                    matching_rules=[applied_rule.name],
-                    comment='Automatically rescored based on rules.',
-                ),
-            )
+                user=user,
+                matching_rules=[matching_rule.name],
+                comment='Automatically rescored based on rules.',
+            ),
+        )

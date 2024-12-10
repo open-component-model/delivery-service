@@ -24,13 +24,6 @@ class RuleSetType(enum.StrEnum):
     SAST = 'sast'
 
 
-class SastStatus(enum.StrEnum):
-    LOCAL_LINTING = 'local-linting'
-    NO_LINTING = 'no-linting'
-    CENTRAL_LINTING = 'central-linting'
-    CENTRAL_AND_LOCAL_LINTING = 'central-and-local-linting'
-
-
 @dataclasses.dataclass(frozen=True)
 class Rule:
     name: str
@@ -39,8 +32,9 @@ class Rule:
 
 @dataclasses.dataclass(frozen=True)
 class SastRescoringRule(Rule):
-    component_context: dso.model.ComponentContext
-    sast_status: SastStatus
+    match: list[dict[str, str]]
+    sub_types: list[str]
+    sast_status: dso.model.SastStatus
 
 
 @dataclasses.dataclass(frozen=True)
@@ -197,6 +191,44 @@ def find_default_rule_set_for_type(
     raise ValueError(f'No default rule_set_name found for {default_rule_set.type}.')
 
 
+def deserialise_default_rule_set(
+    rescoring_cfg_raw: dict,
+    rule_set_type: RuleSetType,
+    rule_set_class: RuleSet,
+    rules_from_dict_method: typing.Callable,
+) -> DefaultRuleSet:
+    # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
+    rule_sets = tuple( #noqa:E1123
+        rule_set_class(
+            name=rule_set_raw['name'],
+            description=rule_set_raw.get('description'),
+            rules=list(
+                rules_from_dict_method(rule_set_raw['rules'])
+            )
+        )
+        for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
+        if rule_set_raw['type'] == rule_set_type
+    )
+    default_rule_sets = [
+        dacite.from_dict(
+            data_class=DefaultRuleSet,
+            data=default_rule_set_raw,
+            config=dacite.Config(
+                cast=[RuleSetType],
+            )
+        )
+        for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
+        if default_rule_set_raw['type'] == rule_set_type
+    ]
+    return find_default_rule_set_for_type_and_name(
+        default_rule_set=find_default_rule_set_for_type(
+            default_rule_sets=default_rule_sets,
+            rule_set_type=rule_set_type,
+        ),
+        rule_sets=rule_sets,
+    )
+
+
 def cve_rescoring_rules_from_dicts(
     rules: list[dict]
 ) -> typing.Generator[CveRescoringRule, None, None]:
@@ -234,11 +266,12 @@ def cve_rescoring_rules_from_dicts(
 
 def sast_rescoring_rules_from_dict(
     rules: list[dict]
-) -> typing.Generator[SastRescoringRule, None, None]:
+) -> collections.abc.Generator[SastRescoringRule, None, None]:
     for rule in rules:
         yield SastRescoringRule(
             name=rule['name'],
             rescore=Rescore(rule['rescore']),
-            component_context=dso.model.ComponentContext(rule['component_context']),
+            match=rule.get('match', []),
+            sub_types=rule.get('sub-types', []),
             sast_status=rule['sast_status'],
         )
