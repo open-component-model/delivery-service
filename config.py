@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 class Services(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefactEnumerator'
     BACKLOG_CONTROLLER = 'backlogController'
+    CM06 = 'cm06'
     BDBA = 'bdba'
     CACHE_MANAGER = 'cacheManager'
     CLAMAV = 'clamav'
@@ -92,6 +93,28 @@ class ClamAVConfig:
     rescan_interval: int
     aws_cfg_name: str
     artefact_types: tuple[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class CM06Config:
+    '''
+    :param str delivery_service_url:
+    :param str component_name:
+        The name of the component being analyzed.
+    :param str component_version:
+        The specific version of the component being analyzed. If not provided,
+        the latest version will be used.
+    :param int audit_timerange_days:
+        The number of days to include in the audit range.
+        Used to determine the audit's start and end dates.
+    :param SastRescoringRuleSet sast_rescoring_rulesets:
+        A set of rules for rescoring SAST findings based on specified criteria.
+    '''
+    delivery_service_url: str
+    component_name: str
+    component_version: str | None = None
+    audit_timerange_days: int | None = None
+    sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -512,6 +535,62 @@ def deserialise_clamav_config(
     )
 
 
+def deserialise_cm06_config(
+    spec_config: dict,
+) -> CM06Config:
+    default_config = spec_config.get('defaults', dict())
+    cm06_config = spec_config.get('cm06')
+    if not cm06_config:
+        return
+
+    delivery_service_url = deserialise_config_property(
+        config=cm06_config,
+        property_key='delivery_service_url',
+        default_config=default_config,
+    )
+    component_name = deserialise_config_property(
+        config=cm06_config,
+        property_key='component_name',
+    )
+    component_version = deserialise_config_property(
+        config=cm06_config,
+        property_key='component_version',
+        absent_ok=True,
+    )
+    audit_timerange_days = deserialise_config_property(
+        config=cm06_config,
+        property_key='audit_timerange_days',
+        default_value=365,  # Default range in days if not provided
+    )
+
+    # Deserialize rescoring rules
+    rescoring_cfg_raw = deserialise_config_property(
+        config=cm06_config,
+        property_key='rescoring',
+        default_config=default_config,
+        absent_ok=True,
+    )
+
+    if rescoring_cfg_raw:
+        default_rule_set = rescore.model.deserialise_default_rule_set(
+            rescoring_cfg_raw=rescoring_cfg_raw,
+            rule_set_type=rescore.model.RuleSetType.SAST,
+            rule_set_class=rescore.model.SastRescoringRuleSet,
+            rules_from_dict_method=rescore.model.sast_rescoring_rules_from_dict,
+        )
+    else:
+        default_rule_set = None
+        logger.info('No SAST rescoring rules specified, rescoring will not be available')
+
+    return CM06Config(
+        delivery_service_url=delivery_service_url,
+        component_name=component_name,
+        component_version=component_version,
+        audit_timerange_days=audit_timerange_days,
+        sast_rescoring_ruleset=default_rule_set,
+    )
+
+
 def deserialise_bdba_config(
     spec_config: dict,
 ) -> BDBAConfig:
@@ -615,6 +694,7 @@ def deserialise_bdba_config(
                 )
             )
             for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
+            if rule_set_raw['type'] == rescore.model.RuleSetType.CVE
         )
         default_rule_sets = [
             dacite.from_dict(
@@ -625,6 +705,7 @@ def deserialise_bdba_config(
                 )
             )
             for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
+            if default_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
         ]
         default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
             default_rule_set=rescore.model.find_default_rule_set_for_type(
