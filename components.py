@@ -1358,6 +1358,7 @@ class ComplianceSummary(aiohttp.web.View):
             dso.model.Datatype.OS_IDS,
             dso.model.Datatype.CODECHECKS_AGGREGATED,
             dso.model.Datatype.MALWARE_FINDING,
+            dso.model.Datatype.FIPS_FINDING,
         )
 
         shortcut_cache = deliverydb.cache.parse_shortcut_cache(self.request)

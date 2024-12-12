@@ -85,6 +85,12 @@ def _iter_rescorings_for_finding(
         ):
             continue
 
+        if (
+            finding.meta.type == dso.model.Datatype.FIPS_FINDING
+            and rescoring.data.finding.key != finding.data.asset.key
+        ):
+            continue
+
         yield rescoring
 
 

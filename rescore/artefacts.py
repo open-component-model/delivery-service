@@ -76,6 +76,7 @@ class RescoringProposal:
         LicenseFinding
         | VulnerabilityFinding
         | MalwareFinding
+        | dso.model.FipsFinding
     )
     finding_type: str
     severity: Severity
@@ -526,6 +527,23 @@ async def _iter_rescoring_proposals(
                         'sprint': sprint,
                     },
                 )
+
+        elif am.meta.type == dso.model.Datatype.FIPS_FINDING:
+            yield dacite.from_dict(
+                data_class=RescoringProposal,
+                data={
+                    'finding': dataclasses.asdict(am.data),
+                    'finding_type': dso.model.Datatype.FIPS_FINDING,
+                    'severity': current_severity.name,
+                    'matching_rules': matching_rules,
+                    'applicable_rescorings': serialised_current_rescorings,
+                    'discovery_date': am.discovery_date.isoformat(),
+                    'sprint': sprint,
+                },
+                config=dacite.Config(
+                    strict=True,
+                ),
+            )
 
         seen_ids.add(am.id)
 

@@ -278,6 +278,7 @@ async def severity_for_finding(
         dso.model.Datatype.LICENSE,
         dso.model.Datatype.VULNERABILITY,
         dso.model.Datatype.MALWARE_FINDING,
+        dso.model.Datatype.FIPS_FINDING,
     ):
         # these types have the severity already stored in their data field
         # no need to do separate severity mapping
