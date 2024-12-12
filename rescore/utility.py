@@ -81,11 +81,7 @@ def _iter_rescorings_for_finding(
 
         if (
             finding.meta.type == dso.model.Datatype.MALWARE_FINDING
-            and (
-                rescoring.data.finding.malware != finding.data.finding.malware
-                or rescoring.data.finding.content_digest != finding.data.finding.content_digest
-                or rescoring.data.finding.filename != finding.data.finding.filename
-            )
+            and rescoring.data.finding.key != finding.data.finding.key
         ):
             continue
 
