@@ -20,6 +20,7 @@ import model.base
 import model.bdba
 import ocm
 
+import config
 import ctx_util
 import k8s.util
 import lookups
@@ -163,12 +164,6 @@ class SpecialComponentsCfg:
 
 
 @dataclasses.dataclass(frozen=True)
-class ComponentNameRepoMapping:
-    componentName: str
-    repoName: str
-
-
-@dataclasses.dataclass(frozen=True)
 class ComponentWithDownloadableTestResults:
     '''
     Represents configuration for a single component which contains test results as asset.
@@ -272,8 +267,8 @@ class FeatureAddressbook(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureAuthentication(FeatureBase):
     name: str = 'authentication'
-    signing_cfgs: tuple = tuple()
-    oauth_cfgs: tuple = tuple()
+    signing_cfgs: tuple[config.SigningCfg, ...] = tuple()
+    oauth_cfgs: tuple[config.OAuthCfg, ...] = tuple()
 
     def serialize(self) -> dict[str, any]:
         return {
@@ -295,33 +290,6 @@ class FeatureDeliveryDB(FeatureBase):
             'state': self.state,
             'name': self.name,
         }
-
-
-@dataclasses.dataclass(frozen=True)
-class FeatureElasticSearch(FeatureBase):
-    name: str = 'elastic-search'
-    es_client: 'ccc.elasticsearch.ElasticSearchClient' = None
-
-    def get_es_client(self) -> 'ccc.elasticsearch.ElasticSearchClient | None':
-        return self.es_client
-
-    def serialize(self) -> dict[str, any]:
-        return {
-            'state': self.state,
-            'name': self.name,
-        }
-
-
-@dataclasses.dataclass(frozen=True)
-class FeatureIssues(FeatureBase):
-    name: str = 'issues'
-    issue_repo_mappings: tuple[ComponentNameRepoMapping] = tuple()
-
-    def get_issue_repo(self, component_name) -> str:
-        for mapping in self.issue_repo_mappings:
-            if mapping.componentName == component_name:
-                return mapping.repoName
-        return None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -424,23 +392,23 @@ class FeatureSpecialComponents(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureRescoring(FeatureBase):
     name: str = 'rescoring'
-    rescoring_rule_sets: list[rm.CveRescoringRuleSet] = dataclasses.field(default_factory=list)
-    default_rescoring_rule_set_name: str = None
+    default_rule_sets: list[rm.DefaultRuleSet] = dataclasses.field(default_factory=list)
+    rescoring_rule_sets: list[rm.RuleSet] = dataclasses.field(default_factory=list)
     cve_categorisation_label_url: str = None
     cve_severity_url: str = None
 
-    def find_rule_set_by_name(
+    def find_rule_set(
         self,
         name: str,
-    ) -> rm.CveRescoringRuleSet | None:
+        rule_set_type: rm.RuleSetType,
+    ) -> rm.RuleSet | None:
         for rs in self.rescoring_rule_sets:
-            rs: rm.CveRescoringRuleSet
-            if rs.name == name:
+            if (
+                rs.name == name
+                and rs.type is rule_set_type
+            ):
                 return rs
         return None
-
-    def default_rule_set(self) -> rm.CveRescoringRuleSet | None:
-        return self.find_rule_set_by_name(self.default_rescoring_rule_set_name)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -625,23 +593,32 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 
 
 def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
-    rescoring_rule_sets = [
-        dacite.from_dict(
-            data_class=rm.CveRescoringRuleSet,
-            data=dict(
-                **rescoring_rule_set_raw,
-                rules=list(
-                    rm.rescoring_rules_from_dicts(rescoring_rule_set_raw['rule_set'])
-                ),
-            ),
+    cve_rescoring_rule_sets = tuple(
+        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
+        rm.CveRescoringRuleSet( #noqa:E1123
+            name=rule_set_raw['name'],
+            description=rule_set_raw.get('description'),
+            rules=list(
+                rm.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
+            )
         )
-        for rescoring_rule_set_raw in rescoring_raw['rescoringRuleSets']
+        for rule_set_raw in rescoring_raw['rescoringRuleSets']
+    )
+    default_rule_sets = [
+        dacite.from_dict(
+            data_class=rm.DefaultRuleSet,
+            data=default_rule_set_raw,
+            config=dacite.Config(
+                cast=[rm.RuleSetType],
+            )
+        )
+        for default_rule_set_raw in rescoring_raw['defaultRuleSetNames']
     ]
 
     return FeatureRescoring(
         state=FeatureStates.AVAILABLE,
-        rescoring_rule_sets=rescoring_rule_sets,
-        default_rescoring_rule_set_name=rescoring_raw['defaultRuleSetName'],
+        default_rule_sets=default_rule_sets,
+        rescoring_rule_sets=cve_rescoring_rule_sets,
         cve_categorisation_label_url=rescoring_raw.get('cveCategorisationLabelUrl'),
         cve_severity_url=rescoring_raw.get('cveSeverityUrl'),
     )
@@ -710,37 +687,19 @@ def deserialise_upgrade_prs(upgrade_prs_raw: dict) -> FeatureUpgradePRs:
         )
 
 
-def deserialise_issues(issues_raw: dict) -> FeatureIssues:
-    issue_repo_mappings = [
-        dacite.from_dict(
-            data_class=ComponentNameRepoMapping,
-            data=issue_repo_mapping,
-        )
-        for issue_repo_mapping in issues_raw['issueRepoMappings']
-    ]
-
-    return FeatureIssues(
-        FeatureStates.AVAILABLE,
-        issue_repo_mappings=issue_repo_mappings,
-    )
-
-
-def deserialise_authentication(delivery_cfg) -> FeatureAuthentication:
+def deserialise_authentication(delivery_cfg: config.DeliveryCfg | None) -> FeatureAuthentication:
     if not delivery_cfg:
         logger.warning('Authentication config not found')
         return FeatureAuthentication(FeatureStates.UNAVAILABLE)
 
-    signing_cfgs = tuple(delivery_cfg.service().signing_cfgs())
-    oauth_cfgs = tuple(delivery_cfg.auth().oauth_cfgs())
-
-    if not signing_cfgs or not oauth_cfgs:
+    if not delivery_cfg.signing_cfgs or not delivery_cfg.oauth_cfgs:
         logger.warning('Authentication config not found')
         return FeatureAuthentication(FeatureStates.UNAVAILABLE)
 
     return FeatureAuthentication(
         state=FeatureStates.AVAILABLE,
-        signing_cfgs=signing_cfgs,
-        oauth_cfgs=oauth_cfgs,
+        signing_cfgs=tuple(delivery_cfg.signing_cfgs),
+        oauth_cfgs=tuple(delivery_cfg.oauth_cfgs),
     )
 
 
@@ -808,15 +767,6 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
     else:
         yield deserialise_upgrade_prs(upgrade_prs)
 
-    issues = raw.get(
-        'issues',
-        FeatureIssues(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(issues, FeatureIssues):
-        yield issues
-    else:
-        yield deserialise_issues(issues)
-
     # if no custom config is provided, fallback to default config of feature
     version_filter = raw.get(
         'versionFilter',
@@ -870,6 +820,17 @@ async def init_features(
     except ValueError as e:
         logger.warning(f'Delivery config not found: {e}')
 
+    delivery_cfg: model.base.NamedModelElement | None
+
+    if delivery_cfg:
+        delivery_cfg = dacite.from_dict(
+            data=delivery_cfg.raw,
+            data_class=config.DeliveryCfg,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
+        )
+
     feature_authentication = deserialise_authentication(delivery_cfg)
     if (
         feature_authentication.state is FeatureStates.AVAILABLE
@@ -899,20 +860,6 @@ async def init_features(
         ))
 
     feature_cfgs.append(FeatureDeliveryDB(delivery_db_feature_state, db_url=db_url))
-
-    es_config = None
-    try:
-        es_config = cfg_factory.elasticsearch(parsed_arguments.es_config_name)
-    except (AttributeError, model.base.ConfigElementNotFoundError):
-        logger.warning('Elastic search config not found')
-
-    if parsed_arguments.productive and es_config:
-        import ccc.elasticsearch
-        logger.info('Elastic search logging enabled')
-        es_client = ccc.elasticsearch.from_cfg(es_config)
-        feature_cfgs.append(FeatureElasticSearch(FeatureStates.AVAILABLE, es_client=es_client))
-    else:
-        feature_cfgs.append(FeatureElasticSearch(FeatureStates.UNAVAILABLE))
 
     extension_feature = FeatureServiceExtensions(FeatureStates.UNAVAILABLE)
     if services := parsed_arguments.service_extensions:

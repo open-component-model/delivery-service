@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
+import concurrent.futures
 import logging
 import os
 
@@ -17,6 +18,7 @@ import compliance_summary as cs
 import components
 import consts
 import ctx_util
+import deliverydb.cache
 import dora
 import eol
 import features
@@ -30,10 +32,10 @@ import middleware.route_feature_check as rfc
 import osinfo
 import paths
 import rescore.artefacts
+import rescore.model as rm
 import service_extensions
 import special_component
 import sprint
-import util
 
 
 ci.log.configure_default_logging(print_thread_id=True)
@@ -47,13 +49,13 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--productive', action='store_true', default=False)
     parser.add_argument('--port', default=5000, type=int)
+    parser.add_argument('--max-workers', default=4, type=int)
     parser.add_argument('--shortcut-auth', action='store_true', default=False)
     parser.add_argument('--delivery-cfg', default='internal')
     parser.add_argument('--delivery-db-cfg', default='internal')
     parser.add_argument('--delivery-endpoints', default='internal')
     parser.add_argument('--delivery-db-url', default=None)
     parser.add_argument('--cache-dir', default=default_cache_dir)
-    parser.add_argument('--es-config-name', default='sap_internal')
     parser.add_argument(
         '--invalid-semver-ok',
         action='store_true',
@@ -104,7 +106,7 @@ def add_app_context_vars(
     parsed_arguments,
     base_url: str,
 ) -> aiohttp.web.Application:
-    oci_client = lookups.semver_sanitised_oci_client_async(cfg_factory)
+    oci_client = lookups.semver_sanitising_oci_client_async(cfg_factory)
 
     version_lookup = lookups.init_version_lookup_async(
         oci_client=oci_client,
@@ -149,24 +151,22 @@ def add_app_context_vars(
         features.FeatureTests,
     ).get_component_with_tests
 
-    cve_rescoring_rule_set_lookup = features.get_feature(
-        features.FeatureRescoring,
-    ).find_rule_set_by_name
-    default_rule_set_callback = features.get_feature(features.FeatureRescoring).default_rule_set
+    rescoring_feature = features.get_feature(features.FeatureRescoring)
+    rescoring_rule_set_lookup = rescoring_feature.find_rule_set
+    default_rule_set_for_type_callback = lambda rule_set_type: (
+        rm.find_default_rule_set_for_type_and_name(
+            default_rule_set=rm.find_default_rule_set_for_type(
+                default_rule_sets=rescoring_feature.default_rule_sets,
+                rule_set_type=rule_set_type,
+            ),
+            rule_sets=rescoring_feature.rescoring_rule_sets,
+        )
+    )
 
-    issue_repo_callback = features.get_feature(features.FeatureIssues).get_issue_repo
-
-    kubernetes_api_callback = features.get_feature(
-        features.FeatureServiceExtensions,
-    ).get_kubernetes_api
-
-    namespace_callback = features.get_feature(
-        features.FeatureServiceExtensions,
-    ).get_namespace
-
-    service_extensions_callback = features.get_feature(
-        features.FeatureServiceExtensions,
-    ).get_services
+    service_extensions_feature = features.get_feature(features.FeatureServiceExtensions)
+    kubernetes_api_callback = service_extensions_feature.get_kubernetes_api
+    namespace_callback = service_extensions_feature.get_namespace
+    service_extensions_callback = service_extensions_feature.get_services
 
     special_component_callback = features.get_feature(
         features.FeatureSpecialComponents,
@@ -198,14 +198,13 @@ def add_app_context_vars(
     app[consts.APP_CFG_FACTORY] = cfg_factory
     app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP] = component_descriptor_lookup
     app[consts.APP_COMPONENT_WITH_TESTS_CALLBACK] = component_with_tests_callback
-    app[consts.APP_CVE_RESCORING_RULE_SET_LOOKUP] = cve_rescoring_rule_set_lookup
-    app[consts.APP_DEFAULT_RULE_SET_CALLBACK] = default_rule_set_callback
+    app[consts.APP_RESCORING_RULE_SET_LOOKUP] = rescoring_rule_set_lookup
+    app[consts.APP_DEFAULT_RULE_SET_FOR_TYPE_CALLBACK] = default_rule_set_for_type_callback
     app[consts.APP_DELIVERY_CFG] = parsed_arguments.delivery_cfg
     app[consts.APP_EOL_CLIENT] = eol.EolClient()
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup
     app[consts.APP_GITHUB_REPO_LOOKUP] = github_repo_lookup
     app[consts.APP_INVALID_SEMVER_OK] = parsed_arguments.invalid_semver_ok
-    app[consts.APP_ISSUE_REPO_CALLBACK] = issue_repo_callback
     app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
     app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
     app[consts.APP_OCI_CLIENT] = oci_client
@@ -221,12 +220,27 @@ def add_app_context_vars(
     return app
 
 
+@middleware.auth.noauth
+class Ready(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        description: This endpoint allows to test that the service is up and running.
+        tags:
+        - Health check
+        responses:
+          "200":
+            description: Service is up and running
+        '''
+        return aiohttp.web.Response()
+
+
 def add_routes(
     app: aiohttp.web.Application,
 ) -> aiohttp.web.Application:
     app.router.add_view(
         path='/ready',
-        handler=util.Ready,
+        handler=Ready,
     )
 
     app.router.add_view(
@@ -256,11 +270,6 @@ def add_routes(
     app.router.add_view(
         path='/components/diff',
         handler=components.ComponentDescriptorDiff,
-    )
-
-    app.router.add_view(
-        path='/components/issues',
-        handler=components.Issues,
     )
 
     app.router.add_view(
@@ -373,6 +382,10 @@ def add_routes(
         path='/metrics',
         handler=middleware.prometheus.Metrics,
     )
+    app.router.add_view(
+        path='/cache',
+        handler=deliverydb.cache.DeliveryDBCache,
+    )
 
     return app
 
@@ -380,10 +393,15 @@ def add_routes(
 async def initialise_app():
     parsed_arguments = parse_args()
 
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=parsed_arguments.max_workers)
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(executor)
+
     cfg_factory = ctx_util.cfg_factory()
 
     middlewares = [
         middleware.cors.cors_middleware(),
+        middleware.errors.errors_middleware(),
     ]
 
     middlewares = await features.init_features(
@@ -391,9 +409,6 @@ async def initialise_app():
         cfg_factory=cfg_factory,
         middlewares=middlewares,
     )
-
-    es_client = features.get_feature(features.FeatureElasticSearch).get_es_client()
-    middlewares.append(middleware.errors.errors_middleware(es_client))
 
     if (unavailable_features := tuple(
         f for f in features.feature_cfgs

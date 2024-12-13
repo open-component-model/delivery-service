@@ -1,8 +1,0 @@
-roles:
-  - name: 'DELIVERY_DB_WRITER'
-    permissions:
-      - 'DELIVERY_DB_READ'
-      - 'DELIVERY_DB_WRITE'
-  - name: 'DELIVERY_DB_READER'
-    permissions:
-      - 'DELIVERY_DB_READ'

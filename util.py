@@ -10,29 +10,13 @@ import urllib.parse
 import aiohttp.web
 
 import cnudie.iter
+import cnudie.retrieve
 import cnudie.retrieve_async
 import oci.model as om
 import ocm
 
-import middleware.auth
-
 
 logger = logging.getLogger(__name__)
-
-
-@middleware.auth.noauth
-class Ready(aiohttp.web.View):
-    async def get(self):
-        '''
-        ---
-        description: This endpoint allows to test that the service is up and running.
-        tags:
-        - Health check
-        responses:
-          "200":
-            description: Service is up and running
-        '''
-        return aiohttp.web.Response()
 
 
 @functools.cache
@@ -95,10 +79,12 @@ async def retrieve_component_descriptor(
     ocm_repo: ocm.OcmRepository=None,
 ) -> ocm.ComponentDescriptor:
     try:
-        return await component_descriptor_lookup(
-            component_id,
-            ctx_repo=ocm_repo,
-        )
+        if ocm_repo:
+            return await component_descriptor_lookup(
+                component_id,
+                ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+            )
+        return await component_descriptor_lookup(component_id)
     except om.OciImageNotFoundException:
         err_str = f'Component descriptor "{component_id.name}" in version "' \
         f'{component_id.version}" not found in {ocm_repo=}.'

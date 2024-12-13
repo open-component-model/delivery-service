@@ -1,11 +1,16 @@
+import asyncio
+import collections
 import collections.abc
 import dataclasses
 import enum
+import functools
 import logging
 
 import awesomeversion
 import dacite
+import sqlalchemy.ext.asyncio as sqlasync
 
+import cnudie.retrieve_async
 import dso.model
 import github.compliance.model as gcm
 import ocm
@@ -13,8 +18,9 @@ import unixutil.model as um
 
 import delivery.model
 import delivery.util as du
+import deliverydb.cache
+import deliverydb.util
 import eol
-import ocm_util
 import osinfo
 import rescore.utility
 
@@ -226,270 +232,45 @@ class ComplianceScanStatus:
     OK = 'ok'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class ComplianceSummaryEntry:
     type: dso.model.Datatype
     source: dso.model.Datasource
-    severity: ComplianceEntrySeverity
+    severity: ComplianceEntrySeverity | str
     scanStatus: ComplianceScanStatus
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class ArtefactComplianceSummary:
     artefact: dso.model.ComponentArtefactId
     entries: list[ComplianceSummaryEntry]
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class ComponentComplianceSummary:
     componentId: ocm.ComponentIdentity
     entries: list[ComplianceSummaryEntry]
     artefacts: list[ArtefactComplianceSummary]
 
 
-@dataclasses.dataclass(frozen=True)
-class SummaryConfig:
-    default_entries: dict[str, ComplianceSummaryEntry]
-
-
-async def component_summaries(
-    findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    components: tuple[ocm.Component],
-    eol_client: eol.EolClient,
-    artefact_metadata_cfg_by_type: dict,
-    cfg: SummaryConfig = SummaryConfig(
-        default_entries={
-            dso.model.Datatype.LICENSE: ComplianceSummaryEntry(
-                type=dso.model.Datatype.LICENSE,
-                source=dso.model.Datasource.BDBA,
-                severity=ComplianceEntrySeverity.UNKNOWN,
-                scanStatus=ComplianceScanStatus.NO_DATA,
-            ),
-            dso.model.Datatype.VULNERABILITY: ComplianceSummaryEntry(
-                type=dso.model.Datatype.VULNERABILITY,
-                source=dso.model.Datasource.BDBA,
-                severity=ComplianceEntrySeverity.UNKNOWN,
-                scanStatus=ComplianceScanStatus.NO_DATA,
-            ),
-            dso.model.Datatype.OS_IDS: ComplianceSummaryEntry(
-                type=dso.model.Datatype.OS_IDS,
-                source=dso.model.Datasource.CC_UTILS,
-                severity=ComplianceEntrySeverity.UNKNOWN,
-                scanStatus=ComplianceScanStatus.NO_DATA,
-            ),
-            dso.model.Datatype.CODECHECKS_AGGREGATED: ComplianceSummaryEntry(
-                type=dso.model.Datatype.CODECHECKS_AGGREGATED,
-                source=dso.model.Datasource.CHECKMARX,
-                severity=ComplianceEntrySeverity.UNKNOWN,
-                scanStatus=ComplianceScanStatus.NO_DATA,
-            ),
-            dso.model.Datatype.MALWARE_FINDING: ComplianceSummaryEntry(
-                type=dso.model.Datatype.MALWARE_FINDING,
-                source=dso.model.Datasource.CLAMAV,
-                severity=ComplianceEntrySeverity.UNKNOWN,
-                scanStatus=ComplianceScanStatus.NO_DATA,
-            )
-        },
-    ),
-) -> collections.abc.AsyncGenerator[ComponentComplianceSummary, None, None]:
-    '''
-    yields compliance summaries per component and per artefact containing most
-    critical flaw for each `data_type`.
-    On absence of flaw per data_type, corresponding `default_entry` is taken.
-    '''
-    for component in components:
-        if len(components) == 1:
-            # findings were already pre-filtered by query
-            filtered_findings = findings
-            filtered_rescorings = rescorings
-        else:
-            filtered_findings = tuple(
-                finding for finding in findings
-                if ocm_util.find_artefact_of_component_or_none(
-                    component=component,
-                    artefact=finding.artefact,
-                )
-            )
-
-            filtered_rescorings = tuple(
-                rescoring for rescoring in rescorings
-                if (
-                    not rescoring.artefact.component_name or
-                    rescoring.artefact.component_name == component.name
-                ) and (
-                    not rescoring.artefact.component_version or
-                    rescoring.artefact.component_version == component.version
-                )
-            )
-
-        yield ComponentComplianceSummary(
-            componentId=ocm.ComponentIdentity(
-                name=component.name,
-                version=component.version,
-            ),
-            entries=[
-                summary async for summary in calculate_summary(
-                    artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
-                    findings=filtered_findings,
-                    rescorings=filtered_rescorings,
-                    defaults=cfg.default_entries,
-                    types=tuple(type for type in cfg.default_entries.keys()),
-                    eol_client=eol_client,
-                )
-            ],
-            artefacts=[await calculate_artefact_summary(
-                component=component,
-                artefact=artefact,
-                findings=filtered_findings,
-                rescorings=filtered_rescorings,
-                defaults=cfg.default_entries,
-                eol_client=eol_client,
-                artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
-            ) for artefact in component.resources + component.sources],
-        )
-
-
-async def calculate_artefact_summary(
-    component: ocm.Component,
-    artefact: ocm.Resource | ocm.Source,
-    findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    defaults: dict[ComplianceSummaryEntry],
-    eol_client: eol.EolClient,
-    artefact_metadata_cfg_by_type: dict[str, ArtefactMetadataCfg],
-) -> ArtefactComplianceSummary:
-    if isinstance(artefact, ocm.Resource):
-        artefact_kind = dso.model.ArtefactKind.RESOURCE
-    elif isinstance(artefact, ocm.Source):
-        artefact_kind = dso.model.ArtefactKind.SOURCE
-    else:
-        raise ValueError(artefact)
-
-    artefact_type = artefact.type.value if isinstance(artefact.type, enum.Enum) else artefact.type
-
-    findings_for_artefact = tuple(
-        finding for finding in findings
-        if (
-            finding.artefact.artefact_kind == artefact_kind
-            and finding.artefact.artefact.artefact_name == artefact.name
-            and finding.artefact.artefact.artefact_version == artefact.version
-            and finding.artefact.artefact.artefact_type == artefact_type
-            and finding.artefact.artefact.normalised_artefact_extra_id()
-                == dso.model.normalise_artefact_extra_id(
-                    artefact_extra_id=artefact.extraIdentity,
-                )
-        )
-    )
-
-    return ArtefactComplianceSummary(
-        artefact=dso.model.ComponentArtefactId(
-            component_name=component.name,
-            component_version=component.version,
-            artefact_kind=artefact_kind.value,
-            artefact=dso.model.LocalArtefactId(
-                artefact_name=artefact.name,
-                artefact_version=artefact.version,
-                artefact_type=artefact_type,
-                artefact_extra_id=artefact.extraIdentity,
-            ),
-        ),
-        entries=[
-            summary async for summary in calculate_summary(
-                artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
-                findings=findings_for_artefact,
-                rescorings=rescorings,
-                defaults=defaults,
-                types=tuple(type for type in defaults.keys()),
-                eol_client=eol_client,
-            )
-        ],
-    )
-
-
-async def calculate_summary(
-    findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    defaults: dict[ComplianceSummaryEntry],
-    types: tuple[dso.model.Datatype],
-    eol_client: eol.EolClient,
-    artefact_metadata_cfg_by_type: dict[str, ArtefactMetadataCfg],
-) -> collections.abc.AsyncGenerator[ComplianceSummaryEntry, None, None]:
-    '''
-    yields exactly one `ComplianceSummaryEntry` per type in `types` from `findings`,
-    on absence fallback to corresponding default.
-    '''
-    for finding_type in types:
-        artefact_metadata_cfg = artefact_metadata_cfg_by_type.get(finding_type)
-
-        findings_with_given_type = tuple(
-            finding for finding in findings
-            if finding.meta.type == finding_type
-        )
-
-        if not findings_with_given_type:
-            # check if scan exists and has no findings instead of
-            # component is not scanned and thus has no findinngs
-            datasource = defaults[finding_type].source
-
-            findings_with_matching_datasource = [
-                finding for finding in findings
-                if finding.meta.datasource == datasource
-            ]
-
-            if findings_with_matching_datasource:
-                yield ComplianceSummaryEntry(
-                    type=finding_type,
-                    source=datasource,
-                    severity=ComplianceEntrySeverity.CLEAN,
-                    scanStatus=ComplianceScanStatus.OK,
-                )
-                continue
-
-            yield defaults[finding_type]
-            continue
-
-        rescorings_for_type = tuple(
-            rescoring for rescoring in rescorings
-            if rescoring.data.referenced_type == finding_type
-        )
-
-        yield await calculate_summary_entry(
-            findings=findings_with_given_type,
-            rescorings=rescorings_for_type,
-            eol_client=eol_client,
-            artefact_metadata_cfg=artefact_metadata_cfg,
-        )
-
-
 async def severity_for_finding(
     finding: dso.model.ArtefactMetadata,
-    artefact_metadata_cfg: ArtefactMetadataCfg | None = None,
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata] = tuple(),
-    eol_client: eol.EolClient | None = None,
-    known_artefact_metadata_types: tuple[str] = (
-        dso.model.Datatype.VULNERABILITY,
-        dso.model.Datatype.LICENSE,
-        dso.model.Datatype.OS_IDS,
-        dso.model.Datatype.CODECHECKS_AGGREGATED,
-        dso.model.Datatype.MALWARE_FINDING,
-    ),
+    artefact_metadata_cfg: ArtefactMetadataCfg | None=None,
+    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata]=tuple(),
+    eol_client: eol.EolClient | None=None,
 ) -> str | None:
     '''
     Severity for known `ArtefactMetadata`.
 
-    `None` indicates unknown `ArtefactMetadata`.
     Raises `RuntimeError` if no severity mapping could be applied.
     '''
-
-    if not finding.meta.type in known_artefact_metadata_types:
-        return None
-
     if rescorings:
-        rescored_severity = rescored_severity_if_any(
+        loop = asyncio.get_running_loop()
+        rescored_severity = await loop.run_in_executor(None, functools.partial(
+            rescored_severity_if_any,
             finding=finding,
             rescorings=rescorings,
-        )
+        ))
         if rescored_severity:
             return rescored_severity
 
@@ -497,6 +278,7 @@ async def severity_for_finding(
         dso.model.Datatype.LICENSE,
         dso.model.Datatype.VULNERABILITY,
         dso.model.Datatype.MALWARE_FINDING,
+        dso.model.Datatype.FIPS_FINDING,
     ):
         # these types have the severity already stored in their data field
         # no need to do separate severity mapping
@@ -514,7 +296,7 @@ async def calculate_summary_entry(
     findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
     eol_client: eol.EolClient,
-    artefact_metadata_cfg: ArtefactMetadataCfg | None = None,
+    artefact_metadata_cfg: ArtefactMetadataCfg | None=None,
 ) -> ComplianceSummaryEntry:
     '''
     returns most critical (highest severity) `ComplianceSummaryEntry`
@@ -544,4 +326,248 @@ async def calculate_summary_entry(
                 scanStatus=ComplianceScanStatus.OK,
             )
 
+    # use severity name instead of number -> comparison is not required anymore
+    most_critical.severity = most_critical.severity.name
     return most_critical
+
+
+async def compliance_summary_entry(
+    finding_type: str,
+    datasource: str,
+    scan_exists: bool,
+    findings: collections.abc.Sequence[dso.model.ArtefactMetadata],
+    rescorings: collections.abc.Sequence[dso.model.ArtefactMetadata],
+    eol_client: eol.EolClient,
+    artefact_metadata_cfg: ArtefactMetadataCfg,
+) -> ComplianceSummaryEntry:
+    if not scan_exists:
+        return ComplianceSummaryEntry(
+            type=finding_type,
+            source=datasource,
+            severity=ComplianceEntrySeverity.UNKNOWN.name,
+            scanStatus=ComplianceScanStatus.NO_DATA,
+        )
+
+    if not findings:
+        return ComplianceSummaryEntry(
+            type=finding_type,
+            source=datasource,
+            severity=ComplianceEntrySeverity.CLEAN.name,
+            scanStatus=ComplianceScanStatus.OK,
+        )
+
+    return await calculate_summary_entry(
+        findings=findings,
+        rescorings=rescorings,
+        eol_client=eol_client,
+        artefact_metadata_cfg=artefact_metadata_cfg,
+    )
+
+
+async def artefact_datatype_summary(
+    artefact: ocm.Resource | ocm.Source,
+    finding_type: str,
+    datasource: str,
+    artefact_scan_infos: collections.abc.Sequence[dso.model.ArtefactMetadata],
+    findings: collections.abc.Sequence[dso.model.ArtefactMetadata],
+    rescorings: collections.abc.Sequence[dso.model.ArtefactMetadata],
+    eol_client: eol.EolClient,
+    artefact_metadata_cfg: ArtefactMetadataCfg,
+) -> ComplianceSummaryEntry:
+    if isinstance(artefact, ocm.Resource):
+        artefact_kind = dso.model.ArtefactKind.RESOURCE
+    elif isinstance(artefact, ocm.Source):
+        artefact_kind = dso.model.ArtefactKind.SOURCE
+    else:
+        raise ValueError(artefact)
+
+    findings_for_artefact = [
+        finding for finding in findings
+        if (
+            finding.artefact.artefact_kind is artefact_kind
+            and finding.artefact.artefact.artefact_name == artefact.name
+            and finding.artefact.artefact.artefact_version == artefact.version
+            and finding.artefact.artefact.artefact_type == artefact.type
+            and finding.artefact.artefact.normalised_artefact_extra_id
+                == dso.model.normalise_artefact_extra_id(artefact.extraIdentity)
+        )
+    ]
+
+    if not dso.model.Datasource.has_scan_info(datasource):
+        # TODO remove this conditional branch once all datasources emit scan info objects
+        scan_exists = bool(findings_for_artefact)
+
+    else:
+        for artefact_scan_info in artefact_scan_infos:
+            if (
+                artefact_scan_info.artefact.artefact_kind is artefact_kind
+                and artefact_scan_info.artefact.artefact.artefact_name == artefact.name
+                and artefact_scan_info.artefact.artefact.artefact_version == artefact.version
+                and artefact_scan_info.artefact.artefact.artefact_type == artefact.type
+                and artefact_scan_info.artefact.artefact.normalised_artefact_extra_id
+                    == dso.model.normalise_artefact_extra_id(artefact.extraIdentity)
+            ):
+                scan_exists = True
+                break
+        else:
+            scan_exists = False
+
+    return await compliance_summary_entry(
+        finding_type=finding_type,
+        datasource=datasource,
+        scan_exists=scan_exists,
+        findings=findings_for_artefact,
+        rescorings=rescorings,
+        eol_client=eol_client,
+        artefact_metadata_cfg=artefact_metadata_cfg,
+    )
+
+
+# Note: The cache manager expects this function to use the persistent db-cache annotator. If this
+# would be removed in a future change, the cache manager also had to be adjusted to prevent
+# unnecessary load.
+@deliverydb.cache.dbcached_function(
+    ttl_seconds=60 * 60 * 24, # 1 day
+    exclude_kwargs=('component_descriptor_lookup', 'eol_client', 'artefact_metadata_cfg'),
+)
+async def component_datatype_summaries(
+    component: ocm.ComponentIdentity,
+    finding_type: str,
+    datasource: str,
+    db_session: sqlasync.session.AsyncSession,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    eol_client: eol.EolClient,
+    artefact_metadata_cfg: ArtefactMetadataCfg,
+    shortcut_cache: bool=False,
+) -> list[tuple[dso.model.ComponentArtefactId, ComplianceSummaryEntry]]:
+    component = (await component_descriptor_lookup(component)).component
+
+    if not dso.model.Datasource.has_scan_info(datasource):
+        # TODO remove this conditional branch once all datasources emit scan info objects
+        artefact_scan_infos = None
+
+        findings = await deliverydb.util.findings_for_component(
+            component=component,
+            finding_type=finding_type,
+            datasource=datasource,
+            db_session=db_session,
+        )
+        scan_exists = bool(findings)
+
+        # the remaining datasources do not support rescorings so retrieval of the same
+        # can be safely skipped in this case
+        rescorings = []
+
+    else:
+        artefact_scan_infos = await deliverydb.util.findings_for_component(
+            component=component,
+            finding_type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+            datasource=datasource,
+            db_session=db_session,
+        )
+
+        if scan_exists := bool(artefact_scan_infos):
+            findings = await deliverydb.util.findings_for_component(
+                component=component,
+                finding_type=finding_type,
+                datasource=datasource,
+                db_session=db_session,
+            )
+        else:
+            # if no scan exists, we don't have to query for findings
+            findings = []
+
+        if findings:
+            rescorings = await deliverydb.util.rescorings_for_component(
+                component=component,
+                finding_type=finding_type,
+                db_session=db_session,
+            )
+        else:
+            # if no findings exist, we don't have to query for rescorings
+            rescorings = []
+
+    component_summary = await compliance_summary_entry(
+        finding_type=finding_type,
+        datasource=datasource,
+        scan_exists=scan_exists,
+        findings=findings,
+        rescorings=rescorings,
+        eol_client=eol_client,
+        artefact_metadata_cfg=artefact_metadata_cfg,
+    )
+    summaries = [(
+        dso.model.ComponentArtefactId(
+            component_name=component.name,
+            component_version=component.version,
+            artefact=None,
+        ),
+        component_summary,
+    )]
+
+    for artefact in component.resources + component.sources:
+        if isinstance(artefact.type, enum.Enum):
+            artefact.type = artefact.type.value
+
+        artefact_summary = await artefact_datatype_summary(
+            artefact=artefact,
+            finding_type=finding_type,
+            datasource=datasource,
+            artefact_scan_infos=artefact_scan_infos,
+            findings=findings,
+            rescorings=rescorings,
+            eol_client=eol_client,
+            artefact_metadata_cfg=artefact_metadata_cfg,
+        )
+
+        summaries.append((
+            dso.model.component_artefact_id_from_ocm(
+                component=component,
+                artefact=artefact,
+            ),
+            artefact_summary,
+        ))
+
+    return summaries
+
+
+async def component_compliance_summary(
+    component: ocm.ComponentIdentity,
+    finding_types: collections.abc.Sequence[str],
+    db_session: sqlasync.session.AsyncSession,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    eol_client: eol.EolClient,
+    artefact_metadata_cfg_by_type: dict[str, ArtefactMetadataCfg],
+    shortcut_cache: bool=False,
+) -> ComponentComplianceSummary:
+    component_entries = []
+    artefacts_entries_by_artefact = collections.defaultdict(list)
+
+    for finding_type in finding_types:
+        summary_entries_by_artefact = await component_datatype_summaries(
+            component=component,
+            finding_type=finding_type,
+            datasource=dso.model.Datatype.datatype_to_datasource(finding_type),
+            db_session=db_session,
+            component_descriptor_lookup=component_descriptor_lookup,
+            eol_client=eol_client,
+            artefact_metadata_cfg=artefact_metadata_cfg_by_type.get(finding_type),
+            shortcut_cache=shortcut_cache,
+        )
+
+        # first entry is always the component summary
+        component_entries.append(summary_entries_by_artefact[0][1])
+
+        for component_artefact_id, summary_entry in summary_entries_by_artefact[1:]:
+            artefacts_entries_by_artefact[component_artefact_id].append(summary_entry)
+
+    return ComponentComplianceSummary(
+        componentId=component,
+        entries=component_entries,
+        artefacts=[
+            ArtefactComplianceSummary(
+                artefact=artefact,
+                entries=entries,
+            ) for artefact, entries in artefacts_entries_by_artefact.items()
+        ],
+    )

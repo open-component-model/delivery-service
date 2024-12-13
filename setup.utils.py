@@ -35,6 +35,7 @@ def modules():
 def packages():
     return [
         'bdba',
+        'deliverydb_cache',
         'k8s',
     ]
 

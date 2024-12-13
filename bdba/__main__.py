@@ -24,6 +24,8 @@ import bdba.scanning
 import bdba.util
 import config
 import ctx_util
+import deliverydb_cache.model as dcm
+import deliverydb_cache.util as dcu
 import k8s.backlog
 import k8s.logging
 import k8s.model
@@ -84,6 +86,27 @@ def deserialise_bdba_configuration(
     return bdba_config
 
 
+def _mark_compliance_summary_cache_for_deletion(
+    delivery_client: delivery.client.DeliveryServiceClient,
+    component: ocm.ComponentIdentity,
+    finding_type: str,
+):
+    descriptor = dcm.CachedPythonFunction(
+        encoding_format=dcm.EncodingFormat.PICKLE,
+        function_name='compliance_summary.component_datatype_summaries',
+        args=dcu.normalise_and_serialise_object(tuple()),
+        kwargs=dcu.normalise_and_serialise_object({
+            'component': component,
+            'finding_type': finding_type,
+            'datasource': dso.model.Datasource.BDBA,
+        }),
+    )
+
+    delivery_client.mark_cache_for_deletion(
+        id=descriptor.id,
+    )
+
+
 def scan(
     backlog_item: k8s.backlog.BacklogItem,
     bdba_config: config.BDBAConfig,
@@ -114,14 +137,12 @@ def scan(
         bdba_client=bdba_client,
         group_id=bdba_config.group_id,
         resource_node=resource_node,
-        oci_client=oci_client,
     )
 
     processor = bdba.scanning.ResourceGroupProcessor(
         group_id=bdba_config.group_id,
         reference_group_ids=bdba_config.reference_group_ids,
         bdba_client=bdba_client,
-        oci_client=oci_client,
     )
 
     access = resource_node.resource.access
@@ -146,7 +167,10 @@ def scan(
 
     elif access.type is ocm.AccessType.LOCAL_BLOB:
         ocm_repo = resource_node.component.current_ocm_repo
-        image_reference = ocm_repo.component_oci_ref(resource_node.component.name)
+        image_reference = ocm_repo.component_version_oci_ref(
+            name=resource_node.component.name,
+            version=resource_node.component.version,
+        )
 
         content_iterator = ocm_util.iter_local_blob_content(
             access=access,
@@ -170,18 +194,30 @@ def scan(
         delete_inactive_products_after_seconds=bdba_config.delete_inactive_products_after_seconds,
     )
 
-    filtered_scan_results = tuple(
-        scan_result for scan_result in scan_results
-        if scan_result.meta.type not in bdba_config.blacklist_finding_types
+    if bdba_config.blacklist_finding_types:
+        scan_results = tuple(
+            scan_result for scan_result in scan_results
+            if scan_result.meta.type not in bdba_config.blacklist_finding_types
+        )
+
+    delivery_client.update_metadata(data=scan_results)
+
+    component = ocm.ComponentIdentity(
+        name=backlog_item.artefact.component_name,
+        version=backlog_item.artefact.component_version,
+    )
+    _mark_compliance_summary_cache_for_deletion(
+        delivery_client=delivery_client,
+        component=component,
+        finding_type=dso.model.Datatype.VULNERABILITY,
+    )
+    _mark_compliance_summary_cache_for_deletion(
+        delivery_client=delivery_client,
+        component=component,
+        finding_type=dso.model.Datatype.LICENSE,
     )
 
-    delivery_client.update_metadata(data=filtered_scan_results)
-
-    logger.info(
-        f'finished scan of artefact {backlog_item.artefact.artefact.artefact_name}:'
-        f'{backlog_item.artefact.artefact.artefact_version} of component '
-        f'{backlog_item.artefact.component_name}:{backlog_item.artefact.component_version}'
-    )
+    logger.info(f'finished scan of artefact {backlog_item.artefact}')
 
 
 def parse_args():
@@ -293,7 +329,7 @@ def main():
         cfg_factory=cfg_factory,
     )
 
-    oci_client = lookups.semver_sanitised_oci_client(
+    oci_client = lookups.semver_sanitising_oci_client(
         cfg_factory=cfg_factory,
     )
 

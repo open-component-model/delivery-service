@@ -9,15 +9,12 @@ import logging
 
 import ci.log
 import cnudie.iter
-import concourse.model.traits.image_scan as image_scan
 import delivery.client
 import dso.model
-import gci.oci
 import github.compliance.model as gcm
 import github.compliance.report as gcr
-import oci.client
-import ocm
 
+import config
 import bdba.model as bm
 
 
@@ -37,20 +34,20 @@ def iter_existing_findings(
     )
 
     findings = delivery_client.query_metadata(
-        components=[resource_node.component_id],
+        artefacts=(artefact,),
         type=finding_type,
     )
 
     return (
         finding for finding in findings
-        if finding.meta.datasource == datasource and finding.artefact == artefact
+        if finding.meta.datasource == datasource
     )
 
 
 def iter_artefact_metadata(
     scanned_element: cnudie.iter.ResourceNode,
     scan_result: bm.AnalysisResult,
-    license_cfg: image_scan.LicenseCfg=None,
+    license_cfg: config.LicenseCfg=None,
     delivery_client: delivery.client.DeliveryServiceClient=None,
 ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
     now = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -282,46 +279,31 @@ def enum_triages(
 
 def component_artifact_metadata(
     resource_node: cnudie.iter.ResourceNode,
-    omit_resource_version: bool,
-    oci_client: oci.client.Client,
-):
-    ''' returns a dict for querying bdba scan results (use for custom-data query)
+    omit_resource_strict_id: bool=False,
+) -> dict:
+    '''
+    Returns a dict for querying bdba scan results (use for custom-data query). If
+    `omit_resource_strict_id` is set, the resource version and extra id are not included in the
+    result to allow querying of related (but not equal) scans.
     '''
     component = resource_node.component
     resource = resource_node.resource
 
-    metadata = {'COMPONENT_NAME': component.name}
+    metadata = {
+        'COMPONENT_NAME': component.name,
+        'IMAGE_REFERENCE_NAME': resource.name, # deprecated, will be replaced with `RESOURCE_NAME`
+        'RESOURCE_TYPE': resource.type,
+    }
 
-    if resource.access.type is ocm.AccessType.OCI_REGISTRY:
-        metadata['IMAGE_REFERENCE_NAME'] = resource.name
-        metadata['RESOURCE_TYPE'] = ocm.ArtefactType.OCI_IMAGE
-        if not omit_resource_version:
-            image_reference = gci.oci.image_ref_with_digest(
-                image_reference=resource.access.imageReference,
-                digest=resource.digest,
-                oci_client=oci_client,
-            )
-            metadata['IMAGE_REFERENCE'] = image_reference.original_image_reference
-            metadata['IMAGE_VERSION'] = resource.version
+    if omit_resource_strict_id:
+        return metadata
 
-    elif resource.access.type is ocm.AccessType.S3:
-        metadata['RESOURCE_TYPE'] = resource.type
-        if not omit_resource_version:
-            metadata['IMAGE_VERSION'] = resource.version
+    metadata['RESOURCE_NAME'] = resource.name
+    metadata['RESOURCE_VERSION'] = resource.version
 
-    elif resource.access.type is ocm.AccessType.LOCAL_BLOB:
-        metadata['IMAGE_REFERENCE_NAME'] = resource.name
-        metadata['RESOURCE_TYPE'] = ocm.AccessType.LOCAL_BLOB
-        # do not use global access as it is optional
-        img_ref = component.current_ocm_repo.component_version_oci_ref(
-            name=component.name,
-            version=component.version,
-        )
-        digest = resource.access.localReference
-        metadata['IMAGE_REFERENCE'] = f'{img_ref}@sha256:{digest}'
-
-    else:
-        raise NotImplementedError(resource.access)
+    if resource.extraIdentity:
+        # peers are not required here as version is considered anyways
+        metadata['RESOURCE_EXTRA_ID'] = f'{resource.identity(peers=())}'
 
     return metadata
 

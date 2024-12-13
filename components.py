@@ -6,6 +6,7 @@ import enum
 import http
 import io
 import logging
+import re
 import tarfile
 
 import aiohttp.web
@@ -23,15 +24,16 @@ import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
 import dso.model
-import gci.oci
 import github.util
 import oci.client_async
 import oci.model as om
 import ocm
+import ocm.oci
 import version as versionutil
 
 import compliance_summary as cs
 import consts
+import deliverydb.cache
 import deliverydb.model as dm
 import deliverydb.util
 import features
@@ -105,6 +107,7 @@ async def greatest_version_if_none(
     oci_client: oci.client_async.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
+    db_session: sqlasync.session.AsyncSession=None,
 ):
     if version is None:
         version = await greatest_component_version(
@@ -114,6 +117,7 @@ async def greatest_version_if_none(
             oci_client=oci_client,
             version_filter=version_filter,
             invalid_semver_ok=invalid_semver_ok,
+            db_session=db_session,
         )
 
     if not version:
@@ -131,6 +135,7 @@ async def _component_descriptor(
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     version_filter: features.VersionFilter,
     invalid_semver_ok: bool=False,
+    db_session: sqlasync.session.AsyncSession=None,
 ) -> ocm.ComponentDescriptor:
     component_name = util.param(params, 'component_name', required=True)
 
@@ -152,6 +157,7 @@ async def _component_descriptor(
             ocm_repo=ocm_repo,
             version_filter=version_filter,
             invalid_semver_ok=invalid_semver_ok,
+            db_session=db_session,
         )
 
     component_id = ocm.ComponentIdentity(
@@ -176,7 +182,7 @@ async def _component_descriptor(
             raw = await cnudie.retrieve_async.raw_component_descriptor_from_oci(
                 component_id=component_id,
                 ocm_repos=ocm_repos,
-                oci_client=lookups.semver_sanitised_oci_client_async(),
+                oci_client=lookups.semver_sanitising_oci_client_async(),
             )
 
         except om.OciImageNotFoundException:
@@ -192,7 +198,7 @@ async def _component_descriptor(
         blob_fobj = io.BytesIO(raw)
 
         with tarfile.open(fileobj=blob_fobj, mode='r') as tf:
-            component_descriptor_info = tf.getmember(gci.oci.component_descriptor_fname)
+            component_descriptor_info = tf.getmember(ocm.oci.component_descriptor_fname)
             component_descriptor_bytes = tf.extractfile(component_descriptor_info).read()
 
         if raw:
@@ -272,6 +278,7 @@ class Component(aiohttp.web.View):
             version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
             version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
             invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+            db_session=self.request[consts.REQUEST_DB_SESSION],
         )
 
         return aiohttp.web.json_response(
@@ -344,6 +351,7 @@ class ComponentDependencies(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+                db_session=self.request[consts.REQUEST_DB_SESSION],
             )
 
         component_dependencies = resolve_component_dependencies(
@@ -385,6 +393,9 @@ class ComponentDependencies(aiohttp.web.View):
 
 
 class ComponentResponsibles(aiohttp.web.View):
+    @deliverydb.cache.dbcached_route(
+        skip_http_status=(http.HTTPStatus.ACCEPTED,)
+    )
     async def get(self):
         '''
         ---
@@ -450,6 +461,7 @@ class ComponentResponsibles(aiohttp.web.View):
             version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
             version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
             invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+            db_session=self.request[consts.REQUEST_DB_SESSION],
         )
         component = component_descriptor.component
         main_source = cnudie.util.main_source(component_descriptor.component)
@@ -559,11 +571,19 @@ class ComponentResponsibles(aiohttp.web.View):
         )
 
 
+# Note: The cache manager expects this function to use the persistent db-cache annotator. If this
+# would be removed in a future change, the cache manager also had to be adjusted to prevent
+# unnecessary load.
+@deliverydb.cache.dbcached_function(
+    ttl_seconds=60,
+    exclude_kwargs=('version_lookup', 'oci_client'),
+)
 async def component_versions(
     component_name: str,
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
+    db_session: sqlasync.session.AsyncSession=None, # required for db-cache
 ) -> list[str]:
     if not ocm_repo and not version_lookup:
         raise ValueError('At least one of `ocm_repo` and `version_lookup` must be specified')
@@ -573,12 +593,12 @@ async def component_versions(
             raise NotImplementedError(ocm_repo)
 
         if not oci_client:
-            oci_client = lookups.semver_sanitised_oci_client_async()
+            oci_client = lookups.semver_sanitising_oci_client_async()
 
         try:
             return await cnudie.retrieve_async.component_versions(
                 component_name=component_name,
-                ctx_repo=ocm_repo,
+                ocm_repo=ocm_repo,
                 oci_client=oci_client,
             )
         except aiohttp.ClientResponseError:
@@ -599,12 +619,14 @@ async def greatest_component_version(
     oci_client: oci.client_async.Client=None,
     version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
+    db_session: sqlasync.session.AsyncSession=None,
 ) -> str | None:
     versions = await component_versions(
         component_name=component_name,
         version_lookup=version_lookup,
         ocm_repo=ocm_repo,
         oci_client=oci_client,
+        db_session=db_session,
     )
 
     greatest_candidate = None
@@ -651,12 +673,14 @@ async def greatest_component_versions(
     invalid_semver_ok: bool=False,
     start_date: datetime.date=None,
     end_date: datetime.date=None,
+    db_session: sqlasync.session.AsyncSession=None,
 ) -> list[str]:
     versions = await component_versions(
         component_name=component_name,
         version_lookup=version_lookup,
         ocm_repo=ocm_repo,
         oci_client=oci_client,
+        db_session=db_session,
     )
 
     if not versions:
@@ -804,6 +828,7 @@ class GreatestComponentVersions(aiohttp.web.View):
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 start_date=start_date,
                 end_date=end_date,
+                db_session=self.request[consts.REQUEST_DB_SESSION],
             )
         except ValueError:
             raise aiohttp.web.HTTPNotFound(text=f'Version {version} not found')
@@ -937,6 +962,7 @@ class UpgradePRs(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
+                db_session=self.request[consts.REQUEST_DB_SESSION],
             )
 
             component_descriptor = await util.retrieve_component_descriptor(
@@ -955,38 +981,9 @@ class UpgradePRs(aiohttp.web.View):
 
             repo_url = source.access.repoUrl if source else component_name
 
-        gh_api = self.request.app[consts.APP_GITHUB_API_LOOKUP](
-            repo_url,
-            absent_ok=True,
-        )
-        if not gh_api:
-            # todo: rather raise/return http-error?
-            logger.warning(f'no github-cfg found for {repo_url=}')
-            return aiohttp.web.json_response(
-                data=[],
-            )
-
-        parsed_url = ci.util.urlparse(repo_url)
-        org, repo = parsed_url.path.strip('/').split('/')
-
-        try:
-            pr_helper = github.util.PullRequestUtil(
-                owner=org,
-                name=repo,
-                github_api=gh_api,
-            )
-        except RuntimeError:
-            # Component source repository not found
-            return aiohttp.web.json_response(
-                data=[],
-            )
-
-        upgrade_prs: collections.abc.Iterable[github.util.UpgradePullRequest] = pr_helper.enumerate_upgrade_pull_requests( # noqa:E501
-            state=pr_state,
-            pattern=self.request.app[consts.APP_UPR_REGEX_CALLBACK](),
-        )
-
-        def upgrade_pr_to_dict(upgrade_pr):
+        def upgrade_pr_to_dict(
+            upgrade_pr: github.util.UpgradePullRequest,
+        ) -> dict:
             from_ref: ocm.ComponentReference = upgrade_pr.from_ref
             to_ref: ocm.ComponentReference = upgrade_pr.to_ref
             pr = upgrade_pr.pull_request
@@ -1008,75 +1005,57 @@ class UpgradePRs(aiohttp.web.View):
                 }
             }
 
-        return aiohttp.web.json_response(
-            data=[upgrade_pr_to_dict(upgrade_pr) for upgrade_pr in upgrade_prs],
-            dumps=util.dict_to_json_factory,
+        @deliverydb.cache.dbcached_function(
+            ttl_seconds=60 * 60, # 1 hour
         )
+        async def retrieve_upgrade_prs(
+            repo_url: str,
+            state: str,
+            pattern: re.Pattern,
+            db_session: sqlasync.session.AsyncSession, # required for db-cache
+        ) -> list[dict]:
+            gh_api = self.request.app[consts.APP_GITHUB_API_LOOKUP](
+                repo_url,
+                absent_ok=True,
+            )
+            if not gh_api:
+                logger.warning(f'no github-cfg found for {repo_url=}')
+                raise aiohttp.web.HTTPBadRequest(
+                    text=f'No GitHub cfg found for {repo_url=}',
+                )
 
+            parsed_url = ci.util.urlparse(repo_url)
+            org, repo = parsed_url.path.strip('/').split('/')
 
-class Issues(aiohttp.web.View):
-    required_features = (features.FeatureIssues,)
+            try:
+                pr_helper = github.util.PullRequestUtil(
+                    owner=org,
+                    name=repo,
+                    github_api=gh_api,
+                )
+            except RuntimeError:
+                # Component source repository not found
+                return []
 
-    async def get(self):
-        '''
-        ---
-        tags:
-        - Components
-        produces:
-        - application/json
-        parameters:
-        - in: query
-          name: componentName
-          type: string
-          required: true
-        - in: query
-          name: state
-          type: string
-          enum:
-          - all
-          - open
-          - closed
-          required: false
-          default: open
-        - in: query
-          name: since
-          type: string
-          required: false
-        '''
-        params = self.request.rel_url.query
-
-        component_name = util.param(params, 'componentName', required=True)
-        state = util.param(params, 'state', default='open')
-        since = util.param(params, 'since')
-
-        issue_repo = self.request.app[consts.APP_ISSUE_REPO_CALLBACK](component_name)
-
-        if not issue_repo:
-            return aiohttp.web.json_response(
-                data=[],
+            upgrade_prs = pr_helper.enumerate_upgrade_pull_requests(
+                state=state,
+                pattern=pattern,
             )
 
-        ls_repo = self.request.app[consts.APP_GITHUB_REPO_LOOKUP](issue_repo)
+            return [
+                upgrade_pr_to_dict(upgrade_pr=upgrade_pr)
+                for upgrade_pr in upgrade_prs
+            ]
 
-        issues = ls_repo.issues(state=state, since=since)
+        upgrade_prs = await retrieve_upgrade_prs(
+            repo_url=repo_url,
+            state=pr_state,
+            pattern=self.request.app[consts.APP_UPR_REGEX_CALLBACK](),
+            db_session=self.request[consts.REQUEST_DB_SESSION],
+        )
+
         return aiohttp.web.json_response(
-            data=[
-                {
-                    'id': issue.number,
-                    'title': issue.title,
-                    'state': issue.state,
-                    'created_at': issue.created_at.isoformat(),
-                    'url': issue.html_url,
-                    'label': [
-                        {
-                            'id': label.id,
-                            'name': label.name,
-                            'color': label.color,
-                            'description': label.description,
-                        } for label in issue.labels()
-                    ]
-                } for issue in issues if 'pull_request' not in issue.as_dict()
-            ],
+            data=upgrade_prs,
             dumps=util.dict_to_json_factory,
         )
 
@@ -1099,6 +1078,7 @@ class ComponentDescriptorDiff(aiohttp.web.View):
     async def options(self):
         return aiohttp.web.Response()
 
+    @deliverydb.cache.dbcached_route()
     async def post(self):
         '''
         ---
@@ -1273,6 +1253,9 @@ async def _components(
 class ComplianceSummary(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
+    async def options(self):
+        return aiohttp.web.Response()
+
     async def get(self):
         '''
         ---
@@ -1342,6 +1325,8 @@ class ComplianceSummary(aiohttp.web.View):
 
         recursion_depth = int(util.param(params, 'recursion_depth', default=-1))
 
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+
         if version == 'greatest':
             version = await greatest_version_if_none(
                 component_name=component_name,
@@ -1350,6 +1335,7 @@ class ComplianceSummary(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
                 invalid_semver_ok=invalid_semver_ok,
+                db_session=db_session,
             )
 
         components_dependencies = resolve_component_dependencies(
@@ -1361,71 +1347,36 @@ class ComplianceSummary(aiohttp.web.View):
         )
 
         components = [
-            component_node.component
+            component_node.component_id
             async for component_node in components_dependencies
         ]
 
-        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
-
-        type_filter = (
-            dso.model.Datatype.ARTEFACT_SCAN_INFO,
+        finding_types = (
             dso.model.Datatype.LICENSE,
             dso.model.Datatype.VULNERABILITY,
             dso.model.Datatype.OS_IDS,
             dso.model.Datatype.CODECHECKS_AGGREGATED,
             dso.model.Datatype.MALWARE_FINDING,
+            dso.model.Datatype.FIPS_FINDING,
         )
 
-        db_statement_findings = sa.select(dm.ArtefactMetaData).where(
-            sa.or_(*[
-                query async for query in deliverydb.util.ArtefactMetadataQueries.component_queries(
-                    components=components,
-                    component_descriptor_lookup=component_descriptor_lookup,
-                )
-            ]),
-            dm.ArtefactMetaData.type.in_(type_filter),
-        )
-        db_statement_rescorings = sa.select(dm.ArtefactMetaData).where(
-            dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
-            sa.or_(*[
-                query async for query in deliverydb.util.ArtefactMetadataQueries.component_queries(
-                    components=components,
-                    none_ok=True,
-                    component_descriptor_lookup=component_descriptor_lookup,
-                )
-            ]),
-            deliverydb.util.ArtefactMetadataFilters.filter_for_rescoring_type(type_filter),
-        )
+        shortcut_cache = deliverydb.cache.parse_shortcut_cache(self.request)
 
-        db_stream_findings = await db_session.stream(db_statement_findings)
-        findings = [
-            deliverydb.util.db_artefact_metadata_row_to_dso(row)
-            async for partition in db_stream_findings.partitions(size=50)
-            for row in partition
-        ]
-
-        db_stream_rescorings = await db_session.stream(db_statement_rescorings)
-        rescorings = [
-            deliverydb.util.db_artefact_metadata_row_to_dso(row)
-            async for partition in db_stream_rescorings.partitions(size=50)
-            for row in partition
+        compliance_summary = [
+            await cs.component_compliance_summary(
+                component=component,
+                finding_types=finding_types,
+                db_session=db_session,
+                component_descriptor_lookup=component_descriptor_lookup,
+                eol_client=eol_client,
+                artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+                shortcut_cache=shortcut_cache,
+            ) for component in components
         ]
 
         return aiohttp.web.json_response(
             data={
-                'complianceSummary': [
-                    dataclasses.asdict(
-                        obj=summary,
-                        dict_factory=util.dict_factory_enum_name_serialisiation,
-                    )
-                    async for summary in cs.component_summaries(
-                        findings=findings,
-                        rescorings=rescorings,
-                        components=components,
-                        eol_client=eol_client,
-                        artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
-                    )
-                ]
+                'complianceSummary': compliance_summary,
             },
             dumps=util.dict_to_json_factory,
         )
@@ -1570,15 +1521,16 @@ class ComponentMetadata(aiohttp.web.View):
                 text=f'"select" must not be "{Select.GREATEST.value}" if "version" is given',
             )
 
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+
         if select is Select.GREATEST:
             component_version = await greatest_component_version(
                 component_name=component_name,
                 version_lookup=version_lookup,
                 version_filter=version_filter,
                 invalid_semver_ok=invalid_semver_ok,
+                db_session=db_session,
             )
-
-        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         if component_version:
             db_statement = self._metadata_query_for_version(

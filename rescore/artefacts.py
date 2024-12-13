@@ -1,7 +1,10 @@
+import asyncio
 import collections.abc
 import dataclasses
 import datetime
+import functools
 import http
+import json
 import logging
 
 import aiohttp.web
@@ -16,7 +19,6 @@ import dso.cvss
 import dso.labels
 import dso.model
 import github.compliance.model as gcm
-import ocm
 
 import config
 import consts
@@ -32,10 +34,12 @@ import rescore.model as rm
 import util
 import yp
 
+import ocm_util
+
 
 logger = logging.getLogger(__name__)
 CveRescoringRuleSetLookup = collections.abc.Callable[
-    [str],
+    [str, rm.RuleSetType],
     rm.CveRescoringRuleSet | None,
 ]
 Severity = str # sap-specific categorisation (see cc-utils github/compliance/model/Severity)
@@ -72,84 +76,28 @@ class RescoringProposal:
         LicenseFinding
         | VulnerabilityFinding
         | MalwareFinding
+        | dso.model.FipsFinding
     )
     finding_type: str
     severity: Severity
     matching_rules: list[str]
-    applicable_rescorings: tuple[dso.model.ArtefactMetadata, ...] # "..." for dacite.from_dict
+    applicable_rescorings: tuple[dict, ...] # "..." for dacite.from_dict
     discovery_date: str
     sprint: yp.Sprint | None
 
 
 def _find_cve_rescoring_rule_set(
     default_cve_rescoring_rule_set: rm.CveRescoringRuleSet,
-    cve_rescoring_rule_set_lookup: CveRescoringRuleSetLookup,
+    rescoring_rule_set_lookup: CveRescoringRuleSetLookup,
     cve_rescoring_rule_set_name: str | None,
 ) -> rm.CveRescoringRuleSet | None:
     if not cve_rescoring_rule_set_name:
         return default_cve_rescoring_rule_set
 
-    return cve_rescoring_rule_set_lookup(cve_rescoring_rule_set_name)
-
-
-async def _find_artefact_node(
-    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    component: ocm.Component,
-    artefact: dso.model.ComponentArtefactId,
-) -> cnudie.iter.Node | cnudie.iter.ArtefactNode | None:
-    if artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
-        node_filter = cnudie.iter.Filter.sources
-    elif artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
-        node_filter = cnudie.iter.Filter.resources
-    else:
-        raise ValueError(artefact.artefact_kind)
-
-    artefact_ref = artefact.artefact
-
-    async for node in cnudie.iter_async.iter(
-        component=component,
-        lookup=component_descriptor_lookup,
-        node_filter=node_filter,
-    ):
-        if node.artefact.name != artefact_ref.artefact_name:
-            continue
-        if node.artefact.version != artefact_ref.artefact_version:
-            continue
-        if node.artefact.type != artefact_ref.artefact_type:
-            continue
-
-        return node
-
-
-async def _find_artefact_node_or_raise(
-    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    artefact: dso.model.ComponentArtefactId,
-) -> cnudie.iter.Node | cnudie.iter.ArtefactNode:
-    component = (await util.retrieve_component_descriptor(
-        ocm.ComponentIdentity(
-            name=artefact.component_name,
-            version=artefact.component_version,
-        ),
-        component_descriptor_lookup=component_descriptor_lookup,
-    )).component
-
-    try:
-        artefact_node = await _find_artefact_node(
-            component_descriptor_lookup=component_descriptor_lookup,
-            component=component,
-            artefact=artefact,
-        )
-    except ValueError:
-        logger.info(f'artefact not found in component descriptor, {artefact=}')
-        artefact_node = None
-
-    if not artefact_node:
-        raise aiohttp.web.HTTPNotFound(
-            reason='Artefact not found in component descriptor',
-            text=f'{artefact=}',
-        )
-
-    return artefact_node
+    return rescoring_rule_set_lookup(
+        name=cve_rescoring_rule_set_name,
+        rule_set_type=rm.RuleSetType.CVE,
+    )
 
 
 def _find_cve_label(
@@ -183,6 +131,8 @@ async def _find_artefact_metadata(
             dm.ArtefactMetaData.artefact_name == artefact.artefact.artefact_name,
             dm.ArtefactMetaData.artefact_version == artefact.artefact.artefact_version,
             dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
+            dm.ArtefactMetaData.artefact_extra_id_normalised
+                == artefact.artefact.normalised_artefact_extra_id,
             dm.ArtefactMetaData.type != dso.model.Datatype.RESCORING,
             sa.or_(
                 not type_filter,
@@ -225,6 +175,11 @@ async def _find_rescorings(
                 dm.ArtefactMetaData.artefact_version == sa.null(),
                 dm.ArtefactMetaData.artefact_version == artefact.artefact.artefact_version,
             ),
+            sa.or_(
+                dm.ArtefactMetaData.artefact_extra_id_normalised == '',
+                dm.ArtefactMetaData.artefact_extra_id_normalised
+                    == artefact.artefact.normalised_artefact_extra_id,
+            ),
             dm.ArtefactMetaData.artefact_kind == artefact.artefact_kind,
             dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
         )
@@ -245,7 +200,7 @@ async def _find_rescorings(
 
 
 def _rescore_vulnerabilitiy(
-    rescoring_rules: collections.abc.Iterable[rm.RescoringRule] | None,
+    rescoring_rules: collections.abc.Iterable[rm.CveRescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
     cvss: dso.cvss.CVSSV3 | dict,
     severity: dso.cvss.CVESeverity,
@@ -291,8 +246,8 @@ def filesystem_paths_for_finding(
                 == finding.artefact.artefact.artefact_version
             and matching_info.artefact.artefact.artefact_type
                 == finding.artefact.artefact.artefact_type
-            and matching_info.artefact.artefact.normalised_artefact_extra_id()
-                == finding.artefact.artefact.normalised_artefact_extra_id()
+            and matching_info.artefact.artefact.normalised_artefact_extra_id
+                == finding.artefact.artefact.normalised_artefact_extra_id
         )
     )
 
@@ -371,20 +326,21 @@ def _package_versions_and_filesystem_paths(
     return package_versions, filesystem_paths
 
 
-def _iter_rescoring_proposals(
+async def _iter_rescoring_proposals(
     artefact_metadata: collections.abc.Iterable[dso.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    rescoring_rules: collections.abc.Iterable[rm.RescoringRule] | None,
+    rescoring_rules: collections.abc.Iterable[rm.CveRescoringRule] | None,
     categorisation: dso.cvss.CveCategorisation | None,
     max_processing_days: gcm.MaxProcessingTimesDays | None=None,
     sprints: list[yp.Sprint]=[],
-) -> collections.abc.Generator[RescoringProposal, None, None]:
+) -> collections.abc.AsyncGenerator[RescoringProposal, None, None]:
     '''
     yield rescorings for supported finding types
     implements special handling for BDBA findings (grouping across different package-versions)
     '''
 
     seen_ids = set()
+    loop = asyncio.get_running_loop()
 
     for am in artefact_metadata:
         if (
@@ -393,13 +349,30 @@ def _iter_rescoring_proposals(
         ):
             continue
 
-        current_rescorings, sprint = _rescorings_and_sprint(
+        current_rescorings, sprint = await loop.run_in_executor(None, functools.partial(
+            _rescorings_and_sprint,
             artefact_metadatum=am,
             rescorings=rescorings,
             max_processing_days=max_processing_days,
             sprints=sprints,
-        )
+        ))
         severity = dso.cvss.CVESeverity[am.data.severity]
+
+        if current_rescorings:
+            rescoring = current_rescorings[0].data
+            current_severity = dso.cvss.CVESeverity[rescoring.severity]
+            matching_rules = rescoring.matching_rules
+        else:
+            current_severity = severity
+            matching_rules = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
+
+        # patch in `id` because it is required in order to be able to delete rescorings
+        serialised_current_rescorings = tuple(
+            {
+                **dataclasses.asdict(rescoring),
+                'id': rescoring.id,
+            } for rescoring in current_rescorings
+        )
 
         if am.meta.type == dso.model.Datatype.MALWARE_FINDING:
             yield dacite.from_dict(
@@ -412,9 +385,9 @@ def _iter_rescoring_proposals(
                         'severity': severity.name,
                     },
                     'finding_type': dso.model.Datatype.MALWARE_FINDING,
-                    'severity': severity.name,
-                    'matching_rules': [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY],
-                    'applicable_rescorings': current_rescorings,
+                    'severity': current_severity.name,
+                    'matching_rules': matching_rules,
+                    'applicable_rescorings': serialised_current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
                     'sprint': sprint,
                 },
@@ -431,15 +404,15 @@ def _iter_rescoring_proposals(
                     and matching_am.meta.type == am.meta.type
                     and matching_am.artefact.component_name == am.artefact.component_name
                     and matching_am.artefact.component_version == am.artefact.component_version
-                    and matching_am.artefact.artefact_kind == am.artefact.artefact_kind
+                    and matching_am.artefact.artefact_kind is am.artefact.artefact_kind
                     and matching_am.artefact.artefact.artefact_name
                         == am.artefact.artefact.artefact_name
                     and matching_am.artefact.artefact.artefact_version
                         == am.artefact.artefact.artefact_version
                     and matching_am.artefact.artefact.artefact_type
                         == am.artefact.artefact.artefact_type
-                    and matching_am.artefact.artefact.normalised_artefact_extra_id()
-                        == am.artefact.artefact.normalised_artefact_extra_id()
+                    and matching_am.artefact.artefact.normalised_artefact_extra_id
+                        == am.artefact.artefact.normalised_artefact_extra_id
                 )
             )
             package_name = am.data.package_name
@@ -484,23 +457,30 @@ def _iter_rescoring_proposals(
                             'filesystem_paths': filesystem_paths,
                         },
                         'finding_type': dso.model.Datatype.VULNERABILITY,
-                        'severity': _rescore_vulnerabilitiy(
-                            rescoring_rules=rescoring_rules,
-                            categorisation=categorisation,
-                            cvss=cvss,
-                            severity=severity,
-                        ).name,
-                        'matching_rules': [
-                            rule.name if rule.name else rule.category_value
-                            for rule in rescore.utility.matching_rescore_rules(
+                        'severity': (
+                            # don't propose rescoring if finding is already rescored
+                            current_severity.name
+                            if current_rescorings
+                            else _rescore_vulnerabilitiy(
                                 rescoring_rules=rescoring_rules,
                                 categorisation=categorisation,
                                 cvss=cvss,
-                            )
-                        ] if rescoring_rules and categorisation else [
-                            dso.model.MetaRescoringRules.ORIGINAL_SEVERITY,
-                        ],
-                        'applicable_rescorings': current_rescorings,
+                                severity=severity,
+                            ).name
+                        ),
+                        'matching_rules': (
+                            [
+                                rule.name if rule.name else rule.category_value
+                                for rule in rescore.utility.matching_rescore_rules(
+                                    rescoring_rules=rescoring_rules,
+                                    categorisation=categorisation,
+                                    cvss=cvss,
+                                )
+                            ]
+                            if not current_rescorings and rescoring_rules and categorisation
+                            else matching_rules
+                        ),
+                        'applicable_rescorings': serialised_current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
                         'sprint': sprint,
                     },
@@ -540,13 +520,30 @@ def _iter_rescoring_proposals(
                             'filesystem_paths': filesystem_paths,
                         },
                         'finding_type': dso.model.Datatype.LICENSE,
-                        'severity': severity.name,
-                        'matching_rules': [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY],
-                        'applicable_rescorings': current_rescorings,
+                        'severity': current_severity.name,
+                        'matching_rules': matching_rules,
+                        'applicable_rescorings': serialised_current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
                         'sprint': sprint,
                     },
                 )
+
+        elif am.meta.type == dso.model.Datatype.FIPS_FINDING:
+            yield dacite.from_dict(
+                data_class=RescoringProposal,
+                data={
+                    'finding': dataclasses.asdict(am.data),
+                    'finding_type': dso.model.Datatype.FIPS_FINDING,
+                    'severity': current_severity.name,
+                    'matching_rules': matching_rules,
+                    'applicable_rescorings': serialised_current_rescorings,
+                    'discovery_date': am.discovery_date.isoformat(),
+                    'sprint': sprint,
+                },
+                config=dacite.Config(
+                    strict=True,
+                ),
+            )
 
         seen_ids.add(am.id)
 
@@ -732,7 +729,7 @@ class Rescore(aiohttp.web.View):
 
                 # avoid adding rescoring duplicates -> purge old entries
                 await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
-                    du.ArtefactMetadataFilters.by_single_scan_result(rescoring_db),
+                    dm.ArtefactMetaData.id == rescoring_db.id,
                 ))
 
                 db_session.add(rescoring_db)
@@ -824,7 +821,7 @@ class Rescore(aiohttp.web.View):
         artefact_name = util.param(params, 'artefactName', required=True)
         artefact_version = util.param(params, 'artefactVersion', required=True)
         artefact_type = util.param(params, 'artefactType', required=True)
-        artefact_extra_id = util.param(params, 'artefactExtraId', default=dict())
+        artefact_extra_id = json.loads(util.param(params, 'artefactExtraId', default='{}'))
         type_filter = params.getall('type', default=[])
         scan_config_name = util.param(params, 'scanConfigName')
 
@@ -833,9 +830,14 @@ class Rescore(aiohttp.web.View):
 
         cve_rescoring_rule_set_name = util.param(params, 'cveRescoringRuleSetName')
 
+        default_rule_set_for_type_callback = self.request.app[
+            consts.APP_DEFAULT_RULE_SET_FOR_TYPE_CALLBACK
+        ]
+        default_cve_rescoring_rule_set = default_rule_set_for_type_callback(rm.RuleSetType.CVE)
+
         cve_rescoring_rule_set = _find_cve_rescoring_rule_set(
-            default_cve_rescoring_rule_set=self.request.app[consts.APP_DEFAULT_RULE_SET_CALLBACK](),
-            cve_rescoring_rule_set_lookup=self.request.app[consts.APP_CVE_RESCORING_RULE_SET_LOOKUP],
+            default_cve_rescoring_rule_set=default_cve_rescoring_rule_set,
+            rescoring_rule_set_lookup=self.request.app[consts.APP_RESCORING_RULE_SET_LOOKUP],
             cve_rescoring_rule_set_name=cve_rescoring_rule_set_name,
         )
 
@@ -854,10 +856,17 @@ class Rescore(aiohttp.web.View):
         )
 
         if dso.model.Datatype.VULNERABILITY in type_filter:
-            artefact_node = await _find_artefact_node_or_raise(
+            artefact_node = await ocm_util.find_artefact_node(
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
                 artefact=artefact,
+                absent_ok=True,
             )
+
+            if not artefact_node:
+                raise aiohttp.web.HTTPNotFound(
+                    reason='Artefact not found in component descriptor',
+                    text=f'{artefact=}',
+                )
 
             categorisation = _find_cve_label(artefact_node=artefact_node)
         else:
@@ -912,14 +921,16 @@ class Rescore(aiohttp.web.View):
             else:
                 max_processing_days = gcm.MaxProcessingTimesDays()
 
-        rescoring_proposals = _iter_rescoring_proposals(
-            artefact_metadata=artefact_metadata,
-            rescorings=rescorings,
-            rescoring_rules=cve_rescoring_rule_set.rules if cve_rescoring_rule_set else None,
-            categorisation=categorisation,
-            max_processing_days=max_processing_days,
-            sprints=self.request.app[consts.APP_SPRINTS],
-        )
+        rescoring_proposals = [
+            rescoring_proposal async for rescoring_proposal in _iter_rescoring_proposals(
+                artefact_metadata=artefact_metadata,
+                rescorings=rescorings,
+                rescoring_rules=cve_rescoring_rule_set.rules if cve_rescoring_rule_set else None,
+                categorisation=categorisation,
+                max_processing_days=max_processing_days,
+                sprints=self.request.app[consts.APP_SPRINTS],
+            )
+        ]
 
         return aiohttp.web.json_response(
             data=rescoring_proposals,
@@ -937,7 +948,7 @@ class Rescore(aiohttp.web.View):
           name: id
           type: array
           items:
-            type: integer
+            type: string
           required: true
         - in: query
           name: scanConfigName
@@ -956,7 +967,7 @@ class Rescore(aiohttp.web.View):
 
         try:
             db_statement = sa.select(dm.ArtefactMetaData).where(
-                dm.ArtefactMetaData.id.cast(sa.String).in_(ids),
+                dm.ArtefactMetaData.id.in_(ids),
             )
             db_stream = await db_session.stream(db_statement)
 
@@ -967,7 +978,7 @@ class Rescore(aiohttp.web.View):
             ]
 
             await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
-                dm.ArtefactMetaData.id.cast(sa.String).in_(ids),
+                dm.ArtefactMetaData.id.in_(ids),
             ))
             await db_session.commit()
         except:

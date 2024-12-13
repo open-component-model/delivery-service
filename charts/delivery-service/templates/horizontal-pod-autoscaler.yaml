@@ -1,0 +1,46 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: delivery-service
+  {{- if default dict (.Values.autoscaler).annotations }}
+  annotations:
+  {{- range $annotation, $value := .Values.autoscaler.annotations }}
+    {{ $annotation }}: {{ $value }}
+  {{- end }}
+  {{- end }}
+  {{- if default dict (.Values.autoscaler).labels }}
+  labels:
+  {{- range $label, $value := .Values.autoscaler.labels }}
+    {{ $label }}: {{ $value }}
+  {{- end }}
+  {{- end }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: delivery-service
+  minReplicas: {{ default 1 (.Values.autoscaler).minReplicas }}
+  maxReplicas: {{ default 30 (.Values.autoscaler).maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ default 80 (.Values.autoscaler).targetUtilisation }}
+  behavior:
+    scaleDown:
+      # scale-down up to max(1 pod, 10% of current pods) every 30s if utilisation is below 50%
+      # on an average basis in the last 120s
+      stabilizationWindowSeconds: {{ default 120 (.Values.autoscaler).scaleDownStabilizationWindowSeconds }}
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30
+    scaleUp:
+      stabilizationWindowSeconds: {{ default 0 (.Values.autoscaler).scaleUpStabilizationWindowSeconds }}
+      # scale-up up to max(4 pods, 100% of current pods) every 15s if utilisation is above 50%
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 5

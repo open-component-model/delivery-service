@@ -318,10 +318,6 @@ class ScanRequest:
 
         # pylint: disable=E1101
         if not (label := artefact.find_label(name=dso.labels.BinaryIdScanLabel.name)):
-            label = artefact.find_label(name=dso.labels.BinaryIdScanLabel._alt_name)
-            if label:
-                return True
-        if not label:
             return False
 
         label: dso.labels.BinaryIdScanLabel = dso.labels.deserialise_label(label=label)

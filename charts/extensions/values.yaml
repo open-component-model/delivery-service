@@ -21,6 +21,11 @@ backlog-controller:
     image: # image property will be set during release
       repository: ~
       tag: ~
+cache-manager:
+  enabled: false
+  image: # image property will be set during release
+    repository: ~
+    tag: ~
 delivery-db-backup:
   enabled: false
   image: # image property will be set during release

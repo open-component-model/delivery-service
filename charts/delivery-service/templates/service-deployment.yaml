@@ -3,7 +3,6 @@ kind: Deployment
 metadata:
   name: delivery-service
 spec:
-  replicas: {{ default 5 .Values.replicas }}
   selector:
     matchLabels:
       app: delivery-service

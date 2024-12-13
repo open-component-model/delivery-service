@@ -25,13 +25,6 @@ artefact_metadata_cfg = os.path.join(_compliance_summary_path, 'artefact_metadat
 _features_path = os.path.join(_own_dir, 'features')
 features_cfg = os.path.join(_features_path, 'features_cfg.yaml')
 
-version_file = os.path.join(_own_dir, 'VERSION')
-
-_auth_dir_path = os.path.join(_own_dir, 'auth')
-users_path = os.path.join(_auth_dir_path, 'users.yaml')
-roles_path = os.path.join(_auth_dir_path, 'roles.yaml')
-teams_path = os.path.join(_auth_dir_path, 'teams.yaml')
-
 swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')
 
 

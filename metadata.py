@@ -2,10 +2,13 @@ import collections.abc
 import dataclasses
 import datetime
 import http
+import logging
+import traceback
 
 import aiohttp.web
 import dacite
 import sqlalchemy as sa
+import sqlalchemy.exc
 import sqlalchemy.ext.asyncio as sqlasync
 
 import ci.util
@@ -14,11 +17,15 @@ import ocm
 
 import compliance_summary as cs
 import consts
+import deliverydb.cache as dc
 import deliverydb.model as dm
 import deliverydb.util as du
+import deliverydb_cache.model as dcm
 import features
 import util
 
+
+logger = logging.getLogger(__name__)
 
 types_with_reusable_discovery_dates = (
     dso.model.Datatype.VULNERABILITY,
@@ -118,6 +125,9 @@ class ArtefactMetadataQuery(aiohttp.web.View):
             ):
                 yield query
 
+            if artefact_ref.artefact_kind:
+                yield dm.ArtefactMetaData.artefact_kind == artefact_ref.artefact_kind
+
             if not artefact_ref.artefact:
                 return
 
@@ -148,11 +158,11 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                     dm.ArtefactMetaData.artefact_type == artefact_type,
                 )
 
-            if artefact_extra_id := artefact_ref.artefact.normalised_artefact_extra_id():
+            if artefact_extra_id := artefact_ref.artefact.normalised_artefact_extra_id:
                 yield sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_extra_id_normalised == None,
+                        dm.ArtefactMetaData.artefact_extra_id_normalised == '',
                     ),
                     dm.ArtefactMetaData.artefact_extra_id_normalised == artefact_extra_id,
                 )
@@ -236,13 +246,7 @@ class ArtefactMetadata(aiohttp.web.View):
     async def put(self):
         '''
         ---
-        description:
-            Update artefact-metadata in delivery-db.
-
-            Only the data from the supplied request body is kept (created/updated), other database
-            tuples for the same artefact and meta.type are removed. Check
-            https://github.com/gardener/cc-utils/blob/master/dso/model.py for allowed values of
-            meta.type (-> dso.model/Datatype) and meta.datasource (-> dso.model.Datasource).
+        description: Update artefact-metadata in delivery-db.
         tags:
         - Artefact metadata
         parameters:
@@ -337,16 +341,7 @@ class ArtefactMetadata(aiohttp.web.View):
                 new_metadata=metadata_entry,
             )
 
-            if (
-                existing_entry.component_version != metadata_entry.component_version
-                or existing_entry.artefact_version != metadata_entry.artefact_version
-                # do not include extra id (yet) because there is only one entry for
-                # all ocm resources with different extra ids at the moment
-                # TODO include extra id as soon as there is one entry for each extra id
-                # or existing_entry.artefact_extra_id_normalised
-                #     != metadata_entry.artefact_extra_id_normalised
-                or existing_entry.data_key != metadata_entry.data_key
-            ):
+            if existing_entry.id != metadata_entry.id:
                 return None, reusable_discovery_date
 
             return existing_entry, reusable_discovery_date
@@ -396,6 +391,11 @@ class ArtefactMetadata(aiohttp.web.View):
                         if found:
                             break
 
+                await _mark_compliance_summary_cache_for_deletion(
+                    db_session=db_session,
+                    artefact_metadata=metadata_entry,
+                )
+
                 if not found:
                     # did not find existing database entry that matches the supplied metadata entry
                     # -> create new entry (and re-use discovery date if possible)
@@ -417,6 +417,18 @@ class ArtefactMetadata(aiohttp.web.View):
                 )
 
             await db_session.commit()
+
+        except sqlalchemy.exc.IntegrityError:
+            # Integrity error may be caused by duplicate keys. This can happen if there are multiple
+            # attempts to add a new entry for a specific OCM artefact which did not exist before.
+            # Because the existing entries are retrieved at the very beginning, both attempts might
+            # evaluate to "entry does not exist yet" and try to add it, whereby the second one will
+            # fail to do so. In that case, just ignore the error since the data was already uploaded
+            # in the meantime anyways.
+            stacktrace = traceback.format_exc()
+            logger.error(stacktrace)
+            await db_session.rollback()
+
         except:
             await db_session.rollback()
             raise
@@ -460,8 +472,13 @@ class ArtefactMetadata(aiohttp.web.View):
                 )
 
                 await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
-                    du.ArtefactMetadataFilters.by_single_scan_result(artefact_metadata),
+                    dm.ArtefactMetaData.id == artefact_metadata.id,
                 ))
+
+                await _mark_compliance_summary_cache_for_deletion(
+                    db_session=db_session,
+                    artefact_metadata=artefact_metadata,
+                )
 
             await db_session.commit()
         except:
@@ -527,3 +544,41 @@ def _fill_default_values(
         meta['creation_date'] = datetime.datetime.now().isoformat()
 
     return raw
+
+
+async def _mark_compliance_summary_cache_for_deletion(
+    db_session: sqlasync.session.AsyncSession,
+    artefact_metadata: dm.ArtefactMetaData,
+):
+    if not (
+        artefact_metadata.component_name and artefact_metadata.component_version
+        and artefact_metadata.type and artefact_metadata.datasource
+    ):
+        # If one of these properties is not set, the cache id cannot be calculated properly.
+        # Currently, this is only the case for BDBA findings where the component version is left
+        # empty. In that case, the cache is invalidated upon successful finish of the scan.
+        return
+
+    component = ocm.ComponentIdentity(
+        name=artefact_metadata.component_name,
+        version=artefact_metadata.component_version,
+    )
+
+    if artefact_metadata.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+        # If the artefact scan info changes, the compliance summary for all datatypes related to
+        # this datasource has to be updated, because it may has changed from
+        # UNKNOWN -> CLEAN/FINDINGS
+        datatypes = dso.model.Datasource.datasource_to_datatypes(artefact_metadata.datasource)
+    else:
+        datatypes = (artefact_metadata.type,)
+
+    for datatype in datatypes:
+        await dc.mark_function_cache_for_deletion(
+            encoding_format=dcm.EncodingFormat.PICKLE,
+            function='compliance_summary.component_datatype_summaries',
+            db_session=db_session,
+            defer_db_commit=True, # only commit at the end of the query
+            component=component,
+            finding_type=datatype,
+            datasource=artefact_metadata.datasource,
+        )

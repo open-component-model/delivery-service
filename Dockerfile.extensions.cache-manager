@@ -2,7 +2,6 @@ FROM ghcr.io/gardener/cc-utils/alpine:3
 
 COPY VERSION requirements.utils.txt requirements.service.txt /
 
-# cannot install numpy, scipy via pypi
 RUN --mount=type=bind,source=/dist,target=/dist \
     apk add --no-cache \
     bash \
@@ -12,13 +11,11 @@ RUN --mount=type=bind,source=/dist,target=/dist \
     libffi-dev \
     postgresql16-client \
     python3-dev \
-    py3-numpy \
-    py3-scipy \
 && CFLAGS='-Wno-int-conversion' \
-        pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service \
+    pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service \
 && apk del --no-cache \
     libc-dev \
     libffi-dev \
     python3-dev
 
-ENTRYPOINT ["python3", "-m", "app"]
+ENTRYPOINT ["python3", "-m", "cache_manager"]

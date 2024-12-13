@@ -1,188 +1,31 @@
 import collections.abc
 import dataclasses
 import datetime
-import enum
-import hashlib
-import json
+import http
 import logging
-import pickle
 import traceback
 
 import aiohttp.web
+import dacite
 import sqlalchemy.exc
 import sqlalchemy.ext.asyncio as sqlasync
-import yaml
-
-import ocm
 
 import consts
-import deliverydb.model
+import deliverydb.model as dm
+import deliverydb_cache.model as dcm
+import deliverydb_cache.util as dcu
+import features
 import util
 
 
 logger = logging.getLogger(__name__)
 
 
-def normalise_and_serialise_object(
-    object,
-    *,
-    recursion_depth: int=0,
-    max_recursion_depth: int=100,
-) -> str:
-    '''
-    Generate stable serialised representation of `object`. This is especially useful to calculate a
-    stable descriptor as id for cache entries. If `object` contains one of the characters used for
-    join operations (`|-`, `--|`, `|_`, `__|`, `|:`), a ValueError is raised to prevent collisions.
-
-    If `object` contains a dictionary, the normalised keys are sorted in alphabetical order and
-    concatenated using following pattern: `|--key1|:value1|-key2|:value2|-...--|`
-
-    If `object` contains an iterable (note: generators are treated as ValueError), the normalised
-    values are sorted in alphabetical order and concatenated using following pattern:
-    `|__value1|_value2|_...__|`
-    '''
-    join_characters = ['|-', '--|', '|_', '__|', '|:']
-
-    if recursion_depth > max_recursion_depth:
-        raise RuntimeError(f'{max_recursion_depth=} exceeded for {object=}')
-
-    if isinstance(object, collections.abc.Generator):
-        raise ValueError(f'{object=} must not be a generator')
-
-    if isinstance(object, enum.Enum):
-        if any([join_char in object.value for join_char in join_characters]):
-            raise ValueError(f'{object=} contains one of {join_characters=}')
-        return object.value
-
-    elif isinstance(object, str):
-        if any([join_char in object for join_char in join_characters]):
-            raise ValueError(f'{object=} contains one of {join_characters=}')
-        return object
-
-    elif isinstance(object, (datetime.date, datetime.datetime)):
-        return object.isoformat()
-
-    elif dataclasses.is_dataclass(object):
-        return normalise_and_serialise_object(
-            dataclasses.asdict(object),
-            recursion_depth=recursion_depth + 1,
-        )
-
-    elif isinstance(object, collections.abc.Mapping):
-        object_items_normalised = [
-            (
-                normalise_and_serialise_object(key, recursion_depth=recursion_depth + 1),
-                normalise_and_serialise_object(
-                    object.getall(key) if hasattr(object, 'getall') else object.get(key),
-                    recursion_depth=recursion_depth + 1,
-                ),
-            )
-            for key in set(object.keys())
-        ]
-        object_sorted = sorted(object_items_normalised, key=lambda items: items[0])
-        return '|--' + '|-'.join([
-            f'{key}|:{value}'
-            for key, value in object_sorted
-        ]) + '--|'
-
-    elif isinstance(object, collections.abc.Iterable):
-        object_items_normalised = [
-            normalise_and_serialise_object(value, recursion_depth=recursion_depth + 1)
-            for value in object
-        ]
-        object_sorted = sorted(object_items_normalised)
-        return '|__' + '|_'.join([
-            value
-            for value in object_sorted
-        ]) + '__|'
-
-    return str(object)
-
-
-class EncodingFormat(enum.StrEnum):
-    JSON = 'json'
-    PICKLE = 'pickle-4.0'
-    YAML = 'yaml'
-
-    @staticmethod
-    def pickle_protocol(pickle_encoding: str) -> int:
-        if not pickle_encoding.startswith('pickle'):
-            raise ValueError(f'Unsupported encoding format string for pickle: {pickle_encoding}')
-
-        pickle_version = pickle_encoding.split('-')[1]
-        return int(float(pickle_version))
-
-
-class CacheValueType(enum.StrEnum):
-    COMPONENT_DESCRIPTOR = 'component-descriptor'
-    PYTHON_FUNCTION = 'python-function'
-    HTTP_ROUTE = 'http-route'
-
-
-@dataclasses.dataclass
-class CacheDescriptorBase:
-    type: CacheValueType
-    encoding_format: EncodingFormat | str # allow str to support pickle versions different to `pickle.format_version` # noqa: E501
-
-    @property
-    def key(self) -> str:
-        raise NotImplementedError('subclasses must overwrite')
-
-    @property
-    def id(self) -> str:
-        # not using byte digest here since sqlalchemy only supports `LargeBinary` datatype for
-        # storing plain bytes on postgresql, hence using string with fixed length is more efficient
-        return hashlib.blake2s(
-            self.key.encode('utf-8'),
-            digest_size=16,
-            usedforsecurity=False,
-        ).hexdigest()
-
-
-@dataclasses.dataclass(kw_only=True)
-class CachedComponentDescriptor(CacheDescriptorBase):
-    type: CacheValueType = CacheValueType.COMPONENT_DESCRIPTOR
-    component_name: str
-    component_version: str
-    ocm_repository: ocm.OciOcmRepository
-
-    @property
-    def key(self) -> str:
-        return (
-            f'{self.type}|{self.encoding_format}|'
-            f'{self.component_name}|{self.component_version}|{self.ocm_repository.oci_ref}'
-        )
-
-
-@dataclasses.dataclass(kw_only=True)
-class CachedPythonFunction(CacheDescriptorBase):
-    type: CacheValueType = CacheValueType.PYTHON_FUNCTION
-    function_name: str
-    args: str
-    kwargs: str
-
-    @property
-    def key(self) -> str:
-        return f'{self.type}|{self.encoding_format}|{self.function_name}|{self.args}|{self.kwargs}'
-
-
-@dataclasses.dataclass(kw_only=True)
-class CachedHTTPRoute(CacheDescriptorBase):
-    type: CacheValueType = CacheValueType.HTTP_ROUTE
-    route: str
-    params: str | None = None
-    body: str | None = None
-
-    @property
-    def key(self) -> str:
-        return f'{self.type}|{self.encoding_format}|{self.route}|{self.params}|{self.body}'
-
-
 async def update_cache_entry(
     db_session: sqlasync.session.AsyncSession,
-    cache_entry: deliverydb.model.DBCache,
+    cache_entry: dm.DBCache,
 ) -> bool:
-    if not (existing_cache_entry := await db_session.get(deliverydb.model.DBCache, cache_entry.id)):
+    if not (existing_cache_entry := await db_session.get(dm.DBCache, cache_entry.id)):
         # cache entry does not exist yet, hence we cannot _update_ it
         return False
 
@@ -208,7 +51,7 @@ async def update_cache_entry(
 
 async def add_or_update_cache_entry(
     db_session: sqlasync.session.AsyncSession,
-    cache_entry: deliverydb.model.DBCache,
+    cache_entry: dm.DBCache,
 ) -> bool:
     try:
         db_session.add(cache_entry)
@@ -243,12 +86,17 @@ async def find_cached_value(
     db_session: sqlasync.session.AsyncSession,
     id: str,
 ) -> bytes | None:
-    if not (cache_entry := await db_session.get(deliverydb.model.DBCache, id)):
+    if not (cache_entry := await db_session.get(dm.DBCache, id)):
         return None
 
     now = datetime.datetime.now(datetime.timezone.utc)
 
-    if cache_entry.delete_after and now > cache_entry.delete_after:
+    # explicitly cast timezone to UTC to also support sqlite usage since it drops the timezone
+    # information and always casts to UTC internally
+    if (
+        cache_entry.delete_after
+        and now > cache_entry.delete_after.astimezone(datetime.timezone.utc)
+    ):
         # cache entry is already stale -> don't used it
         # TODO: return stale entry already to client and calculate new value in the background and
         # update client once new value is available
@@ -269,47 +117,13 @@ async def find_cached_value(
     return value
 
 
-def serialise_cache_value(
-    value,
-    encoding_format: EncodingFormat | str,
-) -> bytes:
-    if encoding_format.startswith('pickle'):
-        protocol = EncodingFormat.pickle_protocol(pickle_encoding=encoding_format)
-        return pickle.dumps(value, protocol)
-
-    elif encoding_format is EncodingFormat.JSON:
-        return json.dumps(value).encode('utf-8')
-
-    elif encoding_format is EncodingFormat.YAML:
-        return yaml.dump(value).encode('utf-8')
-
-    else:
-        raise ValueError(f'Unsupported encoding format {encoding_format}')
-
-
-def deserialise_cache_value(
-    value: bytes,
-    encoding_format: EncodingFormat | str,
-):
-    if encoding_format.startswith('pickle'):
-        # the pickle protocol is automatically detected, hence it is safe to ignore version here
-        return pickle.loads(value)
-
-    elif encoding_format is EncodingFormat.JSON:
-        return json.loads(value)
-
-    elif encoding_format is EncodingFormat.YAML:
-        return yaml.safe_load(value)
-
-    else:
-        raise ValueError(f'Unsupported encoding format {encoding_format}')
-
-
 def dbcached_function(
-    encoding_format: EncodingFormat | str=EncodingFormat.PICKLE,
+    encoding_format: dcm.EncodingFormat | str=dcm.EncodingFormat.PICKLE,
     ttl_seconds: int=0,
     keep_at_least_seconds: int=0,
     max_size_octets: int=0,
+    exclude_args_at_idx: collections.abc.Sequence[int]=tuple(),
+    exclude_kwargs: collections.abc.Sequence[str]=tuple(),
 ):
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
@@ -319,17 +133,17 @@ def dbcached_function(
 
     def decorator(func):
         async def wrapper(*args, **kwargs):
-            function_name = f'{func.__module__}.{func.__name__}'
+            function_name = f'{func.__module__}.{func.__qualname__}'
 
             cachable_args = tuple(
                 arg
-                for arg in args
-                if not isinstance(arg, collections.abc.Callable)
+                for idx, arg in enumerate(args)
+                if idx not in exclude_args_at_idx
             )
             cachable_kwargs = dict(
                 [key, value]
                 for key, value in kwargs.items()
-                if not isinstance(value, collections.abc.Callable)
+                if key not in exclude_kwargs
             )
 
             # remove `db_session` from kwargs to allow proper serialisation
@@ -337,18 +151,20 @@ def dbcached_function(
                 logger.warning(f'Could not parse `db_session` parameter from {function_name=}')
                 return await func(*args, **kwargs)
 
-            descriptor = CachedPythonFunction(
+            shortcut_cache = cachable_kwargs.pop('shortcut_cache', False)
+
+            descriptor = dcm.CachedPythonFunction(
                 encoding_format=encoding_format,
                 function_name=function_name,
-                args=normalise_and_serialise_object(cachable_args),
-                kwargs=normalise_and_serialise_object(cachable_kwargs),
+                args=dcu.normalise_and_serialise_object(cachable_args),
+                kwargs=dcu.normalise_and_serialise_object(cachable_kwargs),
             )
 
-            if value := await find_cached_value(
+            if not shortcut_cache and (value := await find_cached_value(
                 db_session=db_session,
                 id=descriptor.id,
-            ):
-                return deserialise_cache_value(
+            )):
+                return dcu.deserialise_cache_value(
                     value=value,
                     encoding_format=encoding_format,
                 )
@@ -357,7 +173,7 @@ def dbcached_function(
             result = await func(*args, **kwargs)
             duration = datetime.datetime.now() - start
 
-            value = serialise_cache_value(
+            value = dcu.serialise_cache_value(
                 value=result,
                 encoding_format=encoding_format,
             )
@@ -367,7 +183,7 @@ def dbcached_function(
                 return result
 
             now = datetime.datetime.now(datetime.timezone.utc)
-            cache_entry = deliverydb.model.DBCache(
+            cache_entry = dm.DBCache(
                 id=descriptor.id,
                 descriptor=util.dict_serialisation(dataclasses.asdict(descriptor)),
                 delete_after=now + datetime.timedelta(seconds=ttl_seconds) if ttl_seconds else None,
@@ -389,11 +205,29 @@ def dbcached_function(
     return decorator
 
 
+def parse_shortcut_cache(
+    request: aiohttp.web.Request,
+) -> bool:
+    '''
+    Parses the information, if existing cache entries should be ignored, from the given request
+    object. If the optional query parameter `shortcutCache` is set to a truthy value, it evaluates
+    to `True`. Otherwise, the value of the `Shortcut-Cache` http header is considered.
+    '''
+    if util.param_as_bool(request.rel_url.query, 'shortcutCache', default=False):
+        return True
+
+    if util.param_as_bool(request.headers, 'Shortcut-Cache', default=False):
+        return True
+
+    return False
+
+
 def dbcached_route(
-    encoding_format: EncodingFormat | str=EncodingFormat.PICKLE,
+    encoding_format: dcm.EncodingFormat | str=dcm.EncodingFormat.PICKLE,
     ttl_seconds: int=0,
     keep_at_least_seconds: int=0,
     max_size_octets: int=0,
+    skip_http_status: collections.abc.Sequence[int]=tuple(),
 ):
     if not encoding_format.startswith('pickle'):
         raise ValueError(
@@ -414,18 +248,20 @@ def dbcached_route(
 
             body = await request.json() if request.has_body else None
 
-            descriptor = CachedHTTPRoute(
+            descriptor = dcm.CachedHTTPRoute(
                 encoding_format=encoding_format,
                 route=request.path,
-                params=normalise_and_serialise_object(request.url.query),
-                body=normalise_and_serialise_object(body) if body else None,
+                params=dcu.normalise_and_serialise_object(request.url.query),
+                body=dcu.normalise_and_serialise_object(body) if body else None,
             )
 
-            if value := await find_cached_value(
+            shortcut_cache = parse_shortcut_cache(request)
+
+            if not shortcut_cache and (value := await find_cached_value(
                 db_session=db_session,
                 id=descriptor.id,
-            ):
-                return deserialise_cache_value(
+            )):
+                return dcu.deserialise_cache_value(
                     value=value,
                     encoding_format=encoding_format,
                 )
@@ -434,11 +270,11 @@ def dbcached_route(
             result: aiohttp.web.Response = await func(*args, **kwargs)
             duration = datetime.datetime.now() - start
 
-            if result.status >= 400:
+            if result.status >= 400 or result.status in skip_http_status:
                 # don't cache error responses -> those might only be temporarily
                 return result
 
-            value = serialise_cache_value(
+            value = dcu.serialise_cache_value(
                 value=result,
                 encoding_format=encoding_format,
             )
@@ -448,7 +284,7 @@ def dbcached_route(
                 return result
 
             now = datetime.datetime.now(datetime.timezone.utc)
-            cache_entry = deliverydb.model.DBCache(
+            cache_entry = dm.DBCache(
                 id=descriptor.id,
                 descriptor=util.dict_serialisation(dataclasses.asdict(descriptor)),
                 delete_after=now + datetime.timedelta(seconds=ttl_seconds) if ttl_seconds else None,
@@ -468,3 +304,142 @@ def dbcached_route(
         return wrapper
 
     return decorator
+
+
+async def mark_for_deletion(
+    db_session: sqlasync.session.AsyncSession,
+    id: str,
+    delete_after: datetime.datetime | None=None,
+    defer_db_commit: bool=False,
+) -> bool:
+    if not (cache_entry := await db_session.get(dm.DBCache, id)):
+        return True
+
+    if not delete_after:
+        delete_after = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    try:
+        cache_entry.delete_after = delete_after
+
+        if not defer_db_commit:
+            await db_session.commit()
+        return True
+    except Exception:
+        stacktrace = traceback.format_exc()
+        logger.error(stacktrace)
+
+        await db_session.rollback()
+
+    return False
+
+
+async def mark_function_cache_for_deletion(
+    encoding_format: dcm.EncodingFormat | str,
+    function: collections.abc.Callable | str,
+    db_session: sqlasync.session.AsyncSession,
+    delete_after: datetime.datetime | None=None,
+    defer_db_commit: bool=False,
+    *args,
+    **kwargs,
+):
+    if isinstance(function, str):
+        function_name = function
+    else:
+        function_name = f'{function.__module__}.{function.__qualname__}'
+
+    descriptor = dcm.CachedPythonFunction(
+        encoding_format=encoding_format,
+        function_name=function_name,
+        args=dcu.normalise_and_serialise_object(args),
+        kwargs=dcu.normalise_and_serialise_object(kwargs),
+    )
+
+    await mark_for_deletion(
+        db_session=db_session,
+        id=descriptor.id,
+        delete_after=delete_after,
+        defer_db_commit=defer_db_commit,
+    )
+
+
+class DeliveryDBCache(aiohttp.web.View):
+    required_features = (features.FeatureDeliveryDB,)
+
+    async def delete(self):
+        '''
+        ---
+        description: Mark the delivery-db cache entry with the given id for deletion.
+        tags:
+        - Artefact metadata
+        parameters:
+        - in: query
+          name: id
+          schema:
+            type: string
+          required: false
+          description:
+            The descriptor id of the cache entry which should be marked for deletion. See
+            `deliverydb_cache.model.CacheDescriptorBase` for available descriptor types and how
+            their id is composed. If not specified, the full descriptor must be passed in the body.
+        - in: query
+          name: deleteAfter
+          schema:
+            type: string
+          required: false
+          description:
+            Optional, timezone-aware iso-formated datetime to schedule the deletion of the
+            referenced cache entry. If not set, the entry will be marked for immediate deletion.
+        - in: body
+          name: descriptor
+          schema:
+            type: object
+          description:
+            If the descriptor id is not passed as param, this descriptor is used to calculate the
+            required id. The passed descriptor must be serialisable by one of the dataclasses which
+            inherits `deliverydb_cache.model.CacheDescriptorBase` base class.
+        responses:
+          "204":
+            description: Successful operation.
+        '''
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        params = self.request.rel_url.query
+
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        id = util.param(params, 'id', required=False)
+        delete_after_str = util.param(params, 'deleteAfter', default=now.isoformat())
+        delete_after = datetime.datetime.fromisoformat(delete_after_str)
+
+        if not id:
+            if not self.request.has_body:
+                raise aiohttp.web.HTTPBadRequest(
+                    text='Either `id` param or descriptor body must be specified.',
+                )
+
+            type_to_class = {
+                dcm.CacheValueType.COMPONENT_DESCRIPTOR: dcm.CachedComponentDescriptor,
+                dcm.CacheValueType.PYTHON_FUNCTION: dcm.CachedPythonFunction,
+                dcm.CacheValueType.HTTP_ROUTE: dcm.CachedHTTPRoute,
+            }
+
+            body = await self.request.json()
+            cache_value_type = util.get_enum_value_or_raise(body.get('type'), dcm.CacheValueType)
+
+            descriptor = dacite.from_dict(
+                data_class=type_to_class[cache_value_type],
+                data=body,
+                config=dacite.Config(
+                    cast=[dcm.CacheValueType],
+                ),
+            )
+            id = descriptor.id
+
+        await mark_for_deletion(
+            db_session=db_session,
+            id=id,
+            delete_after=delete_after,
+        )
+
+        return aiohttp.web.Response(
+            status=http.HTTPStatus.NO_CONTENT,
+        )

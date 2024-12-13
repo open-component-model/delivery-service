@@ -14,7 +14,7 @@ pkg_dir=packages
 mkdir -p "${pkg_dir}"
 ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
 
-for resource in gardener-cicd-libs gardener-oci; do
+for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
   echo "downloading ${resource}:${cc_utils_version}"
   ocm download resources \
     "OCIRegistry::${ocm_repo}//github.com/gardener/cc-utils:${cc_utils_version}" \

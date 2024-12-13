@@ -108,15 +108,14 @@ def deserialise_issue_replicator_configuration(
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
-    artefact_kind: dso.model.ArtefactKind,
+    chunk_size: int=10,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding]:
     if not artefacts:
-        return tuple()
+        return
 
     findings: list[dso.model.ArtefactMetadata] = []
     rescorings: list[dso.model.ArtefactMetadata] = []
 
-    chunk_size = 10
     for idx in range(0, len(artefacts), chunk_size):
         chunked_artefacts = artefacts[idx:min(idx + chunk_size, len(artefacts))]
 
@@ -142,9 +141,6 @@ def _iter_findings_for_artefact(
         ))
 
     for finding in findings:
-        if not artefact_kind is finding.artefact.artefact_kind:
-            continue
-
         filtered_rescorings = rescore.utility.rescorings_for_finding_by_specificity(
             finding=finding,
             rescorings=rescorings,
@@ -238,44 +234,30 @@ def replicate_issue(
     backlog_item: k8s.backlog.BacklogItem,
 ):
     artefact = backlog_item.artefact
-    logger.info(
-        f'starting issue replication of {backlog_item.artefact.artefact_kind} '
-        f'{artefact.artefact.artefact_name} of component {artefact.component_name}'
-    )
 
-    compliance_snapshots = delivery_client.query_metadata(
-        type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
-    )
-    compliance_snapshots_for_artefact = tuple(
-        compliance_snapshot for compliance_snapshot in compliance_snapshots
-        if (
-            compliance_snapshot.data.cfg_name == cfg_name
-            and compliance_snapshot.artefact.artefact_kind == artefact.artefact_kind
-            and compliance_snapshot.artefact.component_name == artefact.component_name
-            and compliance_snapshot.artefact.artefact.artefact_name
-                == artefact.artefact.artefact_name
-            and compliance_snapshot.artefact.artefact.artefact_type
-                == artefact.artefact.artefact_type
-            # TODO-Extra-Id: uncomment below code once extraIdentities are handled properly
-            # and compliance_snapshot.artefact.artefact.normalised_artefact_extra_id(
-            #     remove_duplicate_version=True,
-            # ) == artefact.artefact.normalised_artefact_extra_id(
-            #     remove_duplicate_version=True,
-            # )
-        )
-    )
+    # issues are grouped across multiple versions + extra identities, hence ignoring properties here
+    artefact.component_version = None
+    artefact.artefact.artefact_version = None
+    artefact.artefact.artefact_extra_id = dict()
 
-    active_compliance_snapshots_for_artefact = tuple(
-        compliance_snapshot for compliance_snapshot in compliance_snapshots_for_artefact
-        if (
-            compliance_snapshot.data.current_state().status ==
-            dso.model.ComplianceSnapshotStatuses.ACTIVE
-        )
+    logger.info(f'starting issue replication of {artefact}')
+
+    compliance_snapshots = [
+        cs for cs in delivery_client.query_metadata(
+            artefacts=(artefact,),
+            type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
+        ) if cs.data.cfg_name == cfg_name # TODO mv to delivery service
+    ]
+    logger.info(f'{len(compliance_snapshots)=}')
+
+    active_compliance_snapshots = tuple(
+        cs for cs in compliance_snapshots
+        if cs.data.current_state().status is dso.model.ComplianceSnapshotStatuses.ACTIVE
     )
-    logger.info(f'{len(active_compliance_snapshots_for_artefact)=}')
+    logger.info(f'{len(active_compliance_snapshots)=}')
 
     correlation_ids_by_latest_processing_date: dict[str, str] = dict()
-    for compliance_snapshot in compliance_snapshots_for_artefact:
+    for compliance_snapshot in compliance_snapshots:
         date = compliance_snapshot.data.latest_processing_date.isoformat()
 
         if date in correlation_ids_by_latest_processing_date:
@@ -285,26 +267,20 @@ def replicate_issue(
         correlation_ids_by_latest_processing_date[date] = correlation_id
 
     artefacts = tuple({
-        compliance_snapshot.artefact
-        for compliance_snapshot in active_compliance_snapshots_for_artefact
+        cs.artefact for cs in active_compliance_snapshots
     })
     logger.info(f'{len(artefacts)=}')
 
     findings = tuple(_iter_findings_for_artefact(
         delivery_client=delivery_client,
         artefacts=artefacts,
-        artefact_kind=artefact.artefact_kind,
     ))
     logger.info(f'{len(findings)=}')
 
-    artefact_versions = {
-        artefact.artefact.artefact_version for artefact in artefacts
-    }
-
-    scanned_artefact_versions_by_datasource = {
+    scanned_artefacts_by_datasource = {
         (
             finding.finding.meta.datasource,
-            finding.finding.artefact.artefact.artefact_version,
+            finding.finding.artefact,
         ) for finding in findings
         if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO
     }
@@ -361,7 +337,18 @@ def replicate_issue(
 
         return ValueError(f'no finding-type specific cfg found for {finding_type=}')
 
-    is_in_bom = len(active_compliance_snapshots_for_artefact) > 0
+    is_in_bom = len(active_compliance_snapshots) > 0
+
+    # `artefacts` are retrieved from all active compliance snapshots, whereas `scanned_artefacts`
+    # are retrieved from the existing findings. The difference is that `scanned_artefacts` may not
+    # contain any component version (i.e. for BDBA findings) because they're deduplicated across
+    # multiple component versions. In contrast, all compliance snapshots hold a component version
+    # and thus `artefacts` do as well. Now, to determine artefacts which have not been scanned yet,
+    # both sides have to be normalised in that the component version is not considered.
+    all_artefact_ids = {
+        a.artefact for a in artefacts
+    }
+
     for finding_type, finding_source, date, findings in findings_by_type_and_date:
         correlation_id = correlation_ids_by_latest_processing_date.get(date.isoformat())
 
@@ -375,12 +362,13 @@ def replicate_issue(
             finding_source=finding_source,
         )
 
-        scanned_artefact_versions = set()
-        for datasource, scanned_artefact_version in scanned_artefact_versions_by_datasource:
-            if datasource == finding_source:
-                scanned_artefact_versions.add(scanned_artefact_version)
+        scanned_artefact_ids = {
+            scanned_artefact.artefact
+            for datasource, scanned_artefact in scanned_artefacts_by_datasource
+            if datasource == finding_source
+        }
 
-        artefact_versions_without_scan = artefact_versions - scanned_artefact_versions
+        artefact_ids_without_scan = all_artefact_ids - scanned_artefact_ids
 
         issue_replicator.github.create_or_update_or_close_issue(
             cfg_name=cfg_name,
@@ -394,13 +382,10 @@ def replicate_issue(
             correlation_id=correlation_id,
             latest_processing_date=date,
             is_in_bom=is_in_bom,
-            artefact_versions_without_scan=artefact_versions_without_scan,
+            artefact_ids_without_scan=artefact_ids_without_scan,
         )
 
-    logger.info(
-        f'finished issue replication of {backlog_item.artefact.artefact_kind} '
-        f'{artefact.artefact.artefact_name} of component {artefact.component_name}'
-    )
+    logger.info(f'finished issue replication of {artefact}')
 
 
 def parse_args():

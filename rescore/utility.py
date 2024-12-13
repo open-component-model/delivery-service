@@ -56,8 +56,8 @@ def _iter_rescorings_for_finding(
 
         if (
             rescoring.artefact.artefact.artefact_extra_id
-            and rescoring.artefact.artefact.normalised_artefact_extra_id()
-                != finding.artefact.artefact.normalised_artefact_extra_id()
+            and rescoring.artefact.artefact.normalised_artefact_extra_id
+                != finding.artefact.artefact.normalised_artefact_extra_id
         ):
             continue
 
@@ -81,11 +81,13 @@ def _iter_rescorings_for_finding(
 
         if (
             finding.meta.type == dso.model.Datatype.MALWARE_FINDING
-            and (
-                rescoring.data.finding.malware != finding.data.finding.malware
-                or rescoring.data.finding.content_digest != finding.data.finding.content_digest
-                or rescoring.data.finding.filename != finding.data.finding.filename
-            )
+            and rescoring.data.finding.key != finding.data.finding.key
+        ):
+            continue
+
+        if (
+            finding.meta.type == dso.model.Datatype.FIPS_FINDING
+            and rescoring.data.finding.key != finding.data.asset.key
         ):
             continue
 
@@ -142,10 +144,10 @@ def rescorings_for_finding_by_specificity(
 
 
 def matching_rescore_rules(
-    rescoring_rules: typing.Iterable[rescore.model.RescoringRule],
+    rescoring_rules: typing.Iterable[rescore.model.CveRescoringRule],
     categorisation: dso.cvss.CveCategorisation,
     cvss: dso.cvss.CVSSV3 | dict,
-) -> typing.Generator[rescore.model.RescoringRule, None, None]:
+) -> typing.Generator[rescore.model.CveRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
         if not rescoring_rule.matches_categorisation(categorisation):
             continue
@@ -156,7 +158,7 @@ def matching_rescore_rules(
 
 
 def rescore_severity(
-    rescoring_rules: typing.Iterable[rescore.model.RescoringRule],
+    rescoring_rules: typing.Iterable[rescore.model.CveRescoringRule],
     severity: dso.cvss.CVESeverity,
     minimum_severity: int=dso.cvss.CVESeverity.NONE,
 ) -> dso.cvss.CVESeverity:

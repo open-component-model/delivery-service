@@ -43,8 +43,8 @@ def signing_cfg(
     algorithm: str = JWT_ALGORITHM,
 ):
     signing_cfg_mock = unittest.mock.Mock()
-    signing_cfg_mock.secret = lambda: key
-    signing_cfg_mock.algorithm = lambda: algorithm
+    signing_cfg_mock.private_key = key
+    signing_cfg_mock.algorithm = algorithm
 
     return signing_cfg_mock
 
@@ -124,11 +124,6 @@ def test_no_sub():
 
     with pytest.raises(aiohttp.web.HTTPUnauthorized):
         middleware.auth.validate_jwt_payload(payload)
-
-
-def test_sub_not_found():
-    with pytest.raises(aiohttp.web.HTTPUnauthorized):
-        middleware.auth.get_user_permissions('foo_bar_test_user')
 
 
 def test_wrong_version():

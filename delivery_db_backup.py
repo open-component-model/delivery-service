@@ -13,7 +13,6 @@ import ci.util
 import cnudie.iter
 import cnudie.purge
 import cnudie.retrieve
-import cnudie.upload
 import cnudie.util
 import delivery.client
 import model.container_registry
@@ -21,6 +20,7 @@ import model.delivery_db
 import oci.auth
 import oci.client
 import ocm
+import ocm.upload
 import version
 
 import config
@@ -162,7 +162,6 @@ def upload_from_file(
 
 def iter_components_to_purge(
     backup_retention_count: int,
-    ocm_repo: str,
     component: ocm.Component,
     oci_client: oci.client.Client,
     lookup,
@@ -181,7 +180,6 @@ def iter_components_to_purge(
                 name=component.name,
                 version=v,
             ),
-            ctx_repo=ocm_repo,
         )
         for v in sorted_versions[:-backup_retention_count]
     )
@@ -233,11 +231,13 @@ def delete_old_backup_versions(
         tag_postprocessing_callback=cnudie.util.desanitise_version,
     )
 
-    lookup = cnudie.retrieve.oci_component_descriptor_lookup(oci_client=oci_client)
+    lookup = cnudie.retrieve.oci_component_descriptor_lookup(
+        ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+        oci_client=oci_client,
+    )
 
     for component in iter_components_to_purge(
         backup_retention_count=backup_retention_count,
-        ocm_repo=ocm_repo,
         component=component,
         oci_client=oci_client,
         lookup=lookup,
@@ -335,6 +335,7 @@ def main():
     additional_args = backup_cfg.get('extra_pg_dump_args', [])
     delivery_service_url = delivery_gear_extension_cfg.defaults()['delivery_service_url']
     backup_retention_count = backup_cfg.get('backup_retention_count')
+    initial_version = backup_cfg.get('initial_version', '0.1.0')
 
     delivery_service_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
@@ -343,16 +344,19 @@ def main():
         cfg_factory=cfg_factory,
     )
 
-    greatest_version = delivery_service_client.greatest_component_versions(
+    greatest_versions = delivery_service_client.greatest_component_versions(
         component_name=component_name,
         max_versions=1,
         ocm_repo=ocm.OciOcmRepository(baseUrl=ocm_repo),
-    )[0]
-
-    component_version = version.process_version(
-        version_str=greatest_version,
-        operation='bump_minor',
     )
+
+    if greatest_versions:
+        component_version = version.process_version(
+            version_str=greatest_versions[0],
+            operation='bump_minor',
+        )
+    else:
+        component_version = initial_version
 
     outfile = os.path.abspath('./delivery-db-backup.tar')
 
@@ -371,7 +375,7 @@ def main():
         ocm_repository=ocm_repo,
     )
 
-    oci_client = lookups.semver_sanitised_oci_client(
+    oci_client = lookups.semver_sanitising_oci_client(
         cfg_factory=cfg_factory,
     )
 
@@ -393,9 +397,9 @@ def main():
     )
     component = component_descriptor.component
 
-    cnudie.upload.upload_component_descriptor(
+    ocm.upload.upload_component_descriptor(
         component_descriptor=component_descriptor,
-        on_exist=cnudie.upload.UploadMode.OVERWRITE,
+        on_exist=ocm.upload.UploadMode.OVERWRITE,
         oci_client=oci_client,
     )
 

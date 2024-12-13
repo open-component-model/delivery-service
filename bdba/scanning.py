@@ -14,12 +14,10 @@ import ci.log
 import cnudie.access
 import cnudie.iter
 import cnudie.retrieve
-import concourse.model.traits.image_scan as image_scan
 import delivery.client
 import dso.cvss
 import dso.labels
 import dso.model
-import oci.client
 import ocm
 
 import bdba.assessments
@@ -27,6 +25,7 @@ import bdba.client
 import bdba.model as bm
 import bdba.rescore
 import bdba.util
+import config
 import rescore.model
 
 logger = logging.getLogger(__name__)
@@ -45,16 +44,12 @@ class ResourceGroupProcessor:
     def __init__(
         self,
         bdba_client: bdba.client.BDBAApi,
-        oci_client: oci.client.Client,
         group_id: int=None,
         reference_group_ids: collections.abc.Sequence[int]=(),
-        cvss_threshold: float=7.0,
     ):
         self.bdba_client = bdba_client
-        self.oci_client = oci_client
         self.group_id = group_id
         self.reference_group_ids = reference_group_ids
-        self.cvss_threshold = cvss_threshold
 
     def _products_with_relevant_triages(
         self,
@@ -66,8 +61,7 @@ class ResourceGroupProcessor:
         metadata = bdba.util.component_artifact_metadata(
             resource_node=resource_node,
             # we want to find all possibly relevant scans, so omit all version data
-            omit_resource_version=True,
-            oci_client=self.oci_client,
+            omit_resource_strict_id=True,
         )
 
         for id in relevant_group_ids:
@@ -152,12 +146,14 @@ class ResourceGroupProcessor:
     ) -> bm.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
-        display_name = f'{resource.name}_{resource.version}_{component.name}'.replace('/', '_')
+        display_name = f'{resource.name}_{resource.version}_{component.name}_{resource.type}'.replace('/', '_') # noqa: E501
+
+        if resource.extraIdentity:
+            # peers are not required here as version is considered anyways
+            display_name += f'_{resource.identity(peers=())}'.replace('/', '_')
 
         component_artifact_metadata = bdba.util.component_artifact_metadata(
             resource_node=resource_node,
-            omit_resource_version=False,
-            oci_client=self.oci_client
         )
 
         target_product_id = bdba.util._matching_analysis_result_id(
@@ -287,7 +283,7 @@ class ResourceGroupProcessor:
         known_scan_results: tuple[bm.Product],
         processing_mode: bm.ProcessingMode,
         delivery_client: delivery.client.DeliveryServiceClient=None,
-        license_cfg: image_scan.LicenseCfg=None,
+        license_cfg: config.LicenseCfg=None,
         cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet=None,
         auto_assess_max_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
         use_product_cache: bool=True,
@@ -341,11 +337,7 @@ class ResourceGroupProcessor:
             f'scan of {scan_result.display_name()} succeeded, going to post-process results'
         )
 
-        if version_hints := _package_version_hints(
-            component=component,
-            artefact=resource,
-            result=scan_result,
-        ):
+        if version_hints := _package_version_hints(resource=resource):
             logger.info(f'uploading package-version-hints for {scan_result.display_name()}')
             scan_result = bdba.assessments.upload_version_hints(
                 scan_result=scan_result,
@@ -409,34 +401,10 @@ class ResourceGroupProcessor:
 
 
 def _package_version_hints(
-    component: ocm.Component,
-    artefact: ocm.Artifact,
-    result: bm.AnalysisResult,
+    resource: ocm.Resource,
 ) -> list[dso.labels.PackageVersionHint] | None:
-    def result_matches(resource: ocm.Resource, result: bm.AnalysisResult):
-        '''
-        find matching result for package-version-hint
-        note: we require strict matching of resource-version
-        '''
-        cd = result.custom_data()
-        if not cd.get('COMPONENT_NAME') == component.name:
-            return False
-        if not cd.get('IMAGE_REFERENCE_NAME') == artefact.name:
-            return False
-        if not cd.get('IMAGE_VERSION') == artefact.version:
-            return False
+    package_hints_label = resource.find_label(name=dso.labels.PackageVersionHintLabel.name)
 
-        return True
-
-    if not result_matches(resource=artefact, result=result):
-        return None
-
-    if not isinstance(artefact, ocm.Resource):
-        raise NotImplementedError(artefact)
-
-    artefact: ocm.Resource
-
-    package_hints_label = artefact.find_label(name=dso.labels.PackageVersionHintLabel.name)
     if not package_hints_label:
         return None
 
@@ -452,12 +420,10 @@ def retrieve_existing_scan_results(
     bdba_client: bdba.client.BDBAApi,
     group_id: int,
     resource_node: cnudie.iter.ResourceNode,
-    oci_client: oci.client.Client,
 ) -> list[bm.Product]:
     query_data = bdba.util.component_artifact_metadata(
         resource_node=resource_node,
-        omit_resource_version=True,
-        oci_client=oci_client,
+        omit_resource_strict_id=True,
     )
 
     return list(bdba_client.list_apps(

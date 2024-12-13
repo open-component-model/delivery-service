@@ -17,6 +17,8 @@ import oci.client_async
 import ocm
 
 import ctx_util
+import deliverydb_cache.model as dcm
+import deliverydb_cache.util as dcu
 import paths
 import util
 
@@ -24,7 +26,7 @@ import util
 logger = logging.getLogger(__name__)
 
 
-def semver_sanitised_oci_client(
+def semver_sanitising_oci_client(
     cfg_factory=None,
 ) -> oci.client.Client:
     if not cfg_factory:
@@ -37,7 +39,7 @@ def semver_sanitised_oci_client(
     )
 
 
-def semver_sanitised_oci_client_async(
+def semver_sanitising_oci_client_async(
     cfg_factory=None,
 ) -> oci.client_async.Client:
     if not cfg_factory:
@@ -81,7 +83,7 @@ def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
 def db_cache_component_descriptor_lookup_async(
     db_url: str,
     ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    encoding_format: 'deliverydb.cache.EncodingFormat'=None,
+    encoding_format: dcm.EncodingFormat=dcm.EncodingFormat.PICKLE,
     ttl_seconds: int=0,
     keep_at_least_seconds: int=0,
     max_size_octets: int=0,
@@ -109,9 +111,6 @@ def db_cache_component_descriptor_lookup_async(
     import deliverydb.cache
     import deliverydb.model
 
-    if not encoding_format:
-        encoding_format = deliverydb.cache.EncodingFormat.PICKLE
-
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
             'If time-to-live (`ttl_seconds`) and `keep_at_least_seconds` are both specified, '
@@ -123,14 +122,14 @@ def db_cache_component_descriptor_lookup_async(
         component_descriptor: ocm.ComponentDescriptor,
         start: datetime.datetime,
     ):
-        descriptor = deliverydb.cache.CachedComponentDescriptor(
+        descriptor = dcm.CachedComponentDescriptor(
             encoding_format=encoding_format,
             component_name=component_id.name,
             component_version=component_id.version,
             ocm_repository=component_descriptor.component.current_ocm_repo,
         )
 
-        value = deliverydb.cache.serialise_cache_value(
+        value = dcu.serialise_cache_value(
             value=util.dict_serialisation(dataclasses.asdict(component_descriptor)),
             encoding_format=encoding_format,
         )
@@ -163,18 +162,14 @@ def db_cache_component_descriptor_lookup_async(
 
     async def lookup(
         component_id: cnudie.util.ComponentId,
-        ctx_repo: ocm.OcmRepository | str=None,
         ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=ocm_repository_lookup,
     ):
         component_id = cnudie.util.to_component_id(component_id)
 
-        if ctx_repo:
-            ocm_repos = (ctx_repo, )
-        else:
-            ocm_repos = cnudie.retrieve.iter_ocm_repositories(
-                component_id,
-                ocm_repository_lookup,
-            )
+        ocm_repos = cnudie.retrieve.iter_ocm_repositories(
+            component_id,
+            ocm_repository_lookup,
+        )
 
         db_session = await deliverydb.sqlalchemy_session(db_url)
         try:
@@ -187,7 +182,7 @@ def db_cache_component_descriptor_lookup_async(
                 if not isinstance(ocm_repo, ocm.OciOcmRepository):
                     raise NotImplementedError(ocm_repo)
 
-                descriptor = deliverydb.cache.CachedComponentDescriptor(
+                descriptor = dcm.CachedComponentDescriptor(
                     encoding_format=encoding_format,
                     component_name=component_id.name,
                     component_version=component_id.version,
@@ -199,7 +194,7 @@ def db_cache_component_descriptor_lookup_async(
                     id=descriptor.id,
                 ):
                     return ocm.ComponentDescriptor.from_dict(
-                        component_descriptor_dict=deliverydb.cache.deserialise_cache_value(
+                        component_descriptor_dict=dcu.deserialise_cache_value(
                             value=value,
                             encoding_format=encoding_format,
                         ),
@@ -234,7 +229,7 @@ def init_component_descriptor_lookup(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = semver_sanitised_oci_client()
+        oci_client = semver_sanitising_oci_client()
 
     lookups = [cnudie.retrieve.in_memory_cache_component_descriptor_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
@@ -284,7 +279,7 @@ def init_component_descriptor_lookup_async(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = semver_sanitised_oci_client_async()
+        oci_client = semver_sanitising_oci_client_async()
 
     lookups = [cnudie.retrieve_async.in_memory_cache_component_descriptor_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
@@ -329,7 +324,7 @@ def init_version_lookup(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = semver_sanitised_oci_client()
+        oci_client = semver_sanitising_oci_client()
 
     return cnudie.retrieve.version_lookup(
         ocm_repository_lookup=ocm_repository_lookup,
@@ -347,7 +342,7 @@ def init_version_lookup_async(
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
-        oci_client = semver_sanitised_oci_client_async()
+        oci_client = semver_sanitising_oci_client_async()
 
     return cnudie.retrieve_async.version_lookup(
         ocm_repository_lookup=ocm_repository_lookup,

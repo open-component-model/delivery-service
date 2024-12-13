@@ -143,13 +143,13 @@ def create_compliance_snapshot(
     )
 
 
-def _iter_ocm_artefact_nodes(
+def _iter_ocm_artefacts(
     components: tuple[config.Component],
     artefact_types: tuple[str],
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool],
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-) -> collections.abc.Generator[cnudie.iter.Node, None, None]:
+) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:
     for component in components:
         versions = delivery_client.greatest_component_versions(
             component_name=component.component_name,
@@ -160,21 +160,21 @@ def _iter_ocm_artefact_nodes(
         )
 
         for version in versions:
-            if component.ocm_repo:
-                ocm_repo_url = component.ocm_repo.oci_ref
-            else:
-                ocm_repo_url = None
+            component_id = ocm.ComponentIdentity(
+                name=component.component_name,
+                version=version,
+            )
 
-            component = component_descriptor_lookup(
-                ocm.ComponentIdentity(
-                    name=component.component_name,
-                    version=version,
-                ),
-                ctx_repo=ocm_repo_url,
-            ).component
+            if ocm_repo := component.ocm_repo:
+                component = component_descriptor_lookup(
+                    component_id,
+                    ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+                ).component
+            else:
+                component = component_descriptor_lookup(component_id).component
 
             # note: adjust node filter here once other artefacts become processable as well
-            yield from cnudie.iter.iter(
+            for artefact_node in cnudie.iter.iter(
                 component=component,
                 lookup=component_descriptor_lookup,
                 node_filter=lambda node: (
@@ -182,47 +182,11 @@ def _iter_ocm_artefact_nodes(
                     node.artefact.type in artefact_types and
                     node_filter(node)
                 ),
-            )
-
-
-def _iter_ocm_artefacts(
-    components: tuple[config.Component],
-    artefact_types: tuple[str],
-    node_filter: collections.abc.Callable[[cnudie.iter.Node], bool],
-    delivery_client: delivery.client.DeliveryServiceClient,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:
-    for artefact_node in _iter_ocm_artefact_nodes(
-        components=components,
-        artefact_types=artefact_types,
-        node_filter=node_filter,
-        delivery_client=delivery_client,
-        component_descriptor_lookup=component_descriptor_lookup,
-    ):
-        component = artefact_node.component_id
-        artefact = artefact_node.artefact
-        if isinstance(artefact_node, cnudie.iter.ResourceNode):
-            artefact_kind = dso.model.ArtefactKind.RESOURCE
-        elif isinstance(artefact_node, cnudie.iter.SourceNode):
-            artefact_kind = dso.model.ArtefactKind.SOURCE
-        else:
-            artefact_kind = dso.model.ArtefactKind.ARTEFACT
-
-        # explicitly remove extraIdentity here to only handle one artefact each
-        # TODO-Extra-Id uncomment below code once extraIdentities are handled properly
-        artefact_ref = dso.model.ComponentArtefactId(
-            component_name=component.name,
-            component_version=component.version,
-            artefact_kind=artefact_kind,
-            artefact=dso.model.LocalArtefactId(
-                artefact_name=artefact.name,
-                artefact_version=artefact.version,
-                artefact_type=artefact.type,
-                # artefact_extra_id=artefact.extraIdentity,
-            )
-        )
-
-        yield artefact_ref
+            ):
+                yield dso.model.component_artefact_id_from_ocm(
+                    component=artefact_node.component,
+                    artefact=artefact_node.artefact,
+                )
 
 
 def _create_and_update_compliance_snapshots_of_artefact(

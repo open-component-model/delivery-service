@@ -1,58 +1,19 @@
 import collections.abc
+import logging
 
+import cnudie.iter
+import cnudie.retrieve_async
 import dso.model
 import ioutil
 import oci.client
+import oci.model
 import ocm
 import tarutil
 
+import util
 
-def find_artefact_of_component_or_none(
-    component: ocm.Component,
-    artefact: dso.model.ComponentArtefactId,
-) -> ocm.Resource | ocm.Source | None:
-    if artefact.component_name and component.name != artefact.component_name:
-        return None
 
-    if artefact.component_version and component.version != artefact.component_version:
-        return None
-
-    if not artefact.artefact:
-        return None
-
-    local_artefact = artefact.artefact
-    artefact_kind = artefact.artefact_kind
-
-    for artefact in component.resources + component.sources:
-        artefact: ocm.Resource | ocm.Source
-
-        if local_artefact.artefact_name and artefact.name != local_artefact.artefact_name:
-            continue
-
-        if local_artefact.artefact_version and artefact.version != local_artefact.artefact_version:
-            continue
-
-        if local_artefact.artefact_type and artefact.type != local_artefact.artefact_type:
-            continue
-
-        if local_artefact.artefact_extra_id and dso.model.normalise_artefact_extra_id(
-            artefact_extra_id=artefact.extraIdentity,
-        ) != local_artefact.normalised_artefact_extra_id():
-            continue
-
-        if isinstance(artefact, ocm.Resource) and artefact_kind != dso.model.ArtefactKind.RESOURCE:
-            continue
-
-        if isinstance(artefact, ocm.Source) and artefact_kind != dso.model.ArtefactKind.SOURCE:
-            continue
-
-        # artefact is referenced in component
-        break
-    else:
-        # artefact is not referenced in component
-        artefact = None
-
-    return artefact
+logger = logging.getLogger(__name__)
 
 
 def iter_local_blob_content(
@@ -78,6 +39,22 @@ def iter_local_blob_content(
         stream=True,
     )
 
+    if not size:
+        manifest = oci_client.manifest(
+            image_reference=image_reference,
+            accept=oci.model.MimeTypes.prefer_multiarch,
+        )
+
+        if isinstance(manifest, oci.model.OciImageManifestList):
+            raise ValueError('component-descriptor manifest must not be a manifest list')
+
+        for layer in manifest.layers:
+            if layer.digest == digest:
+                size = layer.size
+                break
+        else:
+            raise ValueError('`size` must not be empty to stream local blob')
+
     return tarutil.concat_blobs_as_tarstream(
         blobs=[
             ioutil.BlobDescriptor(
@@ -87,3 +64,57 @@ def iter_local_blob_content(
             )
         ],
     )
+
+
+async def find_artefact_node(
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    artefact: dso.model.ComponentArtefactId,
+    absent_ok: bool=False,
+) -> cnudie.iter.ResourceNode | cnudie.iter.SourceNode | None:
+    if not dso.model.is_ocm_artefact(artefact.artefact_kind):
+        return None
+
+    component = (await util.retrieve_component_descriptor(
+        ocm.ComponentIdentity(
+            name=artefact.component_name,
+            version=artefact.component_version,
+        ),
+        component_descriptor_lookup=component_descriptor_lookup,
+    )).component
+
+    if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+        artefacts = component.resources
+    elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+        artefacts = component.sources
+    else:
+        raise RuntimeError('this line should never be reached')
+
+    for a in artefacts:
+        if a.name != artefact.artefact.artefact_name:
+            continue
+        if a.version != artefact.artefact.artefact_version:
+            continue
+        if a.type != artefact.artefact.artefact_type:
+            continue
+        if (
+            dso.model.normalise_artefact_extra_id(a.extraIdentity)
+            != artefact.artefact.normalised_artefact_extra_id
+        ):
+            continue
+
+        # found artefact in component's artefacts
+        if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+            return cnudie.iter.ResourceNode(
+                path=(cnudie.iter.NodePathEntry(component),),
+                resource=a,
+            )
+        elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+            return cnudie.iter.SourceNode(
+                path=(cnudie.iter.NodePathEntry(component),),
+                source=a,
+            )
+        else:
+            raise RuntimeError('this line should never be reached')
+
+    if not absent_ok:
+        raise ValueError(f'could not find OCM node for {artefact=}')
