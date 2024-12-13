@@ -6,6 +6,7 @@ RUN --mount=type=bind,source=/dist,target=/dist \
     apk add --no-cache \
     bash \
     gcc \
+    git \
     libc-dev \
     libffi-dev \
     postgresql16-client \
