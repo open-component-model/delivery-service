@@ -7,6 +7,7 @@ import pprint
 import tabulate
 
 import ccc.aws
+import ccc.delivery
 import ccc.oci
 import ci.util
 import cnudie.access
@@ -60,7 +61,9 @@ def ls_products(
         ocm_lookup = cr.create_default_component_descriptor_lookup(
             ocm_repository_lookup=cr.ocm_repository_lookup(
                 ocm_repo,
-            )
+            ),
+            oci_client=ccc.oci.oci_client(),
+            delivery_client=ccc.delivery.default_client_if_available(),
         )
 
     client = bdba.client.client(bdba_cfg_name)
@@ -237,7 +240,10 @@ def scan(
     bdba_group_url = ci.util.urljoin(bdba_api_url, 'group', str(bdba_group_id))
     logger.info(f'Using BDBA at: {bdba_api_url} with group {bdba_group_id}')
 
-    lookup = cr.create_default_component_descriptor_lookup()
+    lookup = cr.create_default_component_descriptor_lookup(
+        oci_client=ccc.oci.oci_client(),
+        delivery_client=ccc.delivery.default_client_if_available(),
+    )
     component_descriptor = lookup(component_id)
 
     cvss_version = bdba.model.CVSSVersion.V3

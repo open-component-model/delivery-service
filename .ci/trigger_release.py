@@ -6,6 +6,7 @@ import os
 import yaml
 
 import ccc.concourse
+import ccc.delivery
 import ccc.oci
 import ci.log
 import ci.util
@@ -75,8 +76,10 @@ def ocm_repository_lookup():
 
 
 def main():
+    delivery_service_client = ccc.delivery.default_client_if_available()
     component_descriptor_lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
         ocm_repository_lookup=ocm_repository_lookup(),
+        delivery_client=delivery_service_client,
     )
     version_lookup = cnudie.retrieve.version_lookup(
         ocm_repository_lookup=ocm_repository_lookup(),
