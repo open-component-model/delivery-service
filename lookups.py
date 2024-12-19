@@ -408,3 +408,18 @@ def github_repo_lookup(
         return gh_api.repository(org, repo)
 
     return github_repo_lookup
+
+
+def github_auth_token_lookup(url: str, /):
+    '''
+    an implementation of delivery.client.AuthTokenLookup
+    '''
+    import ccc.github
+    import model.base
+
+    try:
+        github_cfg = ccc.github.github_cfg_for_repo_url(url)
+    except model.base.ConfigElementNotFoundError:
+        return None
+
+    return github_cfg.credentials().auth_token()
