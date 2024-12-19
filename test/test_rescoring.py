@@ -82,7 +82,7 @@ def test_deserialise_rescoring_rule_sets(
             )
         )
         for cve_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if cve_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
+        if cve_rule_set_raw['type'] is rescore.model.RuleSetType.CVE.value
     )
 
     assert isinstance(cve_rescoring_rule_sets[0], rescore.model.CveRescoringRuleSet)
@@ -152,7 +152,7 @@ def test_deserialise_with_extra_attributes(
             )
         )
         for cve_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if cve_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
+        if cve_rule_set_raw['type'] is rescore.model.RuleSetType.CVE.value
     )
 
     assert isinstance(cve_rescoring_rule_sets[0], rescore.model.CveRescoringRuleSet)
@@ -171,7 +171,7 @@ def test_deserialise_sast_rescoring_rule_sets(
             )
         )
         for sast_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if sast_rule_set_raw['type'] == rescore.model.RuleSetType.SAST
+        if sast_rule_set_raw['type'] is rescore.model.RuleSetType.SAST.value
     )
 
     assert isinstance(sast_rescoring_rule_sets[0], rescore.model.SastRescoringRuleSet)
@@ -196,7 +196,7 @@ def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
             )
         )
         for default_ruleset in rescoring_rules_raw['defaultRuleSetNames']
-        if default_ruleset['type'] == rescore.model.RuleSetType.SAST
+        if default_ruleset['type'] is rescore.model.RuleSetType.SAST.value
     ]
 
     sast_rescoring_rule_sets = tuple(
@@ -208,7 +208,7 @@ def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
             )
         )
         for sast_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if sast_rule_set_raw['type'] == rescore.model.RuleSetType.SAST
+        if sast_rule_set_raw['type'] is rescore.model.RuleSetType.SAST.value
     )
 
     default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
@@ -262,7 +262,7 @@ def test_generate_sast_rescorings(
             )
         )
         for sast_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if sast_rule_set_raw['type'] == rescore.model.RuleSetType.SAST
+        if sast_rule_set_raw['type'] is rescore.model.RuleSetType.SAST.value
     )
     sast_rescoring_ruleset = sast_rescoring_rule_sets[0]
 

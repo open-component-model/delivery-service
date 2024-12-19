@@ -94,12 +94,12 @@ class ClamAVConfig:
     artefact_types: tuple[str]
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class SASTConfig:
     '''
     :param str delivery_service_url:
-    :param str component_name:
-        The name of the component being analyzed.
+    :param tuple[Component] components:
+        A tuple of components to be analyzed.
     :param str component_version:
         The specific version of the component being analyzed. If not provided,
         the latest version will be used.
@@ -110,8 +110,7 @@ class SASTConfig:
         A set of rules for rescoring SAST findings based on specified criteria.
     '''
     delivery_service_url: str
-    component_name: str
-    component_version: str | None = None
+    components: tuple[Component]
     audit_timerange_days: int | None = None
     sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet | None = None
 
@@ -547,22 +546,21 @@ def deserialise_sast_config(
         property_key='delivery_service_url',
         default_config=default_config,
     )
-    component_name = deserialise_config_property(
+    components_raw = deserialise_config_property(
         config=sast_config,
-        property_key='component_name',
+        property_key='components',
+        default_value=[],
     )
-    component_version = deserialise_config_property(
-        config=sast_config,
-        property_key='component_version',
-        absent_ok=True,
+    components = tuple(
+        deserialise_component_config(component_config=component_raw)
+        for component_raw in components_raw
     )
     audit_timerange_days = deserialise_config_property(
         config=sast_config,
         property_key='audit_timerange_days',
-        default_value=365,  # Default range in days if not provided
+        absent_ok=True,
     )
 
-    # Deserialize rescoring rules
     rescoring_cfg_raw = deserialise_config_property(
         config=sast_config,
         property_key='rescoring',
@@ -583,8 +581,7 @@ def deserialise_sast_config(
 
     return SASTConfig(
         delivery_service_url=delivery_service_url,
-        component_name=component_name,
-        component_version=component_version,
+        components=components,
         audit_timerange_days=audit_timerange_days,
         sast_rescoring_ruleset=default_rule_set,
     )

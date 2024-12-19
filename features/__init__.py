@@ -613,7 +613,7 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
             )
         )
         for rule_set_raw in rescoring_raw['rescoringRuleSets']
-        if rule_set_raw['type'] == rm.RuleSetType.SAST
+        if rule_set_raw['type'] is rm.RuleSetType.SAST.value
     )
     default_rule_sets = [
         dacite.from_dict(
