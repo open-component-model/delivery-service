@@ -77,13 +77,16 @@ def ocm_repository_lookup():
 
 def main():
     delivery_service_client = ccc.delivery.default_client_if_available()
+    oci_client = ccc.oci.oci_client()
+
     component_descriptor_lookup = cnudie.retrieve.create_default_component_descriptor_lookup(
         ocm_repository_lookup=ocm_repository_lookup(),
         delivery_client=delivery_service_client,
+        oci_client=oci_client,
     )
     version_lookup = cnudie.retrieve.version_lookup(
         ocm_repository_lookup=ocm_repository_lookup(),
-        oci_client=ccc.oci.oci_client(),
+        oci_client=oci_client,
     )
 
     current_descriptor = parse_component_descriptor()
