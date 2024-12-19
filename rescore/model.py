@@ -211,14 +211,11 @@ def deserialise_default_rule_set(
         for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
         if rule_set_raw['type'] == rule_set_type
     )
-    default_rule_set_raw = next(
-        (default_rule_set_raw for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
-         if default_rule_set_raw['type'] == rule_set_type),
-        None
-    )
-
-    if not default_rule_set_raw:
-        raise ValueError(f'No default rule_set found for the {rule_set_type}.')
+    for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']:
+        if default_rule_set_raw['type'] == rule_set_type:
+            break
+    else:
+        raise ValueError(f'No default rule set found for {rule_set_type=}.')
 
     default_rule_set = dacite.from_dict(
         data_class=DefaultRuleSet,

@@ -181,8 +181,8 @@ def rescore_severity(
     return severity
 
 
-def matching_sast_rescore_rule(
-    rescoring_rules: typing.Iterable[rescore.model.SastRescoringRule],
+def matching_sast_rescore_rules(
+    rescoring_rules: collections.abc.Iterable[rescore.model.SastRescoringRule],
     finding: dso.model.ArtefactMetadata,
 ) -> collections.abc.Generator[rescore.model.SastRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
@@ -193,14 +193,17 @@ def matching_sast_rescore_rule(
 
 
 def rescore_sast_severity(
-    rescoring_rule: rescore.model.SastRescoringRule,
-) -> str:
-    if rescoring_rule.rescore is rescore.model.Rescore.BLOCKER:
-        return github.compliance.model.Severity.BLOCKER.name
-    elif rescoring_rule.rescore is rescore.model.Rescore.TO_NONE:
-        return github.compliance.model.Severity.NONE.name
-
-    raise NotImplementedError(rescoring_rule.rescore)
+    rescoring_rules: collections.abc.Iterable[rescore.model.SastRescoringRule],
+) -> github.compliance.model.Severity:
+    severity = None
+    for rule in rescoring_rules:
+        if rule.rescore is rescore.model.Rescore.TO_NONE:
+            return github.compliance.model.Severity.NONE
+        elif rule.rescore is rescore.model.Rescore.BLOCKER:
+            severity = github.compliance.model.Severity.BLOCKER
+        else:
+            raise ValueError(f'Unknown rescore value: {rule.rescore}')
+    return severity
 
 
 def iter_sast_rescorings(
@@ -210,20 +213,21 @@ def iter_sast_rescorings(
     time_now: datetime.datetime
 ) -> typing.Generator[dso.model.ArtefactMetadata, None, None]:
     for finding in findings:
-        matching_rule = next(
-            matching_sast_rescore_rule(
+        matching_rules = list(
+            matching_sast_rescore_rules(
                 rescoring_rules=sast_rescoring_ruleset.rules,
                 finding=finding,
-            ),
-            None
+            )
         )
-        if not matching_rule:
+
+        if not matching_rules:
             continue
 
         new_severity = rescore_sast_severity(
-            rescoring_rule=matching_rule,
+            rescoring_rules=matching_rules
         )
-        if finding.data.severity == new_severity:
+
+        if finding.data.severity == new_severity.name:
             continue
 
         yield dso.model.ArtefactMetadata(
@@ -237,9 +241,9 @@ def iter_sast_rescorings(
             data=dso.model.CustomRescoring(
                 finding=finding.data,
                 referenced_type=dso.model.Datatype.SAST_FINDING,
-                severity=new_severity,
+                severity=new_severity.name,
                 user=user,
-                matching_rules=[matching_rule.name],
+                matching_rules=[rule.name for rule in matching_rules],
                 comment='Automatically rescored based on rules.',
             ),
         )
