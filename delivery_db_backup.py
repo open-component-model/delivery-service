@@ -341,7 +341,7 @@ def main():
         routes=delivery.client.DeliveryServiceRoutes(
             base_url=delivery_service_url,
         ),
-        cfg_factory=cfg_factory,
+        auth_token_lookup=lookups.github_auth_token_lookup,
     )
 
     greatest_versions = delivery_service_client.greatest_component_versions(

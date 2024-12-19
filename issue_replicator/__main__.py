@@ -486,7 +486,7 @@ def main():
         routes=delivery.client.DeliveryServiceRoutes(
             base_url=delivery_service_url,
         ),
-        cfg_factory=cfg_factory,
+        auth_token_lookup=lookups.github_auth_token_lookup,
     )
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
