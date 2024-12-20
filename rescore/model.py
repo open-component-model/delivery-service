@@ -8,22 +8,33 @@ import dacite
 import yaml
 
 import dso.cvss
+import dso.model
 
 
 class Rescore(enum.Enum):
     REDUCE = 'reduce'
+    BLOCKER = 'to-blocker'
     NOT_EXPLOITABLE = 'not-exploitable'
     NO_CHANGE = 'no-change'
+    TO_NONE = 'to-none'
 
 
 class RuleSetType(enum.StrEnum):
     CVE = 'cve'
+    SAST = 'sast'
 
 
 @dataclasses.dataclass(frozen=True)
 class Rule:
     name: str
     rescore: Rescore
+
+
+@dataclasses.dataclass(frozen=True)
+class SastRescoringRule(Rule):
+    match: list[dso.model.MatchCondition]
+    sub_types: list[dso.model.SastSubType]
+    sast_status: dso.model.SastStatus
 
 
 @dataclasses.dataclass(frozen=True)
@@ -144,6 +155,11 @@ class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
     type: RuleSetType = RuleSetType.CVE
 
 
+@dataclasses.dataclass
+class SastRescoringRuleSet(RuleSet[SastRescoringRule]):
+    type: RuleSetType = RuleSetType.SAST
+
+
 @dataclasses.dataclass(frozen=True)
 class DefaultRuleSet:
     name: str
@@ -173,6 +189,49 @@ def find_default_rule_set_for_type(
             return default_rule_set
 
     raise ValueError(f'No default rule_set_name found for {default_rule_set.type}.')
+
+
+def deserialise_default_rule_set(
+    rescoring_cfg_raw: dict,
+    rule_set_type: RuleSetType,
+    rule_set_class: RuleSet,
+    rules_from_dict_method: collections.abc.Callable[
+        [list[dict]], collections.abc.Iterable[SastRescoringRule]
+    ],
+) -> DefaultRuleSet:
+    # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
+    rule_sets = tuple( #noqa:E1123
+        rule_set_class(
+            name=rule_set_raw['name'],
+            description=rule_set_raw.get('description'),
+            rules=list(
+                rules_from_dict_method(rule_set_raw['rules'])
+            )
+        )
+        for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
+        if rule_set_raw['type'] == rule_set_type
+    )
+    default_rule_set_raw = next(
+        (default_rule_set_raw for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
+         if default_rule_set_raw['type'] == rule_set_type),
+        None
+    )
+
+    if not default_rule_set_raw:
+        raise ValueError(f'No default rule_set found for the {rule_set_type}.')
+
+    default_rule_set = dacite.from_dict(
+        data_class=DefaultRuleSet,
+        data=default_rule_set_raw,
+        config=dacite.Config(
+            cast=[enum.Enum],
+        )
+    )
+
+    return find_default_rule_set_for_type_and_name(
+        default_rule_set=default_rule_set,
+        rule_sets=rule_sets,
+    )
 
 
 def cve_rescoring_rules_from_dicts(
@@ -208,3 +267,16 @@ def cve_rescoring_rules_from_dicts(
                     cast=(enum.Enum, tuple),
                 )
             )
+
+
+def sast_rescoring_rules_from_dict(
+    rules: list[dict]
+) -> collections.abc.Generator[SastRescoringRule, None, None]:
+    for rule in rules:
+        yield SastRescoringRule(
+            name=rule['name'],
+            rescore=Rescore(rule['rescore']),
+            match=[dso.model.MatchCondition(**condition) for condition in rule['match']],
+            sub_types=[dso.model.SastSubType(sub_type) for sub_type in rule['sub_types']],
+            sast_status=dso.model.SastStatus(rule['sast_status']),
+        )
