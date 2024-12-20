@@ -58,8 +58,8 @@ rescoring:
         - PR:L
         - PR:H
         rescore: reduce
-    - category_value: 'user_interaction:service-operator'
-      name: user-interaction-service-operator
+    - category_value: 'user_interaction:gardener-operator'
+      name: user-interaction-gardener-operator
       rules:
       - cve_values:
         - UI:R
