@@ -417,8 +417,13 @@ def github_auth_token_lookup(url: str, /):
     import ccc.github
     import model.base
 
+    cfg_factory = ctx_util.cfg_factory()
+
     try:
-        github_cfg = ccc.github.github_cfg_for_repo_url(url)
+        github_cfg = ccc.github.github_cfg_for_repo_url(
+            repo_url=url,
+            cfg_factory=cfg_factory,
+        )
     except model.base.ConfigElementNotFoundError:
         return None
 
