@@ -186,3 +186,11 @@ def error_description(
         'error_id': error_id,
         **kwargs,
     })
+
+
+def as_timezone(ts: datetime.datetime, target_tz: datetime.timezone = datetime.timezone.utc) -> datetime.datetime:
+    if ts.tzinfo is None:
+        return ts.replace(tzinfo=target_tz)
+    if ts.tzinfo != target_tz:
+        return ts.astimezone(target_tz)
+    return ts
