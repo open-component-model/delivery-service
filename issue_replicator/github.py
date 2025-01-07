@@ -55,7 +55,7 @@ class AggregatedFinding:
 
     def calculate_latest_processing_date(
         self,
-        sprints: tuple[datetime.date],
+        sprints: collections.abc.Iterable[datetime.date],
         max_processing_days: gcm.MaxProcessingTimesDays=None,
     ) -> datetime.date | None:
         if not self.severity:

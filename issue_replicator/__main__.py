@@ -2,14 +2,11 @@ import argparse
 import atexit
 import collections.abc
 import datetime
-import functools
 import logging
 import os
 import signal
 import sys
 import time
-
-import dateutil.parser
 
 import ci.log
 import cnudie.iter
@@ -58,23 +55,6 @@ def handle_sigterm_and_sigint(signum, frame):
         f'{sig.name} signal received, will try to finish current issue replication and then exit'
     )
     wants_to_terminate = True
-
-
-@functools.cache
-def sprint_dates(
-    delivery_client: delivery.client.DeliveryServiceClient,
-    date_name: str='release_decision',
-) -> tuple[datetime.date]:
-    sprints = delivery_client.sprints()
-    sprint_dates = tuple(
-        sprint.find_sprint_date(name=date_name).value.date()
-        for sprint in sprints
-    )
-
-    if not sprint_dates:
-        raise ValueError('no sprints found')
-
-    return sprint_dates
 
 
 def deserialise_issue_replicator_configuration(
@@ -164,9 +144,8 @@ def _iter_findings_for_artefact(
 
 def _group_findings_by_type_and_date(
     issue_replicator_config: config.IssueReplicatorConfig,
-    delivery_client: delivery.client.DeliveryServiceClient,
     findings: collections.abc.Iterable[issue_replicator.github.AggregatedFinding],
-    latest_processing_dates: set[str],
+    dates: collections.abc.Sequence[datetime.date],
 ) -> collections.abc.Generator[
     tuple[
         dso.model.Datatype, # finding type (e.g. vulnerability, license, malware...)
@@ -181,8 +160,6 @@ def _group_findings_by_type_and_date(
     Groups all findings by finding type and latest processing date. Also, thresholds provided by
     configuration are applied on the findings before yielding.
     '''
-    sprints = sprint_dates(delivery_client=delivery_client)
-
     datasource_for_datatype = {
         dso.model.Datatype.VULNERABILITY: dso.model.Datasource.BDBA,
         dso.model.Datatype.LICENSE: dso.model.Datasource.BDBA,
@@ -190,9 +167,7 @@ def _group_findings_by_type_and_date(
         dso.model.Datatype.DIKI_FINDING: dso.model.Datasource.DIKI,
     }
 
-    for latest_processing_date in latest_processing_dates:
-        date = dateutil.parser.isoparse(latest_processing_date).date()
-
+    for date in dates:
         for finding_type_cfg in issue_replicator_config.finding_type_issue_replication_cfgs:
             finding_type = finding_type_cfg.finding_type
             finding_source = datasource_for_datatype.get(finding_type)
@@ -203,7 +178,7 @@ def _group_findings_by_type_and_date(
                     finding.finding.meta.type == finding_type and
                     finding.finding.meta.datasource == finding_source and
                     finding.calculate_latest_processing_date(
-                        sprints=sprints,
+                        sprints=dates,
                         max_processing_days=issue_replicator_config.max_processing_days,
                     ) == date
                 )
@@ -256,9 +231,9 @@ def replicate_issue(
     )
     logger.info(f'{len(active_compliance_snapshots)=}')
 
-    correlation_ids_by_latest_processing_date: dict[str, str] = dict()
+    correlation_ids_by_latest_processing_date: dict[datetime.date, str] = dict()
     for compliance_snapshot in compliance_snapshots:
-        date = compliance_snapshot.data.latest_processing_date.isoformat()
+        date = compliance_snapshot.data.latest_processing_date
 
         if date in correlation_ids_by_latest_processing_date:
             continue
@@ -287,9 +262,8 @@ def replicate_issue(
 
     findings_by_type_and_date = _group_findings_by_type_and_date(
         issue_replicator_config=issue_replicator_config,
-        delivery_client=delivery_client,
         findings=findings,
-        latest_processing_dates=correlation_ids_by_latest_processing_date.keys(),
+        dates=correlation_ids_by_latest_processing_date.keys(),
     )
 
     def _issue_type(
@@ -350,7 +324,7 @@ def replicate_issue(
     }
 
     for finding_type, finding_source, date, findings in findings_by_type_and_date:
-        correlation_id = correlation_ids_by_latest_processing_date.get(date.isoformat())
+        correlation_id = correlation_ids_by_latest_processing_date.get(date)
 
         finding_type_issue_replication_cfg = _find_finding_type_issue_replication_cfg(
             finding_cfgs=issue_replicator_config.finding_type_issue_replication_cfgs,
