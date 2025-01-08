@@ -22,6 +22,7 @@ import deliverydb.model as dm
 import deliverydb.util as du
 import deliverydb_cache.model as dcm
 import features
+import middleware.cors
 import util
 
 
@@ -232,14 +233,25 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
         db_stream = await db_session.stream(db_statement)
 
-        return aiohttp.web.json_response(
-            data=[
-                await serialise_and_enrich_finding(du.db_artefact_metadata_row_to_dso(row))
-                async for partition in db_stream.partitions(size=50)
-                for row in partition
-            ],
-            dumps=util.dict_to_json_factory,
+        data = util.dict_to_json_factory([
+            await serialise_and_enrich_finding(du.db_artefact_metadata_row_to_dso(row))
+            async for partition in db_stream.partitions(size=50)
+            for row in partition
+        ])
+
+        response = aiohttp.web.StreamResponse(
+            headers={
+                'Content-Type': 'application/json',
+                # cors must be set here already because `response.prepare` already sends header
+                **middleware.cors.cors_headers(self.request),
+            },
         )
+        response.enable_compression()
+        await response.prepare(self.request)
+        await response.write(data.encode('utf-8'))
+        await response.write_eof()
+
+        return response
 
 
 class ArtefactMetadata(aiohttp.web.View):
