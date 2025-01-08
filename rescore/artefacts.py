@@ -66,8 +66,8 @@ class VulnerabilityFinding(dso.model.Finding):
 
 
 @dataclasses.dataclass(frozen=True)
-class MalwareFinding(dso.model.Finding, dso.model.MalwareFindingDetails):
-    pass
+class MalwareFinding(dso.model.Finding):
+    finding: dso.model.MalwareFindingDetails
 
 
 @dataclasses.dataclass(frozen=True)
@@ -379,9 +379,11 @@ async def _iter_rescoring_proposals(
                 data_class=RescoringProposal,
                 data={
                     'finding': {
-                        'filename': am.data.finding.filename,
-                        'content_digest': am.data.finding.content_digest,
-                        'malware': am.data.finding.malware,
+                        'finding': {
+                            'filename': am.data.finding.filename,
+                            'content_digest': am.data.finding.content_digest,
+                            'malware': am.data.finding.malware,
+                        },
                         'severity': severity.name,
                     },
                     'finding_type': dso.model.Datatype.MALWARE_FINDING,
