@@ -39,11 +39,6 @@ logger = logging.getLogger(__name__)
 feature_cfgs = []
 
 
-class VersionFilter(enum.StrEnum):
-    ALL = 'all'
-    RELEASES_ONLY = 'releases_only'
-
-
 @dataclasses.dataclass(frozen=True)
 class SprintRules:
     '''
@@ -154,7 +149,7 @@ class SpecialComponentsCfg:
     displayName: str
     type: str
     version: str | CurrentVersion
-    versionFilter: VersionFilter | None
+    versionFilter: config.VersionFilter | None
     icon: str | None
     releasePipelineUrl: str | None
     sprintRules: SprintRules | None
@@ -492,9 +487,9 @@ class FeatureUpgradePRs(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureVersionFilter(FeatureBase):
     name: str = 'version-filter'
-    version_filter: VersionFilter = VersionFilter.RELEASES_ONLY
+    version_filter: config.VersionFilter = config.VersionFilter.RELEASES_ONLY
 
-    def get_version_filter(self) -> VersionFilter:
+    def get_version_filter(self) -> config.VersionFilter:
         return self.version_filter
 
 
@@ -578,7 +573,7 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
                     CurrentVersion.CurrentVersionSource:
                         lambda cvs: deserialise_current_version_source(cvs),
                 },
-                cast=[VersionFilter],
+                cast=[config.VersionFilter],
             ),
         )
         for special_component_raw in special_components_raw
@@ -790,7 +785,7 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
     else:
         yield FeatureVersionFilter(
             state=FeatureStates.AVAILABLE,
-            version_filter=VersionFilter(version_filter),
+            version_filter=config.VersionFilter(version_filter),
         )
 
 
