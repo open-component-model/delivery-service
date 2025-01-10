@@ -21,7 +21,6 @@ import version
 import config
 import components
 import ctx_util
-import features
 import k8s.util
 import k8s.model
 import k8s.logging
@@ -99,16 +98,15 @@ def deserialise_sast_configuration(
 def fetch_all_versions(
     component_name: str,
     version_lookup: cnudie.retrieve.VersionLookupByComponent,
-    filter_final_only: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
+    filter_final_only: config.VersionFilter=config.VersionFilter.RELEASES_ONLY,
 ) -> list[str]:
     versions = version_lookup(component_name)
 
-    if filter_final_only is features.VersionFilter.RELEASES_ONLY:
+    if filter_final_only is config.VersionFilter.RELEASES_ONLY:
         versions = [
             v for v in versions
             if version.is_final(
-                version=v,
-                converter=version.parse_to_semver,
+                version=v
             )
         ]
 
@@ -303,6 +301,7 @@ def main():
         versions = fetch_all_versions(
             component_name=component.component_name,
             version_lookup=lookups.init_version_lookup(),
+            filter_final_only=component.version_filter,
         )
 
         if sast_config.audit_timerange_days:

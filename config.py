@@ -100,9 +100,6 @@ class SASTConfig:
     :param str delivery_service_url:
     :param tuple[Component] components:
         A tuple of components to be analyzed.
-    :param str component_version:
-        The specific version of the component being analyzed. If not provided,
-        the latest version will be used.
     :param int audit_timerange_days:
         The number of days to include in the audit range.
         Used to determine the audit's start and end dates.
