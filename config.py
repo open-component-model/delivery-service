@@ -107,7 +107,7 @@ class SASTConfig:
         A set of rules for rescoring SAST findings based on specified criteria.
     '''
     delivery_service_url: str
-    components: tuple[Component]
+    components: tuple[Component, ...]
     audit_timerange_days: int | None = None
     sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet | None = None
 
@@ -566,11 +566,18 @@ def deserialise_sast_config(
     )
 
     if rescoring_cfg_raw:
-        default_rule_set = rescore.model.deserialise_default_rule_set(
+        rule_sets = rescore.model.deserialise_rule_sets(
             rescoring_cfg_raw=rescoring_cfg_raw,
             rule_set_type=rescore.model.RuleSetType.SAST,
-            rule_set_class=rescore.model.SastRescoringRuleSet,
-            rules_from_dict_method=rescore.model.sast_rescoring_rules_from_dict,
+            rule_set_ctor=rescore.model.SastRescoringRuleSet,
+            rules_from_dict=rescore.model.sast_rescoring_rules_from_dict,
+        )
+        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
+            default_rule_set=rescore.model.deserialise_default_rule_set(
+                rescoring_cfg_raw=rescoring_cfg_raw,
+                rule_set_type=rescore.model.RuleSetType.SAST,
+            ),
+            rule_sets=rule_sets,
         )
     else:
         default_rule_set = None

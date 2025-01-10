@@ -195,15 +195,13 @@ def matching_sast_rescore_rules(
 def rescore_sast_severity(
     rescoring_rules: collections.abc.Iterable[rescore.model.SastRescoringRule],
 ) -> github.compliance.model.Severity:
-    severity = None
     for rule in rescoring_rules:
         if rule.rescore is rescore.model.Rescore.TO_NONE:
             return github.compliance.model.Severity.NONE
         elif rule.rescore is rescore.model.Rescore.TO_BLOCKER:
-            severity = github.compliance.model.Severity.BLOCKER
+            return github.compliance.model.Severity.BLOCKER
         else:
             raise ValueError(f'Unknown rescore value: {rule.rescore}')
-    return severity
 
 
 def iter_sast_rescorings(
