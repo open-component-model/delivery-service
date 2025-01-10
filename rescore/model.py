@@ -13,7 +13,7 @@ import dso.model
 
 class Rescore(enum.Enum):
     REDUCE = 'reduce'
-    BLOCKER = 'to-blocker'
+    TO_BLOCKER = 'to-blocker'
     NOT_EXPLOITABLE = 'not-exploitable'
     NO_CHANGE = 'no-change'
     TO_NONE = 'to-none'
