@@ -14,7 +14,6 @@ import dacite
 import dateutil.parser
 
 import ci.util
-import concourse.model.base
 import dso.cvss
 import dso.labels
 import model.base
@@ -39,6 +38,11 @@ class ProcessingStatus(enum.Enum):
 class CVSSVersion(enum.Enum):
     V2 = 'CVSSv2'
     V3 = 'CVSSv3'
+
+
+class ProcessingMode(enum.StrEnum):
+    RESCAN = 'rescan'
+    FORCE_UPLOAD = 'force_upload'
 
 
 class Product(model.base.ModelBase):
@@ -357,30 +361,3 @@ class BdbaScanError(Exception):
             return name + ' - no exception available'
 
         return name + '\n' + ''.join(traceback.format_tb(self.exception.__traceback__))
-
-
-class ProcessingMode(concourse.model.base.AttribSpecMixin, enum.Enum):
-    RESCAN = 'rescan'
-    FORCE_UPLOAD = 'force_upload'
-
-    @classmethod
-    def _attribute_specs(cls):
-        return (
-            concourse.model.base.AttributeSpec.optional(
-                name=cls.RESCAN.value,
-                default=None,
-                doc='''
-                    (re-)scan container images if BDBA indicates this might bear new results.
-                    Upload absent images.
-                ''',
-                type=str,
-            ),
-            concourse.model.base.AttributeSpec.optional(
-                name=cls.FORCE_UPLOAD.value,
-                default=None,
-                doc='''
-                    `always` upload and scan all images.
-                ''',
-                type=str,
-            ),
-        )
