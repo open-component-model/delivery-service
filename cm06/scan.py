@@ -6,8 +6,6 @@ import enum
 import logging
 import os
 
-import semver
-
 import ci.log
 import cnudie.iter
 import cnudie.retrieve
@@ -41,9 +39,9 @@ class AnalysisLabel(enum.StrEnum):
 
 
 def has_local_linter(
-    snode: cnudie.iter.SourceNode
+    resources: list[ocm.Resource],
 ) -> bool:
-    for resource in snode.component.resources:
+    for resource in resources:
         if not (label := resource.find_label(name=dso.labels.PurposeLabel.name)):
             continue
 
@@ -98,11 +96,11 @@ def deserialise_sast_configuration(
 def fetch_all_versions(
     component_name: str,
     version_lookup: cnudie.retrieve.VersionLookupByComponent,
-    filter_final_only: config.VersionFilter=config.VersionFilter.RELEASES_ONLY,
+    version_filter: config.VersionFilter=config.VersionFilter.RELEASES_ONLY,
 ) -> list[str]:
     versions = version_lookup(component_name)
 
-    if filter_final_only is config.VersionFilter.RELEASES_ONLY:
+    if version_filter is config.VersionFilter.RELEASES_ONLY:
         versions = [
             v for v in versions
             if version.is_final(
@@ -125,54 +123,62 @@ def versions_from_time_range(
     versions: list[str],
     start_date: datetime.date,
     end_date: datetime.date,
+    max_versions: int,
 ) -> list[str]:
-    def is_in_date_range(version) -> bool:
-        component_descriptor = component_descriptor_lookup(
-            ocm.ComponentIdentity(
-                name=component_name,
-                version=version,
-            ),
-        )
-        creation_date = components.get_creation_date(
-            component=component_descriptor.component
-        ).date()
+    filtered_versions = [
+        version for version in versions
+        if end_date <= components.get_creation_date(
+            component=component_descriptor_lookup(
+                ocm.ComponentIdentity(
+                    name=component_name,
+                    version=version,
+                )
+            ).component
+        ).date() <= start_date
+    ]
 
-        return end_date <= creation_date <= start_date
+    if max_versions == -1:
+        return filtered_versions
 
-    return list(filter(is_in_date_range, versions))
+    return filtered_versions[-max_versions:]
 
 
 def limit_versions(
     versions: list[str],
     greatest_version: str,
-    max_versions_limit: int,
+    max_versions: int,
 ) -> list[str]:
+    '''
+    Returns a subset of the greatest versions from a sorted list.
+
+    Filters the input `versions` list (assumed to be sorted in ascending order)
+    to include only versions up to `greatest_version` and limits the result
+    to `max_versions` if specified.
+    '''
     if greatest_version:
         index = versions.index(greatest_version)
         versions = versions[:index + 1]
 
-    if max_versions_limit:
-        return versions[-max_versions_limit:]
+    if not max_versions == -1:
+        return versions[-max_versions:]
 
     return versions
 
 
 def create_missing_linter_finding(
-    component_name: str,
-    component_version: str,
+    snode: cnudie.iter.SourceNode,
     sub_type: dso.model.SastSubType,
     time_now: datetime.datetime,
-    source: ocm.Source,
 ) -> dso.model.ArtefactMetadata:
     return dso.model.ArtefactMetadata(
         artefact=dso.model.ComponentArtefactId(
-            component_name=component_name,
-            component_version=component_version,
+            component_name=snode.component.name,
+            component_version=snode.component.version,
             artefact=dso.model.LocalArtefactId(
-                artefact_name=source.name,
-                artefact_type=source.type,
-                artefact_version=source.version,
-                artefact_extra_id=source.extraIdentity,
+                artefact_name=snode.source.name,
+                artefact_type=snode.source.type,
+                artefact_version=snode.source.version,
+                artefact_extra_id=snode.source.extraIdentity,
             ),
             artefact_kind=dso.model.ArtefactKind.SOURCE,
         ),
@@ -184,7 +190,7 @@ def create_missing_linter_finding(
         ),
         data=dso.model.SastFinding(
             sast_status=dso.model.SastStatus.NO_LINTER,
-            severity=github.compliance.model.Severity.BLOCKER.name,
+            severity=str(github.compliance.model.Severity.BLOCKER),
             sub_type=sub_type,
         ),
         discovery_date=time_now.date(),
@@ -298,30 +304,46 @@ def main():
     time_now = datetime.datetime.now(datetime.timezone.utc)
 
     for component in sast_config.components:
-        versions = fetch_all_versions(
-            component_name=component.component_name,
-            version_lookup=lookups.init_version_lookup(),
-            filter_final_only=component.version_filter,
-        )
+        '''
+        filters and retrieves component versions based on the given cfg
 
-        if sast_config.audit_timerange_days:
-            component_versions = versions_from_time_range(
-                component_name=component.component_name,
-                component_descriptor_lookup=component_descriptor_lookup,
-                versions=versions,
-                start_date=datetime.date.today(),
-                end_date=datetime.date.today() - datetime.timedelta(
-                    days=sast_config.audit_timerange_days
-                ),
-            )
+        1. if an explicit version is provided and the max_versions_limit is set to 1 (default),
+           the specified version is used
+        2. otherwise, all versions of the component are fetched
+            - if a time range (`audit_timerange_days`) is specified,
+              versions are filtered to match the range and limited by `max_versions`
+            - if no time range is specified, filters the input to include only versions
+              up to `greatest_version`.
+        '''
+        if component.version and component.max_versions_limit == 1:
+            component_versions = component.version
         else:
-            component_versions = limit_versions(
-                versions=versions,
-                greatest_version=component.version,
-                max_versions_limit=component.max_versions_limit,
+            versions = fetch_all_versions(
+                component_name=component.component_name,
+                version_lookup=lookups.init_version_lookup(),
+                version_filter=component.version_filter,
             )
 
-        for component_version in sorted(component_versions, key=semver.VersionInfo.parse):
+            if component.audit_timerange_days:
+                component_versions = versions_from_time_range(
+                    component_name=component.component_name,
+                    component_descriptor_lookup=component_descriptor_lookup,
+                    versions=versions,
+                    start_date=time_now.date(),
+                    end_date=time_now.date() - datetime.timedelta(component.audit_timerange_days),
+                    max_versions=component.max_versions_limit,
+                )
+            else:
+                component_versions = limit_versions(
+                    versions=versions,
+                    greatest_version=component.version,
+                    max_versions=component.max_versions_limit,
+                )
+
+        for component_version in sorted(
+            component_versions,
+            key=lambda v: version.parse_to_semver(v)
+        ):
             component_descriptor = component_descriptor_lookup(
                 ocm.ComponentIdentity(
                     name=component.component_name,
@@ -361,12 +383,20 @@ def main():
                 )
 
                 all_findings_for_rescoring = []
+                resources = (
+                    snode.component.resources
+                    if len(snode.component.sources) == 1
+                    else [
+                        resource
+                        for resource in snode.component.resources
+                        for src_ref in (resource.srcRefs or [])
+                        if src_ref.identitySelector.get('name') == snode.source.name
+                    ]
+                )
 
-                if not has_local_linter(snode):
+                if not has_local_linter(resources):
                     no_linter_local = create_missing_linter_finding(
-                        component_name=snode.component.name,
-                        component_version=snode.component.version,
-                        source=snode.source,
+                        snode=snode,
                         sub_type=dso.model.SastSubType.LOCAL_LINTING,
                         time_now=time_now,
                     )
@@ -375,9 +405,7 @@ def main():
 
                 if not find_scan_policy(snode) is dso.labels.ScanPolicy.SKIP:
                     no_linter_central = create_missing_linter_finding(
-                        component_name=snode.component.name,
-                        component_version=snode.component.version,
-                        source=snode.source,
+                        snode=snode,
                         sub_type=dso.model.SastSubType.CENTRAL_LINTING,
                         time_now=time_now,
                     )
