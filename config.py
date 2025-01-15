@@ -43,6 +43,7 @@ class Component:
     version_filter: str
     max_versions_limit: int
     ocm_repo: ocm.OciOcmRepository
+    audit_timerange_days: int | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -108,7 +109,6 @@ class SASTConfig:
     '''
     delivery_service_url: str
     components: tuple[Component, ...]
-    audit_timerange_days: int | None = None
     sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet | None = None
 
 
@@ -385,12 +385,19 @@ def deserialise_component_config(
     else:
         ocm_repo = None
 
+    audit_timerange_days = deserialise_config_property(
+        config=component_config,
+        property_key='audit_timerange_days',
+        absent_ok=True,
+    )
+
     return Component(
         component_name=component_name,
         version=version,
         version_filter=version_filter,
         max_versions_limit=max_versions_limit,
         ocm_repo=ocm_repo,
+        audit_timerange_days=audit_timerange_days,
     )
 
 
@@ -552,11 +559,6 @@ def deserialise_sast_config(
         deserialise_component_config(component_config=component_raw)
         for component_raw in components_raw
     )
-    audit_timerange_days = deserialise_config_property(
-        config=sast_config,
-        property_key='audit_timerange_days',
-        absent_ok=True,
-    )
 
     rescoring_cfg_raw = deserialise_config_property(
         config=sast_config,
@@ -586,7 +588,6 @@ def deserialise_sast_config(
     return SASTConfig(
         delivery_service_url=delivery_service_url,
         components=components,
-        audit_timerange_days=audit_timerange_days,
         sast_rescoring_ruleset=default_rule_set,
     )
 
