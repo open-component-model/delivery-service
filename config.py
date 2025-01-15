@@ -575,10 +575,10 @@ def deserialise_sast_config(
             rules_from_dict=rescore.model.sast_rescoring_rules_from_dict,
         )
         default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-            default_rule_set=rescore.model.deserialise_default_rule_set(
+            default_rule_set=rescore.model.deserialise_default_rule_sets(
                 rescoring_cfg_raw=rescoring_cfg_raw,
                 rule_set_type=rescore.model.RuleSetType.SAST,
-            ),
+            )[0],
             rule_sets=rule_sets,
         )
     else:

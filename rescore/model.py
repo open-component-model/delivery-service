@@ -191,23 +191,26 @@ def find_default_rule_set_for_type(
     raise ValueError(f'No default rule_set_name found for {default_rule_set.type}.')
 
 
-def deserialise_default_rule_set(
+def deserialise_default_rule_sets(
     rescoring_cfg_raw: dict,
     rule_set_type: RuleSetType,
-) -> DefaultRuleSet:
-    for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']:
-        if default_rule_set_raw['type'] == rule_set_type:
-            break
-    else:
-        raise ValueError(f'No default rule set found for {rule_set_type=}.')
-
-    return dacite.from_dict(
-        data_class=DefaultRuleSet,
-        data=default_rule_set_raw,
-        config=dacite.Config(
-            cast=[enum.Enum],
+) -> list[DefaultRuleSet]:
+    default_rule_sets = [
+        dacite.from_dict(
+            data_class=DefaultRuleSet,
+            data=default_rule_set_raw,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
         )
-    )
+        for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
+        if RuleSetType(default_rule_set_raw['type']) is rule_set_type
+    ]
+
+    if not default_rule_sets:
+        raise ValueError(f'No default rule sets found for {rule_set_type=}.')
+
+    return default_rule_sets
 
 
 def deserialise_rule_sets(
@@ -228,7 +231,7 @@ def deserialise_rule_sets(
             )
         )
         for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
-        if rule_set_raw['type'] == rule_set_type
+        if RuleSetType(rule_set_raw['type']) is rule_set_type
     )
 
 
