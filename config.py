@@ -26,9 +26,15 @@ import rescore.model
 logger = logging.getLogger(__name__)
 
 
+class VersionFilter(enum.StrEnum):
+    ALL = 'all'
+    RELEASES_ONLY = 'releases_only'
+
+
 class Services(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefactEnumerator'
     BACKLOG_CONTROLLER = 'backlogController'
+    SAST_LINT_CHECK = 'sastLintCheck'
     BDBA = 'bdba'
     CACHE_MANAGER = 'cacheManager'
     CLAMAV = 'clamav'
@@ -43,6 +49,7 @@ class Component:
     version_filter: str
     max_versions_limit: int
     ocm_repo: ocm.OciOcmRepository
+    audit_timerange_days: int | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -92,6 +99,23 @@ class ClamAVConfig:
     rescan_interval: int
     aws_cfg_name: str
     artefact_types: tuple[str]
+
+
+@dataclasses.dataclass
+class SASTConfig:
+    '''
+    :param str delivery_service_url:
+    :param tuple[Component] components:
+        A tuple of components to be analyzed.
+    :param int audit_timerange_days:
+        The number of days to include in the audit range.
+        Used to determine the audit's start and end dates.
+    :param SastRescoringRuleSet sast_rescoring_rulesets:
+        A set of rules for rescoring SAST findings based on specified criteria.
+    '''
+    delivery_service_url: str
+    components: tuple[Component, ...]
+    sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -367,12 +391,19 @@ def deserialise_component_config(
     else:
         ocm_repo = None
 
+    audit_timerange_days = deserialise_config_property(
+        config=component_config,
+        property_key='audit_timerange_days',
+        absent_ok=True,
+    )
+
     return Component(
         component_name=component_name,
         version=version,
         version_filter=version_filter,
         max_versions_limit=max_versions_limit,
         ocm_repo=ocm_repo,
+        audit_timerange_days=audit_timerange_days,
     )
 
 
@@ -512,6 +543,61 @@ def deserialise_clamav_config(
     )
 
 
+def deserialise_sast_config(
+    spec_config: dict,
+) -> SASTConfig:
+    default_config = spec_config.get('defaults', dict())
+    sast_config = spec_config.get('sast')
+    if not sast_config:
+        return
+
+    delivery_service_url = deserialise_config_property(
+        config=sast_config,
+        property_key='delivery_service_url',
+        default_config=default_config,
+    )
+    components_raw = deserialise_config_property(
+        config=sast_config,
+        property_key='components',
+        default_value=[],
+    )
+    components = tuple(
+        deserialise_component_config(component_config=component_raw)
+        for component_raw in components_raw
+    )
+
+    rescoring_cfg_raw = deserialise_config_property(
+        config=sast_config,
+        property_key='rescoring',
+        default_config=default_config,
+        absent_ok=True,
+    )
+
+    if rescoring_cfg_raw:
+        rule_sets = rescore.model.deserialise_rule_sets(
+            rescoring_cfg_raw=rescoring_cfg_raw,
+            rule_set_type=rescore.model.RuleSetType.SAST,
+            rule_set_ctor=rescore.model.SastRescoringRuleSet,
+            rules_from_dict=rescore.model.sast_rescoring_rules_from_dict,
+        )
+        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
+            default_rule_set=rescore.model.deserialise_default_rule_sets(
+                rescoring_cfg_raw=rescoring_cfg_raw,
+                rule_set_type=rescore.model.RuleSetType.SAST,
+            )[0],
+            rule_sets=rule_sets,
+        )
+    else:
+        default_rule_set = None
+        logger.info('No SAST rescoring rules specified, rescoring will not be available')
+
+    return SASTConfig(
+        delivery_service_url=delivery_service_url,
+        components=components,
+        sast_rescoring_ruleset=default_rule_set,
+    )
+
+
 def deserialise_bdba_config(
     spec_config: dict,
 ) -> BDBAConfig:
@@ -625,6 +711,7 @@ def deserialise_bdba_config(
                 )
             )
             for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
+            if default_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
         ]
         default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
             default_rule_set=rescore.model.find_default_rule_set_for_type(

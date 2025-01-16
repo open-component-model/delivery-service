@@ -39,11 +39,6 @@ logger = logging.getLogger(__name__)
 feature_cfgs = []
 
 
-class VersionFilter(enum.StrEnum):
-    ALL = 'all'
-    RELEASES_ONLY = 'releases_only'
-
-
 @dataclasses.dataclass(frozen=True)
 class SprintRules:
     '''
@@ -154,7 +149,7 @@ class SpecialComponentsCfg:
     displayName: str
     type: str
     version: str | CurrentVersion
-    versionFilter: VersionFilter | None
+    versionFilter: config.VersionFilter | None
     icon: str | None
     releasePipelineUrl: str | None
     sprintRules: SprintRules | None
@@ -492,9 +487,9 @@ class FeatureUpgradePRs(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureVersionFilter(FeatureBase):
     name: str = 'version-filter'
-    version_filter: VersionFilter = VersionFilter.RELEASES_ONLY
+    version_filter: config.VersionFilter = config.VersionFilter.RELEASES_ONLY
 
-    def get_version_filter(self) -> VersionFilter:
+    def get_version_filter(self) -> config.VersionFilter:
         return self.version_filter
 
 
@@ -578,7 +573,7 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
                     CurrentVersion.CurrentVersionSource:
                         lambda cvs: deserialise_current_version_source(cvs),
                 },
-                cast=[VersionFilter],
+                cast=[config.VersionFilter],
             ),
         )
         for special_component_raw in special_components_raw
@@ -603,6 +598,19 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
             )
         )
         for rule_set_raw in rescoring_raw['rescoringRuleSets']
+        if rule_set_raw['type'] == rm.RuleSetType.CVE
+    )
+    sast_rescoring_rule_sets = tuple(
+        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
+        rm.SastRescoringRuleSet( #noqa:E1123
+            name=rule_set_raw['name'],
+            description=rule_set_raw.get('description'),
+            rules=list(
+                rm.sast_rescoring_rules_from_dict(rule_set_raw['rules'])
+            )
+        )
+        for rule_set_raw in rescoring_raw['rescoringRuleSets']
+        if rm.RuleSetType(rule_set_raw['type']) is rm.RuleSetType.SAST
     )
     default_rule_sets = [
         dacite.from_dict(
@@ -618,7 +626,7 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
     return FeatureRescoring(
         state=FeatureStates.AVAILABLE,
         default_rule_sets=default_rule_sets,
-        rescoring_rule_sets=cve_rescoring_rule_sets,
+        rescoring_rule_sets=cve_rescoring_rule_sets + sast_rescoring_rule_sets,
         cve_categorisation_label_url=rescoring_raw.get('cveCategorisationLabelUrl'),
         cve_severity_url=rescoring_raw.get('cveSeverityUrl'),
     )
@@ -777,7 +785,7 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
     else:
         yield FeatureVersionFilter(
             state=FeatureStates.AVAILABLE,
-            version_filter=VersionFilter(version_filter),
+            version_filter=config.VersionFilter(version_filter),
         )
 
 
