@@ -50,10 +50,10 @@ spec:
                 - "60"
           resources:
             requests:
-              memory: 150Mi
+              memory: 200Mi
               cpu: 500m
             limits:
-              memory: 300Mi
+              memory: 600Mi
               cpu: 1000m
       volumes:
         - name: cfg-factory
