@@ -5,3 +5,4 @@ aiohttp-devtools
 aiosqlite
 numpy
 scipy
+greenlet
