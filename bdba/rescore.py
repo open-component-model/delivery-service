@@ -45,35 +45,37 @@ def rescore(
     if not (categorisation := cve_categorisation(resource_node=scanned_element)):
         return assessed_vulns_by_component
 
-    product_id = scan_result.product_id()
+    product_id = scan_result.product_id
 
-    logger.info(f'rescoring {scan_result.display_name()} - {product_id=}')
+    logger.info(f'rescoring {scan_result.display_name} - {product_id=}')
 
-    all_components = tuple(scan_result.components())
-    components_with_vulnerabilities = [c for c in all_components if tuple(c.vulnerabilities())]
+    components_with_vulnerabilities = [
+        component for component in scan_result.components
+        if tuple(component.vulnerabilities)
+    ]
 
     components_with_vulnerabilities = sorted(
         components_with_vulnerabilities,
-        key=lambda c: c.name()
+        key=lambda c: c.name,
     )
 
     for c in components_with_vulnerabilities:
-        if not c.version():
+        if not c.version:
             continue # do not inject dummy-versions in fully automated mode, yet
 
         vulns_to_assess = []
 
-        for v in c.vulnerabilities():
-            if v.historical():
+        for v in c.vulnerabilities:
+            if v.historical:
                 continue
-            if v.has_triage():
+            if v.has_triage:
                 continue
 
             if not v.cvss:
                 continue # happens if only cvss-v2 is available - ignore for now
 
-            component_id = f'{c.name()}:{c.version()}'
-            if v.cve() in assessed_vulns_by_component[component_id]:
+            component_id = f'{c.name}:{c.version}'
+            if v.cve in assessed_vulns_by_component[component_id]:
                 continue
 
             orig_severity = dso.cvss.CVESeverity.from_cve_score(v.cve_severity())
@@ -92,14 +94,14 @@ def rescore(
 
             if rescored is dso.cvss.CVESeverity.NONE:
                 vulns_to_assess.append(v)
-                assessed_vulns_by_component[component_id].append(v.cve())
+                assessed_vulns_by_component[component_id].append(v.cve)
 
         if vulns_to_assess:
-            logger.info(f'{len(vulns_to_assess)=}: {[v.cve() for v in vulns_to_assess]}')
+            logger.info(f'{len(vulns_to_assess)=}: {[v.cve for v in vulns_to_assess]}')
             bdba_client.add_triage_raw({
-                'component': c.name(),
-                'version': c.version(),
-                'vulns': [v.cve() for v in vulns_to_assess],
+                'component': c.name,
+                'version': c.version,
+                'vulns': [v.cve for v in vulns_to_assess],
                 'scope': bm.TriageScope.RESULT.value,
                 'reason': 'OT',
                 'description': 'auto-assessed as irrelevant based on cve-categorisation',

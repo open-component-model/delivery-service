@@ -59,30 +59,25 @@ def iter_artefact_metadata(
         artefact=scanned_element.resource,
     )
 
-    base_url = scan_result.base_url()
-    report_url = scan_result.report_url()
-    product_id = scan_result.product_id()
-    group_id = scan_result.group_id()
-
     yield dso.model.artefact_scan_info(
         artefact_node=scanned_element,
         datasource=datasource,
         data={
-            'report_url': report_url,
+            'report_url': scan_result.report_url,
         },
     )
 
     findings: list[dso.model.ArtefactMetadata] = []
-    for package in scan_result.components():
-        package_name = package.name()
-        package_version = package.version()
+    for package in scan_result.components:
+        package_name = package.name
+        package_version = package.version
 
         filesystem_paths = list(iter_filesystem_paths(component=package))
 
         licenses = list({
             dso.model.License(
                 name=license.name,
-            ) for license in package.licenses
+            ) for license in package.iter_licenses
         })
 
         meta = dso.model.Metadata(
@@ -94,10 +89,10 @@ def iter_artefact_metadata(
         structure_info = dso.model.StructureInfo(
             package_name=package_name,
             package_version=package_version,
-            base_url=base_url,
-            report_url=report_url,
-            product_id=product_id,
-            group_id=group_id,
+            base_url=scan_result.base_url,
+            report_url=scan_result.report_url,
+            product_id=scan_result.product_id,
+            group_id=scan_result.group_id,
             licenses=licenses,
             filesystem_paths=filesystem_paths,
         )
@@ -122,10 +117,10 @@ def iter_artefact_metadata(
             license_finding = dso.model.LicenseFinding(
                 package_name=package_name,
                 package_version=package_version,
-                base_url=base_url,
-                report_url=report_url,
-                product_id=product_id,
-                group_id=group_id,
+                base_url=scan_result.base_url,
+                report_url=scan_result.report_url,
+                product_id=scan_result.product_id,
+                group_id=scan_result.group_id,
                 severity=gcm.Severity.BLOCKER.name,
                 license=license,
             )
@@ -140,15 +135,15 @@ def iter_artefact_metadata(
             findings.append(artefact_metadata)
             yield artefact_metadata
 
-        for vulnerability in package.vulnerabilities():
+        for vulnerability in package.vulnerabilities:
             if not vulnerability.cvss or not vulnerability.cve_severity():
                 # we only support vulnerabilities with a valid cvss v3 vector
                 continue
 
-            if vulnerability.historical():
+            if vulnerability.historical:
                 continue
 
-            for triage in vulnerability.triages():
+            for triage in vulnerability.triages:
                 meta = dso.model.Metadata(
                     datasource=datasource,
                     type=dso.model.Datatype.RESCORING,
@@ -164,18 +159,18 @@ def iter_artefact_metadata(
                 vulnerability_rescoring = dso.model.CustomRescoring(
                     finding=dso.model.RescoringVulnerabilityFinding(
                         package_name=package_name,
-                        cve=vulnerability.cve(),
+                        cve=vulnerability.cve,
                     ),
                     referenced_type=dso.model.Datatype.VULNERABILITY,
                     severity=gcm.Severity.NONE.name, # bdba only allows triaging to NONE
                     user=dso.model.BDBAUser(
-                        username=triage.user().get('username'),
-                        email=triage.user().get('email'),
-                        firstname=triage.user().get('firstname'),
-                        lastname=triage.user().get('lastname'),
+                        username=triage.user.get('username'),
+                        email=triage.user.get('email'),
+                        firstname=triage.user.get('firstname'),
+                        lastname=triage.user.get('lastname'),
                     ),
                     matching_rules=[dso.model.MetaRescoringRules.BDBA_TRIAGE],
-                    comment=triage.description(),
+                    comment=triage.description,
                 )
 
                 yield dso.model.ArtefactMetadata(
@@ -193,17 +188,17 @@ def iter_artefact_metadata(
             vulnerability_finding = dso.model.VulnerabilityFinding(
                 package_name=package_name,
                 package_version=package_version,
-                base_url=base_url,
-                report_url=report_url,
-                product_id=product_id,
-                group_id=group_id,
+                base_url=scan_result.base_url,
+                report_url=scan_result.report_url,
+                product_id=scan_result.product_id,
+                group_id=scan_result.group_id,
                 severity=gcr._criticality_classification(
                     cve_score=vulnerability.cve_severity(),
                 ).name,
-                cve=vulnerability.cve(),
+                cve=vulnerability.cve,
                 cvss_v3_score=vulnerability.cve_severity(),
                 cvss=vulnerability.cvss,
-                summary=vulnerability.summary(),
+                summary=vulnerability.summary,
             )
 
             artefact_metadata = dso.model.ArtefactMetadata(
@@ -250,12 +245,12 @@ def iter_filesystem_paths(
     component: bm.Component,
     file_type: str | None=None,
 ) -> collections.abc.Generator[dso.model.FilesystemPath, None, None]:
-    for ext_obj in component.extended_objects():
+    for ext_obj in component.extended_objects:
         path = [
             dso.model.FilesystemPathEntry(
                 path=path,
                 type=type,
-            ) for path_infos in ext_obj.raw.get('extended-fullpath', [])
+            ) for path_infos in ext_obj.extended_fullpath
             if (
                 (path := path_infos.get('path')) and (type := path_infos.get('type'))
                 and (not file_type or file_type == type)
@@ -264,16 +259,16 @@ def iter_filesystem_paths(
 
         yield dso.model.FilesystemPath(
             path=path,
-            digest=ext_obj.sha1(),
+            digest=ext_obj.sha1,
         )
 
 
 def enum_triages(
     result: bm.AnalysisResult,
 ) -> collections.abc.Generator[tuple[bm.Component, bm.Triage], None, None]:
-    for component in result.components():
-        for vulnerability in component.vulnerabilities():
-            for triage in vulnerability.triages():
+    for component in result.components:
+        for vulnerability in component.vulnerabilities:
+            for triage in vulnerability.triages:
                 yield component, triage
 
 
@@ -326,7 +321,7 @@ def _matching_analysis_result_id(
                 return False
         return True
 
-    filtered_results = tuple(r for r in analysis_results if filter_func(r.custom_data()))
+    filtered_results = tuple(r for r in analysis_results if filter_func(r.custom_data))
 
     if not filtered_results:
         return None
@@ -340,9 +335,9 @@ def _matching_analysis_result_id(
         )
         filtered_results = sorted(
             filtered_results,
-            key=lambda result: result.product_id(),
+            key=lambda result: result.product_id,
             reverse=True,
         )
 
     # there is at least one result and they are ordered (latest product id first)
-    return filtered_results[0].product_id()
+    return filtered_results[0].product_id

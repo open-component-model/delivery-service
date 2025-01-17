@@ -17,16 +17,13 @@ def upload_version_hints(
     hints: collections.abc.Iterable[dso.labels.PackageVersionHint],
     client: bdba.client.BDBAApi,
 ) -> bm.AnalysisResult:
-    components: tuple[bm.Component] = tuple(scan_result.components())
-    product_id = scan_result.product_id()
-
-    for component in components:
-        name = component.name()
-        version = component.version()
+    for component in scan_result.components:
+        name = component.name
+        version = component.version
 
         if version and version != 'unknown':
             # check if package is unique -> in that case we can overwrite the detected version
-            if len([c for c in components if c.name() == name]) > 1:
+            if len([c for c in scan_result.components if c.name == name]) > 1:
                 # not unique, so we cannot overwrite package version
                 continue
 
@@ -36,13 +33,13 @@ def upload_version_hints(
         else:
             continue
 
-        digests = [eo.sha1() for eo in component.extended_objects()]
+        digests = [eo.sha1 for eo in component.extended_objects]
 
         client.set_component_version(
             component_name=name,
             component_version=hint.version,
             objects=digests,
-            app_id=product_id,
+            app_id=scan_result.product_id,
         )
 
         # the bdba api does not properly react to multiple component versions being set in
@@ -50,7 +47,7 @@ def upload_version_hints(
         # using one single api request. That's why, adding a small delay in case multiple
         # hints and thus possible version overrides exist by retrieving scan result again
         scan_result = client.wait_for_scan_result(
-            product_id=product_id,
+            product_id=scan_result.product_id,
             polling_interval_seconds=15, # re-scanning usually don't take a minute
         )
 
@@ -70,25 +67,23 @@ def add_assessments_if_none_exist(
     Assessments are added "optimistically", ignoring version differences between source and target
     component versions (assumption: assessments are valid for all component-versions).
     '''
-    product_id = tgt.product_id()
-
     tgt_components_by_name = collections.defaultdict(list)
-    for c in tgt.components():
-        if not c.version():
+    for c in tgt.components:
+        if not c.version:
             continue # triages require component versions to be set
-        tgt_components_by_name[c.name()].append(c)
+        tgt_components_by_name[c.name].append(c)
 
     for component, vulnerability, triages in assessments:
-        if not component.name() in tgt_components_by_name:
+        if not component.name in tgt_components_by_name:
             continue
 
-        for tgt_component in tgt_components_by_name[component.name()]:
-            for tgt_vulnerability in tgt_component.vulnerabilities():
-                if tgt_vulnerability.cve() != vulnerability.cve():
+        for tgt_component in tgt_components_by_name[component.name]:
+            for tgt_vulnerability in tgt_component.vulnerabilities:
+                if tgt_vulnerability.cve != vulnerability.cve:
                     continue
-                if tgt_vulnerability.historical():
+                if tgt_vulnerability.historical:
                     continue
-                if tgt_vulnerability.has_triage():
+                if tgt_vulnerability.has_triage:
                     continue
                 # vulnerability is still "relevant" (not obsolete and unassessed)
                 break
@@ -96,25 +91,24 @@ def add_assessments_if_none_exist(
                 # vulnerability is not longer "relevant" -> skip
                 continue
 
-            tgt_component_id = f'{tgt_component.name()}:{tgt_component.version()}'
-            if vulnerability.cve() in assessed_vulns_by_component[tgt_component_id]:
+            tgt_component_id = f'{tgt_component.name}:{tgt_component.version}'
+            if vulnerability.cve in assessed_vulns_by_component[tgt_component_id]:
                 continue
 
             for triage in triages:
                 try:
                     bdba_client.add_triage(
                         triage=triage,
-                        product_id=product_id,
+                        product_id=tgt.product_id,
                         group_id=tgt_group_id,
-                        component_version=tgt_component.version(),
+                        component_version=tgt_component.version,
                     )
-                    assessed_vulns_by_component[tgt_component_id].append(vulnerability.cve())
+                    assessed_vulns_by_component[tgt_component_id].append(vulnerability.cve)
                 except requests.exceptions.HTTPError as e:
                     # we will re-try importing every scan, so just print a warning
                     logger.warning(
-                        f'An error occurred importing {triage=} to {component.name()=} '
-                        f'in version {component.version()} for scan {product_id} '
-                        f'{e}'
+                        f'An error occurred importing {triage=} to {component.name=} '
+                        f'in version {component.version} for scan {tgt.product_id} {e}'
                     )
     return assessed_vulns_by_component
 
@@ -126,7 +120,8 @@ def auto_triage(
     assessment_txt: str=None,
     assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
 ) -> dict[str, list[str]]:
-    '''Automatically triage all current vulnerabilities below the given CVSS-threshold on the given
+    '''
+    Automatically triage all current vulnerabilities below the given CVSS-threshold on the given
     BDBA scan.
 
     Components with matching vulnerabilities will be assigned an arbitrary version
@@ -136,26 +131,25 @@ def auto_triage(
         raise ValueError('exactly one of product_id, analysis_result must be passed')
 
     if analysis_result:
-        product_id = analysis_result.product_id()
+        product_id = analysis_result.product_id
 
-    if product_id:
-        analysis_result = bdba_client.scan_result(product_id=product_id)
+    analysis_result = bdba_client.scan_result(product_id=product_id)
 
-    product_name = analysis_result.name()
+    product_name = analysis_result.name
     assessment_txt = assessment_txt or 'Auto-generated due to skip-scan label'
 
-    for component in analysis_result.components():
-        component_version = component.version()
-        for vulnerability in component.vulnerabilities():
-            if vulnerability.historical():
+    for component in analysis_result.components:
+        component_version = component.version
+        for vulnerability in component.vulnerabilities:
+            if vulnerability.historical:
                 continue
-            if vulnerability.has_triage():
+            if vulnerability.has_triage:
                 continue
 
             # component version needs to be set to triage. If we actually have a vulnerability
             # we want to auto-triage we need to set the version first.
-            component_name = component.name()
-            vulnerability_cve = vulnerability.cve()
+            component_name = component.name
+            vulnerability_cve = vulnerability.cve
 
             component_id = f'{component_name}:{component_version}'
             if vulnerability_cve in assessed_vulns_by_component[component_id]:
@@ -167,7 +161,7 @@ def auto_triage(
                     component_name=component_name,
                     component_version=component_version,
                     scope=bm.VersionOverrideScope.APP,
-                    objects=list(o.sha1() for o in component.extended_objects()),
+                    objects=list(eo.sha1 for eo in component.extended_objects),
                     app_id=product_id,
                 )
 
