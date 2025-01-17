@@ -437,3 +437,104 @@ definitions:
         $ref: '#/definitions/KubernetesMetadata'
       spec:
         $ref: '#/definitions/RuntimeArtefactSpec'
+
+  DoraSummary:
+    type: object
+    properties:
+      targetComponentName:
+        type: string
+        description: The name of the target component.
+      timePeriod:
+        type: number
+        format: float
+        description: The time period over which metrics were calculated.
+      componentName:
+        type: string
+        description: The name of the component for which DORA metrics are calculated.
+      medianDeploymentFrequency:
+        type: number
+        format: float
+        description: Median deployment frequency.
+      medianLeadTime:
+        type: number
+        format: float
+        description: Median lead time in seconds.
+      deploymentsPerMonth:
+        type: object
+        additionalProperties:
+          type: integer
+        description: Deployments per month.
+      deploymentsPerWeek:
+        type: object
+        additionalProperties:
+          type: integer
+        description: Deployments per week.
+      deploymentsPerDay:
+        type: object
+        additionalProperties:
+          type: integer
+        description: Deployments per day.
+      leadTimePerMonth:
+        type: object
+        additionalProperties:
+          type: number
+          format: float
+        description: Median lead time per month in seconds.
+      leadTimePerWeek:
+        type: object
+        additionalProperties:
+          type: number
+          format: float
+        description: Median lead time per week in seconds.
+      leadTimePerDay:
+        type: object
+        additionalProperties:
+          type: number
+          format: float
+        description: Median lead time per day in seconds.
+      deployments:
+        description: List of deployments with associated commits.
+        type: array
+        items:
+          type: object
+          properties:
+            targetComponentVersionNew:
+              type: string
+              description: New version of the target component.
+            targetComponentVersionOld:
+              type: string
+              description: Previous version of the target component.
+            deployedComponentVersion:
+              type: string
+              description: New version of the deployed component.
+            oldComponentVersion:
+              type: string
+              description: Previous version of the deployed component.
+            deploymentDate:
+              type: string
+              format: date-time
+              description: Date and time of deployment.
+            commits:
+              type: array
+              items:
+                type: object
+                properties:
+                  commitSha:
+                    type: string
+                    description: SHA of the commit.
+                  commitDate:
+                    type: string
+                    format: date-time
+                    description: Date of the commit.
+                  deploymentDate:
+                    type: string
+                    format: date-time
+                    description: Date of deployment.
+                  leadTime:
+                    type: number
+                    format: float
+                    description: Lead time in seconds.
+                  url:
+                    type: string
+                    format: uri
+                    description: URL to the commit.
