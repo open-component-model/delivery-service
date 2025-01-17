@@ -1,4 +1,5 @@
 import collections.abc
+import dataclasses
 import itertools
 import logging
 import os
@@ -46,7 +47,7 @@ def retrieve(
         product_id=product_id,
     )
 
-    pprint.pprint(scan_result.raw)
+    pprint.pprint(dataclasses.asdict(scan_result))
 
 
 def ls_products(
@@ -86,7 +87,7 @@ def ls_products(
         }
 
         for app in client.list_apps(group_id=group_id, custom_attribs=metadata):
-            print(app.product_id())
+            print(app.product_id)
 
 
 def rescore(
@@ -119,14 +120,13 @@ def rescore(
         )
     )
 
-    all_components = tuple(result.components())
-    components_with_vulnerabilities = [c for c in all_components if tuple(c.vulnerabilities())]
+    components_with_vulnerabilities = [c for c in result.components if tuple(c.vulnerabilities)]
 
-    logger.info(f'{len(all_components)=}, {len(components_with_vulnerabilities)=}')
+    logger.info(f'{len(result.components)=}, {len(components_with_vulnerabilities)=}')
 
     components_with_vulnerabilities = sorted(
         components_with_vulnerabilities,
-        key=lambda c: c.name()
+        key=lambda c: c.name,
     )
 
     total_vulns = 0
@@ -138,10 +138,10 @@ def rescore(
         vulns_to_assess = []
         printed_cname = False
 
-        for v in c.vulnerabilities():
-            if v.historical():
+        for v in c.vulnerabilities:
+            if v.historical:
                 continue
-            if v.has_triage():
+            if v.has_triage:
                 continue
 
             vulns_count += 1
@@ -164,17 +164,17 @@ def rescore(
                 rescored_count += 1
 
                 if not printed_cname:
-                    print(f'{c.name()}:{c.version()}')
+                    print(f'{c.name}:{c.version}')
                     printed_cname = True
 
-                print(f'  rescore {orig_severity.name} -> {rescored.name} - {v.cve()}')
+                print(f'  rescore {orig_severity.name} -> {rescored.name} - {v.cve}')
                 if assess and rescored is dso.cvss.CVESeverity.NONE:
-                    if not c.version():
-                        print(f'setting dummy-version for {c.name()}')
+                    if not c.version:
+                        print(f'setting dummy-version for {c.name}')
                         client.set_component_version(
-                            component_name=c.name(),
+                            component_name=c.name,
                             component_version='does-not-matter',
-                            objects=[eo.sha1() for eo in c.extended_objects()],
+                            objects=[eo.sha1 for eo in c.extended_objects],
                             app_id=product_id,
                         )
                     else:
@@ -182,9 +182,9 @@ def rescore(
 
         if assess and vulns_to_assess:
             client.add_triage_raw({
-                'component': c.name(),
-                'version': c.version() or 'does-not-matter',
-                'vulns': [v.cve() for v in vulns_to_assess],
+                'component': c.name,
+                'version': c.version or 'does-not-matter',
+                'vulns': [v.cve for v in vulns_to_assess],
                 'scope': bdba.model.TriageScope.RESULT.value,
                 'reason': 'OT',
                 'description': 'assessed as irrelevant based on cve-categorisation',
@@ -416,16 +416,16 @@ def transport_triages(
     def target_component_versions(product_id: int, component_name: str):
         scan_result = scan_results_to[product_id]
         component_versions = {
-            c.version() for c
-            in scan_result.components()
-            if c.name() == component_name
+            c.version for c
+            in scan_result.components
+            if c.name == component_name
         }
         return component_versions
 
     def enum_triages():
-        for component in scan_result_from.components():
-            for vulnerability in component.vulnerabilities():
-                for triage in vulnerability.triages():
+        for component in scan_result_from.components:
+            for vulnerability in component.vulnerabilities:
+                for triage in vulnerability.triages:
                     yield component, triage
 
     triages = list(enum_triages())
@@ -435,13 +435,13 @@ def transport_triages(
         component, triage = component_name_and_triage
         for target_component_version in target_component_versions(
             product_id=to_product_id,
-            component_name=component.name(),
+            component_name=component.name,
         ):
-            logger.info(f'adding triage for {triage.component_name()}:{target_component_version}')
+            logger.info(f'adding triage for {triage.component}:{target_component_version}')
             api.add_triage(
                 triage=triage,
                 product_id=to_product_id,
                 group_id=to_group_id,
                 component_version=target_component_version,
             )
-        logger.info(f'added triage for {triage.component_name()} to {to_product_id}')
+        logger.info(f'added triage for {triage.component} to {to_product_id}')
