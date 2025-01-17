@@ -93,17 +93,17 @@ class ResourceGroupProcessor:
         def _iter_vulnerabilities(
             result: bm.AnalysisResult,
         ) -> collections.abc.Generator[tuple[bm.Component, bm.Vulnerability], None, None]:
-            for component in result.components():
-                for vulnerability in component.vulnerabilities():
+            for component in result.components:
+                for vulnerability in component.vulnerabilities:
                     yield component, vulnerability
 
         def iter_vulnerabilities_with_assessments(
             result: bm.AnalysisResult,
         ):
             for component, vulnerability in _iter_vulnerabilities(result=result):
-                if not vulnerability.has_triage():
+                if not vulnerability.has_triage:
                     continue
-                yield component, vulnerability, tuple(vulnerability.triages())
+                yield component, vulnerability, tuple(vulnerability.triages)
 
         now = datetime.datetime.now(tz=pytz.UTC)
         delete_after = now + datetime.timedelta(
@@ -111,28 +111,28 @@ class ResourceGroupProcessor:
         )
         for product in products_to_import_from:
             if delete_inactive_products_after_seconds is not None:
-                if not (delete_after_flag := product.custom_data().get('DELETE_AFTER')):
+                if not (delete_after_flag := product.custom_data.get('DELETE_AFTER')):
                     delete_after_flag = delete_after.isoformat()
                     self.bdba_client.set_metadata(
-                        product_id=product.product_id(),
+                        product_id=product.product_id,
                         custom_attribs={
                             'DELETE_AFTER': delete_after_flag,
                         },
                     )
 
                 if now >= dateutil.parser.isoparse(delete_after_flag):
-                    self.bdba_client.delete_product(product_id=product.product_id())
-                    logger.info(f'deleted old bdba product {product.product_id()}')
+                    self.bdba_client.delete_product(product_id=product.product_id)
+                    logger.info(f'deleted old bdba product {product.product_id}')
                     continue
 
             if use_product_cache:
                 result = _wait_for_scan_result(
                     bdba_client=self.bdba_client,
-                    product_id=product.product_id(),
+                    product_id=product.product_id,
                 )
             else:
                 result = self.bdba_client.wait_for_scan_result(
-                    product_id=product.product_id(),
+                    product_id=product.product_id,
                 )
             yield from iter_vulnerabilities_with_assessments(
                 result=result,
@@ -220,7 +220,7 @@ class ResourceGroupProcessor:
             if (existing_id := scan_request.target_product_id):
                 # check if result can be reused
                 scan_result = self.bdba_client.scan_result(product_id=existing_id)
-                if scan_result.is_stale() and not scan_result.has_binary():
+                if scan_result.stale and not scan_result.rescan_possible:
                     # no choice but to upload
                     try:
                         return self.bdba_client.upload(
@@ -236,23 +236,23 @@ class ResourceGroupProcessor:
                         raise_on_error(e)
 
                 # update name unless identical
-                if scan_result.name() != scan_request.display_name:
+                if scan_result.name != scan_request.display_name:
                     self.bdba_client.set_product_name(
                         product_id=existing_id,
                         name=scan_request.display_name,
                     )
                 # update metadata if new metadata is not completely included in current one
-                if scan_result.custom_data().items() < scan_request.custom_metadata.items():
+                if scan_result.custom_data.items() < scan_request.custom_metadata.items():
                     self.bdba_client.set_metadata(
                         product_id=existing_id,
                         custom_attribs=scan_request.custom_metadata,
                     )
 
-                if scan_result.has_binary() and scan_result.is_stale():
+                if scan_result.rescan_possible and scan_result.stale:
                     # binary is still available, and "result is stale" (there was an engine-
                     # update), trigger rescan
                     logger.info(
-                        f'Triggering rescan for {existing_id} ({scan_request.display_name()})'
+                        f'Triggering rescan for {existing_id} ({scan_request.display_name})'
                     )
                     self.bdba_client.rescan(product_id=existing_id)
                 try:
@@ -312,7 +312,7 @@ class ResourceGroupProcessor:
                 scan_request=scan_request,
                 processing_mode=processing_mode,
             )
-            scan_result = self.bdba_client.wait_for_scan_result(scan_result.product_id())
+            scan_result = self.bdba_client.wait_for_scan_result(scan_result.product_id)
             scan_failed = False
         except bm.BdbaScanError as bse:
             scan_result = bse
@@ -334,11 +334,11 @@ class ResourceGroupProcessor:
             return
 
         logger.info(
-            f'scan of {scan_result.display_name()} succeeded, going to post-process results'
+            f'scan of {scan_result.display_name} succeeded, going to post-process results'
         )
 
         if version_hints := _package_version_hints(resource=resource):
-            logger.info(f'uploading package-version-hints for {scan_result.display_name()}')
+            logger.info(f'uploading package-version-hints for {scan_result.display_name}')
             scan_result = bdba.assessments.upload_version_hints(
                 scan_result=scan_result,
                 hints=version_hints,
@@ -374,23 +374,23 @@ class ResourceGroupProcessor:
 
         if assessed_vulns_by_component:
             logger.info(
-                f'retrieving result again from bdba for {scan_result.display_name()} ' +
+                f'retrieving result again from bdba for {scan_result.display_name} ' +
                 '(this may take a while)'
             )
             scan_result = self.bdba_client.wait_for_scan_result(
-                product_id=scan_result.product_id(),
+                product_id=scan_result.product_id,
             )
 
         if delete_inactive_products_after_seconds is not None:
             # remove deletion flag for current product as it is still in use
             self.bdba_client.set_metadata(
-                product_id=scan_result.product_id(),
+                product_id=scan_result.product_id,
                 custom_attribs={
                     'DELETE_AFTER': None,
                 },
             )
 
-        logger.info(f'post-processing of {scan_result.display_name()} done')
+        logger.info(f'post-processing of {scan_result.display_name} done')
 
         yield from bdba.util.iter_artefact_metadata(
             scanned_element=scanned_element,

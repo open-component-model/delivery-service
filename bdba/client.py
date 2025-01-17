@@ -4,12 +4,16 @@
 
 
 import collections.abc
+import datetime
+import enum
 import functools
 import logging
 import time
 import traceback
 import urllib.parse
 
+import dacite
+import dateutil.parser
 import requests
 
 import ci.log
@@ -23,6 +27,31 @@ import bdba.model as bm
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
+
+
+def kebab_to_snake_case_keys(d: dict[str, dict | list | str | int]) -> dict:
+    '''
+    Highly opinionated function to convert the BDBA analysis result so that it can be processed by
+    our BDBA model classes. In that, it converts kebab-cased keys recursively into snake_case (as
+    expected by our model classes).
+    '''
+    result = {}
+
+    for key, value in d.items():
+        if isinstance(value, dict):
+            value = kebab_to_snake_case_keys(value)
+        elif isinstance(value, list):
+            value = [
+                kebab_to_snake_case_keys(v) if isinstance (v, dict) else v
+                for v in value
+            ]
+
+        if not isinstance(key, str):
+            raise TypeError(f'{key=} is expected to be of type "str", but is type "{type(key)}"')
+
+        result[key.replace('-', '_')] = value
+
+    return result
 
 
 class BDBAApiRoutes:
@@ -182,9 +211,15 @@ class BDBAApi:
             url=url,
             headers=headers,
             data=data,
-        )
+        ).json().get('results', {})
 
-        return bm.AnalysisResult(raw_dict=result.json().get('results'))
+        return dacite.from_dict(
+            data_class=bm.AnalysisResult,
+            data=kebab_to_snake_case_keys(result),
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
+        )
 
     def delete_product(self, product_id: int):
         url = self._routes.product(product_id=product_id)
@@ -205,9 +240,15 @@ class BDBAApi:
 
         result = self._get(
             url=url,
-        ).json()['results']
+        ).json().get('results', {})
 
-        return bm.AnalysisResult(raw_dict=result)
+        return dacite.from_dict(
+            data_class=bm.AnalysisResult,
+            data=kebab_to_snake_case_keys(result),
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
+        )
 
     def wait_for_scan_result(
         self,
@@ -216,11 +257,11 @@ class BDBAApi:
     ) -> bm.AnalysisResult:
         def scan_finished():
             result = self.scan_result(product_id=product_id)
-            if result.status() is bm.ProcessingStatus.READY:
+            if result.status is bm.ProcessingStatus.READY:
                 return result
-            elif result.status() is bm.ProcessingStatus.FAILED:
+            elif result.status is bm.ProcessingStatus.FAILED:
                 # failed scans do not contain package infos, raise to prevent side effects
-                raise RuntimeError(f'scan failed; {result.fail_reason()=}')
+                raise RuntimeError(f'scan failed; {result.fail_reason=}')
             else:
                 return False
 
@@ -251,7 +292,10 @@ class BDBAApi:
             for product in products:
                 if not full_match(product.get('custom_data')):
                     continue
-                yield bm.Product(product)
+                yield dacite.from_dict(
+                    data_class=bm.Product,
+                    data=product,
+                )
 
             if next_page_url := res.get('next'):
                 yield from _iter_matching_products(url=next_page_url)
@@ -282,7 +326,7 @@ class BDBAApi:
         self,
         component_name: str,
         component_version: str,
-        vulnerability_id: str,
+        vuln_id: str,
         scope: str,
         description: str,
     ):
@@ -291,14 +335,25 @@ class BDBAApi:
             url=url,
             params={
                 'component': component_name,
-                'vuln_id': vulnerability_id,
+                'vuln_id': vuln_id,
                 'scope': scope,
                 'version': component_version,
                 'description': description,
             }
         ).json()['triages']
 
-        return [bm.Triage(raw_dict=triage_dict) for triage_dict in result]
+        return [
+            dacite.from_dict(
+                data_class=bm.Triage,
+                data=triage_dict,
+                config=dacite.Config(
+                    type_hooks={
+                        datetime.datetime: dateutil.parser.isoparse,
+                    },
+                    cast=[enum.Enum],
+                ),
+            ) for triage_dict in result
+        ]
 
     def add_triage(
         self,
@@ -328,7 +383,7 @@ class BDBAApi:
         @param component_version: overwrite target component version
         '''
         # if no scope is set, use the one from passed triage
-        scope = scope if scope else triage.scope()
+        scope = scope if scope else triage.scope
 
         # depending on the scope, different arguments are required
         if scope == bm.TriageScope.ACCOUNT_WIDE:
@@ -341,16 +396,16 @@ class BDBAApi:
             raise NotImplementedError()
 
         if not component_version:
-            component_version = triage.component_version()
+            component_version = triage.version
 
         # "copy" data from existing triage
         triage_dict = {
-            'component': triage.component_name(),
+            'component': triage.component,
             'version': component_version,
-            'vulns': [triage.vulnerability_id()],
-            'scope': triage.scope().value,
-            'reason': triage.reason(),
-            'description': triage.description(),
+            'vulns': [triage.vuln_id],
+            'scope': triage.scope.value,
+            'reason': triage.reason,
+            'description': triage.description,
         }
 
         if product_id:

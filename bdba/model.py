@@ -16,219 +16,30 @@ import dateutil.parser
 import ci.util
 import dso.cvss
 import dso.labels
-import model.base
 import ocm
 
 
 logger = logging.getLogger()
 
 
-class VersionOverrideScope(enum.Enum):
+class VersionOverrideScope(enum.IntEnum):
     APP = 1
     GROUP = 2
     GLOBAL = 3
 
 
-class ProcessingStatus(enum.Enum):
+class ProcessingStatus(enum.StrEnum):
     BUSY = 'B'
     READY = 'R'
     FAILED = 'F'
 
 
-class CVSSVersion(enum.Enum):
+class CVSSVersion(enum.StrEnum):
     V2 = 'CVSSv2'
     V3 = 'CVSSv3'
 
 
-class ProcessingMode(enum.StrEnum):
-    RESCAN = 'rescan'
-    FORCE_UPLOAD = 'force_upload'
-
-
-class Product(model.base.ModelBase):
-    def product_id(self) -> int:
-        return self.raw['product_id']
-
-    def custom_data(self) -> dict[str, str]:
-        return self.raw.get('custom_data', dict())
-
-    def name(self) -> str:
-        return self.raw['name']
-
-
-class AnalysisResult(model.base.ModelBase):
-    def product_id(self) -> int:
-        return self.raw.get('product_id')
-
-    def group_id(self) -> int:
-        return int(self.raw.get('group_id'))
-
-    def base_url(self) -> str:
-        report_url = self.report_url()
-        parsed_url = ci.util.urlparse(report_url)
-        return f'{parsed_url.scheme}://{parsed_url.hostname}'
-
-    def report_url(self) -> str:
-        return self.raw.get('report_url')
-
-    def display_name(self) -> str:
-        return self.raw.get('filename', '<None>')
-
-    def name(self):
-        return self.raw.get('name')
-
-    def status(self) -> ProcessingStatus:
-        return ProcessingStatus(self.raw.get('status'))
-
-    def components(self) -> 'collections.abc.Generator[Component, None, None]':
-        return (Component(raw_dict=raw) for raw in self.raw.get('components', []))
-
-    def custom_data(self) -> dict[str, str]:
-        return self.raw.get('custom_data')
-
-    def is_stale(self) -> bool:
-        '''
-        Returns a boolean value indicating whether or not the stored scan result
-        has become "stale" (meaning that a rescan would potentially return different
-        results).
-        '''
-        return self.raw.get('stale')
-
-    def has_binary(self) -> bool:
-        '''
-        Returns a boolean value indicating whether or not the uploaded file is still present.
-        In case the uploaded file is no longer present, it needs to be re-uploaded prior to
-        rescanning.
-        '''
-        return self.raw.get('rescan-possible')
-
-    def creation_time(self) -> str:
-        return self.raw.get('created')
-
-    def scanned_bytes(self) -> int:
-        return self.raw.get('scanned_bytes')
-
-    def fail_reason(self) -> str:
-        return self.raw.get('fail-reason')
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}: {self.display_name()}({self.product_id()})'
-
-
-@dataclasses.dataclass
-class License:
-    name: str
-    type: str | None = None
-    url: str | None = None
-
-
-class Component(model.base.ModelBase):
-    def name(self) -> str:
-        return self.raw.get('lib')
-
-    def version(self) -> str:
-        return self.raw.get('version')
-
-    def vulnerabilities(self) -> 'collections.abc.Generator[Vulnerability, None, None]':
-        for raw in self.raw.get('vulns'):
-            if raw['vuln']['cve']:
-                yield Vulnerability(raw_dict=raw)
-                continue
-
-    @property
-    def licenses(self) -> collections.abc.Generator[License, None, None]:
-        if not (licenses := self.raw.get('licenses')):
-            license_raw = self.raw.get('license')
-            if not license_raw:
-                return
-            yield dacite.from_dict(
-                data_class=License,
-                data=license_raw,
-            )
-            return
-
-        yield from (
-            dacite.from_dict(
-                data_class=License,
-                data=license_raw,
-            ) for license_raw in licenses.get('licenses')
-        )
-
-    def extended_objects(self) -> 'collections.abc.Generator[ExtendedObject, None, None]':
-        return (ExtendedObject(raw_dict=raw) for raw in self.raw.get('extended-objects'))
-
-    @property
-    def tags(self) -> tuple[str]:
-        if not (tags := self.raw.get('tags')):
-            return ()
-        return tuple(tags)
-
-    def __repr__(self):
-        return (
-            f'{self.__class__.__name__}: {self.name()} '
-            f'{self.version() or "Version not detected"}'
-        )
-
-
-class ExtendedObject(model.base.ModelBase):
-    def name(self):
-        return self.raw.get('name')
-
-    def sha1(self):
-        return self.raw.get('sha1')
-
-
-class Vulnerability(model.base.ModelBase):
-    def historical(self):
-        return not self.raw.get('exact')
-
-    def cve(self) -> str:
-        return self.raw.get('vuln').get('cve')
-
-    def cve_severity(self, cvss_version=CVSSVersion.V3) -> float:
-        if cvss_version is CVSSVersion.V3:
-            return float(self.raw.get('vuln').get('cvss3_score'))
-        elif cvss_version is CVSSVersion.V2:
-            return float(self.raw.get('vuln').get('cvss'))
-        else:
-            raise NotImplementedError(f'{cvss_version} not supported')
-
-    @property
-    def cvss(self) -> dso.cvss.CVSSV3 | None:
-        cvss_vector = self.raw['vuln']['cvss3_vector']
-        # ignore cvss2_vector for now
-
-        if not cvss_vector:
-            return None
-
-        return dso.cvss.CVSSV3.parse(cvss_vector)
-
-    def summary(self) -> str:
-        return self.raw.get('vuln').get('summary')
-
-    def has_triage(self) -> bool:
-        return bool(self.raw.get('triage')) or bool(self.raw.get('triages'))
-
-    def triages(self) -> 'collections.abc.Generator[Triage, None, None]':
-        if not self.has_triage():
-            return ()
-        trs = self.raw.get('triage')
-        if not trs:
-            trs = self.raw.get('triages')
-
-        return (Triage(raw_dict=raw) for raw in trs)
-
-    @property
-    def published(self) -> datetime.date:
-        if not (published := self.raw['vuln'].get('published')):
-            return None
-        return dateutil.parser.isoparse(published)
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}: {self.cve()}'
-
-
-class TriageScope(enum.Enum):
+class TriageScope(enum.StrEnum):
     ACCOUNT_WIDE = 'CA'
     FILE_NAME = 'FN'
     FILE_HASH = 'FH'
@@ -236,66 +47,199 @@ class TriageScope(enum.Enum):
     GROUP = 'G'
 
 
-class Triage(model.base.ModelBase):
-    def id(self):
-        return self.raw['id']
+class ProcessingMode(enum.StrEnum):
+    RESCAN = 'rescan'
+    FORCE_UPLOAD = 'force_upload'
 
-    def vulnerability_id(self):
-        return self.raw['vuln_id']
 
-    def component_name(self):
-        return self.raw['component']
+@dataclasses.dataclass
+class Product:
+    product_id: int
+    name: str
+    custom_data: dict[str, str] = dataclasses.field(default_factory=dict)
 
-    def component_version(self):
-        return self.raw['version']
 
-    def scope(self) -> TriageScope:
-        return TriageScope(self.raw['scope'])
-
-    def reason(self):
-        return self.raw['reason']
-
-    def description(self):
-        return self.raw.get('description')
-
-    def user(self) -> dict:
-        return self.raw.get('user')
-
-    @property
-    def modified(self) -> datetime.datetime:
-        return dateutil.parser.isoparse(self.raw.get('modified'))
-
-    def applies_to_same_vulnerability_as(self, other) -> bool:
-        if not isinstance(other, Triage):
-            return False
-        return self.vulnerability_id() == other.vulnerability_id()
+@dataclasses.dataclass
+class Triage:
+    id: str
+    vuln_id: str
+    component: str
+    version: str
+    scope: TriageScope
+    reason: str
+    description: str | None
+    modified: datetime.datetime
+    user: dict = dataclasses.field(default_factory=dict)
 
     def __repr__(self):
         return (
-            f'{self.__class__.__name__}: {self.id()} '
-            f'({self.component_name()} {self.component_version()}, '
-            f'{self.vulnerability_id()}, Scope: {self.scope().value})'
+            f'{self.__class__.__name__}: {self.id} ({self.component} {self.version}, '
+            f'{self.vuln_id}, Scope: {self.scope})'
         )
 
     def __eq__(self, other):
         if not isinstance(other, Triage):
             return False
-        if self.vulnerability_id() != other.vulnerability_id():
+        if self.vuln_id != other.vuln_id:
             return False
-        if self.component_name() != other.component_name():
+        if self.component != other.component:
             return False
-        if self.description() != other.description():
+        if self.description != other.description:
             return False
         return True
 
     def __hash__(self):
-        return hash((self.vulnerability_id(), self.component_name(), self.description()))
+        return hash((self.vuln_id, self.component, self.description))
+
+
+@dataclasses.dataclass
+class Vulnerability:
+    vuln: dict
+    exact: bool | None
+    triage: list[Triage]
+
+    @property
+    def historical(self):
+        return not self.exact
+
+    @property
+    def cve(self) -> str:
+        return self.vuln.get('cve')
+
+    def cve_severity(
+        self,
+        cvss_version: CVSSVersion=CVSSVersion.V3,
+    ) -> float:
+        if cvss_version is CVSSVersion.V3:
+            return float(self.vuln.get('cvss3_score'))
+        elif cvss_version is CVSSVersion.V2:
+            return float(self.vuln.get('cvss'))
+        else:
+            raise ValueError(f'{cvss_version} not supported')
+
+    @property
+    def cvss(self) -> dso.cvss.CVSSV3 | None:
+        # ignore cvss2_vector for now
+        if not (cvss_vector := self.vuln.get('cvss3_vector')):
+            return None
+
+        return dso.cvss.CVSSV3.parse(cvss_vector)
+
+    @property
+    def summary(self) -> str:
+        return self.vuln.get('summary')
+
+    @property
+    def has_triage(self) -> bool:
+        return bool(self.triage)
+
+    @property
+    def triages(self) -> collections.abc.Generator[Triage, None, None]:
+        if not self.has_triage:
+            return
+
+        yield from self.triage
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}: {self.cve}'
+
+
+@dataclasses.dataclass
+class License:
+    name: str
+    type: str | None
+    url: str | None
+
+
+@dataclasses.dataclass
+class ExtendedObject:
+    name: str | None
+    sha1: str | None
+    extended_fullpath: list[dict]
+
+
+@dataclasses.dataclass
+class Component:
+    lib: str
+    version: str | None
+    vulns: list[dict] | None
+    license: License | None
+    licenses: dict | None
+    extended_objects: list[ExtendedObject] = dataclasses.field(default_factory=list)
+
+    @property
+    def name(self) -> str:
+        return self.lib
+
+    @property
+    def vulnerabilities(self) -> collections.abc.Generator[Vulnerability, None, None]:
+        for vuln in self.vulns or []:
+            if vuln['vuln'].get('cve'):
+                yield dacite.from_dict(
+                    data_class=Vulnerability,
+                    data=vuln,
+                    config=dacite.Config(
+                        type_hooks={
+                            datetime.datetime: dateutil.parser.isoparse,
+                        },
+                        cast=[enum.Enum],
+                    ),
+                )
+
+    @property
+    def iter_licenses(self) -> collections.abc.Generator[License, None, None]:
+        '''
+        Wrapper to consume package's licenses and prefer those stored in the `licenses` property
+        over the one in the `license` property. Rationale: BDBA is known to always store the
+        greatest license version under `license`, and the "correct" one under `licenses`.
+        '''
+        if not self.licenses:
+            if self.license:
+                yield self.license
+            return
+
+        yield from [
+            dacite.from_dict(
+                data_class=License,
+                data=license_raw,
+            ) for license_raw in self.licenses.get('licenses')
+        ]
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}: {self.name} {self.version or "version not detected"}'
+
+
+@dataclasses.dataclass
+class AnalysisResult:
+    product_id: int
+    group_id: int
+    report_url: str
+    status: ProcessingStatus
+    filename: str | None
+    name: str | None
+    stale: bool | None
+    rescan_possible: bool | None
+    fail_reason: str | None
+    components: list[Component] = dataclasses.field(default_factory=list)
+    custom_data: dict[str, str] = dataclasses.field(default_factory=dict)
+
+    @property
+    def base_url(self) -> str:
+        parsed_url = ci.util.urlparse(self.report_url)
+        return f'{parsed_url.scheme}://{parsed_url.netloc}'
+
+    @property
+    def display_name(self) -> str:
+        return self.filename or '<None>'
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}: {self.display_name} ({self.product_id})'
 
 
 #############################################################################
 ## upload result model
 
-class UploadStatus(enum.Enum):
+class UploadStatus(enum.IntEnum):
     SKIPPED = 1
     PENDING = 2
     DONE = 4
