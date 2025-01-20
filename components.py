@@ -1020,9 +1020,7 @@ class UpgradePRs(aiohttp.web.View):
             )
             if not gh_api:
                 logger.warning(f'no github-cfg found for {repo_url=}')
-                raise aiohttp.web.HTTPBadRequest(
-                    text=f'No GitHub cfg found for {repo_url=}',
-                )
+                return [] # matching github-cfg is optional
 
             parsed_url = ci.util.urlparse(repo_url)
             org, repo = parsed_url.path.strip('/').split('/')
