@@ -156,11 +156,9 @@ def wait_for_quota_if_required(
     if not reset_timestamp:
         return
 
-    reset_datetime = datetime.datetime.fromtimestamp(reset_timestamp)
-    time_until_reset = datetime.datetime.now() - reset_datetime
-    logger.warning(
-        f'github quota too low, will sleep for {time_until_reset} sec until {reset_datetime}'
-    )
+    reset_datetime = datetime.datetime.fromtimestamp(reset_timestamp, tz=datetime.timezone.utc)
+    time_until_reset = reset_datetime - datetime.datetime.now(tz=datetime.timezone.utc)
+    logger.warning(f'github quota too low, will sleep {time_until_reset} until {reset_datetime}')
     time.sleep(time_until_reset.total_seconds())
 
 
