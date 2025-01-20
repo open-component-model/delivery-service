@@ -34,6 +34,7 @@ class KubernetesApi:
     core_kubernetes_api: kc.CoreV1Api
     custom_kubernetes_api: kc.CustomObjectsApi
     apps_kubernetes_api: kc.AppsV1Api
+    networking_kubernetes_api: kc.NetworkingV1Api
 
 
 @functools.cache
@@ -55,6 +56,7 @@ def kubernetes_api(
         core_kubernetes_api=kc.CoreV1Api(api_client=api_client),
         custom_kubernetes_api=kc.CustomObjectsApi(api_client=api_client),
         apps_kubernetes_api=kc.AppsV1Api(api_client=api_client),
+        networking_kubernetes_api=kc.NetworkingV1Api(api_client=api_client),
     )
 
 
