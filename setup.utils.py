@@ -37,6 +37,7 @@ def packages():
         'bdba',
         'deliverydb_cache',
         'k8s',
+        'secret_mgmt',
     ]
 
 
