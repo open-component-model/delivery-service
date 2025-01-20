@@ -86,7 +86,7 @@ def get_creation_date(component: ocm.Component) -> datetime.datetime:
     '''
 
     if (creationTime := component.creationTime):
-        return dateutil.parser.isoparse(creationTime)
+        return util.as_timezone(dateutil.parser.isoparse(creationTime))
 
     creation_label: ocm.Label | None = component.find_label('cloud.gardener/ocm/creation-date')
 
