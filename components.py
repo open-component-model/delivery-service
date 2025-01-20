@@ -69,7 +69,12 @@ async def check_if_component_exists(
     if component_name in cache_existing_components:
         return True
 
-    for _ in await version_lookup(component_name, None):
+    for _ in await version_lookup(
+        ocm.ComponentIdentity(
+            name=component_name,
+            version=None,
+        )
+    ):
         cache_existing_components.append(component_name)
         return True
 
