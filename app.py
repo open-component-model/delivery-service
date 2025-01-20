@@ -22,6 +22,7 @@ import deliverydb.cache
 import dora
 import eol
 import features
+import k8s.util
 import lookups
 import metadata
 import middleware.auth
@@ -53,7 +54,6 @@ def parse_args():
     parser.add_argument('--shortcut-auth', action='store_true', default=False)
     parser.add_argument('--delivery-cfg', default='internal')
     parser.add_argument('--delivery-db-cfg', default='internal')
-    parser.add_argument('--delivery-endpoints', default='internal')
     parser.add_argument('--delivery-db-url', default=None)
     parser.add_argument('--cache-dir', default=default_cache_dir)
     parser.add_argument(
@@ -84,27 +84,26 @@ def parse_args():
 
 def get_base_url(
     is_productive: bool,
-    delivery_endpoints: str,
-    port: int,
-    cfg_factory=None,
+    kubernetes_api: k8s.util.KubernetesApi | None=None,
+    namespace: str | None=None,
+    port: int | None=None,
 ) -> str:
-    if is_productive:
-        if not cfg_factory:
-            cfg_factory = ctx_util.cfg_factory()
+    if not is_productive:
+        return f'http://localhost:{port}'
 
-        endpoints = cfg_factory.delivery_endpoints(delivery_endpoints)
-        base_url = f'https://{endpoints.service_host()}'
-    else:
-        base_url = f'http://localhost:{port}'
+    ingress = kubernetes_api.networking_kubernetes_api.read_namespaced_ingress(
+        name='delivery-service',
+        namespace=namespace,
+    )
+    host = ingress.spec.rules[0].host
 
-    return base_url
+    return f'https://{host}'
 
 
 def add_app_context_vars(
     app: aiohttp.web.Application,
     cfg_factory,
     parsed_arguments,
-    base_url: str,
 ) -> aiohttp.web.Application:
     oci_client = lookups.semver_sanitising_oci_client_async(cfg_factory)
 
@@ -189,6 +188,13 @@ def add_app_context_vars(
     version_filter_callback = features.get_feature(
         feature_type=features.FeatureVersionFilter,
     ).get_version_filter
+
+    base_url = get_base_url(
+        is_productive=parsed_arguments.productive,
+        kubernetes_api=kubernetes_api_callback(),
+        namespace=namespace_callback(),
+        port=parsed_arguments.port,
+    )
 
     app[consts.APP_ADDRESSBOOK_ENTRIES] = addressbook_entries
     app[consts.APP_ADDRESSBOOK_GITHUB_MAPPINGS] = addressbook_github_mappings
@@ -420,13 +426,6 @@ async def initialise_app():
         )
         middlewares.append(rfc.feature_check_middleware(unavailable_features))
 
-    base_url = get_base_url(
-        is_productive=parsed_arguments.productive,
-        delivery_endpoints=parsed_arguments.delivery_endpoints,
-        port=parsed_arguments.port,
-        cfg_factory=cfg_factory,
-    )
-
     app = aiohttp.web.Application(
         middlewares=middlewares,
         client_max_size=0, # max request body size is already configured via ingress
@@ -438,7 +437,6 @@ async def initialise_app():
         app=app,
         cfg_factory=cfg_factory,
         parsed_arguments=parsed_arguments,
-        base_url=base_url,
     )
 
     app = add_routes(
