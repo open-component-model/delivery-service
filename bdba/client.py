@@ -19,10 +19,11 @@ import requests
 import ci.log
 import ci.util
 import http_requests
-import model.base
-import model.bdba
 
 import bdba.model as bm
+import ctx_util
+import secret_mgmt
+import secret_mgmt.bdba
 
 
 logger = logging.getLogger(__name__)
@@ -117,14 +118,12 @@ class BDBAApiRoutes:
 class BDBAApi:
     def __init__(
         self,
-        api_routes,
-        bdba_cfg: model.bdba.BDBAConfig,
+        api_routes: BDBAApiRoutes,
+        bdba_cfg: secret_mgmt.bdba.BDBA,
     ):
-        self._routes = ci.util.not_none(api_routes)
-        ci.util.not_none(bdba_cfg)
-        self._credentials = bdba_cfg.credentials()
-
-        self._tls_verify = bdba_cfg.tls_verify()
+        self._routes = api_routes
+        self._token = bdba_cfg.token
+        self._tls_verify = bdba_cfg.tls_verify
         self._session = requests.Session()
         http_requests.mount_default_adapter(
             session=self._session,
@@ -145,7 +144,7 @@ class BDBAApi:
         else:
             headers = {}
 
-        headers['Authorization'] = f"Bearer {self._credentials.token()}"
+        headers['Authorization'] = f"Bearer {self._token}"
 
         try:
             timeout = kwargs.pop('timeout')
@@ -507,47 +506,38 @@ class BDBAApi:
 
 
 def client(
-    bdba_cfg: model.bdba.BDBAConfig | str=None,
-    group_id: int=None,
-    base_url: str=None,
-    cfg_factory=None,
+    bdba_cfg: secret_mgmt.bdba.BDBA | None=None,
+    group_id: int | None=None,
+    url: str | None=None,
+    secret_factory: secret_mgmt.SecretFactory | None=None,
 ) -> BDBAApi:
     '''
-    convenience method to create a `BDBAApi`
-
-    Either pass bdba_cfg directly (or reference by name), or
-    lookup bdba_cfg based on group_id and base_url, most specific cfg wins.
+    Either pass `bdba_cfg` directly (or reference by name) or lookup `bdba_cfg` based on `group_id`
+    and `url`, most specific cfg wins.
     '''
 
-    if not cfg_factory:
-        cfg_factory = ci.util.ctx().cfg_factory()
-
-    if group_id:
-        group_id = int(group_id)
-    if base_url:
-        base_url = str(base_url)
+    if not secret_factory:
+        secret_factory = ctx_util.secret_factory()
 
     if bdba_cfg:
         if isinstance(bdba_cfg, str):
-            bdba_cfg = cfg_factory.bdba(bdba_cfg)
+            bdba_cfg = secret_factory.bdba(bdba_cfg)
 
         if bdba_cfg.matches(
             group_id=group_id,
-            base_url=base_url,
-        ) == -1:
-            raise ValueError(f'{bdba_cfg.name()=} does not match {group_id=} and {base_url=}')
+            url=url,
+        ) is secret_mgmt.bdba.MatchScore.NO_MATCH:
+            raise ValueError(f'BDBA cfg does not match {group_id=} and {url=}')
 
     else:
-        if not (bdba_cfg := model.bdba.find_config(
+        if not (bdba_cfg := secret_mgmt.bdba.find_cfg(
+            secret_factory=secret_factory,
             group_id=group_id,
-            base_url=base_url,
-            config_candidates=cfg_factory._cfg_elements(cfg_type_name='bdba'),
+            url=url,
         )):
-            raise model.base.ConfigElementNotFoundError(
-                f'No bdba cfg found for {group_id=}, {base_url=}'
-            )
+            raise ValueError(f'No BDBA cfg found for {group_id=} and {url=}')
 
-    routes = BDBAApiRoutes(base_url=bdba_cfg.api_url())
+    routes = BDBAApiRoutes(base_url=bdba_cfg.api_url)
     api = BDBAApi(
         api_routes=routes,
         bdba_cfg=bdba_cfg,

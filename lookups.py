@@ -6,12 +6,16 @@ import functools
 import logging
 import urllib.parse
 
-import ccc.oci
+import aiohttp
+import requests
+import requests.adapters
+
 import ci.util
 import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
 import delivery.client
+import oci.auth
 import oci.client
 import oci.client_async
 import ocm
@@ -20,33 +24,74 @@ import ctx_util
 import deliverydb_cache.model as dcm
 import deliverydb_cache.util as dcu
 import paths
+import secret_mgmt
+import secret_mgmt.github
+import secret_mgmt.oci_registry
 import util
 
 
 logger = logging.getLogger(__name__)
 
 
+@functools.cache
 def semver_sanitising_oci_client(
-    cfg_factory=None,
+    secret_factory: secret_mgmt.SecretFactory=None,
+    http_connection_pool_size: int=16,
 ) -> oci.client.Client:
-    if not cfg_factory:
-        cfg_factory = ctx_util.cfg_factory()
+    if not secret_factory:
+        secret_factory = ctx_util.secret_factory()
 
-    return ccc.oci.oci_client(
-        cfg_factory=cfg_factory,
+    credentials_lookup = secret_mgmt.oci_registry.oci_cfg_lookup(
+        secret_factory=secret_factory,
+    )
+
+    routes = oci.client.OciRoutes()
+
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(
+        pool_connections=http_connection_pool_size,
+        pool_maxsize=http_connection_pool_size,
+    )
+    session.mount('https://', adapter)
+
+    return oci.client.Client(
+        credentials_lookup=credentials_lookup,
+        routes=routes,
+        session=session,
         tag_preprocessing_callback=cnudie.util.sanitise_version,
         tag_postprocessing_callback=cnudie.util.desanitise_version,
     )
 
 
+@functools.cache
 def semver_sanitising_oci_client_async(
-    cfg_factory=None,
+    secret_factory: secret_mgmt.SecretFactory=None,
+    http_connection_pool_size: int | None=None,
 ) -> oci.client_async.Client:
-    if not cfg_factory:
-        cfg_factory = ctx_util.cfg_factory()
+    if not secret_factory:
+        secret_factory = ctx_util.secret_factory()
 
-    return ccc.oci.oci_client_async(
-        cfg_factory=cfg_factory,
+    credentials_lookup = secret_mgmt.oci_registry.oci_cfg_lookup(
+        secret_factory=secret_factory,
+    )
+
+    routes = oci.client.OciRoutes()
+
+    if http_connection_pool_size is None: # 0 is a valid value here (meaning no limitation)
+        connector = aiohttp.TCPConnector()
+    else:
+        connector = aiohttp.TCPConnector(
+            limit=http_connection_pool_size,
+        )
+
+    session = aiohttp.ClientSession(
+        connector=connector,
+    )
+
+    return oci.client_async.Client(
+        credentials_lookup=credentials_lookup,
+        routes=routes,
+        session=session,
         tag_preprocessing_callback=cnudie.util.sanitise_version,
         tag_postprocessing_callback=cnudie.util.desanitise_version,
     )
@@ -352,14 +397,14 @@ def init_version_lookup_async(
 
 
 def github_api_lookup(
-    cfg_factory=None,
-) -> 'collections.abc.Callable[[str], github3.github.GitHub]': # avoid import
+    secret_factory: secret_mgmt.SecretFactory=None
+) -> 'collections.abc.Callable[[str], github3.github.GitHub | None]': # avoid import
     '''
     creates a github-api-lookup. ideally, this lookup should be created at application launch, and
     passed to consumers.
     '''
-    if not cfg_factory:
-        cfg_factory = ctx_util.cfg_factory()
+    if not secret_factory:
+        secret_factory = ctx_util.secret_factory()
 
     def github_api_lookup(
         repo_url: str,
@@ -370,17 +415,13 @@ def github_api_lookup(
         returns an initialised and authenticated apiclient object suitable for
         the passed repository URL
 
-        The implementation currently delegates lookup to `ccc.github.github_api`. Consistently using
-        this wrapper will however allow for later decoupling.
-
         raises ValueError if no configuration (credentials) is found for the given repository url
         unless absent_ok is set to a truthy value, in which case None is returned instead.
         '''
-        import ccc.github
         try:
-            return ccc.github.github_api(
+            return secret_mgmt.github.github_api(
+                secret_factory=secret_factory,
                 repo_url=repo_url,
-                cfg_factory=cfg_factory,
             )
         except:
             if not absent_ok:
@@ -410,21 +451,18 @@ def github_repo_lookup(
     return github_repo_lookup
 
 
-def github_auth_token_lookup(url: str, /):
+def github_auth_token_lookup(url: str, /) -> str | None:
     '''
     an implementation of delivery.client.AuthTokenLookup
     '''
-    import ccc.github
-    import model.base
+    secret_factory = ctx_util.secret_factory()
 
-    cfg_factory = ctx_util.cfg_factory()
+    github_cfg = secret_mgmt.github.find_cfg(
+        secret_factory=secret_factory,
+        repo_url=url,
+    )
 
-    try:
-        github_cfg = ccc.github.github_cfg_for_repo_url(
-            repo_url=url,
-            cfg_factory=cfg_factory,
-        )
-    except model.base.ConfigElementNotFoundError:
+    if not github_cfg:
         return None
 
-    return github_cfg.credentials().auth_token()
+    return github_cfg.auth_token

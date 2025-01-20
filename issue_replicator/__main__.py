@@ -425,10 +425,10 @@ def main():
     namespace = parsed_arguments.k8s_namespace
     delivery_service_url = parsed_arguments.delivery_service_url
 
-    cfg_factory = ctx_util.cfg_factory()
+    secret_factory = ctx_util.secret_factory()
 
     if parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = cfg_factory.kubernetes(parsed_arguments.k8s_cfg_name)
+        kubernetes_cfg = secret_factory.kubernetes(parsed_arguments.k8s_cfg_name)
         kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
     else:
         kubernetes_api = k8s.util.kubernetes_api(
