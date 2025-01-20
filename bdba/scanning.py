@@ -179,7 +179,7 @@ class ResourceGroupProcessor:
         self,
         scan_request: bm.ScanRequest,
         processing_mode: bm.ProcessingMode,
-    ) -> bm.AnalysisResult:
+    ) -> bm.Result:
         def raise_on_error(exception):
             raise bm.BdbaScanError(
                 scan_request=scan_request,
@@ -308,11 +308,11 @@ class ResourceGroupProcessor:
             known_artifact_scans=known_scan_results,
         )
         try:
-            scan_result = self.process_scan_request(
+            result = self.process_scan_request(
                 scan_request=scan_request,
                 processing_mode=processing_mode,
             )
-            scan_result = self.bdba_client.wait_for_scan_result(scan_result.product_id)
+            scan_result = self.bdba_client.wait_for_scan_result(result.product_id)
             scan_failed = False
         except bm.BdbaScanError as bse:
             scan_result = bse

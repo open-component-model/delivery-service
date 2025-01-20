@@ -199,7 +199,7 @@ class BDBAApi:
         data: collections.abc.Generator[bytes, None, None],
         replace_id: int=None,
         custom_attribs={},
-    ) -> bm.AnalysisResult:
+    ) -> bm.Result:
         url = self._routes.upload(file_name=application_name)
 
         headers = {'Group': str(group_id)}
@@ -214,11 +214,8 @@ class BDBAApi:
         ).json().get('results', {})
 
         return dacite.from_dict(
-            data_class=bm.AnalysisResult,
+            data_class=bm.Result,
             data=kebab_to_snake_case_keys(result),
-            config=dacite.Config(
-                cast=[enum.Enum],
-            ),
         )
 
     def delete_product(self, product_id: int):

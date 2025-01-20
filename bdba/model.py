@@ -210,18 +210,12 @@ class Component:
 
 
 @dataclasses.dataclass
-class AnalysisResult:
+class Result:
     product_id: int
-    group_id: int
     report_url: str
-    status: ProcessingStatus
     filename: str | None
-    name: str | None
     stale: bool | None
     rescan_possible: bool | None
-    fail_reason: str | None
-    components: list[Component] = dataclasses.field(default_factory=list)
-    custom_data: dict[str, str] = dataclasses.field(default_factory=dict)
 
     @property
     def base_url(self) -> str:
@@ -234,6 +228,16 @@ class AnalysisResult:
 
     def __repr__(self):
         return f'{self.__class__.__name__}: {self.display_name} ({self.product_id})'
+
+
+@dataclasses.dataclass
+class AnalysisResult(Result):
+    group_id: int
+    status: ProcessingStatus
+    name: str | None
+    fail_reason: str | None
+    components: list[Component] = dataclasses.field(default_factory=list)
+    custom_data: dict[str, str] = dataclasses.field(default_factory=dict)
 
 
 #############################################################################
