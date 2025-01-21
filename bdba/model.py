@@ -61,7 +61,7 @@ class Product:
 
 @dataclasses.dataclass
 class Triage:
-    id: str
+    id: int
     vuln_id: str
     component: str
     version: str
