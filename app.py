@@ -154,7 +154,7 @@ def add_app_context_vars(
     rescoring_rule_set_lookup = rescoring_feature.find_rule_set
     default_rule_set_for_type_callback = lambda rule_set_type: (
         rm.find_default_rule_set_for_type_and_name(
-            default_rule_set=rm.find_default_rule_set_for_type(
+            default_rule_set_ref=rm.find_default_rule_set_for_type(
                 default_rule_sets=rescoring_feature.default_rule_sets,
                 rule_set_type=rule_set_type,
             ),

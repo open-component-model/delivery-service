@@ -685,33 +685,17 @@ def deserialise_bdba_config(
         absent_ok=True,
     )
     if rescoring_cfg_raw:
-        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
-        cve_rescoring_rulesets = tuple(
-            rescore.model.CveRescoringRuleSet( #noqa:E1123
-                name=rule_set_raw['name'],
-                description=rule_set_raw.get('description'),
-                rules=list(
-                    rescore.model.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
-                )
-            )
-            for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
+        cve_rescoring_rulesets = rescore.model.deserialise_rule_sets(
+            rescoring_cfg_raw=rescoring_cfg_raw,
+            rule_set_type=rescore.model.RuleSetType.CVE,
+            rule_set_ctor=rescore.model.CveRescoringRuleSet,
+            rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
         )
-        default_rule_sets = [
-            dacite.from_dict(
-                data_class=rescore.model.DefaultRuleSet,
-                data=default_rule_set_raw,
-                config=dacite.Config(
-                    cast=[rescore.model.RuleSetType],
-                )
-            )
-            for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
-            if default_rule_set_raw['type'] == rescore.model.RuleSetType.CVE
-        ]
         default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-            default_rule_set=rescore.model.find_default_rule_set_for_type(
-                default_rule_sets=default_rule_sets,
+            default_rule_set_ref=rescore.model.deserialise_default_rule_sets(
+                rescoring_cfg_raw=rescoring_cfg_raw,
                 rule_set_type=rescore.model.RuleSetType.CVE,
-            ),
+            )[0],
             rule_sets=cve_rescoring_rulesets,
         )
         auto_assess_max_severity_raw = deserialise_config_property(
@@ -993,32 +977,17 @@ def deserialise_issue_replicator_config(
         absent_ok=True,
     )
     if cve_rescoring_cfg_raw:
-        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
-        cve_rescoring_rulesets = tuple(
-            rescore.model.CveRescoringRuleSet( #noqa:E1123
-                name=rule_set_raw['name'],
-                description=rule_set_raw.get('description'),
-                rules=list(
-                    rescore.model.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
-                )
-            )
-            for rule_set_raw in cve_rescoring_cfg_raw['rescoringRuleSets']
+        cve_rescoring_rulesets = rescore.model.deserialise_rule_sets(
+            rescoring_cfg_raw=cve_rescoring_cfg_raw,
+            rule_set_type=rescore.model.RuleSetType.CVE,
+            rule_set_ctor=rescore.model.CveRescoringRuleSet,
+            rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
         )
-        default_rule_sets = [
-            dacite.from_dict(
-                data_class=rescore.model.DefaultRuleSet,
-                data=default_rule_set_raw,
-                config=dacite.Config(
-                    cast=[rescore.model.RuleSetType],
-                )
-            )
-            for default_rule_set_raw in cve_rescoring_cfg_raw['defaultRuleSetNames']
-        ]
         default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-            default_rule_set=rescore.model.find_default_rule_set_for_type(
-                default_rule_sets=default_rule_sets,
+            default_rule_set_ref=rescore.model.deserialise_default_rule_sets(
+                rescoring_cfg_raw=cve_rescoring_cfg_raw,
                 rule_set_type=rescore.model.RuleSetType.CVE,
-            ),
+            )[0],
             rule_sets=cve_rescoring_rulesets,
         )
     else:

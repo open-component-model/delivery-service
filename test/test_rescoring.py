@@ -1,5 +1,4 @@
 import pytest
-import dacite
 import datetime
 
 import dso.model
@@ -73,16 +72,11 @@ def rescoring_rules_raw() -> dict:
 def test_deserialise_rescoring_rule_sets(
     rescoring_rules_raw: dict,
 ):
-    cve_rescoring_rule_sets = tuple(
-        rescore.model.CveRescoringRuleSet(
-            name=cve_rule_set_raw['name'],
-            description=cve_rule_set_raw.get('description'),
-            rules=list(
-                rescore.model.cve_rescoring_rules_from_dicts(cve_rule_set_raw['rules'])
-            )
-        )
-        for cve_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if rescore.model.RuleSetType(cve_rule_set_raw['type']) is rescore.model.RuleSetType.CVE
+    cve_rescoring_rule_sets = rescore.model.deserialise_rule_sets(
+        rescoring_cfg_raw=rescoring_rules_raw,
+        rule_set_type=rescore.model.RuleSetType.CVE,
+        rule_set_ctor=rescore.model.CveRescoringRuleSet,
+        rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
     )
 
     assert isinstance(cve_rescoring_rule_sets[0], rescore.model.CveRescoringRuleSet)
@@ -99,35 +93,18 @@ def test_deserialise_rescoring_rule_sets(
 def test_deserialise_rescoring_rule_sets_default_rule_set_names(
     rescoring_rules_raw: dict,
 ):
-    default_rule_sets = [
-        dacite.from_dict(
-            data_class=rescore.model.DefaultRuleSet,
-            data=default_ruleset,
-            config=dacite.Config(
-                cast=[rescore.model.RuleSetType],
-            )
-        )
-        for default_ruleset in rescoring_rules_raw['defaultRuleSetNames']
-        if rescore.model.RuleSetType(default_ruleset['type']) is rescore.model.RuleSetType.CVE
-    ]
-
-    cve_rescoring_rule_sets = tuple(
-        rescore.model.CveRescoringRuleSet(
-            name=cve_rule_set_raw['name'],
-            description=cve_rule_set_raw.get('description'),
-            rules=list(
-                rescore.model.cve_rescoring_rules_from_dicts(cve_rule_set_raw['rules'])
-            )
-        )
-        for cve_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if rescore.model.RuleSetType(cve_rule_set_raw['type']) is rescore.model.RuleSetType.CVE
+    cve_rescoring_rule_sets = rescore.model.deserialise_rule_sets(
+        rescoring_cfg_raw=rescoring_rules_raw,
+        rule_set_type=rescore.model.RuleSetType.CVE,
+        rule_set_ctor=rescore.model.CveRescoringRuleSet,
+        rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
     )
 
     default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-        default_rule_set=rescore.model.find_default_rule_set_for_type(
-            default_rule_sets=default_rule_sets,
+        default_rule_set_ref=rescore.model.deserialise_default_rule_sets(
+            rescoring_cfg_raw=rescoring_rules_raw,
             rule_set_type=rescore.model.RuleSetType.CVE,
-        ),
+        )[0],
         rule_sets=cve_rescoring_rule_sets,
     )
 
@@ -142,17 +119,11 @@ def test_deserialise_with_extra_attributes(
 ):
     rescoring_rules_raw['rescoringRuleSets'][0]['extra_attribute'] = 'extra_value'
 
-    cve_rescoring_rule_sets = tuple(
-        rescore.model.CveRescoringRuleSet(
-            name=cve_rule_set_raw['name'],
-            description=cve_rule_set_raw.get('description'),
-            type=cve_rule_set_raw['type'],
-            rules=list(
-                rescore.model.cve_rescoring_rules_from_dicts(cve_rule_set_raw['rules'])
-            )
-        )
-        for cve_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if rescore.model.RuleSetType(cve_rule_set_raw['type']) is rescore.model.RuleSetType.CVE
+    cve_rescoring_rule_sets = rescore.model.deserialise_rule_sets(
+        rescoring_cfg_raw=rescoring_rules_raw,
+        rule_set_type=rescore.model.RuleSetType.CVE,
+        rule_set_ctor=rescore.model.CveRescoringRuleSet,
+        rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
     )
 
     assert isinstance(cve_rescoring_rule_sets[0], rescore.model.CveRescoringRuleSet)
