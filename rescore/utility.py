@@ -181,15 +181,17 @@ def rescore_severity(
     return severity
 
 
-def matching_sast_rescoring_rules(
+def iter_matching_sast_rescoring_rules(
     rescoring_rules: collections.abc.Iterable[rescore.model.SastRescoringRule],
     finding: dso.model.ArtefactMetadata,
 ) -> collections.abc.Generator[rescore.model.SastRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
-        for condition in rescoring_rule.match:
-            if re.match(condition.component_name, finding.artefact.component_name):
-                if finding.data.sub_type in rescoring_rule.sub_types:
-                    yield rescoring_rule
+        # only yield rules when all match conditions are met
+        if all(
+            re.match(condition.component_name, finding.artefact.component_name)
+            for condition in rescoring_rule.match
+        ) and finding.data.sub_type in rescoring_rule.sub_types:
+            yield rescoring_rule
 
 
 def rescore_sast_severity(
@@ -212,7 +214,7 @@ def iter_sast_rescorings(
 ) -> typing.Generator[dso.model.ArtefactMetadata, None, None]:
     for finding in findings:
         matching_rules = list(
-            matching_sast_rescoring_rules(
+            iter_matching_sast_rescoring_rules(
                 rescoring_rules=sast_rescoring_ruleset.rules,
                 finding=finding,
             )
@@ -225,7 +227,7 @@ def iter_sast_rescorings(
             rescoring_rules=matching_rules
         )
 
-        if finding.data.severity == str(new_severity):
+        if github.compliance.model.Severity.parse(finding.data.severity) is new_severity:
             continue
 
         yield dso.model.ArtefactMetadata(

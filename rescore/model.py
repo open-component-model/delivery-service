@@ -167,13 +167,13 @@ class DefaultRuleSet:
 
 
 def find_default_rule_set_for_type_and_name(
-    default_rule_set: DefaultRuleSet,
+    default_rule_set_ref: DefaultRuleSet,
     rule_sets: tuple[RuleSet],
 ) -> RuleSet:
     for ruleset in rule_sets:
         if (
-            ruleset.name == default_rule_set.name
-            and ruleset.type is default_rule_set.type
+            ruleset.name == default_rule_set_ref.name
+            and ruleset.type is default_rule_set_ref.type
         ):
             return ruleset
 
