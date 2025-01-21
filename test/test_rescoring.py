@@ -219,7 +219,7 @@ def test_generate_sast_rescorings(
         user=dso.model.User(
             username="test_user",
         ),
-        time_now=datetime.datetime.now()
+        creation_timestamp=datetime.datetime.now()
     ))
 
     assert len(rescored_metadata) == 1

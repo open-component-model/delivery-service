@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import atexit
+import collections.abc
 import datetime
 import enum
 import logging
@@ -19,6 +20,7 @@ import version
 import config
 import components
 import ctx_util
+import features
 import k8s.util
 import k8s.model
 import k8s.logging
@@ -73,14 +75,14 @@ def deserialise_sast_configuration(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
 ) -> config.SASTConfig:
-    scan_cfg_crd = kubernetes_api.custom_kubernetes_api.get_namespaced_custom_object(
+    scan_cfg_cr = kubernetes_api.custom_kubernetes_api.get_namespaced_custom_object(
         group=k8s.model.ScanConfigurationCrd.DOMAIN,
         version=k8s.model.ScanConfigurationCrd.VERSION,
         plural=k8s.model.ScanConfigurationCrd.PLURAL_NAME,
         namespace=namespace,
         name=scan_cfg_name,
     )
-    if scan_cfg_crd and (spec := scan_cfg_crd.get('spec')):
+    if scan_cfg_cr and (spec := scan_cfg_cr.get('spec')):
         sast_config = config.deserialise_sast_config(spec_config=spec)
     else:
         sast_config = None
@@ -93,82 +95,33 @@ def deserialise_sast_configuration(
     return sast_config
 
 
-def fetch_all_versions(
-    component_name: str,
-    version_lookup: cnudie.retrieve.VersionLookupByComponent,
-    version_filter: config.VersionFilter=config.VersionFilter.RELEASES_ONLY,
-) -> list[str]:
-    versions = version_lookup(component_name)
-
-    if version_filter is config.VersionFilter.RELEASES_ONLY:
-        versions = [
-            v for v in versions
-            if version.is_final(
-                version=v
-            )
-        ]
-
-    return sorted(
-        versions,
-        key=lambda v: version.parse_to_semver(
-            version=v,
-            invalid_semver_ok=False,
-        )
-    )
-
-
-def versions_from_time_range(
-    component_name: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    versions: list[str],
-    start_date: datetime.date,
-    end_date: datetime.date,
-    max_versions: int,
-) -> list[str]:
-    filtered_versions = [
-        version for version in versions
-        if end_date <= components.get_creation_date(
-            component=component_descriptor_lookup(
-                ocm.ComponentIdentity(
-                    name=component_name,
-                    version=version,
-                )
-            ).component
-        ).date() <= start_date
-    ]
-
-    if max_versions == -1:
-        return filtered_versions
-
-    return filtered_versions[-max_versions:]
-
-
 def limit_versions(
     versions: list[str],
     greatest_version: str,
     max_versions: int,
 ) -> list[str]:
     '''
-    Returns a subset of the greatest versions from a sorted list.
+    Returns a subset of versions from a sorted list.
 
     Filters the input `versions` list (assumed to be sorted in ascending order)
     to include only versions up to `greatest_version` and limits the result
-    to `max_versions` if specified.
+    to the most recent `max_versions` versions from the end of the filtered list if specified.
+    if `max_versions` is -1, all versions are returned
     '''
     if greatest_version:
         index = versions.index(greatest_version)
         versions = versions[:index + 1]
 
-    if not max_versions == -1:
-        return versions[-max_versions:]
+    if max_versions == -1:
+        return versions
 
-    return versions
+    return versions[-max_versions:]
 
 
 def create_missing_linter_finding(
     snode: cnudie.iter.SourceNode,
     sub_type: dso.model.SastSubType,
-    time_now: datetime.datetime,
+    creation_timestamp: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
 ) -> dso.model.ArtefactMetadata:
     return dso.model.ArtefactMetadata(
         artefact=dso.model.ComponentArtefactId(
@@ -185,16 +138,186 @@ def create_missing_linter_finding(
         meta=dso.model.Metadata(
             datasource=dso.model.Datasource.SAST_LINT_CHECK,
             type=dso.model.Datatype.SAST_FINDING,
-            creation_date=time_now,
-            last_update=time_now,
+            creation_date=creation_timestamp,
+            last_update=creation_timestamp,
         ),
         data=dso.model.SastFinding(
             sast_status=dso.model.SastStatus.NO_LINTER,
             severity=str(github.compliance.model.Severity.BLOCKER),
             sub_type=sub_type,
         ),
-        discovery_date=time_now.date(),
+        discovery_date=creation_timestamp.date(),
     )
+
+
+def iter_sast_metadata(
+    sast_config: config.SASTConfig,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+    creation_timestamp: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
+) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+    '''
+    Generates SAST metadata for all components defined in the configuration.
+    '''
+
+    for component in sast_config.components:
+        component_versions = fetch_component_versions(
+            component=component,
+            component_descriptor_lookup=component_descriptor_lookup,
+            version_lookup=version_lookup,
+        )
+
+        for component_version in component_versions:
+            component_descriptor = component_descriptor_lookup(
+                ocm.ComponentIdentity(
+                    name=component.component_name,
+                    version=component_version,
+                )
+            )
+            yield from iter_artefact_metadata(
+                component_descriptor=component_descriptor,
+                component_descriptor_lookup=component_descriptor_lookup,
+                sast_config=sast_config,
+                creation_timestamp=creation_timestamp,
+            )
+
+
+def fetch_component_versions(
+    component: config.Component,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    version_lookup: cnudie.retrieve.VersionLookupByComponent,
+) -> list[str]:
+    '''
+    Filters and retrieves component versions based on the given configuration.
+
+    1. If an explicit version is provided and the max_versions_limit is set to 1 (default),
+       the specified version is used.
+    2. Otherwise, all versions of the component are fetched:
+       - If a time range (`timerange_days`) is specified, versions are filtered to match the range.
+       - If no time range is specified, all versions are considered.
+    3. If max_versions_limit is set, the versions are limited accordingly.
+    '''
+    if component.version and component.max_versions_limit == 1:
+        return [component.version]
+
+    versions = version_lookup(component.component_name)
+
+    if component.version_filter is features.VersionFilter.RELEASES_ONLY:
+        versions = [
+            v for v in versions
+            if version.is_final(v)
+        ]
+
+    versions = sorted(
+        versions,
+        key=lambda v: version.parse_to_semver(v, invalid_semver_ok=False)
+    )
+
+    if component.timerange_days:
+        start_date = datetime.date.today()
+        end_date = start_date - datetime.timedelta(component.timerange_days)
+        versions = [
+            version for version in versions
+            if end_date <= components.get_creation_date(
+                component=component_descriptor_lookup(
+                    ocm.ComponentIdentity(
+                        name=component.component_name,
+                        version=version,
+                    )
+                ).component
+            ).date() <= start_date
+        ]
+
+    if component.max_versions_limit:
+        versions = limit_versions(
+            versions=versions,
+            greatest_version=component.version,
+            max_versions=component.max_versions_limit,
+        )
+
+    return versions
+
+
+def iter_artefact_metadata(
+    component_descriptor: ocm.ComponentDescriptor,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    sast_config: config.SASTConfig,
+    creation_timestamp: datetime.datetime,
+) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+    '''
+    Processes source nodes for a given component descriptor, yielding SAST metadata.
+    Handles resource filtering, local linter findings, and rescoring logic.
+    '''
+    for snode in cnudie.iter.iter(
+        component=component_descriptor.component,
+        lookup=component_descriptor_lookup,
+        node_filter=cnudie.iter.Filter.sources,
+        prune_unique=True,
+    ):
+        if len(snode.component.sources) == 1:
+            resources = snode.component.resources
+        else:
+            resources = [
+                resource
+                for resource in snode.component.resources
+                for src_ref in resource.srcRefs
+                # only support identity selector for now
+                if src_ref.identitySelector.get('name') == snode.source.name
+            ]
+
+        all_findings_for_rescoring = []
+
+        if not has_local_linter(resources):
+            no_linter_local = create_missing_linter_finding(
+                snode=snode,
+                sub_type=dso.model.SastSubType.LOCAL_LINTING,
+                creation_timestamp=creation_timestamp,
+            )
+            yield no_linter_local
+            all_findings_for_rescoring.append(no_linter_local)
+
+        if not find_scan_policy(snode) is dso.labels.ScanPolicy.SKIP:
+            no_linter_central = create_missing_linter_finding(
+                snode=snode,
+                sub_type=dso.model.SastSubType.CENTRAL_LINTING,
+                creation_timestamp=creation_timestamp,
+            )
+            yield no_linter_central
+            all_findings_for_rescoring.append(no_linter_central)
+
+        if all_findings_for_rescoring and sast_config.sast_rescoring_ruleset:
+            rescored_metadata = rescore.utility.iter_sast_rescorings(
+                findings=all_findings_for_rescoring,
+                sast_rescoring_ruleset=sast_config.sast_rescoring_ruleset,
+                user=dso.model.User(
+                    username='sast-extension-auto-rescoring',
+                    type='sast-extension-user'
+                ),
+                creation_timestamp=creation_timestamp,
+            )
+            yield from rescored_metadata
+
+        yield dso.model.ArtefactMetadata(
+            artefact=dso.model.ComponentArtefactId(
+                component_name=snode.component.name,
+                component_version=snode.component.version,
+                artefact=dso.model.LocalArtefactId(
+                    artefact_name=snode.source.name,
+                    artefact_type=snode.source.type,
+                    artefact_version=snode.source.version,
+                    artefact_extra_id=snode.source.extraIdentity,
+                ),
+                artefact_kind=dso.model.ArtefactKind.SOURCE,
+            ),
+            meta=dso.model.Metadata(
+                datasource=dso.model.Datasource.SAST_LINT_CHECK,
+                type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+                creation_date=creation_timestamp,
+                last_update=creation_timestamp,
+            ),
+            data={},
+            discovery_date=creation_timestamp.date(),
+        )
 
 
 def parse_args():
@@ -299,132 +422,14 @@ def main():
         cache_dir=parsed_arguments.cache_dir,
         delivery_client=delivery_client,
     )
-
-    all_metadata = []
-    time_now = datetime.datetime.now(datetime.timezone.utc)
-
-    for component in sast_config.components:
-        '''
-        filters and retrieves component versions based on the given cfg
-
-        1. if an explicit version is provided and the max_versions_limit is set to 1 (default),
-           the specified version is used
-        2. otherwise, all versions of the component are fetched
-            - if a time range (`audit_timerange_days`) is specified,
-              versions are filtered to match the range and limited by `max_versions`
-            - if no time range is specified, filters the input to include only versions
-              up to `greatest_version`.
-        '''
-        if component.version and component.max_versions_limit == 1:
-            component_versions = component.version
-        else:
-            versions = fetch_all_versions(
-                component_name=component.component_name,
-                version_lookup=lookups.init_version_lookup(),
-                version_filter=component.version_filter,
-            )
-
-            if component.audit_timerange_days:
-                component_versions = versions_from_time_range(
-                    component_name=component.component_name,
-                    component_descriptor_lookup=component_descriptor_lookup,
-                    versions=versions,
-                    start_date=time_now.date(),
-                    end_date=time_now.date() - datetime.timedelta(component.audit_timerange_days),
-                    max_versions=component.max_versions_limit,
-                )
-            else:
-                component_versions = limit_versions(
-                    versions=versions,
-                    greatest_version=component.version,
-                    max_versions=component.max_versions_limit,
-                )
-
-        for component_version in sorted(
-            component_versions,
-            key=lambda v: version.parse_to_semver(v)
-        ):
-            component_descriptor = component_descriptor_lookup(
-                ocm.ComponentIdentity(
-                    name=component.component_name,
-                    version=component_version,
-                )
-            )
-
-            for snode in cnudie.iter.iter(
-                component=component_descriptor.component,
-                lookup=component_descriptor_lookup,
-                node_filter=cnudie.iter.Filter.sources,
-                prune_unique=True,
-            ):
-
-                all_metadata.append(
-                    dso.model.ArtefactMetadata(
-                        artefact=dso.model.ComponentArtefactId(
-                            component_name=snode.component.name,
-                            component_version=snode.component.version,
-                            artefact=dso.model.LocalArtefactId(
-                                artefact_name=snode.source.name,
-                                artefact_type=snode.source.type,
-                                artefact_version=snode.source.version,
-                                artefact_extra_id=snode.source.extraIdentity,
-                            ),
-                            artefact_kind=dso.model.ArtefactKind.SOURCE,
-                        ),
-                        meta=dso.model.Metadata(
-                            datasource=dso.model.Datasource.SAST_LINT_CHECK,
-                            type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
-                            creation_date=time_now,
-                            last_update=time_now,
-                        ),
-                        data={},
-                        discovery_date=time_now.date(),
-                    )
-                )
-
-                all_findings_for_rescoring = []
-                resources = (
-                    snode.component.resources
-                    if len(snode.component.sources) == 1
-                    else [
-                        resource
-                        for resource in snode.component.resources
-                        for src_ref in (resource.srcRefs or [])
-                        if src_ref.identitySelector.get('name') == snode.source.name
-                    ]
-                )
-
-                if not has_local_linter(resources):
-                    no_linter_local = create_missing_linter_finding(
-                        snode=snode,
-                        sub_type=dso.model.SastSubType.LOCAL_LINTING,
-                        time_now=time_now,
-                    )
-                    all_metadata.append(no_linter_local)
-                    all_findings_for_rescoring.append(no_linter_local)
-
-                if not find_scan_policy(snode) is dso.labels.ScanPolicy.SKIP:
-                    no_linter_central = create_missing_linter_finding(
-                        snode=snode,
-                        sub_type=dso.model.SastSubType.CENTRAL_LINTING,
-                        time_now=time_now,
-                    )
-                    all_metadata.append(no_linter_central)
-                    all_findings_for_rescoring.append(no_linter_central)
-
-                if not all_findings_for_rescoring or not sast_config.sast_rescoring_ruleset:
-                    continue
-
-                rescored_metadata = rescore.utility.iter_sast_rescorings(
-                    findings=all_findings_for_rescoring,
-                    sast_rescoring_ruleset=sast_config.sast_rescoring_ruleset,
-                    user=dso.model.User(
-                        username='sast-extension-auto-rescoring',
-                        type='sast-extension-user'
-                    ),
-                    time_now=time_now,
-                )
-                all_metadata.extend(rescored_metadata)
+    version_lookup = lookups.init_version_lookup()
+    all_metadata = list(
+        iter_sast_metadata(
+            sast_config=sast_config,
+            component_descriptor_lookup=component_descriptor_lookup,
+            version_lookup=version_lookup,
+        )
+    )
 
     delivery_client.update_metadata(data=all_metadata)
 

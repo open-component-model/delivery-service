@@ -210,7 +210,7 @@ def iter_sast_rescorings(
     findings: typing.Iterable[dso.model.ArtefactMetadata],
     sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet,
     user: dso.model.User,
-    time_now: datetime.datetime
+    creation_timestamp: datetime.datetime
 ) -> typing.Generator[dso.model.ArtefactMetadata, None, None]:
     for finding in findings:
         matching_rules = list(
@@ -235,8 +235,8 @@ def iter_sast_rescorings(
             meta=dso.model.Metadata(
                 datasource=finding.meta.datasource,
                 type=dso.model.Datatype.RESCORING,
-                creation_date=time_now,
-                last_update=time_now,
+                creation_date=creation_timestamp,
+                last_update=creation_timestamp,
             ),
             data=dso.model.CustomRescoring(
                 finding=finding.data,

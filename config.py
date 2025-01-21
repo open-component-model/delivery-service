@@ -564,6 +564,7 @@ def deserialise_sast_config(
         absent_ok=True,
     )
 
+    default_rule_set = None
     if rescoring_cfg_raw:
         rule_sets = rescore.model.deserialise_rule_sets(
             rescoring_cfg_raw=rescoring_cfg_raw,
@@ -571,15 +572,18 @@ def deserialise_sast_config(
             rule_set_ctor=rescore.model.SastRescoringRuleSet,
             rules_from_dict=rescore.model.sast_rescoring_rules_from_dict,
         )
-        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-            default_rule_set_ref=rescore.model.deserialise_default_rule_sets(
-                rescoring_cfg_raw=rescoring_cfg_raw,
-                rule_set_type=rescore.model.RuleSetType.SAST,
-            )[0],
-            rule_sets=rule_sets,
+        default_rule_sets = rescore.model.deserialise_default_rule_sets(
+            rescoring_cfg_raw=rescoring_cfg_raw,
+            rule_set_type=rescore.model.RuleSetType.SAST,
         )
+        if default_rule_sets:
+            default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
+                default_rule_set_ref=default_rule_sets[0],
+                rule_sets=rule_sets,
+            )
+        else:
+            logger.info('No default rulesets found')
     else:
-        default_rule_set = None
         logger.info('No SAST rescoring rules specified, rescoring will not be available')
 
     return SASTConfig(
@@ -681,6 +685,8 @@ def deserialise_bdba_config(
         default_config=default_config,
         absent_ok=True,
     )
+
+    default_rule_set = None
     if rescoring_cfg_raw:
         cve_rescoring_rulesets = rescore.model.deserialise_rule_sets(
             rescoring_cfg_raw=rescoring_cfg_raw,
@@ -688,20 +694,24 @@ def deserialise_bdba_config(
             rule_set_ctor=rescore.model.CveRescoringRuleSet,
             rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
         )
-        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-            default_rule_set_ref=rescore.model.deserialise_default_rule_sets(
-                rescoring_cfg_raw=rescoring_cfg_raw,
-                rule_set_type=rescore.model.RuleSetType.CVE,
-            )[0],
-            rule_sets=cve_rescoring_rulesets,
+        default_rule_sets = rescore.model.deserialise_default_rule_sets(
+            rescoring_cfg_raw=rescoring_cfg_raw,
+            rule_set_type=rescore.model.RuleSetType.CVE,
         )
+        if default_rule_sets:
+            default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
+                default_rule_set_ref=default_rule_sets[0],
+                rule_sets=cve_rescoring_rulesets,
+            )
+        else:
+            logger.info('No default rulesets found')
+
         auto_assess_max_severity_raw = deserialise_config_property(
             config=bdba_config,
             property_key='auto_assess_max_severity',
         )
         auto_assess_max_severity = dso.cvss.CVESeverity[auto_assess_max_severity_raw]
     else:
-        default_rule_set = None
         auto_assess_max_severity = None
         logger.info('no cve rescoring rules specified, rescoring will not be available')
 
@@ -973,6 +983,8 @@ def deserialise_issue_replicator_config(
         property_key='rescoring',
         absent_ok=True,
     )
+
+    default_rule_set = None
     if cve_rescoring_cfg_raw:
         cve_rescoring_rulesets = rescore.model.deserialise_rule_sets(
             rescoring_cfg_raw=cve_rescoring_cfg_raw,
@@ -980,15 +992,19 @@ def deserialise_issue_replicator_config(
             rule_set_ctor=rescore.model.CveRescoringRuleSet,
             rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
         )
-        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-            default_rule_set_ref=rescore.model.deserialise_default_rule_sets(
-                rescoring_cfg_raw=cve_rescoring_cfg_raw,
-                rule_set_type=rescore.model.RuleSetType.CVE,
-            )[0],
-            rule_sets=cve_rescoring_rulesets,
+        default_rule_sets = rescore.model.deserialise_default_rule_sets(
+            rescoring_cfg_raw=cve_rescoring_cfg_raw,
+            rule_set_type=rescore.model.RuleSetType.CVE,
         )
+        if default_rule_sets:
+            default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
+                default_rule_set_ref=default_rule_sets[0],
+                rule_sets=cve_rescoring_rulesets,
+            )
+        else:
+            logger.info('No default rulesets found')
     else:
-        default_rule_set = None
+        logger.info('No cve rescoring rules specified, rescoring will not be available')
 
     finding_type_issue_replication_cfgs_raw = deserialise_config_property(
         config=issue_replicator_config,
