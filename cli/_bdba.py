@@ -7,9 +7,14 @@ import pprint
 
 import tabulate
 
+import ccc.aws
+import ccc.delivery
+import ccc.oci
 import ci.util
 import cnudie.access
 import cnudie.iter
+import cnudie.retrieve as cr
+import ctx
 import dso.cvss
 import dso.model
 import oci
@@ -20,8 +25,6 @@ import bdba.assessments
 import bdba.client
 import bdba.model
 import bdba.scanning
-import ctx_util
-import lookups
 import ocm_util
 import rescore.utility as ru
 import rescore.model as rm
@@ -49,10 +52,20 @@ def retrieve(
 
 def ls_products(
     ocm_component: str,
-    bdba_cfg_name: str,
-    group_id: int,
+    bdba_cfg_name='gardener',
+    group_id=407,
+    ocm_repo: str=None,
 ):
-    ocm_lookup = lookups.init_component_descriptor_lookup()
+    if not ocm_repo:
+        ocm_lookup = ctx.cfg.ctx.ocm_lookup
+    else:
+        ocm_lookup = cr.create_default_component_descriptor_lookup(
+            ocm_repository_lookup=cr.ocm_repository_lookup(
+                ocm_repo,
+            ),
+            oci_client=ccc.oci.oci_client(),
+            delivery_client=ccc.delivery.default_client_if_available(),
+        )
 
     client = bdba.client.client(bdba_cfg_name)
 
@@ -191,7 +204,9 @@ def assess(
     product_id: int,
     assessment: str,
 ):
-    bdba_client = bdba.client.client(bdba_cfg_name)
+    cfg_factory = ci.util.ctx().cfg_factory()
+    bdba_cfg = cfg_factory.bdba(bdba_cfg_name)
+    bdba_client = bdba.client.client(bdba_cfg=bdba_cfg)
 
     bdba.assessments.auto_triage(
         bdba_client=bdba_client,
@@ -207,28 +222,27 @@ def scan(
     cve_threshold: float=7.0,
     bdba_api_url=None,
     reference_bdba_group_ids: list[int]=[],
-    aws_cfg_name: str=None,
+    aws_cfg: str=None,
 ):
-    secret_factory = ctx_util.secret_factory()
-    bdba_cfg = secret_factory.bdba(bdba_cfg_name)
+    cfg_factory = ci.util.ctx().cfg_factory()
+    bdba_cfg = cfg_factory.bdba(bdba_cfg_name)
 
-    oci_client = lookups.semver_sanitising_oci_client(
-        secret_factory=secret_factory,
-    )
-    if aws_cfg_name:
-        aws_cfg = secret_factory.aws(aws_cfg_name)
-        s3_client = aws_cfg.session.client('s3')
+    oci_client = ccc.oci.oci_client()
+    if aws_cfg:
+        aws_session = ccc.aws.session(aws_cfg=aws_cfg)
+        s3_client = aws_session.client('s3')
     else:
         s3_client = None
-        logger.warning('failed to initialise s3-client')
+        logger.warn('failed to initialise s3-client')
 
     if not bdba_api_url:
-        bdba_api_url = bdba_cfg.api_url
+        bdba_api_url = bdba_cfg.api_url()
     bdba_group_url = ci.util.urljoin(bdba_api_url, 'group', str(bdba_group_id))
     logger.info(f'Using BDBA at: {bdba_api_url} with group {bdba_group_id}')
 
-    lookup = lookups.init_component_descriptor_lookup(
-        oci_client=oci_client,
+    lookup = cr.create_default_component_descriptor_lookup(
+        oci_client=ccc.oci.oci_client(),
+        delivery_client=ccc.delivery.default_client_if_available(),
     )
     component_descriptor = lookup(component_id)
 
@@ -248,8 +262,8 @@ def scan(
     bdba_client = bdba.client.client(
         bdba_cfg=bdba_cfg,
         group_id=bdba_group_id,
-        url=bdba_api_url,
-        secret_factory=secret_factory,
+        base_url=bdba_api_url,
+        cfg_factory=cfg_factory,
     )
 
     def iter_resource_scans() -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
@@ -389,7 +403,9 @@ def transport_triages(
     to_group_id: int,
     to_product_ids: list[int],
 ):
-    api = bdba.client.client(bdba_cfg_name)
+    cfg_factory = ci.util.ctx().cfg_factory()
+    bdba_cfg = cfg_factory.bdba(bdba_cfg_name)
+    api = bdba.client.client(bdba_cfg=bdba_cfg)
 
     scan_result_from = api.scan_result(product_id=from_product_id)
     scan_results_to = {

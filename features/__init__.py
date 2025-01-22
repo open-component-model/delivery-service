@@ -2,7 +2,6 @@ import collections.abc
 import dataclasses
 import datetime
 import enum
-import functools
 import logging
 import os
 import re
@@ -17,17 +16,17 @@ import yaml
 
 import ci.util
 import cnudie.retrieve
+import model.base
+import model.bdba
 import ocm
 
+import config
 import ctx_util
 import k8s.util
 import lookups
 import middleware.auth
 import middleware.db_session
 import paths
-import secret_mgmt
-import secret_mgmt.oauth_cfg
-import secret_mgmt.signing_cfg
 import util
 import rescore.model as rm
 import yp
@@ -268,8 +267,8 @@ class FeatureAddressbook(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureAuthentication(FeatureBase):
     name: str = 'authentication'
-    signing_cfgs: list[secret_mgmt.signing_cfg.SigningCfg] = dataclasses.field(default_factory=list)
-    oauth_cfgs: list[secret_mgmt.oauth_cfg.OAuthCfg] = dataclasses.field(default_factory=list)
+    signing_cfgs: tuple[config.SigningCfg, ...] = tuple()
+    oauth_cfgs: tuple[config.OAuthCfg, ...] = tuple()
 
     def serialize(self) -> dict[str, any]:
         return {
@@ -350,13 +349,12 @@ class FeatureServiceExtensions(FeatureBase):
     def get_namespace(self) -> str:
         return self.namespace
 
-    @functools.cache
     def get_kubernetes_api(self) -> str:
         if not self.kubernetes_cfg_name:
             return k8s.util.kubernetes_api(kubeconfig_path=self.kubeconfig_path)
 
-        secret_factory = ctx_util.secret_factory()
-        kubernetes_cfg = secret_factory.kubernetes(self.kubernetes_cfg_name)
+        cfg_factory = ctx_util.cfg_factory()
+        kubernetes_cfg = cfg_factory.kubernetes(self.kubernetes_cfg_name)
         return k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
 
 
@@ -376,7 +374,9 @@ class FeatureSpecialComponents(FeatureBase):
 
     def serialize(self) -> dict[str, any]:
         cfg = self.cfg.copy()
-        github_api_lookup = lookups.github_api_lookup()
+        github_api_lookup = lookups.github_api_lookup(
+            cfg_factory=ctx_util.cfg_factory(),
+        )
         for component in cfg['specialComponents']:
             if isinstance(component.version, CurrentVersion):
                 component.version = component.version.retrieve(
@@ -516,7 +516,9 @@ def deserialise_addressbook(addressbook_raw: dict) -> FeatureAddressbook:
 
     if github_repo_url := addressbook_raw.get('repoUrl'):
         github_repo_lookup = lookups.github_repo_lookup(
-            lookups.github_api_lookup(),
+            lookups.github_api_lookup(
+                cfg_factory=ctx_util.cfg_factory(),
+            ),
         )
         github_repo = github_repo_lookup(github_repo_url)
     else:
@@ -639,7 +641,9 @@ def deserialise_sprints(sprints_raw: dict) -> FeatureSprints:
 
     if github_repo_url := sprints_raw.get('repoUrl'):
         github_repo_lookup = lookups.github_repo_lookup(
-            lookups.github_api_lookup(),
+            lookups.github_api_lookup(
+                cfg_factory=ctx_util.cfg_factory(),
+            ),
         )
         github_repo = github_repo_lookup(github_repo_url)
     else:
@@ -683,20 +687,19 @@ def deserialise_upgrade_prs(upgrade_prs_raw: dict) -> FeatureUpgradePRs:
         )
 
 
-def deserialise_authentication(
-    secret_factory: secret_mgmt.SecretFactory,
-) -> FeatureAuthentication:
-    try:
-        oauth_cfgs = secret_factory.oauth_cfg()
-        signing_cfgs = secret_factory.signing_cfg()
-    except secret_mgmt.SecretTypeNotFound as e:
-        logger.warning(f'Authentication config not found: {e}')
+def deserialise_authentication(delivery_cfg: config.DeliveryCfg | None) -> FeatureAuthentication:
+    if not delivery_cfg:
+        logger.warning('Authentication config not found')
+        return FeatureAuthentication(FeatureStates.UNAVAILABLE)
+
+    if not delivery_cfg.signing_cfgs or not delivery_cfg.oauth_cfgs:
+        logger.warning('Authentication config not found')
         return FeatureAuthentication(FeatureStates.UNAVAILABLE)
 
     return FeatureAuthentication(
         state=FeatureStates.AVAILABLE,
-        signing_cfgs=signing_cfgs,
-        oauth_cfgs=oauth_cfgs,
+        signing_cfgs=tuple(delivery_cfg.signing_cfgs),
+        oauth_cfgs=tuple(delivery_cfg.oauth_cfgs),
     )
 
 
@@ -805,15 +808,30 @@ def watch_for_file_changes(
 
 async def init_features(
     parsed_arguments,
-    secret_factory: secret_mgmt.SecretFactory,
+    cfg_factory,
     middlewares: collections.abc.Iterable,
 ) -> list:
     global feature_cfgs
     feature_cfgs = []
 
-    feature_authentication = deserialise_authentication(
-        secret_factory=secret_factory,
-    )
+    delivery_cfg = None
+    try:
+        delivery_cfg = cfg_factory.delivery(parsed_arguments.delivery_cfg)
+    except ValueError as e:
+        logger.warning(f'Delivery config not found: {e}')
+
+    delivery_cfg: model.base.NamedModelElement | None
+
+    if delivery_cfg:
+        delivery_cfg = dacite.from_dict(
+            data=delivery_cfg.raw,
+            data_class=config.DeliveryCfg,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
+        )
+
+    feature_authentication = deserialise_authentication(delivery_cfg)
     if (
         feature_authentication.state is FeatureStates.AVAILABLE
         and not parsed_arguments.shortcut_auth
@@ -829,10 +847,10 @@ async def init_features(
         delivery_db_feature_state = FeatureStates.AVAILABLE
     else:
         try:
-            db_cfg = secret_factory.delivery_db(parsed_arguments.delivery_db_cfg)
-            db_url = db_cfg.url
+            db_cfg = cfg_factory.delivery_db(parsed_arguments.delivery_db_cfg)
+            db_url = db_cfg.as_url()
             delivery_db_feature_state = FeatureStates.AVAILABLE
-        except (secret_mgmt.SecretTypeNotFound, secret_mgmt.SecretElementNotFound):
+        except (AttributeError, model.base.ConfigElementNotFoundError):
             logger.warning('Delivery database config not found')
 
     if delivery_db_feature_state is FeatureStates.AVAILABLE:

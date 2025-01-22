@@ -14,7 +14,6 @@ import lookups
 import responsibles.github_statistics as rg
 import responsibles.labels
 import responsibles.user_model
-import secret_mgmt.github
 import util
 
 
@@ -275,11 +274,15 @@ def user_identifiers_from_responsible(
             org_name, _ = responsible.teamname.split('/')
             gh_hostname = responsible.github_hostname or source.access.hostname()
 
-            secret_factory = ctx_util.secret_factory()
+            cfg_factory = ctx_util.cfg_factory()
 
-            github_api = secret_mgmt.github.github_api(
-                secret_factory=secret_factory,
-                repo_url=ci.util.urljoin(gh_hostname, org_name),
+            import ccc.github
+            github_api = ccc.github.github_api(
+                github_cfg=ccc.github.github_cfg_for_repo_url(
+                    repo_url=ci.util.urljoin(gh_hostname, org_name),
+                    cfg_factory=cfg_factory,
+                ),
+                cfg_factory=cfg_factory,
             )
 
             team = github.codeowners.Team(responsible.teamname)

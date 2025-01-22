@@ -15,13 +15,13 @@ import github3.repos.repo
 import github3.repos.stats
 import github3.users
 
+import ccc.github
 import ci.util
 
 import ctx_util
 import paths
 import responsibles.user_model
 import responsibles
-import secret_mgmt.github
 import util
 
 
@@ -418,9 +418,9 @@ def _negative_list() -> list[str]:
 def repo_contributor_statistics(
     repo_url: str,
 ) -> list | None:
-    gh_api = secret_mgmt.github.github_api(
-        secret_factory=ctx_util.secret_factory(),
+    gh_api = ccc.github.github_api(
         repo_url=repo_url,
+        cfg_factory=ctx_util.cfg_factory(),
     )
     repo = _repo_from_repo_url(
         gh_api=gh_api,
@@ -439,10 +439,7 @@ def user_identities(
     repo_url: str,
     heuristic_parameters: ResponsiblesDetectionHeuristicsParameters,
 ) -> tuple[responsibles.user_model.UserIdentity]:
-    gh_api = secret_mgmt.github.github_api(
-        secret_factory=ctx_util.secret_factory(),
-        repo_url=repo_url,
-    )
+    gh_api = ccc.github.github_api(repo_url=repo_url, cfg_factory=ctx_util.cfg_factory())
     repo = _repo_from_repo_url(
         gh_api=gh_api,
         repo_url=repo_url,

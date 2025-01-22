@@ -349,10 +349,10 @@ async def main():
     cfg_name = parsed_arguments.cfg_name
     namespace = parsed_arguments.k8s_namespace
 
-    secret_factory = ctx_util.secret_factory()
+    cfg_factory = ctx_util.cfg_factory()
 
     if k8s_cfg_name := parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = secret_factory.kubernetes(k8s_cfg_name)
+        kubernetes_cfg = cfg_factory.kubernetes(k8s_cfg_name)
         kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
     else:
         kubernetes_api = k8s.util.kubernetes_api(kubeconfig_path=parsed_arguments.kubeconfig)
@@ -375,9 +375,9 @@ async def main():
         kubernetes_api=kubernetes_api,
     )
 
-    db_url = secret_factory.delivery_db(cache_manager_cfg.delivery_db_cfg_name).url
+    db_url = cfg_factory.delivery_db(cache_manager_cfg.delivery_db_cfg_name).as_url()
 
-    oci_client = lookups.semver_sanitising_oci_client_async(secret_factory)
+    oci_client = lookups.semver_sanitising_oci_client_async(cfg_factory)
     eol_client = eol.EolClient()
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup_async(

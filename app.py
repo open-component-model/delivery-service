@@ -34,7 +34,6 @@ import osinfo
 import paths
 import rescore.artefacts
 import rescore.model as rm
-import secret_mgmt
 import service_extensions
 import special_component
 import sprint
@@ -53,6 +52,7 @@ def parse_args():
     parser.add_argument('--port', default=5000, type=int)
     parser.add_argument('--max-workers', default=4, type=int)
     parser.add_argument('--shortcut-auth', action='store_true', default=False)
+    parser.add_argument('--delivery-cfg', default='internal')
     parser.add_argument('--delivery-db-cfg', default='internal')
     parser.add_argument('--delivery-db-url', default=None)
     parser.add_argument('--cache-dir', default=default_cache_dir)
@@ -102,10 +102,10 @@ def get_base_url(
 
 def add_app_context_vars(
     app: aiohttp.web.Application,
-    secret_factory: secret_mgmt.SecretFactory,
+    cfg_factory,
     parsed_arguments,
 ) -> aiohttp.web.Application:
-    oci_client = lookups.semver_sanitising_oci_client_async(secret_factory)
+    oci_client = lookups.semver_sanitising_oci_client_async(cfg_factory)
 
     version_lookup = lookups.init_version_lookup_async(
         oci_client=oci_client,
@@ -125,7 +125,7 @@ def add_app_context_vars(
         oci_client=oci_client,
     )
 
-    github_api_lookup = lookups.github_api_lookup(secret_factory)
+    github_api_lookup = lookups.github_api_lookup(cfg_factory)
     github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
 
     addressbook_feature = features.get_feature(features.FeatureAddressbook)
@@ -201,10 +201,12 @@ def add_app_context_vars(
     app[consts.APP_ADDRESSBOOK_SOURCE] = addressbook_source
     app[consts.APP_ARTEFACT_METADATA_CFG] = artefact_metadata_cfg_by_type
     app[consts.APP_BASE_URL] = base_url
+    app[consts.APP_CFG_FACTORY] = cfg_factory
     app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP] = component_descriptor_lookup
     app[consts.APP_COMPONENT_WITH_TESTS_CALLBACK] = component_with_tests_callback
     app[consts.APP_RESCORING_RULE_SET_LOOKUP] = rescoring_rule_set_lookup
     app[consts.APP_DEFAULT_RULE_SET_FOR_TYPE_CALLBACK] = default_rule_set_for_type_callback
+    app[consts.APP_DELIVERY_CFG] = parsed_arguments.delivery_cfg
     app[consts.APP_EOL_CLIENT] = eol.EolClient()
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup
     app[consts.APP_GITHUB_REPO_LOOKUP] = github_repo_lookup
@@ -212,7 +214,6 @@ def add_app_context_vars(
     app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
     app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
     app[consts.APP_OCI_CLIENT] = oci_client
-    app[consts.APP_SECRET_FACTORY] = secret_factory
     app[consts.APP_SERVICE_EXTENSIONS_CALLBACK] = service_extensions_callback
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
     app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK] = sprint_date_display_name_callback
@@ -402,7 +403,7 @@ async def initialise_app():
     loop = asyncio.get_running_loop()
     loop.set_default_executor(executor)
 
-    secret_factory = ctx_util.secret_factory()
+    cfg_factory = ctx_util.cfg_factory()
 
     middlewares = [
         middleware.cors.cors_middleware(),
@@ -411,7 +412,7 @@ async def initialise_app():
 
     middlewares = await features.init_features(
         parsed_arguments=parsed_arguments,
-        secret_factory=secret_factory,
+        cfg_factory=cfg_factory,
         middlewares=middlewares,
     )
 
@@ -434,7 +435,7 @@ async def initialise_app():
 
     app = add_app_context_vars(
         app=app,
-        secret_factory=secret_factory,
+        cfg_factory=cfg_factory,
         parsed_arguments=parsed_arguments,
     )
 
