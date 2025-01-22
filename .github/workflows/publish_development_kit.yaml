@@ -1,0 +1,73 @@
+name: Publish Development-Kit
+on:
+  workflow_dispatch:
+    inputs:
+      release-to-pypi:
+        required: false
+        type: boolean
+        default: true
+      version:
+        description: |
+          Option to manually overwrite the desired version of the built package. If no version is
+          specified, the next minor release version will be used.
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: python:alpine
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install git, setuptools, and semver
+        run: |
+          apk add \
+            git
+          pip3 install \
+            setuptools \
+            semver
+      - name: Create Distribution Package
+        run: |
+          set -eu
+
+          pkg_dir=dist
+          mkdir -p ${pkg_dir}
+          pkg_dir="$(readlink -f ${pkg_dir})"
+
+          path="setup.utils.py"
+
+          version="${{ inputs.version }}"
+          if [ ! -z $version ]; then
+            echo $version > VERSION
+          fi
+
+          echo "Building distribution package from ${path} to ${pkg_dir}"
+          python3 ${path} \
+            bdist_wheel \
+            --dist-dir ${pkg_dir}
+
+          echo "Built package:"
+          ls "${pkg_dir}"
+      - name: Upload Distribution Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-package
+          path: dist/
+
+  pypi:
+    if: ${{ inputs.release-to-pypi }}
+    runs-on: ubuntu-latest
+    name: Publish to PyPI
+    needs:
+      - build
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Retrieve Distribution Package
+        uses: actions/download-artifact@v4
+        with:
+          name: distribution-package
+          path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
