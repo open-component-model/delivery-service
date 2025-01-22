@@ -166,8 +166,8 @@ class BDBAConfig:
     :param tuple[int] reference_group_ids:
         bdba group ids to consider when copying existing assessments
     :param CVSSVersion cvss_version
-    :param str aws_cfg_name
-        cfg-element used to create s3 client to retrieve artefacts
+    :param str aws_cfg_set_name:
+        name of config element to use for creating a s3 client
     :param ProcessingMode processing_mode:
         defines the scanning behaviour in case there is already an existing scan
     :param tuple[str] artefact_types:
@@ -192,7 +192,7 @@ class BDBAConfig:
     group_id: int
     reference_group_ids: tuple[int]
     cvss_version: bdba.model.CVSSVersion
-    aws_cfg_name: str | None
+    aws_cfg_set_name: str
     processing_mode: bdba.model.ProcessingMode
     artefact_types: tuple[str]
     node_filter: collections.abc.Callable[[cnudie.iter.Node], bool]
@@ -561,9 +561,9 @@ def deserialise_bdba_config(
     )
     cvss_version = bdba.model.CVSSVersion(cvss_version_raw)
 
-    aws_cfg_name = deserialise_config_property(
+    aws_cfg_set_name = deserialise_config_property(
         config=bdba_config,
-        property_key='aws_cfg_name',
+        property_key='aws_cfg_set_name',
         absent_ok=True,
     )
 
@@ -682,7 +682,7 @@ def deserialise_bdba_config(
         group_id=group_id,
         reference_group_ids=reference_group_ids,
         cvss_version=cvss_version,
-        aws_cfg_name=aws_cfg_name,
+        aws_cfg_set_name=aws_cfg_set_name,
         processing_mode=processing_mode,
         artefact_types=artefact_types,
         node_filter=node_filter,

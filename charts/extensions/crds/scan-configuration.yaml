@@ -174,7 +174,7 @@ spec:
                         type: integer
                     cvss_version:
                       type: string
-                    aws_cfg_name:
+                    aws_cfg_set_name:
                       type: string
                     processing_mode:
                       type: string
