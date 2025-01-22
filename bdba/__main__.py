@@ -8,7 +8,6 @@ import time
 
 import botocore.client
 
-import ccc.aws
 import ci.log
 import cnudie.access
 import cnudie.iter
@@ -283,10 +282,10 @@ def main():
     namespace = parsed_arguments.k8s_namespace
     delivery_service_url = parsed_arguments.delivery_service_url
 
-    cfg_factory = ctx_util.cfg_factory()
+    secret_factory = ctx_util.secret_factory()
 
     if parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = cfg_factory.kubernetes(parsed_arguments.k8s_cfg_name)
+        kubernetes_cfg = secret_factory.kubernetes(parsed_arguments.k8s_cfg_name)
         kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
     else:
         kubernetes_api = k8s.util.kubernetes_api(
@@ -311,12 +310,11 @@ def main():
         kubernetes_api=kubernetes_api,
     )
 
-    bdba_cfg = cfg_factory.bdba(bdba_config.cfg_name)
+    bdba_cfg = secret_factory.bdba(bdba_config.cfg_name)
     bdba_client = bdba.client.client(
         bdba_cfg=bdba_cfg,
         group_id=bdba_config.group_id,
-        base_url=bdba_cfg.base_url(),
-        cfg_factory=cfg_factory,
+        secret_factory=secret_factory,
     )
 
     if not delivery_service_url:
@@ -330,7 +328,7 @@ def main():
     )
 
     oci_client = lookups.semver_sanitising_oci_client(
-        cfg_factory=cfg_factory,
+        secret_factory=secret_factory,
     )
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
@@ -338,25 +336,12 @@ def main():
         delivery_client=delivery_client,
     )
 
-    try:
-        cfg_set = cfg_factory.cfg_set(bdba_config.aws_cfg_set_name)
-    except ValueError:
-        logger.info(
-            f'cfg set {bdba_config.aws_cfg_set_name} not found, '
-            'trying to create default s3 client'
-        )
-        cfg_set = None
+    if bdba_config.aws_cfg_set_name:
+        aws_cfg = secret_factory.aws(bdba_config.aws_cfg_set_name)
 
-    s3_client = None
-    try:
-        s3_session = ccc.aws.default_session(
-            cfg_factory=cfg_factory,
-            cfg_set=cfg_set,
-        )
-        if s3_session:
-            s3_client =  s3_session.client('s3')
-    except RuntimeError:
-        logger.warning('failed to create s3 client')
+        s3_client = aws_cfg.session.client('s3')
+    else:
+        s3_client = None
 
     global ready_to_terminate, wants_to_terminate
     while not wants_to_terminate:

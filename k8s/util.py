@@ -17,12 +17,13 @@ import cnudie.iter
 import cnudie.retrieve
 import dso.model
 import github.compliance.model as gcm
-import model.kubernetes
 import ocm
 
 import config
 import ctx_util
 import k8s.model
+import secret_mgmt
+import secret_mgmt.kubernetes
 
 
 logger = logging.getLogger(__name__)
@@ -37,13 +38,12 @@ class KubernetesApi:
     networking_kubernetes_api: kc.NetworkingV1Api
 
 
-@functools.cache
 def kubernetes_api(
-    kubernetes_cfg: model.kubernetes.KubernetesConfig=None,
-    kubeconfig_path: str=None,
+    kubernetes_cfg: secret_mgmt.kubernetes.Kubernetes | None=None,
+    kubeconfig_path: str | None=None,
 ) -> KubernetesApi:
     if kubernetes_cfg:
-        api_client = kubernetes.config.new_client_from_config_dict(kubernetes_cfg.kubeconfig())
+        api_client = kubernetes.config.new_client_from_config_dict(kubernetes_cfg.kubeconfig)
     elif kubeconfig_path:
         kubeconfig = yaml.safe_load(open(kubeconfig_path))
         api_client = kubernetes.config.new_client_from_config_dict(kubeconfig)
@@ -250,17 +250,17 @@ def iter_scan_configurations(
 
         if bdba_config := spec.get('bdba'):
             # enrich bdba config with bdba url to be able to show bdba url in dashboard
-            cfg_factory = ctx_util.cfg_factory()
+            secret_factory = ctx_util.secret_factory()
             cfg_name = bdba_config.get('cfg_name')
 
             try:
-                bdba_cfg = cfg_factory.bdba(cfg_name)
-            except ValueError:
+                bdba_cfg = secret_factory.bdba(cfg_name)
+            except (secret_mgmt.SecretTypeNotFound, secret_mgmt.SecretElementNotFound):
                 logger.warning(f'no bdba-cfg found for {cfg_name}')
                 pass
 
             if bdba_cfg:
-                bdba_config['base_url'] = bdba_cfg.base_url()
+                bdba_config['base_url'] = bdba_cfg.api_url
         if issue_replicator_config := spec.get('issueReplicator'):
             # enrich issue replicator config with max processing days to be able to show
             # preview effects of rescorings on due date in dashboard

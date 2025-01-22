@@ -15,8 +15,6 @@ import cnudie.purge
 import cnudie.retrieve
 import cnudie.util
 import delivery.client
-import model.container_registry
-import model.delivery_db
 import oci.auth
 import oci.client
 import ocm
@@ -28,6 +26,9 @@ import ctx_util
 import k8s.logging
 import k8s.util
 import lookups
+import secret_mgmt
+import secret_mgmt.delivery_db
+import secret_mgmt.oci_registry
 
 
 logger = logging.getLogger(__name__)
@@ -40,20 +41,20 @@ BACKUP_BLOB_MEDIA_TYPE = 'application/data+tar'
 
 def create_local_backup(
     outfile: str,
-    delivery_db_cfg: model.delivery_db.DeliveryDbConfig,
+    delivery_db_cfg: secret_mgmt.delivery_db.DeliveryDB,
     additional_args: list[str] = [],
 ):
     outfile_path = os.path.abspath(outfile)
-    os.environ['PGPASSWORD'] = delivery_db_cfg.credentials().passwd()
+    os.environ['PGPASSWORD'] = delivery_db_cfg.password
 
     pg_dump_argv = [
         'pg_dump',
         '--host',
-        delivery_db_cfg.hostname(),
+        delivery_db_cfg.hostname,
         '--port',
-        str(delivery_db_cfg.port()),
+        str(delivery_db_cfg.port),
         '--username',
-        delivery_db_cfg.credentials().username(),
+        delivery_db_cfg.username,
         '--file',
         outfile_path,
         '--format',
@@ -201,7 +202,7 @@ def iter_local_resources(
 def delete_old_backup_versions(
     backup_retention_count: int,
     oci_ref: str,
-    cfg_factory,
+    secret_factory: secret_mgmt.SecretFactory,
     ocm_repo: str,
     component: ocm.Component,
 ):
@@ -210,10 +211,10 @@ def delete_old_backup_versions(
     if backup_retention_count < 0:
         raise ValueError(f'{backup_retention_count=} must be a positive integer value')
 
-    cfg_for_delete = model.container_registry.find_config(
+    cfg_for_delete = secret_mgmt.oci_registry.find_cfg(
+        secret_factory=secret_factory,
         image_reference=oci_ref,
         privileges=oci.auth.Privileges.ADMIN,
-        cfg_factory=cfg_factory,
     )
 
     def oci_cfg_lookup(
@@ -298,10 +299,10 @@ def main():
     parsed_arguments = parse_args()
     namespace = parsed_arguments.k8s_namespace
 
-    cfg_factory = ctx_util.cfg_factory()
+    secret_factory = ctx_util.secret_factory()
 
     if parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = cfg_factory.kubernetes(parsed_arguments.k8s_cfg_name)
+        kubernetes_cfg = secret_factory.kubernetes(parsed_arguments.k8s_cfg_name)
         kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
     else:
         kubernetes_api = k8s.util.kubernetes_api(
@@ -323,13 +324,13 @@ def main():
     logger.info('creating delivery-db backup')
 
     delivery_gear_extension_cfg_name = ci.util.check_env('DELIVERY_GEAR_CFG_NAME')
-    delivery_gear_extension_cfg = cfg_factory.delivery_gear_extensions(
+    delivery_gear_extension_cfg = ctx_util.cfg_factory().delivery_gear_extensions(
         delivery_gear_extension_cfg_name,
     )
 
     backup_cfg = delivery_gear_extension_cfg.deliveryDbBackup()
 
-    delivery_db_cfg = cfg_factory.delivery_db(backup_cfg['delivery_db_cfg_name'])
+    delivery_db_cfg = secret_factory.delivery_db(backup_cfg['delivery_db_cfg_name'])
     component_name = backup_cfg['component_name']
     ocm_repo = backup_cfg['ocm_repo']
     additional_args = backup_cfg.get('extra_pg_dump_args', [])
@@ -376,7 +377,7 @@ def main():
     )
 
     oci_client = lookups.semver_sanitising_oci_client(
-        cfg_factory=cfg_factory,
+        secret_factory=secret_factory,
     )
 
     size = os.path.getsize(outfile)
@@ -411,7 +412,7 @@ def main():
     delete_old_backup_versions(
         backup_retention_count=backup_retention_count,
         oci_ref=cnudie.util.oci_ref(component),
-        cfg_factory=cfg_factory,
+        secret_factory=secret_factory,
         ocm_repo=ocm_repo,
         component=component,
     )
