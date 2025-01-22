@@ -9,8 +9,6 @@ import watchdog.observers.polling
 import ci.util
 import model
 
-import secret_mgmt
-
 
 def _cfg_factory_from_secret(path: str) -> model.ConfigFactory:
     path = ci.util.existing_file(path)
@@ -24,7 +22,6 @@ class FileChangeEventHandler(watchdog.events.FileSystemEventHandler):
         # Clear cache so that the next time the cfg factory is needed it is
         # created using the new cfg
         cfg_factory.cache_clear()
-        secret_factory.cache_clear()
 
 
 @functools.cache
@@ -70,19 +67,3 @@ def cfg_factory() -> model.ConfigFactory:
     refresh_interval_seconds = 60 * 60 * 12 # 12h
     refresh_periodically(refresh_interval_seconds=refresh_interval_seconds)
     return ci.util.ctx().cfg_factory()
-
-
-@functools.cache
-def secret_factory() -> secret_mgmt.SecretFactory:
-    # secret factory creation from k8s secrets
-    if path := os.environ.get('SECRET_FACTORY_PATH'):
-        watch_for_file_changes(path)
-        return secret_mgmt.SecretFactory.from_dir(
-            secrets_dir=path,
-        )
-
-    # fallback: use cfg factory and convert it to secret factory structure
-    # TODO: this must be removed eventually as part of cfg mgmt changes
-    return secret_mgmt.SecretFactory.from_cfg_factory(
-        cfg_factory=cfg_factory(),
-    )
