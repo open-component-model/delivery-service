@@ -139,7 +139,7 @@ class OsInfoRoutes(aiohttp.web.View):
             data=[
                 dataclasses.asdict(
                     obj=release_info,
-                    dict_factory=util.dict_factory_date_serialisiation,
+                    dict_factory=util.dict_serialisation,
                 ) for release_info in release_infos
             ],
         )
