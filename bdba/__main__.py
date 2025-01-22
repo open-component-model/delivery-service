@@ -336,8 +336,8 @@ def main():
         delivery_client=delivery_client,
     )
 
-    if bdba_config.aws_cfg_set_name:
-        aws_cfg = secret_factory.aws(bdba_config.aws_cfg_set_name)
+    if bdba_config.aws_cfg_name:
+        aws_cfg = secret_factory.aws(bdba_config.aws_cfg_name)
 
         s3_client = aws_cfg.session.client('s3')
     else:
