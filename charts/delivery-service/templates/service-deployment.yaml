@@ -57,6 +57,20 @@ spec:
           {{- end }}
           {{- end }}
           volumeMounts:
+            - name: bdba
+              mountPath: /secrets/bdba
+            - name: delivery-db
+              mountPath: /secrets/delivery-db
+            - name: github
+              mountPath: /secrets/github
+            - name: kubernetes
+              mountPath: /secrets/kubernetes
+            - name: oauth-cfg
+              mountPath: /secrets/oauth-cfg
+            - name: oci-registry
+              mountPath: /secrets/oci-registry
+            - name: signing-cfg
+              mountPath: /secrets/signing-cfg
             - name: cfg-factory
               mountPath: "/cfg_factory"
             - name: features-cfg
@@ -72,6 +86,34 @@ spec:
               memory: 5Gi
               cpu: 500m
       volumes:
+        - name: bdba
+          secret:
+            secretName: secret-factory-bdba
+            optional: true # bdba extension is optional
+        - name: delivery-db
+          secret:
+            secretName: secret-factory-delivery-db
+            optional: true # TODO: only optional until cfg factory support has been removed
+        - name: github
+          secret:
+            secretName: secret-factory-github
+            optional: true # TODO: only optional until cfg factory support has been removed
+        - name: kubernetes
+          secret:
+            secretName: secret-factory-kubernetes
+            optional: true # extensions in general are optional
+        - name: oauth-cfg
+          secret:
+            secretName: secret-factory-oauth-cfg
+            optional: true # authentication is optional
+        - name: oci-registry
+          secret:
+            secretName: secret-factory-oci-registry
+            optional: true # TODO: only optional until cfg factory support has been removed
+        - name: signing-cfg
+          secret:
+            secretName: secret-factory-signing-cfg
+            optional: true # authentication is optional
         - name: cfg-factory
           secret:
             secretName: cfg-factory-secret

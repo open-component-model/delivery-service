@@ -43,6 +43,16 @@ spec:
           {{- end }}
           {{- end }}
           volumeMounts:
+          - name: aws
+            mountPath: /secrets/aws
+          - name: bdba
+            mountPath: /secrets/bdba
+          - name: github
+            mountPath: /secrets/github
+          - name: kubernetes
+            mountPath: /secrets/kubernetes
+          - name: oci-registry
+            mountPath: /secrets/oci-registry
           - name: cfg-factory
             mountPath: "/cfg_factory"
             readOnly: true
@@ -63,6 +73,26 @@ spec:
               memory: 600Mi
               cpu: 200m
       volumes:
+        - name: aws
+          secret:
+            secretName: secret-factory-aws
+            optional: true # aws client is optional
+        - name: bdba
+          secret:
+            secretName: secret-factory-bdba
+            optional: true # TODO: only optional until cfg factory support has been removed
+        - name: github
+          secret:
+            secretName: secret-factory-github
+            optional: true # TODO: only optional until cfg factory support has been removed
+        - name: kubernetes
+          secret:
+            secretName: secret-factory-kubernetes
+            optional: true # might use incluster config
+        - name: oci-registry
+          secret:
+            secretName: secret-factory-oci-registry
+            optional: true # TODO: only optional until cfg factory support has been removed
         - name: cfg-factory
           secret:
             secretName: cfg-factory-secret
