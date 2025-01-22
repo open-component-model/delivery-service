@@ -64,7 +64,7 @@ class Triage:
     id: int
     vuln_id: str
     component: str
-    version: str
+    version: str | None
     scope: TriageScope
     reason: str
     description: str | None
