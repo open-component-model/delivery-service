@@ -24,13 +24,13 @@ def modules():
     return [
         'artefact_enumerator',
         'backlog_controller',
-        'bdba',
         'delivery_db_backup',
     ]
 
 
 def packages():
     return [
+        'bdba',
         'issue_replicator',
         'malware',
     ]

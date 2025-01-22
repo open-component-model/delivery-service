@@ -20,7 +20,7 @@ def requirements():
 
 def modules():
     return [
-        'caching',
+        'bdba.model',
         'config',
         'config_filter',
         'consts',
@@ -28,13 +28,14 @@ def modules():
         'lookups',
         'ocm_util',
         'paths',
+        'rescore.model',
         'rescore.utility',
+        'util',
     ]
 
 
 def packages():
     return [
-        'bdba',
         'deliverydb_cache',
         'k8s',
         'secret_mgmt',

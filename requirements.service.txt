@@ -1,15 +1,12 @@
-aiohttp
 aiohttp-swagger
 awesomeversion
 cachetools
 dataclasses-json
-github3-py
 htmllistparse
 jsonschema
 prometheus_client
 psycopg[binary]
 pyjwt
-pyyaml
 sqlalchemy>1.4.0
 # numpy and scipy installed via alpine packages
 # numpy
