@@ -5,7 +5,6 @@ import math
 import os
 
 import dateutil.parser
-import pytz
 
 import ci.log
 import ci.util
@@ -52,7 +51,7 @@ def on_backlog_change(
     ).get('items')
 
     running_pod_names = []
-    now = datetime.datetime.now(tz=pytz.UTC)
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
     for backlog_crd in backlog_crds:
         crd_name = backlog_crd.get('metadata').get('name')
         labels = backlog_crd.get('metadata').get('labels')

@@ -5,7 +5,6 @@ import enum
 import http
 import logging
 import os
-import pytz
 import time
 
 import dacite
@@ -270,7 +269,7 @@ def get_backlog_crd_and_claim(
 
     annotations = metadata.get('annotations', dict())
     annotations[ANNOTATION_CLAIMED_BY] = os.environ.get('HOSTNAME', 'local')
-    annotations[ANNOTATION_CLAIMED_AT] = datetime.datetime.now(tz=pytz.UTC)
+    annotations[ANNOTATION_CLAIMED_AT] = datetime.datetime.now(tz=datetime.timezone.utc)
     metadata['annotations'] = annotations
 
     try:

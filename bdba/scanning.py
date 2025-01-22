@@ -7,7 +7,6 @@ import logging
 
 import botocore.exceptions
 import dateutil.parser
-import pytz
 import requests
 
 import ci.log
@@ -105,7 +104,7 @@ class ResourceGroupProcessor:
                     continue
                 yield component, vulnerability, tuple(vulnerability.triages)
 
-        now = datetime.datetime.now(tz=pytz.UTC)
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         delete_after = now + datetime.timedelta(
             seconds=delete_inactive_products_after_seconds or 0,
         )
