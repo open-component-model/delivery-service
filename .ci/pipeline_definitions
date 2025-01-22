@@ -150,6 +150,9 @@ delivery-service:
               attribute: delivery-db-backup.image.repository
             - ref: ocm-resource:extensions.tag
               attribute: delivery-db-backup.image.tag
+          - name: bootstrapping
+            dir: charts/bootstrapping
+            registry: europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear
         release:
           nextversion: bump_minor
           release_notes_policy: disabled
