@@ -7,12 +7,14 @@ rules:
   - apiGroups:
       - ""
       - apps
+      - networking.k8s.io
       - delivery-gear.gardener.cloud
     resources:
       - backlogitems
       - logcollections
       - pods
       - replicasets
+      - ingresses
       - runtimeartefacts
       - scanconfigurations
     verbs:
