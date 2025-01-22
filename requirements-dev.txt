@@ -1,4 +1,3 @@
--r requirements.extensions.txt
 -r requirements.service.txt
 -r requirements.utils.txt
 aiohttp-devtools

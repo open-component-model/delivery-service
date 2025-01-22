@@ -35,5 +35,4 @@ pip3 install --no-cache --upgrade \
   --find-links "${pkg_dir}" \
   -r "${repo_root}/requirements.service.txt" \
   -r "${repo_root}/requirements.utils.txt" \
-  -r "${repo_root}/requirements.extensions.txt" \
   pytest-asyncio
