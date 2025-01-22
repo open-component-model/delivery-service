@@ -9,7 +9,7 @@ own_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 def requirements():
-    yield 'ocm-gear-utils'
+    yield 'delivery-gear-utils'
 
 
 def modules():
