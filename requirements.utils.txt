@@ -1,6 +1,11 @@
+aiohttp
+boto3
 dacite
 gardener-cicd-libs==1.2584.0
 github3.py
 kubernetes
+requests
 urllib3
 watchdog
+python-dateutil
+pyyaml

@@ -4,6 +4,7 @@ import typing
 
 import dso.model
 import dso.cvss
+
 import rescore.model
 
 

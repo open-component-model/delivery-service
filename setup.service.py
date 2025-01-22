@@ -25,6 +25,7 @@ def modules():
         'app',
         'artefacts',
         'cache_manager',
+        'caching',
         'compliance_tests',
         'components',
         'dora',
@@ -35,7 +36,6 @@ def modules():
         'smoke_test',
         'special_component',
         'sprint',
-        'util',
         'yp',
     ]
 
