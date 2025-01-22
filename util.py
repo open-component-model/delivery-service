@@ -33,25 +33,6 @@ def normalise_url_to_second_and_tld(url: str):
     return '.'.join(parts).lower()
 
 
-def dict_factory_enum_name_serialisiation(data):
-    def convert_value(obj):
-        if isinstance(obj, enum.Enum):
-            return obj.name
-        return obj
-
-    return dict((k, convert_value(v)) for k, v in data)
-
-
-def dict_factory_date_serialisiation(data):
-
-    def convert_value(obj):
-        if isinstance(obj, datetime.date):
-            return obj.isoformat()
-        return obj
-
-    return dict((k, convert_value(v)) for k, v in data)
-
-
 def dict_serialisation(data) -> dict:
     if isinstance(data, enum.Enum):
         return data.value
