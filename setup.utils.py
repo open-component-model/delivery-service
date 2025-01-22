@@ -43,7 +43,7 @@ def packages():
 
 
 setuptools.setup(
-    name='ocm-gear-utils',
+    name='delivery-gear-utils',
     version=setup.finalize_version(),
     py_modules=modules(),
     packages=packages(),

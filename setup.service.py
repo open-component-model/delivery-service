@@ -9,7 +9,7 @@ own_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 def requirements():
-    yield 'ocm-gear-utils'
+    yield 'delivery-gear-utils'
 
     with open(os.path.join(own_dir, 'requirements.service.txt')) as f:
         for line in f.readlines():
