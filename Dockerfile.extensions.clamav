@@ -1,6 +1,6 @@
 FROM ghcr.io/gardener/cc-utils/alpine:3
 
-COPY VERSION requirements.utils.txt requirements.extensions.txt clamav_entrypoint.sh /
+COPY VERSION requirements.utils.txt clamav_entrypoint.sh /
 COPY clamd.conf /etc/clamav/clamd.conf
 
 RUN --mount=type=bind,source=/dist,target=/dist \
