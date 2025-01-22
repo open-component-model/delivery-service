@@ -10,8 +10,6 @@ import oci.model
 import ocm
 import tarutil
 
-import util
-
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +72,16 @@ async def find_artefact_node(
     if not dso.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
-    component = (await util.retrieve_component_descriptor(
+    component = component_descriptor_lookup(
         ocm.ComponentIdentity(
             name=artefact.component_name,
             version=artefact.component_version,
         ),
-        component_descriptor_lookup=component_descriptor_lookup,
-    )).component
+        absent_ok=absent_ok,
+    ).component
+
+    if not component:
+        return None
 
     if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
         artefacts = component.resources
