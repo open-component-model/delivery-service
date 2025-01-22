@@ -26,9 +26,12 @@ cd $repo_dir
 pip3 install --upgrade pip wheel setuptools semver
 
 # build into "${repo_dir}/dist"
-python3 "${repo_dir}/setup.utils.py" sdist bdist_wheel
-python3 "${repo_dir}/setup.service.py" sdist bdist_wheel
-python3 "${repo_dir}/setup.extensions.py" sdist bdist_wheel
+python3 "${repo_dir}/setup.utils.py" bdist_wheel
+rm -rf "${repo_dir}/build"
+python3 "${repo_dir}/setup.service.py" bdist_wheel
+rm -rf "${repo_dir}/build"
+python3 "${repo_dir}/setup.extensions.py" bdist_wheel
+rm -rf "${repo_dir}/build"
 
 # keep for subsequent docker build
 cp dist/* ${out_dir}
