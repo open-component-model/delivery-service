@@ -220,7 +220,12 @@ class SecretFactory:
             secrets_dict[secret_type] = {}
 
             for secret_element_name in os.listdir(secret_type_dir):
-                with open(os.path.join(secret_type_dir, secret_element_name)) as f:
+                secret_element_path = os.path.join(secret_type_dir, secret_element_name)
+
+                if not os.path.isfile(secret_element_path):
+                    continue
+
+                with open(secret_element_path) as f:
                     secret_element_raw = yaml.safe_load(f)
 
                 try:
