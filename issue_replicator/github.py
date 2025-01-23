@@ -684,25 +684,26 @@ def _diki_template_vars(
                 # process merged checks
                 case dict():
                     for key, value in check.targets.items():
-                        if value is None:
-                            shortened_summary += f'{key}: 0 targets\n'
-                            summary += f'{key}: 0 targets\n'
+                        if value is None or len(value) == 0:
+                            shortened_summary += f'**{key}**\n'
+                            summary += f'**{key}**\n'
                             continue
-                        shortened_summary += f'{key}: {len(value)} targets\n'
+                        shortened_summary += f'**{key}**: {len(value)} targets\n'
                         summary += '<details>\n'
                         summary += f'<summary>{key}:</summary>\n\n'
                         summary += _targets_table(value)
                         summary += '</details>\n\n'
                 # process single checks
                 case list():
-                    shortened_summary += f'{len(check.targets)} targets\n'
                     if len(check.targets) == 0:
-                        summary += '0 targets\n'
+                        shortened_summary += 'n/a\n'
+                        summary += 'n/a\n'
                     else:
+                        shortened_summary += f'{len(check.targets)} targets\n'
                         summary += _targets_table(check.targets)
                 case None:
-                    shortened_summary += '0 targets\n'
-                    summary += '0 targets\n'
+                    shortened_summary += 'n/a\n'
+                    summary += 'n/a\n'
                 case _:
                     raise TypeError(check.targets) # this line should never be reached
 
