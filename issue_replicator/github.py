@@ -692,7 +692,7 @@ def _diki_template_vars(
                             summary += '</details>\n\n'
                         else:
                             shortened_summary += f'**{key}**\n'
-                            summary += f'**{key}**\n'              
+                            summary += f'**{key}**\n'
                 # process single checks
                 case list():
                     if len(check.targets) == 0:
