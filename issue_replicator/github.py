@@ -684,15 +684,15 @@ def _diki_template_vars(
                 # process merged checks
                 case dict():
                     for key, value in check.targets.items():
-                        if value is None or len(value) == 0:
+                        if value:
+                            shortened_summary += f'**{key}**: {len(value)} targets\n'
+                            summary += '<details>\n'
+                            summary += f'<summary>{key}:</summary>\n\n'
+                            summary += _targets_table(value)
+                            summary += '</details>\n\n'
+                        else:
                             shortened_summary += f'**{key}**\n'
-                            summary += f'**{key}**\n'
-                            continue
-                        shortened_summary += f'**{key}**: {len(value)} targets\n'
-                        summary += '<details>\n'
-                        summary += f'<summary>{key}:</summary>\n\n'
-                        summary += _targets_table(value)
-                        summary += '</details>\n\n'
+                            summary += f'**{key}**\n'              
                 # process single checks
                 case list():
                     if len(check.targets) == 0:
