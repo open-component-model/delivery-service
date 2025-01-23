@@ -1,18 +1,13 @@
 import collections
 import collections.abc
 import dataclasses
-import datetime
-import functools
 import logging
 
 import botocore.exceptions
-import dateutil.parser
 import requests
 
 import ci.log
-import cnudie.access
 import cnudie.iter
-import cnudie.retrieve
 import delivery.client
 import dso.cvss
 import dso.labels
@@ -31,111 +26,14 @@ logger = logging.getLogger(__name__)
 ci.log.configure_default_logging(print_thread_id=True)
 
 
-@functools.lru_cache(maxsize=200)
-def _wait_for_scan_result(
-    bdba_client: bdba.client.BDBAApi,
-    product_id: int,
-) -> bm.AnalysisResult:
-    return bdba_client.wait_for_scan_result(product_id=product_id)
-
-
 class ResourceGroupProcessor:
     def __init__(
         self,
         bdba_client: bdba.client.BDBAApi,
         group_id: int=None,
-        reference_group_ids: collections.abc.Sequence[int]=(),
     ):
         self.bdba_client = bdba_client
         self.group_id = group_id
-        self.reference_group_ids = reference_group_ids
-
-    def _products_with_relevant_triages(
-        self,
-        resource_node: cnudie.iter.ResourceNode,
-    ) -> collections.abc.Generator[bm.Product, None, None]:
-        relevant_group_ids = set(self.reference_group_ids)
-        relevant_group_ids.add(self.group_id)
-
-        metadata = bdba.util.component_artifact_metadata(
-            resource_node=resource_node,
-            # we want to find all possibly relevant scans, so omit all version data
-            omit_resource_strict_id=True,
-        )
-
-        for id in relevant_group_ids:
-            products = list(self.bdba_client.list_apps(
-                group_id=id,
-                custom_attribs=metadata,
-            ))
-            yield from products
-
-    def iter_products(
-        self,
-        products_to_import_from: list[bm.Product],
-        use_product_cache: bool=True,
-        delete_inactive_products_after_seconds: int=None,
-    ) -> collections.abc.Generator[
-        tuple[bm.Component, bm.Vulnerability, tuple[bm.Triage]],
-        None,
-        None,
-    ]:
-        '''
-        Used to retrieve the triages of the supplied products grouped by components and
-        their vulnerabilities. Also, if `delete_inactive_products_after` is set, old
-        bdba products will be deleted according to it.
-        Note: `delete_inactive_products_after` must be greater than the interval in which
-        the resources are set or otherwise the products are going to be deleted immediately.
-        Also, old products of resources which are not scanned anymore at all (meaning in no
-        version) are _not_ going to be deleted.
-        '''
-        def _iter_vulnerabilities(
-            result: bm.AnalysisResult,
-        ) -> collections.abc.Generator[tuple[bm.Component, bm.Vulnerability], None, None]:
-            for component in result.components:
-                for vulnerability in component.vulnerabilities:
-                    yield component, vulnerability
-
-        def iter_vulnerabilities_with_assessments(
-            result: bm.AnalysisResult,
-        ):
-            for component, vulnerability in _iter_vulnerabilities(result=result):
-                if not vulnerability.has_triage:
-                    continue
-                yield component, vulnerability, tuple(vulnerability.triages)
-
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
-        delete_after = now + datetime.timedelta(
-            seconds=delete_inactive_products_after_seconds or 0,
-        )
-        for product in products_to_import_from:
-            if delete_inactive_products_after_seconds is not None:
-                if not (delete_after_flag := product.custom_data.get('DELETE_AFTER')):
-                    delete_after_flag = delete_after.isoformat()
-                    self.bdba_client.set_metadata(
-                        product_id=product.product_id,
-                        custom_attribs={
-                            'DELETE_AFTER': delete_after_flag,
-                        },
-                    )
-
-                if now >= dateutil.parser.isoparse(delete_after_flag):
-                    self.bdba_client.delete_product(product_id=product.product_id)
-                    logger.info(f'deleted old bdba product {product.product_id}')
-                    continue
-
-            if use_product_cache:
-                result = _wait_for_scan_result(
-                    bdba_client=self.bdba_client,
-                    product_id=product.product_id,
-                )
-            else:
-                result = self.bdba_client.wait_for_scan_result(
-                    product_id=product.product_id,
-                )
-            yield from iter_vulnerabilities_with_assessments(
-                result=result,
-            )
 
     def scan_request(
         self,
@@ -285,21 +183,9 @@ class ResourceGroupProcessor:
         license_cfg: config.LicenseCfg=None,
         cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet=None,
         auto_assess_max_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
-        use_product_cache: bool=True,
-        delete_inactive_products_after_seconds: int=None,
     ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
         resource = resource_node.resource
         component = resource_node.component
-
-        products_to_import_from = list(self._products_with_relevant_triages(
-            resource_node=resource_node,
-        ))
-
-        assessments = self.iter_products(
-            products_to_import_from=products_to_import_from,
-            use_product_cache=use_product_cache,
-            delete_inactive_products_after_seconds=delete_inactive_products_after_seconds,
-        )
 
         scan_request = self.scan_request(
             resource_node=resource_node,
@@ -353,14 +239,6 @@ class ResourceGroupProcessor:
                 assessed_vulns_by_component=assessed_vulns_by_component,
             )
 
-        assessed_vulns_by_component = bdba.assessments.add_assessments_if_none_exist(
-            tgt=scan_result,
-            tgt_group_id=self.group_id,
-            assessments=assessments,
-            bdba_client=self.bdba_client,
-            assessed_vulns_by_component=assessed_vulns_by_component,
-        )
-
         if cve_rescoring_ruleset:
             assessed_vulns_by_component = bdba.rescore.rescore(
                 bdba_client=self.bdba_client,
@@ -378,15 +256,6 @@ class ResourceGroupProcessor:
             )
             scan_result = self.bdba_client.wait_for_scan_result(
                 product_id=scan_result.product_id,
-            )
-
-        if delete_inactive_products_after_seconds is not None:
-            # remove deletion flag for current product as it is still in use
-            self.bdba_client.set_metadata(
-                product_id=scan_result.product_id,
-                custom_attribs={
-                    'DELETE_AFTER': None,
-                },
             )
 
         logger.info(f'post-processing of {scan_result.display_name} done')

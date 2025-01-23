@@ -139,9 +139,8 @@ def scan(
     )
 
     processor = bdba.scanning.ResourceGroupProcessor(
-        group_id=bdba_config.group_id,
-        reference_group_ids=bdba_config.reference_group_ids,
         bdba_client=bdba_client,
+        group_id=bdba_config.group_id,
     )
 
     access = resource_node.resource.access
@@ -189,8 +188,6 @@ def scan(
         license_cfg=bdba_config.license_cfg,
         cve_rescoring_ruleset=bdba_config.cve_rescoring_ruleset,
         auto_assess_max_severity=bdba_config.auto_assess_max_severity,
-        use_product_cache=False,
-        delete_inactive_products_after_seconds=bdba_config.delete_inactive_products_after_seconds,
     )
 
     if bdba_config.blacklist_finding_types:

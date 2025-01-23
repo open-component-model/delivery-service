@@ -264,9 +264,8 @@ def scan(
                 resource_node=resource_node,
             )
             processor = bdba.scanning.ResourceGroupProcessor(
-                group_id=bdba_group_id,
-                reference_group_ids=reference_bdba_group_ids,
                 bdba_client=bdba_client,
+                group_id=bdba_group_id,
             )
 
             access = resource_node.resource.access

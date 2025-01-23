@@ -148,7 +148,6 @@ configuration:
         #     - OSL
         #     - RPL-1.5
         #     - sleepycat
-        #   delete_inactive_products_after_seconds: 1209600 # 2 weeks
 
         # clamav:
         #   delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
