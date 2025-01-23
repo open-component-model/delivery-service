@@ -2,8 +2,6 @@ import collections
 import collections.abc
 import logging
 
-import requests.exceptions
-
 import dso.labels
 
 import bdba.client
@@ -52,65 +50,6 @@ def upload_version_hints(
         )
 
     return scan_result
-
-
-def add_assessments_if_none_exist(
-    tgt: bm.AnalysisResult,
-    tgt_group_id: int,
-    assessments: collections.abc.Iterable[tuple[bm.Component, bm.Vulnerability, tuple[bm.Triage]]],
-    bdba_client: bdba.client.BDBAApi,
-    assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
-) -> dict[str, list[str]]:
-    '''
-    add assessments to given bdba "app"; skip given assessments that are not relevant for
-    target "app" (either because there are already assessments, or vulnerabilities do not exit).
-    Assessments are added "optimistically", ignoring version differences between source and target
-    component versions (assumption: assessments are valid for all component-versions).
-    '''
-    tgt_components_by_name = collections.defaultdict(list)
-    for c in tgt.components:
-        if not c.version:
-            continue # triages require component versions to be set
-        tgt_components_by_name[c.name].append(c)
-
-    for component, vulnerability, triages in assessments:
-        if not component.name in tgt_components_by_name:
-            continue
-
-        for tgt_component in tgt_components_by_name[component.name]:
-            for tgt_vulnerability in tgt_component.vulnerabilities:
-                if tgt_vulnerability.cve != vulnerability.cve:
-                    continue
-                if tgt_vulnerability.historical:
-                    continue
-                if tgt_vulnerability.has_triage:
-                    continue
-                # vulnerability is still "relevant" (not obsolete and unassessed)
-                break
-            else:
-                # vulnerability is not longer "relevant" -> skip
-                continue
-
-            tgt_component_id = f'{tgt_component.name}:{tgt_component.version}'
-            if vulnerability.cve in assessed_vulns_by_component[tgt_component_id]:
-                continue
-
-            for triage in triages:
-                try:
-                    bdba_client.add_triage(
-                        triage=triage,
-                        product_id=tgt.product_id,
-                        group_id=tgt_group_id,
-                        component_version=tgt_component.version,
-                    )
-                    assessed_vulns_by_component[tgt_component_id].append(vulnerability.cve)
-                except requests.exceptions.HTTPError as e:
-                    # we will re-try importing every scan, so just print a warning
-                    logger.warning(
-                        f'An error occurred importing {triage=} to {component.name=} '
-                        f'in version {component.version} for scan {tgt.product_id} {e}'
-                    )
-    return assessed_vulns_by_component
 
 
 def auto_triage(

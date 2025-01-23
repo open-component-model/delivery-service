@@ -168,10 +168,6 @@ spec:
                       type: string
                     group_id:
                       type: integer
-                    reference_group_ids:
-                      type: array
-                      items:
-                        type: integer
                     cvss_version:
                       type: string
                     aws_cfg_name:
@@ -204,8 +200,6 @@ spec:
                                   type: string
                     auto_assess_max_severity:
                       type: string
-                    delete_inactive_products_after_seconds:
-                      type: integer
                 issue_replicator:
                   x-kubernetes-preserve-unknown-fields: true
                   type: object

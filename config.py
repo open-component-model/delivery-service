@@ -184,8 +184,6 @@ class BDBAConfig:
         name of config element to use for bdba scanning
     :param int group_id:
         bdba group id to use for scanning
-    :param tuple[int] reference_group_ids:
-        bdba group ids to consider when copying existing assessments
     :param CVSSVersion cvss_version
     :param str aws_cfg_name
         cfg-element used to create s3 client to retrieve artefacts
@@ -201,8 +199,6 @@ class BDBAConfig:
         only findings below this severity will be auto-rescored
     :param LicenseCfg license_cfg:
         required to differentiate between allowed and prohibited licenses
-    :param int delete_inactive_products_after_seconds:
-        time after which a bdba product is deleted if the scanned artefact is not active anymore
     :param set[str] blacklist_finding_types:
         finding types which are provided by BDBA but should _not_ be populated into the delivery-db
     '''
@@ -211,7 +207,6 @@ class BDBAConfig:
     lookup_new_backlog_item_interval: int
     cfg_name: str
     group_id: int
-    reference_group_ids: tuple[int]
     cvss_version: bdba.model.CVSSVersion
     aws_cfg_name: str | None
     processing_mode: bdba.model.ProcessingMode
@@ -220,7 +215,6 @@ class BDBAConfig:
     cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet | None
     auto_assess_max_severity: dso.cvss.CVESeverity
     license_cfg: LicenseCfg
-    delete_inactive_products_after_seconds: int
     blacklist_finding_types: set[str]
 
 
@@ -640,12 +634,6 @@ def deserialise_bdba_config(
         property_key='group_id',
     )
 
-    reference_group_ids = tuple(deserialise_config_property(
-        config=bdba_config,
-        property_key='referenceGroupIds',
-        default_value=[],
-    ))
-
     cvss_version_raw = deserialise_config_property(
         config=bdba_config,
         property_key='cvss_version',
@@ -737,14 +725,6 @@ def deserialise_bdba_config(
     )
     license_cfg = LicenseCfg(prohibited_licenses=prohibited_licenses)
 
-    delete_inactive_products_after_seconds = deserialise_config_property(
-        config=bdba_config,
-        property_key='delete_inactive_products_after_seconds',
-        default_value=None,
-        absent_ok=True,
-        on_absent_message='inactive bdba products will not be deleted',
-    )
-
     blacklist_finding_types = deserialise_config_property(
         config=bdba_config,
         property_key='blacklist_finding_types',
@@ -767,7 +747,6 @@ def deserialise_bdba_config(
         lookup_new_backlog_item_interval=lookup_new_backlog_item_interval,
         cfg_name=cfg_name,
         group_id=group_id,
-        reference_group_ids=reference_group_ids,
         cvss_version=cvss_version,
         aws_cfg_name=aws_cfg_name,
         processing_mode=processing_mode,
@@ -776,7 +755,6 @@ def deserialise_bdba_config(
         cve_rescoring_ruleset=default_rule_set,
         auto_assess_max_severity=auto_assess_max_severity,
         license_cfg=license_cfg,
-        delete_inactive_products_after_seconds=delete_inactive_products_after_seconds,
         blacklist_finding_types=blacklist_finding_types,
     )
 

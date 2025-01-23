@@ -4,6 +4,7 @@
 
 
 import collections.abc
+import dataclasses
 import datetime
 import logging
 
@@ -57,6 +58,17 @@ def iter_artefact_metadata(
     artefact_ref = dso.model.component_artefact_id_from_ocm(
         component=scanned_element.component,
         artefact=scanned_element.resource,
+    )
+
+    # rescoring should not reference artefact version so that the `ARTEFACT` rescoring scope will be
+    # used -> rescoring will be used for future versions as well, so there is no need to replicate
+    # BDBA triages to new BDBA scans
+    rescoring_artefact_ref = dataclasses.replace(
+        artefact_ref,
+        artefact=dataclasses.replace(
+            artefact_ref.artefact,
+            artefact_version=None,
+        ),
     )
 
     yield dso.model.artefact_scan_info(
@@ -150,12 +162,6 @@ def iter_artefact_metadata(
                     creation_date=triage.modified.astimezone(datetime.UTC),
                 )
 
-                # We don't try to interpret the scope from BDBA here because we cannot completly
-                # convert it in our scoping, so there would always be some edge cases where it does
-                # not fit properly. However, by translating all triages for each scan result, we
-                # implicitly use the BDBA scopes since they are already applied by BDBA to each scan
-                # result. So, we can correctly mimic the BDBA scopes with the acceptable price of
-                # redundant (rescoring) data.
                 vulnerability_rescoring = dso.model.CustomRescoring(
                     finding=dso.model.RescoringVulnerabilityFinding(
                         package_name=package_name,
@@ -174,7 +180,7 @@ def iter_artefact_metadata(
                 )
 
                 yield dso.model.ArtefactMetadata(
-                    artefact=artefact_ref,
+                    artefact=rescoring_artefact_ref,
                     meta=meta,
                     data=vulnerability_rescoring,
                 )
