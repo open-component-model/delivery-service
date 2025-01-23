@@ -157,6 +157,19 @@ delivery-service:
           nextversion: bump_minor
           release_notes_policy: disabled
           release_commit_publishing_policy: tag_and_merge_back
+          assets:
+            - type: build-step-file
+              mode: tar
+              step_name: build_python_packages
+              step_output_dir: packages
+              path: 'dist/delivery_gear_utils-*'
+              prefix: dist/
+              name: delivery-gear-utils
+              purposes:
+                - python
+                - setuptools
+                - pip
+                - distribution-package
 
     head-update:
       steps:
