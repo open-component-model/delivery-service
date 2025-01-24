@@ -206,44 +206,43 @@ def rescore_sast_severity(
             raise ValueError(f'Unknown rescore value: {rule.rescore}')
 
 
-def iter_sast_rescorings(
-    findings: typing.Iterable[dso.model.ArtefactMetadata],
+def rescoring_for_finding(
+    finding: dso.model.ArtefactMetadata,
     sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet,
     user: dso.model.User,
     creation_timestamp: datetime.datetime
-) -> typing.Generator[dso.model.ArtefactMetadata, None, None]:
-    for finding in findings:
-        matching_rules = list(
-            iter_matching_sast_rescoring_rules(
-                rescoring_rules=sast_rescoring_ruleset.rules,
-                finding=finding,
-            )
+) -> dso.model.ArtefactMetadata | None:
+    matching_rules = list(
+        iter_matching_sast_rescoring_rules(
+            rescoring_rules=sast_rescoring_ruleset.rules,
+            finding=finding,
         )
+    )
 
-        if not matching_rules:
-            continue
+    if not matching_rules:
+        return
 
-        new_severity = rescore_sast_severity(
-            rescoring_rules=matching_rules
-        )
+    new_severity = rescore_sast_severity(
+        rescoring_rules=matching_rules
+    )
 
-        if github.compliance.model.Severity.parse(finding.data.severity) is new_severity:
-            continue
+    if github.compliance.model.Severity.parse(finding.data.severity) is new_severity:
+        return
 
-        yield dso.model.ArtefactMetadata(
-            artefact=finding.artefact,
-            meta=dso.model.Metadata(
-                datasource=finding.meta.datasource,
-                type=dso.model.Datatype.RESCORING,
-                creation_date=creation_timestamp,
-                last_update=creation_timestamp,
-            ),
-            data=dso.model.CustomRescoring(
-                finding=finding.data,
-                referenced_type=dso.model.Datatype.SAST_FINDING,
-                severity=new_severity.name,
-                user=user,
-                matching_rules=[rule.name for rule in matching_rules],
-                comment='Automatically rescored based on rules.',
-            ),
-        )
+    return dso.model.ArtefactMetadata(
+        artefact=finding.artefact,
+        meta=dso.model.Metadata(
+            datasource=finding.meta.datasource,
+            type=dso.model.Datatype.RESCORING,
+            creation_date=creation_timestamp,
+            last_update=creation_timestamp,
+        ),
+        data=dso.model.CustomRescoring(
+            finding=finding.data,
+            referenced_type=dso.model.Datatype.SAST_FINDING,
+            severity=new_severity.name,
+            user=user,
+            matching_rules=[rule.name for rule in matching_rules],
+            comment='Automatically rescored based on rules.',
+        ),
+    )

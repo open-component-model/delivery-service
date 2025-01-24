@@ -265,8 +265,6 @@ def iter_artefact_metadata(
                 if src_ref.identitySelector.get('name') == snode.source.name
             ]
 
-        all_findings_for_rescoring = []
-
         if not has_local_linter(resources):
             no_linter_local = create_missing_linter_finding(
                 snode=snode,
@@ -274,7 +272,17 @@ def iter_artefact_metadata(
                 creation_timestamp=creation_timestamp,
             )
             yield no_linter_local
-            all_findings_for_rescoring.append(no_linter_local)
+
+            if sast_config.sast_rescoring_ruleset:
+                yield rescore.utility.rescoring_for_finding(
+                    finding=no_linter_local,
+                    sast_rescoring_ruleset=sast_config.sast_rescoring_ruleset,
+                    user=dso.model.User(
+                        username='sast-extension-auto-rescoring',
+                        type='sast-extension-user'
+                    ),
+                    creation_timestamp=creation_timestamp,
+                )
 
         if not find_scan_policy(snode) is dso.labels.ScanPolicy.SKIP:
             no_linter_central = create_missing_linter_finding(
@@ -283,19 +291,17 @@ def iter_artefact_metadata(
                 creation_timestamp=creation_timestamp,
             )
             yield no_linter_central
-            all_findings_for_rescoring.append(no_linter_central)
 
-        if all_findings_for_rescoring and sast_config.sast_rescoring_ruleset:
-            rescored_metadata = rescore.utility.iter_sast_rescorings(
-                findings=all_findings_for_rescoring,
-                sast_rescoring_ruleset=sast_config.sast_rescoring_ruleset,
-                user=dso.model.User(
-                    username='sast-extension-auto-rescoring',
-                    type='sast-extension-user'
-                ),
-                creation_timestamp=creation_timestamp,
-            )
-            yield from rescored_metadata
+            if sast_config.sast_rescoring_ruleset:
+                yield rescore.utility.rescoring_for_finding(
+                    finding=no_linter_central,
+                    sast_rescoring_ruleset=sast_config.sast_rescoring_ruleset,
+                    user=dso.model.User(
+                        username='sast-extension-auto-rescoring',
+                        type='sast-extension-user'
+                    ),
+                    creation_timestamp=creation_timestamp,
+                )
 
         yield dso.model.ArtefactMetadata(
             artefact=dso.model.ComponentArtefactId(

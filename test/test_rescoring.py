@@ -213,19 +213,17 @@ def test_generate_sast_rescorings(
     )
     sast_rescoring_ruleset = sast_rescoring_rule_sets[0]
 
-    rescored_metadata = list(rescore.utility.iter_sast_rescorings(
-        findings=[sast_finding_public],
+    rescoring = rescore.utility.rescoring_for_finding(
+        finding=sast_finding_public,
         sast_rescoring_ruleset=sast_rescoring_ruleset,
         user=dso.model.User(
             username="test_user",
         ),
         creation_timestamp=datetime.datetime.now()
-    ))
+    )
 
-    assert len(rescored_metadata) == 1
-    rescored_entry = rescored_metadata[0]
-    assert isinstance(rescored_entry.data, dso.model.CustomRescoring)
-    assert rescored_entry.data.matching_rules == [
+    assert isinstance(rescoring.data, dso.model.CustomRescoring)
+    assert rescoring.data.matching_rules == [
         'central-linting-is-optional-for-external-components'
     ]
-    assert rescored_entry.data.severity == github.compliance.model.Severity.NONE.name
+    assert rescoring.data.severity == github.compliance.model.Severity.NONE.name
