@@ -169,6 +169,7 @@ class DefaultRuleSet:
 def find_default_rule_set_for_type_and_name(
     default_rule_set_ref: DefaultRuleSet,
     rule_sets: tuple[RuleSet],
+    absent_ok: bool = True,
 ) -> RuleSet:
     for ruleset in rule_sets:
         if (
@@ -177,7 +178,8 @@ def find_default_rule_set_for_type_and_name(
         ):
             return ruleset
 
-    raise ValueError(f'No default rule_set found for the {ruleset.type}.')
+    if not absent_ok:
+        raise ValueError(f'No default rule_set found for the {ruleset.type}.')
 
 
 def find_default_rule_set_for_type(

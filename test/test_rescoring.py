@@ -12,6 +12,10 @@ def rescoring_rules_raw() -> dict:
     return {
         'defaultRuleSetNames': [
             {
+                'name': 'my-sast-rescoring-does-not-exist',
+                'type': 'sast',
+            },
+            {
                 'name': 'my-sast-rescoring',
                 'type': 'sast',
             },
@@ -159,15 +163,22 @@ def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
         rule_set_ctor=rescore.model.SastRescoringRuleSet,
         rules_from_dict=rescore.model.sast_rescoring_rules_from_dict,
     )
-    default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-        default_rule_set_ref=rescore.model.deserialise_default_rule_sets(
-            rescoring_cfg_raw=rescoring_rules_raw,
-            rule_set_type=rescore.model.RuleSetType.SAST,
-        )[0],
-        rule_sets=sast_rescoring_rule_sets,
+    default_rule_set_refs = rescore.model.deserialise_default_rule_sets(
+        rescoring_cfg_raw=rescoring_rules_raw,
+        rule_set_type=rescore.model.RuleSetType.SAST,
     )
+    for default_rule_set_ref in default_rule_set_refs:
+        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
+            default_rule_set_ref=default_rule_set_ref,
+            rule_sets=sast_rescoring_rule_sets,
+        )
+        if default_rule_set:
+            break
+    else:
+        default_rule_set = None
+
     assert default_rule_set is not None
-    assert default_rule_set.name == "my-sast-rescoring"
+    assert default_rule_set.name == 'my-sast-rescoring'
     assert default_rule_set.type is rescore.model.RuleSetType.SAST
 
 
