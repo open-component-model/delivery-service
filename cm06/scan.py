@@ -95,29 +95,6 @@ def deserialise_sast_configuration(
     return sast_config
 
 
-def limit_versions(
-    versions: list[str],
-    greatest_version: str,
-    max_versions: int,
-) -> list[str]:
-    '''
-    Returns a subset of versions from a sorted list.
-
-    Filters the input `versions` list (assumed to be sorted in ascending order)
-    to include only versions up to `greatest_version` and limits the result
-    to the most recent `max_versions` versions from the end of the filtered list if specified.
-    if `max_versions` is -1, all versions are returned
-    '''
-    if greatest_version:
-        index = versions.index(greatest_version)
-        versions = versions[:index + 1]
-
-    if max_versions == -1:
-        return versions
-
-    return versions[-max_versions:]
-
-
 def create_missing_linter_finding(
     snode: cnudie.iter.SourceNode,
     sub_type: dso.model.SastSubType,
@@ -228,14 +205,17 @@ def fetch_component_versions(
             ).date() <= start_date
         ]
 
-    if component.max_versions_limit:
-        versions = limit_versions(
-            versions=versions,
-            greatest_version=component.version,
-            max_versions=component.max_versions_limit,
-        )
+    if not component.max_versions_limit:
+        return versions
 
-    return versions
+    if component.version:
+        index = versions.index(component.version)
+        versions = versions[:index + 1]
+
+    if component.max_versions_limit == -1:
+        return versions
+
+    return versions[-component.max_versions_limit:]
 
 
 def iter_artefact_metadata(
