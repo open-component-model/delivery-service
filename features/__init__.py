@@ -591,16 +591,17 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 
 
 def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
-    cve_rescoring_rule_sets = tuple(
-        # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
-        rm.CveRescoringRuleSet( #noqa:E1123
-            name=rule_set_raw['name'],
-            description=rule_set_raw.get('description'),
-            rules=list(
-                rm.cve_rescoring_rules_from_dicts(rule_set_raw['rules'])
-            )
-        )
-        for rule_set_raw in rescoring_raw['rescoringRuleSets']
+    cve_rescoring_rule_sets = rm.deserialise_rule_sets(
+        rescoring_cfg_raw=rescoring_raw,
+        rule_set_type=rm.RuleSetType.CVE,
+        rule_set_ctor=rm.CveRescoringRuleSet,
+        rules_from_dict=rm.cve_rescoring_rules_from_dicts,
+    )
+    sast_rescoring_rule_sets = rm.deserialise_rule_sets(
+        rescoring_cfg_raw=rescoring_raw,
+        rule_set_type=rm.RuleSetType.SAST,
+        rule_set_ctor=rm.SastRescoringRuleSet,
+        rules_from_dict=rm.sast_rescoring_rules_from_dict,
     )
     default_rule_sets = [
         dacite.from_dict(
@@ -616,7 +617,7 @@ def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
     return FeatureRescoring(
         state=FeatureStates.AVAILABLE,
         default_rule_sets=default_rule_sets,
-        rescoring_rule_sets=cve_rescoring_rule_sets,
+        rescoring_rule_sets=cve_rescoring_rule_sets + sast_rescoring_rule_sets,
         cve_categorisation_label_url=rescoring_raw.get('cveCategorisationLabelUrl'),
         cve_severity_url=rescoring_raw.get('cveSeverityUrl'),
     )

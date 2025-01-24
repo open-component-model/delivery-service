@@ -1,10 +1,12 @@
 import collections.abc
+import datetime
 import enum
+import re
 import typing
 
 import dso.model
 import dso.cvss
-
+import github.compliance.model
 import rescore.model
 
 
@@ -177,3 +179,70 @@ def rescore_severity(
             raise NotImplementedError(rule.rescore)
 
     return severity
+
+
+def iter_matching_sast_rescoring_rules(
+    rescoring_rules: collections.abc.Iterable[rescore.model.SastRescoringRule],
+    finding: dso.model.ArtefactMetadata,
+) -> collections.abc.Generator[rescore.model.SastRescoringRule, None, None]:
+    for rescoring_rule in rescoring_rules:
+        # only yield rules when all match conditions are met
+        if all(
+            re.match(condition.component_name, finding.artefact.component_name)
+            for condition in rescoring_rule.match
+        ) and finding.data.sub_type in rescoring_rule.sub_types:
+            yield rescoring_rule
+
+
+def rescore_sast_severity(
+    rescoring_rules: collections.abc.Iterable[rescore.model.SastRescoringRule],
+) -> github.compliance.model.Severity:
+    for rule in rescoring_rules:
+        if rule.rescore is rescore.model.Rescore.TO_NONE:
+            return github.compliance.model.Severity.NONE
+        elif rule.rescore is rescore.model.Rescore.TO_BLOCKER:
+            return github.compliance.model.Severity.BLOCKER
+        else:
+            raise ValueError(f'Unknown rescore value: {rule.rescore}')
+
+
+def rescoring_for_finding(
+    finding: dso.model.ArtefactMetadata,
+    sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet,
+    user: dso.model.User,
+    creation_timestamp: datetime.datetime
+) -> dso.model.ArtefactMetadata | None:
+    matching_rules = list(
+        iter_matching_sast_rescoring_rules(
+            rescoring_rules=sast_rescoring_ruleset.rules,
+            finding=finding,
+        )
+    )
+
+    if not matching_rules:
+        return
+
+    new_severity = rescore_sast_severity(
+        rescoring_rules=matching_rules
+    )
+
+    if github.compliance.model.Severity.parse(finding.data.severity) is new_severity:
+        return
+
+    return dso.model.ArtefactMetadata(
+        artefact=finding.artefact,
+        meta=dso.model.Metadata(
+            datasource=finding.meta.datasource,
+            type=dso.model.Datatype.RESCORING,
+            creation_date=creation_timestamp,
+            last_update=creation_timestamp,
+        ),
+        data=dso.model.CustomRescoring(
+            finding=finding.data,
+            referenced_type=dso.model.Datatype.SAST_FINDING,
+            severity=new_severity.name,
+            user=user,
+            matching_rules=[rule.name for rule in matching_rules],
+            comment='Automatically rescored based on rules.',
+        ),
+    )
