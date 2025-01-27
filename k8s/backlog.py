@@ -227,15 +227,16 @@ def create_unique_backlog_item(
 
 def get_backlog_crd_and_claim(
     service: config.Services,
-    cfg_name: str,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
+    cfg_name: str | None=None,
     shortcut_claim: bool=False,
 ) -> dict | None:
     labels = {
         k8s.model.LABEL_SERVICE: service,
-        k8s.model.LABEL_CFG_NAME: cfg_name,
     }
+    if cfg_name:
+        labels[k8s.model.LABEL_CFG_NAME] = cfg_name
     label_selector = k8s.util.create_label_selector(labels=labels)
     label_selector += f', {LABEL_CLAIMED}!=True'
 
