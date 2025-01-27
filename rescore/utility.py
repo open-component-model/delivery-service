@@ -6,6 +6,8 @@ import re
 import dso.model
 import dso.cvss
 import github.compliance.model
+
+import odg.findings
 import rescore.model
 
 
@@ -178,6 +180,46 @@ def rescore_severity(
             raise NotImplementedError(rule.rescore)
 
     return severity
+
+
+def rescore_finding(
+    finding_cfg: odg.findings.Finding,
+    current_categorisation: odg.findings.FindingCategorisation,
+    rescoring_rules: collections.abc.Iterable[rescore.model.Rule],
+) -> odg.findings.FindingCategorisation:
+    '''
+    Applies the `rescoring_rules` to the `current_categorisation`. A rescoring rule may either
+    express a generic operation (e.g. reduce, not-exploitable), or a rescoring to a concrete
+    categorisation value.
+    '''
+    for rule in rescoring_rules:
+        if rule.rescore is rescore.model.Rescore.NO_CHANGE:
+            continue
+
+        elif rule.rescore is rescore.model.Rescore.REDUCE:
+            sorted_categorisations = sorted(
+                finding_cfg.categorisations,
+                key=lambda categorisation: categorisation.value,
+                reverse=True,
+            )
+            for categorisation in sorted_categorisations:
+                if categorisation.value < current_categorisation.value:
+                    current_categorisation = categorisation
+                    break
+
+        elif rule.rescore in (rescore.model.Rescore.NOT_EXPLOITABLE, rescore.model.Rescore.TO_NONE):
+            return finding_cfg.none_categorisation
+
+        else:
+            for categorisation in finding_cfg.categorisations:
+                if categorisation.value == rule.rescore:
+                    return categorisation
+            else:
+                raise ValueError(
+                    f'did not find correspondig finding categorisation for {rule.rescore=}'
+                )
+
+    return current_categorisation
 
 
 def iter_matching_sast_rescoring_rules(

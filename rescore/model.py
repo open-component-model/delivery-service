@@ -27,7 +27,7 @@ class RuleSetType(enum.StrEnum):
 @dataclasses.dataclass(frozen=True)
 class Rule:
     name: str
-    rescore: Rescore
+    rescore: Rescore | int
 
 
 @dataclasses.dataclass(frozen=True)
