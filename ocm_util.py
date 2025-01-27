@@ -72,13 +72,13 @@ async def find_artefact_node(
     if not dso.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
-    component = component_descriptor_lookup(
+    component = (await component_descriptor_lookup(
         ocm.ComponentIdentity(
             name=artefact.component_name,
             version=artefact.component_version,
         ),
         absent_ok=absent_ok,
-    ).component
+    )).component
 
     if not component:
         return None
