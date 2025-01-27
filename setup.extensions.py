@@ -17,6 +17,7 @@ def modules():
         'artefact_enumerator',
         'backlog_controller',
         'delivery_db_backup',
+        'sast',
     ]
 
 
