@@ -34,7 +34,6 @@ import ctx_util
 import deliverydb
 import deliverydb.model as dm
 import eol
-import features
 import k8s.logging
 import k8s.model
 import k8s.util
@@ -199,9 +198,9 @@ async def prefill_compliance_summary_caches(
 
     for component in components:
         if component.version_filter:
-            version_filter = features.VersionFilter(component.version_filter)
+            version_filter = config.VersionFilter(component.version_filter)
         else:
-            version_filter = features.VersionFilter.RELEASES_ONLY
+            version_filter = config.VersionFilter.RELEASES_ONLY
 
         versions = await components_module.greatest_component_versions(
             component_name=component.component_name,

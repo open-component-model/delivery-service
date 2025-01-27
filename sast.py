@@ -19,7 +19,6 @@ import version
 
 import config
 import ctx_util
-import features
 import k8s.util
 import k8s.model
 import k8s.logging
@@ -179,7 +178,7 @@ def fetch_component_versions(
 
     versions = version_lookup(component.component_name)
 
-    if component.version_filter is features.VersionFilter.RELEASES_ONLY:
+    if component.version_filter is config.VersionFilter.RELEASES_ONLY:
         versions = [
             v for v in versions
             if version.is_final(v)
