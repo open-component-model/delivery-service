@@ -1,10 +1,13 @@
 import argparse
 import datetime
+import http
 import logging
 import math
 import os
 
 import dateutil.parser
+import kubernetes.client.rest
+import urllib3.exceptions
 
 import ci.log
 import ci.util
@@ -23,16 +26,10 @@ k8s.logging.configure_kubernetes_logging()
 
 
 def on_backlog_change(
-    name: str,
-    type: str,
     metadata: dict,
-    spec: dict,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
 ):
-    if type == 'MODIFIED':
-        return
-
     service = metadata.get('labels').get(k8s.model.LABEL_SERVICE)
     cfg_name = metadata.get('labels').get(k8s.model.LABEL_CFG_NAME)
 
@@ -163,12 +160,45 @@ def main():
         kubernetes_api=kubernetes_api,
     )
 
-    k8s.util.watch_crd_changes(
-        crd=k8s.model.BacklogItemCrd,
-        on_change=on_backlog_change,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
+    resource_version = ''
+
+    while True:
+        try:
+            for event in kubernetes.watch.Watch().stream(
+                kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object,
+                group=k8s.model.BacklogItemCrd.DOMAIN,
+                version=k8s.model.BacklogItemCrd.VERSION,
+                namespace=namespace,
+                plural=k8s.model.BacklogItemCrd.PLURAL_NAME,
+                resource_version=resource_version,
+                timeout_seconds=0,
+            ):
+                if (type := str(event['type'])) == 'MODIFIED':
+                    continue
+
+                metadata = event['object'].get('metadata')
+                resource_version = metadata['resourceVersion']
+                name = metadata['name']
+
+                logger.debug(f'identified modification {type=} of backlog item {name}')
+
+                on_backlog_change(
+                    metadata=metadata,
+                    namespace=namespace,
+                    kubernetes_api=kubernetes_api,
+                )
+        except kubernetes.client.rest.ApiException as e:
+            if e.status == http.HTTPStatus.GONE:
+                resource_version = ''
+                logger.info('API resource watching expired, will start new watch')
+            else:
+                raise e
+        except urllib3.exceptions.ProtocolError:
+            # this is a known error which has no impact on the functionality, thus rather be
+            # degregated to a warning or even info
+            # [ref](https://github.com/kiwigrid/k8s-sidecar/issues/233#issuecomment-1332358459)
+            resource_version = ''
+            logger.info('API resource watching received protocol error, will start new watch')
 
 
 if __name__ == '__main__':

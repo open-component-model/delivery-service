@@ -1,4 +1,3 @@
-import collections.abc
 import dataclasses
 import functools
 import http
@@ -10,7 +9,6 @@ import time
 import kubernetes.client as kc
 import kubernetes.client.rest
 import kubernetes.config
-import urllib3.exceptions
 import yaml
 
 import cnudie.iter
@@ -111,60 +109,6 @@ def label_is_true(label: str):
     if not isinstance(is_true, bool):
         raise ValueError('cannot parse to boolean', label)
     return is_true
-
-
-CrdName = str
-EventType = str
-CrdMetadata = dict
-CrdSpec = dict
-Namespace = str
-CrdChangeCallback = collections.abc.Callable[
-    [CrdName, EventType, CrdMetadata, CrdSpec, Namespace, KubernetesApi],
-    None,
-]
-
-
-def watch_crd_changes(
-    crd: k8s.model.Crd,
-    on_change: CrdChangeCallback,
-    namespace: str,
-    kubernetes_api: KubernetesApi,
-):
-    resource_version = ''
-
-    while True:
-        try:
-            for event in kubernetes.watch.Watch().stream(
-                kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object,
-                group=crd.DOMAIN,
-                version=crd.VERSION,
-                namespace=namespace,
-                plural=crd.PLURAL_NAME,
-                resource_version=resource_version,
-                timeout_seconds=0,
-            ):
-                type = str(event['type'])
-                object = event['object']
-                metadata = object.get('metadata')
-                resource_version = metadata['resourceVersion']
-                name = metadata['name']
-                spec = object.get('spec')
-
-                logger.debug(f'identified modification {type=} of {crd.KIND} {name}')
-
-                on_change(name, type, metadata, spec, namespace, kubernetes_api)
-        except kubernetes.client.rest.ApiException as e:
-            if e.status == http.HTTPStatus.GONE:
-                resource_version = ''
-                logger.info('API resource watching expired, will start new watch')
-            else:
-                raise e
-        except urllib3.exceptions.ProtocolError:
-            # this is a known error which has no impact on the functionality, thus rather be
-            # degregated to a warning or even info
-            # [ref](https://github.com/kiwigrid/k8s-sidecar/issues/233#issuecomment-1332358459)
-            resource_version = ''
-            logger.info('API resource watching received protocol error, will start new watch')
 
 
 def scale_replica_set(
