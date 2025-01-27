@@ -25,6 +25,11 @@ import rescore.model
 logger = logging.getLogger(__name__)
 
 
+class VersionFilter(enum.StrEnum):
+    ALL = 'all'
+    RELEASES_ONLY = 'releases_only'
+
+
 class Services(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefactEnumerator'
     BACKLOG_CONTROLLER = 'backlogController'

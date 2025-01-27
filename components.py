@@ -32,6 +32,7 @@ import ocm.oci
 import version as versionutil
 
 import compliance_summary as cs
+import config
 import consts
 import deliverydb.cache
 import deliverydb.model as dm
@@ -110,7 +111,7 @@ async def greatest_version_if_none(
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
-    version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
+    version_filter: config.VersionFilter=config.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ):
@@ -138,7 +139,7 @@ async def _component_descriptor(
     params: dict,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
-    version_filter: features.VersionFilter,
+    version_filter: config.VersionFilter,
     invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ) -> ocm.ComponentDescriptor:
@@ -152,7 +153,7 @@ async def _component_descriptor(
     ignore_cache = util.param_as_bool(params, 'ignore_cache')
 
     version_filter = util.param(params, 'version_filter', default=version_filter)
-    util.get_enum_value_or_raise(version_filter, features.VersionFilter)
+    util.get_enum_value_or_raise(version_filter, config.VersionFilter)
 
     if version == 'greatest':
         version = await greatest_version_if_none(
@@ -346,7 +347,7 @@ class ComponentDependencies(aiohttp.web.View):
             name='version_filter',
             default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
         )
-        util.get_enum_value_or_raise(version_filter, features.VersionFilter)
+        util.get_enum_value_or_raise(version_filter, config.VersionFilter)
 
         if version == 'greatest':
             version = await greatest_version_if_none(
@@ -622,7 +623,7 @@ async def greatest_component_version(
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
-    version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
+    version_filter: config.VersionFilter=config.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ) -> str | None:
@@ -649,7 +650,7 @@ async def greatest_component_version(
             candidate_semver = candidate
 
         if (
-            version_filter == features.VersionFilter.RELEASES_ONLY
+            version_filter == config.VersionFilter.RELEASES_ONLY
             and (candidate_semver.prerelease or candidate_semver.build)
         ):
             continue
@@ -674,7 +675,7 @@ async def greatest_component_versions(
     max_versions: int=5,
     greatest_version: str=None,
     oci_client: oci.client_async.Client=None,
-    version_filter: features.VersionFilter=features.VersionFilter.RELEASES_ONLY,
+    version_filter: config.VersionFilter=config.VersionFilter.RELEASES_ONLY,
     invalid_semver_ok: bool=False,
     start_date: datetime.date=None,
     end_date: datetime.date=None,
@@ -699,7 +700,7 @@ async def greatest_component_versions(
         )
     ]
 
-    if version_filter == features.VersionFilter.RELEASES_ONLY:
+    if version_filter == config.VersionFilter.RELEASES_ONLY:
         versions = [
             v for v in versions
             if not (pv := versionutil.parse_to_semver(
@@ -819,7 +820,7 @@ class GreatestComponentVersions(aiohttp.web.View):
             name='version_filter',
             default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
         )
-        util.get_enum_value_or_raise(version_filter, features.VersionFilter)
+        util.get_enum_value_or_raise(version_filter, config.VersionFilter)
 
         try:
             versions = await greatest_component_versions(
@@ -952,7 +953,7 @@ class UpgradePRs(aiohttp.web.View):
             name='version_filter',
             default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
         )
-        util.get_enum_value_or_raise(version_filter, features.VersionFilter)
+        util.get_enum_value_or_raise(version_filter, config.VersionFilter)
 
         if not (bool(component_name) ^ bool(repo_url)):
             raise aiohttp.web.HTTPBadRequest(
@@ -1324,7 +1325,7 @@ class ComplianceSummary(aiohttp.web.View):
         version = util.param(params, 'version', required=True)
 
         version_filter = util.param(params, 'version_filter', default=version_filter_callback())
-        util.get_enum_value_or_raise(version_filter, features.VersionFilter)
+        util.get_enum_value_or_raise(version_filter, config.VersionFilter)
 
         recursion_depth = int(util.param(params, 'recursion_depth', default=-1))
 
@@ -1499,7 +1500,7 @@ class ComponentMetadata(aiohttp.web.View):
         component_version = util.param(params, 'version')
 
         version_filter = util.param(params, 'version_filter', default=version_filter_callback())
-        util.get_enum_value_or_raise(version_filter, features.VersionFilter)
+        util.get_enum_value_or_raise(version_filter, config.VersionFilter)
 
         data_types = params.getall('type', default=[])
         select = util.param(params, 'select')
