@@ -8,6 +8,7 @@ import logging
 import urllib.parse
 
 import aiohttp.web
+import dateutil.parser
 
 import cnudie.iter
 import cnudie.retrieve
@@ -167,3 +168,24 @@ def error_description(
         'error_id': error_id,
         **kwargs,
     })
+
+
+def get_creation_date(component: ocm.Component) -> datetime.datetime:
+    '''
+    Trys to extract creation date from creationTime attribute and if not set from label with name
+    "cloud.gardener/ocm/creation-date".
+    Raises KeyError, if both is not successful.
+    '''
+
+    if (creationTime := component.creationTime):
+        return dateutil.parser.isoparse(creationTime)
+
+    creation_label: ocm.Label | None = component.find_label('cloud.gardener/ocm/creation-date')
+
+    if not creation_label:
+        raise KeyError(
+            'The attribute creation time, as well as the',
+            'label named "cloud.gardener/ocm/creation-date", were not set.',
+        )
+    else:
+        return dateutil.parser.isoparse(creation_label.value)
