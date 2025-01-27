@@ -11,7 +11,6 @@ import tarfile
 
 import aiohttp.web
 import dacite.exceptions
-import dateutil.parser
 import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.orm.query as sq
@@ -81,27 +80,6 @@ async def check_if_component_exists(
     if raise_http_error:
         raise aiohttp.web.HTTPNotFound(text=f'{component_name=} not found')
     return False
-
-
-def get_creation_date(component: ocm.Component) -> datetime.datetime:
-    '''
-    Trys to extract creation date from creationTime attribute and if not set from label with name
-    "cloud.gardener/ocm/creation-date".
-    Raises KeyError, if both is not successful.
-    '''
-
-    if (creationTime := component.creationTime):
-        return dateutil.parser.isoparse(creationTime)
-
-    creation_label: ocm.Label | None = component.find_label('cloud.gardener/ocm/creation-date')
-
-    if not creation_label:
-        raise KeyError(
-            'The attribute creation time, as well as the',
-            'label named "cloud.gardener/ocm/creation-date", were not set.',
-        )
-    else:
-        return dateutil.parser.isoparse(creation_label.value)
 
 
 async def greatest_version_if_none(
@@ -728,7 +706,7 @@ async def greatest_component_versions(
                     ),
                     component_descriptor_lookup
                 )
-                creation_date = get_creation_date(
+                creation_date = util.get_creation_date(
                     component_descriptor.component
                 ).strftime('%Y-%m-%d')
 

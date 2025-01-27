@@ -149,7 +149,7 @@ async def versions_descriptors_newer_than(
         descriptor: ocm.ComponentDescriptor,
         date: datetime.datetime,
     ) -> bool:
-        creation_date: datetime.datetime = components.get_creation_date(descriptor.component)
+        creation_date: datetime.datetime = util.get_creation_date(descriptor.component)
         return creation_date > date
 
     versions = await all_versions_sorted(
@@ -455,7 +455,7 @@ def calculate_change_lead_time(
     time_differences: list[datetime.timedelta] = []
 
     for component_dependency_change_with_commits in component_dependency_changes_with_commits:
-        deployment_date = components.get_creation_date(
+        deployment_date = util.get_creation_date(
             component_dependency_change_with_commits.component
         )
         for commit in component_dependency_change_with_commits.commits:
@@ -516,13 +516,13 @@ def dora_changes_monthly(
                 key = (commit_date.year, commit_date.month)
                 code_changes_by_month[key].append(
                     (
-                        components.get_creation_date(
+                        util.get_creation_date(
                             component_dependency_change_with_commits.component
                         ),
                         CodeChange(
                             commit_date=commit_date,
                             commit_sha=commit_sha,
-                            deployment_date=components.get_creation_date(
+                            deployment_date=util.get_creation_date(
                                 component_dependency_change_with_commits.component
                             ),
                         ),
@@ -580,7 +580,7 @@ def dora_deployments(
 
         median_change_lead_time = datetime.timedelta(
             seconds=statistics.median([
-                (components.get_creation_date(
+                (util.get_creation_date(
                     component_dependency_change_with_commits.component
                 ) - dateutil.parser.isoparse(
                     commit.commit.author['date']
@@ -589,7 +589,7 @@ def dora_deployments(
             ]) if component_dependency_change_with_commits.commits else 0,
         )
 
-        deployment_date = components.get_creation_date(
+        deployment_date = util.get_creation_date(
             component_dependency_change_with_commits.component
         )
 
@@ -626,7 +626,7 @@ def all_change_lead_time_durations(
         commit_durations.extend(
             [
                 (
-                        components.get_creation_date(
+                        util.get_creation_date(
                             component_dependency_change_with_commits.component
                         )
                         - dateutil.parser.isoparse(commit.commit.author['date'])
@@ -659,7 +659,7 @@ def all_changes(
                 CodeChange(
                     commit_sha=commit.sha,
                     commit_date=dateutil.parser.isoparse(commit.commit.author['date']),
-                    deployment_date=components.get_creation_date(
+                    deployment_date=util.get_creation_date(
                         component_dependency_change_with_commits.component,
                     ),
                 ) for commit in component_dependency_change_with_commits.commits

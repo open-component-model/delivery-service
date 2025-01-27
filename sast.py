@@ -18,7 +18,6 @@ import ocm
 import version
 
 import config
-import components
 import ctx_util
 import features
 import k8s.util
@@ -27,6 +26,7 @@ import k8s.logging
 import lookups
 import rescore.model
 import rescore.utility
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -195,7 +195,7 @@ def fetch_component_versions(
         end_date = start_date - datetime.timedelta(component.timerange_days)
         versions = [
             version for version in versions
-            if end_date <= components.get_creation_date(
+            if end_date <= util.get_creation_date(
                 component=component_descriptor_lookup(
                     ocm.ComponentIdentity(
                         name=component.component_name,
