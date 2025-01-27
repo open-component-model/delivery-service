@@ -12,12 +12,13 @@ import urllib3.exceptions
 import ci.log
 import ci.util
 
-import config
 import ctx_util
 import k8s.backlog
 import k8s.logging
 import k8s.model
 import k8s.util
+import odg.scan_cfg
+import paths
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ k8s.logging.configure_kubernetes_logging()
 
 
 def on_backlog_change(
+    backlog_controller_cfg: odg.scan_cfg.BacklogControllerConfig,
     metadata: dict,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -80,10 +82,12 @@ def on_backlog_change(
                 kubernetes_api=kubernetes_api,
                 backlog_crd=backlog_crd,
             )
-        elif claimed_at.tzinfo and now - claimed_at >= datetime.timedelta(minutes=30):
+        elif claimed_at.tzinfo and now - claimed_at >= datetime.timedelta(
+            minutes=backlog_controller_cfg.remove_claim_after_minutes,
+        ):
             logger.warning(
-                f'the backlog item {crd_name} was claimed for more than 30 minutes by '
-                f'pod {claimed_by}'
+                f'the backlog item {crd_name} was claimed for more than '
+                f'{backlog_controller_cfg.remove_claim_after_minutes} minutes by pod {claimed_by}'
             )
             k8s.backlog.remove_claim(
                 namespace=namespace,
@@ -91,12 +95,13 @@ def on_backlog_change(
                 backlog_crd=backlog_crd,
             )
 
-    if service == config.Services.ISSUE_REPLICATOR:
+    if service == odg.scan_cfg.Services.ISSUE_REPLICATOR:
         # only allow up-scaling to 1 for issue replicator because of github's secondary rate limits
         max_replicas = 1
     else:
-        max_replicas = int(os.environ.get('MAX_REPLICAS', 5))
-    items_per_replica = int(os.environ.get('ITEMS_PER_REPLICA', 3))
+        max_replicas = backlog_controller_cfg.max_replicas
+
+    items_per_replica = backlog_controller_cfg.backlog_items_per_replica
     desired_replicas = min(math.ceil(len(backlog_crds) / items_per_replica), max_replicas)
 
     k8s.util.scale_replica_set(
@@ -128,6 +133,10 @@ def parse_args():
         help='specify kubernetes cluster namespace to watch',
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
+    parser.add_argument(
+        '--scan-cfg-path',
+        help='path to the `scan_cfg.yaml` file that should be used',
+    )
 
     parsed_arguments = parser.parse_args()
 
@@ -155,10 +164,16 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=config.Services.BACKLOG_CONTROLLER,
+        service=odg.scan_cfg.Services.BACKLOG_CONTROLLER,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
+
+    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
+        scan_cfg_path = paths.scan_cfg_path()
+
+    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
+    backlog_controller_cfg = scan_cfg.backlog_controller
 
     resource_version = ''
 
@@ -183,6 +198,7 @@ def main():
                 logger.debug(f'identified modification {type=} of backlog item {name}')
 
                 on_backlog_change(
+                    backlog_controller_cfg=backlog_controller_cfg,
                     metadata=metadata,
                     namespace=namespace,
                     kubernetes_api=kubernetes_api,
