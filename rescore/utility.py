@@ -2,7 +2,6 @@ import collections.abc
 import datetime
 import enum
 import re
-import typing
 
 import dso.model
 import dso.cvss
@@ -147,10 +146,10 @@ def rescorings_for_finding_by_specificity(
 
 
 def matching_rescore_rules(
-    rescoring_rules: typing.Iterable[rescore.model.CveRescoringRule],
+    rescoring_rules: collections.abc.Iterable[rescore.model.CveRescoringRule],
     categorisation: dso.cvss.CveCategorisation,
     cvss: dso.cvss.CVSSV3 | dict,
-) -> typing.Generator[rescore.model.CveRescoringRule, None, None]:
+) -> collections.abc.Generator[rescore.model.CveRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
         if not rescoring_rule.matches_categorisation(categorisation):
             continue
@@ -161,7 +160,7 @@ def matching_rescore_rules(
 
 
 def rescore_severity(
-    rescoring_rules: typing.Iterable[rescore.model.CveRescoringRule],
+    rescoring_rules: collections.abc.Iterable[rescore.model.CveRescoringRule],
     severity: dso.cvss.CVESeverity,
     minimum_severity: int=dso.cvss.CVESeverity.NONE,
 ) -> dso.cvss.CVESeverity:
@@ -186,8 +185,7 @@ def iter_matching_sast_rescoring_rules(
     finding: dso.model.ArtefactMetadata,
 ) -> collections.abc.Generator[rescore.model.SastRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
-        # only yield rules when all match conditions are met
-        if all(
+        if any(
             re.match(condition.component_name, finding.artefact.component_name)
             for condition in rescoring_rule.match
         ) and finding.data.sub_type in rescoring_rule.sub_types:
