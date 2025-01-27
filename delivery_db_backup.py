@@ -9,7 +9,6 @@ import subprocess
 import tarfile
 
 import ci.log
-import ci.util
 import cnudie.iter
 import cnudie.purge
 import cnudie.retrieve
@@ -21,11 +20,13 @@ import ocm
 import ocm.upload
 import version
 
-import config
 import ctx_util
 import k8s.logging
 import k8s.util
 import lookups
+import odg.findings
+import odg.scan_cfg
+import paths
 import secret_mgmt
 import secret_mgmt.delivery_db
 import secret_mgmt.oci_registry
@@ -283,6 +284,10 @@ def parse_args():
         help='specify kubernetes cluster namespace to interact with',
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
+    parser.add_argument(
+        '--scan-cfg-path',
+        help='path to the `scan_cfg.yaml` file that should be used',
+    )
 
     parsed_arguments = parser.parse_args()
 
@@ -310,33 +315,38 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=config.Services.DELIVERY_DB_BACKUP,
+        service=odg.scan_cfg.Services.DELIVERY_DB_BACKUP,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=config.Services.DELIVERY_DB_BACKUP,
+        service=odg.scan_cfg.Services.DELIVERY_DB_BACKUP,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
     logger.info('creating delivery-db backup')
 
-    delivery_gear_extension_cfg_name = ci.util.check_env('DELIVERY_GEAR_CFG_NAME')
-    delivery_gear_extension_cfg = ctx_util.cfg_factory().delivery_gear_extensions(
-        delivery_gear_extension_cfg_name,
-    )
+    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
+        scan_cfg_path = paths.scan_cfg_path()
 
-    backup_cfg = delivery_gear_extension_cfg.deliveryDbBackup()
+    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
+    delivery_db_backup_cfg = scan_cfg.delivery_db_backup
 
-    delivery_db_cfg = secret_factory.delivery_db(backup_cfg['delivery_db_cfg_name'])
-    component_name = backup_cfg['component_name']
-    ocm_repo = backup_cfg['ocm_repo']
-    additional_args = backup_cfg.get('extra_pg_dump_args', [])
-    delivery_service_url = delivery_gear_extension_cfg.defaults()['delivery_service_url']
-    backup_retention_count = backup_cfg.get('backup_retention_count')
-    initial_version = backup_cfg.get('initial_version', '0.1.0')
+    delivery_db_cfgs = secret_factory.delivery_db()
+    if len(delivery_db_cfgs) != 1:
+        raise ValueError(
+            f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}'
+        )
+    delivery_db_cfg = delivery_db_cfgs[0]
+
+    component_name = delivery_db_backup_cfg.component_name
+    ocm_repo = delivery_db_backup_cfg.ocm_repo_url
+    additional_args = delivery_db_backup_cfg.extra_pg_dump_args
+    delivery_service_url = delivery_db_backup_cfg.delivery_service_url
+    backup_retention_count = delivery_db_backup_cfg.backup_retention_count
+    initial_version = delivery_db_backup_cfg.initial_version
 
     delivery_service_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
