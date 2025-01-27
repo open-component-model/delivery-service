@@ -1,0 +1,109 @@
+categorisations:
+  - type: finding/vulnerability
+    gardener:
+      - name: NONE
+        value: 0
+      - name: LOW
+        value: 1
+        allowed_processing_time: 120
+        automatic_rescoring: True
+        exclude_from_reporting: True
+        selector:
+          cve_score_range:
+            min: 0.0
+            max: 3.9
+      - name: MEDIUM
+        value: 2
+        allowed_processing_time: 90
+        automatic_rescoring: True
+        selector:
+          cve_score_range:
+            min: 4.0
+            max: 6.9
+      - name: HIGH
+        value: 4
+        allowed_processing_time: 30
+        selector:
+          cve_score_range:
+            min: 7.0
+            max: 8.9
+      - name: CRITICAL
+        value: 8
+        allowed_processing_time: 30
+        selector:
+          cve_score_range:
+            min: 9.0
+            max: 10.0
+
+rescoring_rulesets:
+  - type: finding/vulnerability
+    gardener:
+      name: vulnerability-rescoring-v1
+      rules:
+        - category_value: network_exposure:public
+          name: network-exposure-public
+          rules:
+            - cve_values:
+                - AV:N
+              rescore: no-change
+            - cve_values:
+                - AV:A
+              rescore: reduce
+            - cve_values:
+                - AV:L
+                - AV:P
+              rescore: not-exploitable
+        - category_value: network_exposure:protected
+          name: network-exposure-protected
+          rules:
+            - cve_values:
+                - AV:N
+              rescore: reduce
+            - cve_values:
+                - AV:A
+                - AV:L
+                - AV:P
+              rescore: not-exploitable
+        - category_value: network_exposure:private
+          name: network-exposure-private
+          rules:
+            - cve_values:
+                - AV:N
+                - AV:A
+                - AV:L
+                - AV:P
+              rescore: not-exploitable
+        - category_value: authentication_enforced:true
+          name: authentication-enforced
+          rules:
+            - cve_values:
+                - PR:L
+                - PR:H
+              rescore: reduce
+        - category_value: user_interaction:gardener-operator
+          name: user-interaction-gardener-operator
+          rules:
+            - cve_values:
+                - UI:R
+              rescore: reduce
+        - category_value: confidentiality_requirement:none
+          name: confidentiality-requirement-none
+          rules:
+            - cve_values:
+                - C:H
+                - C:L
+              rescore: reduce
+        - category_value: integrity_requirement:none
+          name: integrity-requirement-none
+          rules:
+            - cve_values:
+                - I:H
+                - I:L
+              rescore: reduce
+        - category_value: availability_requirement:none
+          name: availability-requirement-none
+          rules:
+            - cve_values:
+                - A:H
+                - A:L
+              rescore: reduce

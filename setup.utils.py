@@ -38,8 +38,15 @@ def packages():
     return [
         'deliverydb_cache',
         'k8s',
+        'odg',
         'secret_mgmt',
     ]
+
+
+def package_data():
+    return {
+        'odg': ['*.yaml'],
+    }
 
 
 setuptools.setup(
@@ -47,5 +54,6 @@ setuptools.setup(
     version=setup.finalize_version(),
     py_modules=modules(),
     packages=packages(),
+    package_data=package_data(),
     install_requires=list(requirements()),
 )
