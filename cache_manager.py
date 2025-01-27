@@ -12,7 +12,6 @@ import collections.abc
 import datetime
 import logging
 import os
-import sys
 
 import sqlalchemy
 import sqlalchemy.ext.asyncio as sqlasync
@@ -38,6 +37,8 @@ import k8s.logging
 import k8s.model
 import k8s.util
 import lookups
+import odg.findings
+import odg.scan_cfg
 import paths
 
 
@@ -47,32 +48,6 @@ k8s.logging.configure_kubernetes_logging()
 
 own_dir = os.path.abspath(os.path.dirname(__file__))
 default_cache_dir = os.path.join(own_dir, '.cache')
-
-
-def deserialise_cache_manager_cfg(
-    cfg_name: str,
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
-) -> config.CacheManagerConfig:
-    scan_cfg_crd = kubernetes_api.custom_kubernetes_api.get_namespaced_custom_object(
-        group=k8s.model.ScanConfigurationCrd.DOMAIN,
-        version=k8s.model.ScanConfigurationCrd.VERSION,
-        plural=k8s.model.ScanConfigurationCrd.PLURAL_NAME,
-        namespace=namespace,
-        name=cfg_name,
-    )
-    spec = scan_cfg_crd.get('spec', dict())
-
-    cache_manager_cfg = config.deserialise_cache_manager_config(spec_config=spec)
-
-    if not cache_manager_cfg:
-        logger.warning(
-            f'no cache manager configuration for config elem {cfg_name} set, '
-            'job is not able to process and will terminate'
-        )
-        sys.exit(1)
-
-    return cache_manager_cfg
 
 
 def bytes_to_str(
@@ -109,7 +84,7 @@ def is_pruning_required(
 
 async def prune_cache(
     cache_size_bytes: int,
-    cfg: config.CacheManagerConfig,
+    cfg: odg.scan_cfg.CacheManagerConfig,
     db_session: sqlasync.session.AsyncSession,
     chunk_size: int=50,
 ):
@@ -184,7 +159,7 @@ async def prefill_compliance_summary_cache(
 
 
 async def prefill_compliance_summary_caches(
-    components: collections.abc.Iterable[config.Component],
+    components: collections.abc.Iterable[odg.scan_cfg.Component],
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
@@ -243,7 +218,7 @@ async def prefill_compliance_summary_caches(
 
 
 async def prefill_component_versions_caches(
-    components: collections.abc.Iterable[config.Component],
+    components: collections.abc.Iterable[odg.scan_cfg.Component],
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     db_session: sqlasync.session.AsyncSession,
 ):
@@ -257,8 +232,8 @@ async def prefill_component_versions_caches(
 
 
 async def prefill_function_caches(
-    function_names: collections.abc.Iterable[config.FunctionNames],
-    components: collections.abc.Iterable[config.Component],
+    function_names: collections.abc.Iterable[odg.scan_cfg.FunctionNames],
+    components: collections.abc.Iterable[odg.scan_cfg.Component],
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
@@ -272,7 +247,7 @@ async def prefill_function_caches(
         logger.info(f'Prefilling cache for {function_name=} and {components=}')
 
         match function_name:
-            case config.FunctionNames.COMPLIANCE_SUMMARY:
+            case odg.scan_cfg.FunctionNames.COMPLIANCE_SUMMARY:
                 await prefill_compliance_summary_caches(
                     components=components,
                     component_descriptor_lookup=component_descriptor_lookup,
@@ -285,7 +260,7 @@ async def prefill_function_caches(
                     db_session=db_session,
                 )
 
-            case config.FunctionNames.COMPONENT_VERSIONS:
+            case odg.scan_cfg.FunctionNames.COMPONENT_VERSIONS:
                 await prefill_component_versions_caches(
                     components=components,
                     version_lookup=version_lookup,
@@ -314,9 +289,12 @@ def parse_args():
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
     parser.add_argument(
-        '--cfg-name',
-        help='specify the context the process should run in',
-        default=os.environ.get('CFG_NAME'),
+        '--scan-cfg-path',
+        help='path to the `scan_cfg.yaml` file that should be used',
+    )
+    parser.add_argument(
+        '--findings-cfg-path',
+        help='path to the `findings.yaml` file that should be used',
     )
     parser.add_argument(
         '--invalid-semver-ok',
@@ -334,18 +312,11 @@ def parse_args():
             'or via environment variable "K8S_TARGET_NAMESPACE"'
         )
 
-    if not parsed_arguments.cfg_name:
-        raise ValueError(
-            'name of the to-be-used scan configuration must be set, either via '
-            'argument "--cfg-name" or via environment variable "CFG_NAME"'
-        )
-
     return parsed_arguments
 
 
 async def main():
     parsed_arguments = parse_args()
-    cfg_name = parsed_arguments.cfg_name
     namespace = parsed_arguments.k8s_namespace
 
     secret_factory = ctx_util.secret_factory()
@@ -357,24 +328,35 @@ async def main():
         kubernetes_api = k8s.util.kubernetes_api(kubeconfig_path=parsed_arguments.kubeconfig)
 
     k8s.logging.init_logging_thread(
-        service=config.Services.CACHE_MANAGER,
+        service=odg.scan_cfg.Services.CACHE_MANAGER,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=config.Services.CACHE_MANAGER,
+        service=odg.scan_cfg.Services.CACHE_MANAGER,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
-    cache_manager_cfg = deserialise_cache_manager_cfg(
-        cfg_name=cfg_name,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
+    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
+        scan_cfg_path = paths.scan_cfg_path()
 
-    db_url = secret_factory.delivery_db(cache_manager_cfg.delivery_db_cfg_name).url
+    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
+    cache_manager_cfg = scan_cfg.cache_manager
+
+    if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
+        findings_cfg_path = paths.findings_cfg_path()
+
+    finding_cfgs = odg.findings.Finding.from_file(findings_cfg_path)
+    finding_types = [str(finding_cfg.type) for finding_cfg in finding_cfgs]
+
+    delivery_db_secrets = secret_factory.delivery_db()
+    if len(delivery_db_secrets) != 1:
+        raise ValueError(
+            f'There must be exactly one delivery-db secret, found {len(delivery_db_secrets)}'
+        )
+    db_url = delivery_db_secrets[0].url
 
     oci_client = lookups.semver_sanitising_oci_client_async(secret_factory)
     eol_client = eol.EolClient()
@@ -388,14 +370,6 @@ async def main():
     version_lookup = lookups.init_version_lookup_async(
         oci_client=oci_client,
         default_absent_ok=True,
-    )
-
-    finding_types = (
-        dso.model.Datatype.LICENSE,
-        dso.model.Datatype.VULNERABILITY,
-        dso.model.Datatype.OS_IDS,
-        dso.model.Datatype.CODECHECKS_AGGREGATED,
-        dso.model.Datatype.MALWARE_FINDING,
     )
 
     artefact_metadata_cfg_by_type = compliance_summary.artefact_metadata_cfg_by_type(
@@ -417,7 +391,7 @@ async def main():
             )
 
         await prefill_function_caches(
-            function_names=cache_manager_cfg.prefill_function_caches.function_names,
+            function_names=cache_manager_cfg.prefill_function_caches.functions,
             components=cache_manager_cfg.prefill_function_caches.components,
             component_descriptor_lookup=component_descriptor_lookup,
             version_lookup=version_lookup,
