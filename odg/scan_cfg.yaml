@@ -1,0 +1,38 @@
+defaults:
+  delivery_service_url: http://localhost:5000
+  delivery_dashboard_url: http://localhost:3000
+
+artefact_enumerator:
+  components:
+    - component_name: ocm.software/ocm-gear
+      ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
+
+bdba:
+  mappings:
+    - prefix: ''
+      group_id: ~ # must be set
+      bdba_secret_name: ~ # must be set
+
+cache_manager:
+  prefill_function_caches:
+    components:
+      - component_name: ocm.software/ocm-gear
+
+clamav:
+  mappings:
+    - prefix: ''
+
+delivery_db_backup:
+  component_name: ~ # must be set
+  ocm_repo_url: ~ # must be set
+
+issue_replicator:
+  mappings:
+    - prefix: ''
+      github_repository: ~ # must be set
+
+sast:
+  components:
+    - component_name: ocm.software/ocm-gear
+      ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
+      timerange_days: 365
