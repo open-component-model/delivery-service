@@ -1,0 +1,79 @@
+- type: finding/vulnerability
+  issues:
+    enable_assignees: False
+  rescoring_ruleset: gardener
+  categorisations: gardener
+
+- type: finding/license
+  issues:
+    enable_assignees: False
+  categorisations:
+    - name: NONE
+      value: 0
+      allowed_processing_time: ~
+    - name: BLOCKER
+      value: 16
+      allowed_processing_time: 0
+      selector:
+        license_names:
+          - sleepycat
+
+- type: finding/malware
+  issues:
+    enable_assignees: False
+  categorisations:
+    - name: NONE
+      value: 0
+      allowed_processing_time: ~
+    - name: BLOCKER
+      value: 16
+      allowed_processing_time: 0
+      selector:
+        malware_names:
+          - .*
+
+- type: finding/sast
+  issues:
+    enable_issues: False
+  rescoring_ruleset:
+    name: sast-rescoring-v1
+    rules:
+      - name: local-linting-is-optional-for-internal-components
+        match:
+          - component_name: github.internal/.*
+        sub_types:
+          - local-linting
+        sast_status: no-linter
+        rescore: to-none
+      - name: central-linting-is-optional-for-external-components
+        match:
+          - component_name: github.com/.*
+        sub_types:
+          - central-linting
+        sast_status: no-linter
+        rescore: to-none
+  categorisations:
+    - name: NONE
+      value: 0
+      allowed_processing_time: ~
+    - name: BLOCKER
+      value: 16
+      allowed_processing_time: 0
+      selector:
+        sub_types:
+          - .*
+
+- type: finding/diki
+  issues:
+    enable_assignees: False
+    enable_per_finding: True
+  categorisations:
+    - name: NONE
+      value: 0
+      allowed_processing_time: ~
+    - name: MEDIUM
+      value: 2
+      allowed_processing_time: 90
+    - name: HIGH
+      value: 4
+      allowed_processing_time: 30
