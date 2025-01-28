@@ -32,9 +32,6 @@ spec:
             mountPath: /secrets/kubernetes
           - name: scan-cfg
             mountPath: /scan_cfg
-          - name: cfg-factory
-            mountPath: "/cfg_factory"
-            readOnly: true
           resources:
             requests:
               memory: 100Mi
@@ -51,7 +48,3 @@ spec:
           configMap:
             name: scan-cfg
             optional: true # TODO: only optional until old scan cfg has been removed
-        - name: cfg-factory
-          secret:
-            secretName: cfg-factory-secret
-            optional: true

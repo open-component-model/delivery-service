@@ -44,9 +44,6 @@ spec:
               mountPath: /scan_cfg
             - name: findings-cfg
               mountPath: /findings_cfg
-            - name: cfg-factory
-              mountPath: "/cfg_factory"
-              readOnly: true
             - name: features-cfg
               mountPath: "/features_cfg"
               readOnly: true
@@ -61,7 +58,6 @@ spec:
             - name: github
               secret:
                 secretName: secret-factory-github
-                optional: true # TODO: only optional until cfg factory support has been removed
             - name: kubernetes
               secret:
                 secretName: secret-factory-kubernetes
@@ -69,19 +65,12 @@ spec:
             - name: oci-registry
               secret:
                 secretName: secret-factory-oci-registry
-                optional: true # TODO: only optional until cfg factory support has been removed
             - name: scan-cfg
               configMap:
                 name: scan-cfg
-                optional: true # TODO: only optional until old scan cfg has been removed
             - name: findings-cfg
               configMap:
                 name: findings-cfg
-                optional: true # TODO: only optional until old scan cfg has been removed
-            - name: cfg-factory
-              secret:
-                secretName: cfg-factory-secret
-                optional: true
             - name: features-cfg
               secret:
                 secretName: features-cfg
