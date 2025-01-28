@@ -1,13 +1,12 @@
-{{- range $config := .Values.configurations }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ $name := print "cache-manager-" $config.envVars.CFG_NAME }}{{ $name }}
+  name: cache-manager
 spec:
-  schedule: {{ default "0 * * * *" $config.schedule | quote }} # schedule contains asterisks, quote to avoid yaml parser errors
+  schedule: {{ default "*/10 * * * *" .Values.schedule | quote }} # schedule contains asterisks, quote to avoid yaml parser errors
   concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: {{ default 1 $config.successfulJobsHistoryLimit }}
-  failedJobsHistoryLimit: {{ default 1 $config.failedJobsHistoryLimit }}
+  successfulJobsHistoryLimit: {{ default 1 .Values.successful_jobs_history_limit }}
+  failedJobsHistoryLimit: {{ default 1 .Values.failed_jobs_history_limit }}
   jobTemplate:
     spec:
       template:
@@ -17,23 +16,29 @@ spec:
         spec:
           containers:
           - name: cache-manager
-            image: {{ include "image" $.Values.image }}
+            image: {{ include "image" .Values.image }}
             imagePullPolicy: IfNotPresent
             command:
             - python3
             - -m
             - cache_manager
-            {{- if default list $config.args }}
+            {{- if default list .Values.args }}
             args:
-            {{- range $arg := $config.args }}
+            {{- range $arg := .Values.args }}
             - {{ $arg }}
             {{- end }}
             {{- end }}
             env:
-            {{- range $key, $value := $config.envVars }}
-            - name: {{ $key }}
-              value: {{ $value }}
-            {{- end }}
+            - name: SECRET_FACTORY_PATH
+              value: /secrets
+            - name: SCAN_CFG_PATH
+              value: /scan_cfg/scan_cfg
+            - name: FINDINGS_CFG_PATH
+              value: /findings_cfg/findings_cfg
+            - name: FEATURES_CFG_PATH
+              value: /features_cfg/features_cfg
+            - name: K8S_TARGET_NAMESPACE
+              value: {{ .Release.Namespace }}
             volumeMounts:
             - name: delivery-db
               mountPath: /secrets/delivery-db
@@ -42,12 +47,9 @@ spec:
             - name: oci-registry
               mountPath: /secrets/oci-registry
             - name: scan-cfg
-              mountPath: /cfg
+              mountPath: /scan_cfg
             - name: findings-cfg
-              mountPath: /cfg
-            - name: cfg-factory
-              mountPath: "/cfg_factory"
-              readOnly: true
+              mountPath: /findings_cfg
             - name: features-cfg
               mountPath: "/features_cfg"
               readOnly: true
@@ -55,15 +57,13 @@ spec:
             - name: delivery-db
               secret:
                 secretName: secret-factory-delivery-db
-                optional: true # TODO: only optional until cfg factory support has been removed
             - name: kubernetes
               secret:
                 secretName: secret-factory-kubernetes
-                optional: true # extensions in general are optional
+                optional: true # might use incluster config
             - name: oci-registry
               secret:
                 secretName: secret-factory-oci-registry
-                optional: true # TODO: only optional until cfg factory support has been removed
             - name: scan-cfg
               configMap:
                 name: scan-cfg
@@ -72,14 +72,8 @@ spec:
               configMap:
                 name: findings-cfg
                 optional: true # TODO: only optional until old scan cfg has been removed
-            - name: cfg-factory
-              secret:
-                secretName: cfg-factory-secret
-                optional: true
             - name: features-cfg
               secret:
                 secretName: features-cfg
                 optional: true
           restartPolicy: Never
----
-{{- end }}
