@@ -260,7 +260,7 @@ class Finding:
         finding_type: FindingType | None=None,
     ) -> list[typing.Self] | typing.Self | None:
         with open(path) as file:
-            findings_raw = yaml.safe_load(file).get('findings', [])
+            findings_raw = yaml.safe_load(file) or []
 
         return Finding.from_dict(
             findings_raw=findings_raw,

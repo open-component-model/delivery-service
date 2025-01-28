@@ -1,0 +1,8 @@
+{{- if $findings := .Values.findings }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: findings-cfg
+data:
+  findings: {{ toYaml $findings | nindent 4 }}
+{{- end }}

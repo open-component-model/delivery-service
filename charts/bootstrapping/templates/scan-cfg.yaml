@@ -1,0 +1,8 @@
+{{- if $scan_cfg := .Values.scan_cfg }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scan-cfg
+data:
+  scan_cfg: {{ toYaml $scan_cfg | nindent 4 }}
+{{- end }}

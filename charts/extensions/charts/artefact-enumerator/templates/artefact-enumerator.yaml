@@ -36,6 +36,10 @@ spec:
               mountPath: /secrets/kubernetes
             - name: oci-registry
               mountPath: /secrets/oci-registry
+            - name: scan-cfg
+              mountPath: /cfg
+            - name: findings-cfg
+              mountPath: /cfg
             - name: cfg-factory
               mountPath: "/cfg_factory"
               readOnly: true
@@ -62,6 +66,14 @@ spec:
               secret:
                 secretName: secret-factory-oci-registry
                 optional: true # TODO: only optional until cfg factory support has been removed
+            - name: scan-cfg
+              configMap:
+                name: scan-cfg
+                optional: true # TODO: only optional until old scan cfg has been removed
+            - name: findings-cfg
+              configMap:
+                name: findings-cfg
+                optional: true # TODO: only optional until old scan cfg has been removed
             - name: cfg-factory
               secret:
                 secretName: cfg-factory-secret
