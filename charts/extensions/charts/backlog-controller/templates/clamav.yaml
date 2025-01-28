@@ -30,14 +30,16 @@ spec:
           image: {{ include "image" $.Values.clamav.image }}
           imagePullPolicy: IfNotPresent
           env:
-          - name: CFG_NAME
-            value: {{ $cfgName }}
-          {{- if default dict $.Values.envVars }}
-          {{- range $key, $value := $.Values.envVars }}
-          - name: {{ $key }}
-            value: {{ $value }}
-          {{- end }}
-          {{- end }}
+          - name: SECRET_FACTORY_PATH
+            value: /secrets
+          - name: SCAN_CFG_PATH
+            value: /scan_cfg/scan_cfg
+          - name: FINDINGS_CFG_PATH
+            value: /findings_cfg/findings_cfg
+          - name: FEATURES_CFG_PATH
+            value: /features_cfg/features_cfg
+          - name: K8S_TARGET_NAMESPACE
+            value: {{ .Release.Namespace }}
           volumeMounts:
           - name: aws
             mountPath: /secrets/aws
@@ -48,9 +50,9 @@ spec:
           - name: oci-registry
             mountPath: /secrets/oci-registry
           - name: scan-cfg
-            mountPath: /cfg
+            mountPath: /scan_cfg
           - name: findings-cfg
-            mountPath: /cfg
+            mountPath: /findings_cfg
           - name: cfg-factory
             mountPath: "/cfg_factory"
             readOnly: true
@@ -116,7 +118,7 @@ metadata:
   name: {{ $name := print "clamav-freshclam-config-" $cfgName }}{{ $name }}
 data:
   freshclam: |-
-    DatabaseMirror freshclam.{{ $.Values.namespace }}.svc.cluster.local:8080
-    PrivateMirror freshclam.{{ $.Values.namespace }}.svc.cluster.local:8080
+    DatabaseMirror freshclam.{{ .Release.Namespace }}.svc.cluster.local:8080
+    PrivateMirror freshclam.{{ .Release.Namespace }}.svc.cluster.local:8080
 ---
 {{- end }}

@@ -34,14 +34,18 @@ spec:
           - -m
           - sast
           env:
+          - name: SECRET_FACTORY_PATH
+            value: /secrets
+          - name: SCAN_CFG_PATH
+            value: /scan_cfg/scan_cfg
+          - name: FINDINGS_CFG_PATH
+            value: /findings_cfg/findings_cfg
+          - name: FEATURES_CFG_PATH
+            value: /features_cfg/features_cfg
+          - name: K8S_TARGET_NAMESPACE
+            value: {{ .Release.Namespace }}
           - name: CFG_NAME
             value: {{ $cfgName }}
-          {{- if default dict $.Values.envVars }}
-          {{- range $key, $value := $.Values.envVars }}
-          - name: {{ $key }}
-            value: {{ $value }}
-          {{- end }}
-          {{- end }}
           volumeMounts:
           - name: github
             mountPath: /secrets/github
@@ -85,6 +89,14 @@ spec:
           secret:
             secretName: cfg-factory-secret
             optional: true
+        - name: scan-cfg
+          configMap:
+            name: scan-cfg
+            optional: true # TODO: only optional until old scan cfg has been removed
+        - name: findings-cfg
+          configMap:
+            name: findings-cfg
+            optional: true # TODO: only optional until old scan cfg has been removed
         - name: features-cfg
           secret:
             secretName: features-cfg

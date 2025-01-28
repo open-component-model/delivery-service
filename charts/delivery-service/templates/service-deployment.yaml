@@ -49,8 +49,18 @@ spec:
           ports:
             - containerPort: {{ default 5000 .Values.containerPort }}
               name: default
-          {{- if default dict .Values.envVars }}
           env:
+          - name: SECRET_FACTORY_PATH
+            value: /secrets
+          - name: SCAN_CFG_PATH
+            value: /scan_cfg/scan_cfg
+          - name: FINDINGS_CFG_PATH
+            value: /findings_cfg/findings_cfg
+          - name: FEATURES_CFG_PATH
+            value: /features_cfg/features_cfg
+          - name: K8S_TARGET_NAMESPACE
+            value: {{ .Release.Namespace }}
+          {{- if default dict .Values.envVars }}
           {{- range $key, $value := .Values.envVars }}
           - name: {{ $key }}
             value: {{ $value }}
@@ -72,9 +82,9 @@ spec:
             - name: signing-cfg
               mountPath: /secrets/signing-cfg
             - name: scan-cfg
-              mountPath: /cfg
+              mountPath: /scan_cfg
             - name: findings-cfg
-              mountPath: /cfg
+              mountPath: /findings_cfg
             - name: cfg-factory
               mountPath: "/cfg_factory"
             - name: features-cfg
