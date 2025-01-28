@@ -1,8 +1,10 @@
-import pytest
 import datetime
 
+import pytest
+
 import dso.model
-import github.compliance.model
+
+import odg.findings
 import rescore.model
 import rescore.utility
 
@@ -183,7 +185,51 @@ def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
 
 
 @pytest.fixture
-def sast_finding_public():
+def sast_finding_cfg(
+    rescoring_rules_raw: dict,
+) -> odg.findings.Finding:
+    sast_rescoring_ruleset = rescoring_rules_raw['rescoringRuleSets'][0]
+
+    return odg.findings.Finding.from_dict(
+        findings_raw=[{
+            'type': 'finding/sast',
+            'categorisations': [{
+                'name': 'scan exists and has no findings',
+                'value': 0,
+            }, {
+                'name': 'missing sast scan',
+                'value': 16,
+                'allowed_processing_time': 0,
+                'automatic_rescoring': True,
+                'selector': {
+                    'sub_types': ['.*'],
+                },
+            }],
+            'rescoring_ruleset': sast_rescoring_ruleset,
+        }],
+        finding_type=odg.findings.FindingType.SAST,
+    )
+
+
+@pytest.fixture
+def sast_categorisation(
+    sast_finding_cfg: odg.findings.Finding,
+) -> odg.findings.FindingCategorisation | None:
+    sub_type = dso.model.SastSubType.CENTRAL_LINTING
+
+    return odg.findings.categorise_finding(
+        finding_cfg=sast_finding_cfg,
+        finding_property=sub_type,
+    )
+
+
+@pytest.fixture
+def sast_finding_public(
+    sast_categorisation: odg.findings.FindingCategorisation,
+) -> dso.model.ArtefactMetadata | None:
+    if not sast_categorisation:
+        return None
+
     return dso.model.ArtefactMetadata(
         artefact=dso.model.ComponentArtefactId(
             component_name='github.com/public-component',
@@ -202,39 +248,28 @@ def sast_finding_public():
         data=dso.model.SastFinding(
             sub_type=dso.model.SastSubType.CENTRAL_LINTING,
             sast_status=dso.model.SastStatus.NO_LINTER,
-            severity=github.compliance.model.Severity.BLOCKER.value,
+            severity=sast_categorisation.name,
         )
     )
 
 
 def test_generate_sast_rescorings(
-    rescoring_rules_raw: dict,
     sast_finding_public: dso.model.ArtefactMetadata,
+    sast_finding_cfg: odg.findings.Finding,
+    sast_categorisation: odg.findings.FindingCategorisation,
 ):
-    sast_rescoring_rule_sets = tuple(
-        rescore.model.SastRescoringRuleSet(
-            name=sast_rule_set_raw['name'],
-            description=sast_rule_set_raw.get('description'),
-            rules=list(
-                rescore.model.sast_rescoring_rules_from_dict(sast_rule_set_raw['rules'])
-            )
-        )
-        for sast_rule_set_raw in rescoring_rules_raw['rescoringRuleSets']
-        if rescore.model.RuleSetType(sast_rule_set_raw['type']) is rescore.model.RuleSetType.SAST
-    )
-    sast_rescoring_ruleset = sast_rescoring_rule_sets[0]
-
-    rescoring = rescore.utility.rescoring_for_finding(
+    rescoring = rescore.utility.rescoring_for_sast_finding(
         finding=sast_finding_public,
-        sast_rescoring_ruleset=sast_rescoring_ruleset,
+        sast_finding_cfg=sast_finding_cfg,
+        categorisation=sast_categorisation,
         user=dso.model.User(
             username="test_user",
         ),
-        creation_timestamp=datetime.datetime.now()
+        creation_timestamp=datetime.datetime.now(),
     )
 
     assert isinstance(rescoring.data, dso.model.CustomRescoring)
     assert rescoring.data.matching_rules == [
         'central-linting-is-optional-for-external-components'
     ]
-    assert rescoring.data.severity == github.compliance.model.Severity.NONE.name
+    assert rescoring.data.severity == 'scan exists and has no findings'

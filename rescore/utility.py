@@ -5,7 +5,6 @@ import re
 
 import dso.model
 import dso.cvss
-import github.compliance.model
 
 import odg.findings
 import rescore.model
@@ -234,40 +233,38 @@ def iter_matching_sast_rescoring_rules(
             yield rescoring_rule
 
 
-def rescore_sast_severity(
-    rescoring_rules: collections.abc.Iterable[rescore.model.SastRescoringRule],
-) -> github.compliance.model.Severity:
-    for rule in rescoring_rules:
-        if rule.rescore is rescore.model.Rescore.TO_NONE:
-            return github.compliance.model.Severity.NONE
-        elif rule.rescore is rescore.model.Rescore.TO_BLOCKER:
-            return github.compliance.model.Severity.BLOCKER
-        else:
-            raise ValueError(f'Unknown rescore value: {rule.rescore}')
-
-
-def rescoring_for_finding(
+def rescoring_for_sast_finding(
     finding: dso.model.ArtefactMetadata,
-    sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet,
+    sast_finding_cfg: odg.findings.Finding,
+    categorisation: odg.findings.FindingCategorisation,
     user: dso.model.User,
     creation_timestamp: datetime.datetime
 ) -> dso.model.ArtefactMetadata | None:
+    if (
+        not categorisation
+        or not categorisation.automatic_rescoring
+        or not sast_finding_cfg.rescoring_ruleset
+    ):
+        return None
+
     matching_rules = list(
         iter_matching_sast_rescoring_rules(
-            rescoring_rules=sast_rescoring_ruleset.rules,
+            rescoring_rules=sast_finding_cfg.rescoring_ruleset.rules,
             finding=finding,
         )
     )
 
     if not matching_rules:
-        return
+        return None
 
-    new_severity = rescore_sast_severity(
-        rescoring_rules=matching_rules
+    rescored_categorisation = rescore_finding(
+        finding_cfg=sast_finding_cfg,
+        current_categorisation=categorisation,
+        rescoring_rules=matching_rules,
     )
 
-    if github.compliance.model.Severity.parse(finding.data.severity) is new_severity:
-        return
+    if rescored_categorisation.value == categorisation.value:
+        return None # categorisation did not change -> no need to create a rescoring
 
     return dso.model.ArtefactMetadata(
         artefact=finding.artefact,
@@ -280,7 +277,7 @@ def rescoring_for_finding(
         data=dso.model.CustomRescoring(
             finding=finding.data,
             referenced_type=dso.model.Datatype.SAST_FINDING,
-            severity=new_severity.name,
+            severity=rescored_categorisation.name,
             user=user,
             matching_rules=[rule.name for rule in matching_rules],
             comment='Automatically rescored based on rules.',
