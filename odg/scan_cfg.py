@@ -106,11 +106,17 @@ class ArtefactEnumeratorConfig:
         set, all available sprints will be considered.
     :param int compliance_snapshot_grace_period:
         Time after which inactive compliance snapshots are deleted from the delivery-db.
+    :param str schedule
+    :param int successful_jobs_history_limit
+    :param int failed_jobs_history_limit
     '''
     delivery_service_url: str
     components: list[Component]
     sprints_relative_time_range: TimeRange | None
     compliance_snapshot_grace_period: int = 60 * 60 * 24 # 24h
+    schedule: str = '*/5 * * * *' # every 5 minutes
+    successful_jobs_history_limit: int = 1
+    failed_jobs_history_limit: int = 1
 
 
 @dataclasses.dataclass
@@ -268,7 +274,6 @@ class PrefillFunctionCaches:
 @dataclasses.dataclass
 class CacheManagerConfig:
     '''
-    :param str schedule
     :param int max_cache_size_bytes
     :param int min_pruning_bytes:
         If `max_cache_size_bytes` is reached, existing cache entries will be removed according to
@@ -277,12 +282,17 @@ class CacheManagerConfig:
     :param PrefillFunctionCaches prefill_function_caches:
         Configures components for which to pre-calculate and cache the desired functions. If no
         specific functions are set, all available functions will be considered.
+    :param str schedule
+    :param int successful_jobs_history_limit
+    :param int failed_jobs_history_limit
     '''
-    schedule: str = '*/10 * * * *' # every 10 minutes
     max_cache_size_bytes: int = 1000000000 # 1Gb
     min_pruning_bytes: int = 100000000 # 100Mb
     cache_pruning_weights: CachePruningWeights = dataclasses.field(default_factory=CachePruningWeights.default) # noqa: E501
     prefill_function_caches: PrefillFunctionCaches = dataclasses.field(default_factory=PrefillFunctionCaches) # noqa: E501
+    schedule: str = '*/10 * * * *' # every 10 minutes
+    successful_jobs_history_limit: int = 1
+    failed_jobs_history_limit: int = 1
 
 
 @dataclasses.dataclass
@@ -373,6 +383,7 @@ class DeliveryDBBackup:
         initial version if the backup component does not exist yet.
     :param list[str] extra_pg_dump_args:
         List of arguments that is passed to the `pg_dump` command as-is.
+    :param str schedule
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
     '''
@@ -381,8 +392,8 @@ class DeliveryDBBackup:
     ocm_repo_url: str
     backup_retention_count: int | None
     initial_version: str = '0.1.0'
-    schedule: str = '0 0 * * *' # every day at 12:00 AM
     extra_pg_dump_args: list[str] = dataclasses.field(default_factory=list)
+    schedule: str = '0 0 * * *' # every day at 12:00 AM
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
