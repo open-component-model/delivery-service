@@ -506,3 +506,37 @@ def default_rescoring_ruleset(
         raise ValueError(f'did not find default rescoring ruleset for {finding_type=} and {name=}')
 
     return rescoring_ruleset_raw[name]
+
+
+def categorise_finding(
+    finding_cfg: Finding,
+    finding_property,
+) -> FindingCategorisation | None:
+    '''
+    Used to find the categorisation a finding belongs to according to the passed `finding_property`.
+    '''
+    for categorisation in finding_cfg.categorisations:
+        if not (selector := categorisation.selector):
+            continue
+
+        if isinstance(selector, LicenseFindingSelector):
+            for license_name in selector.license_names:
+                if re.fullmatch(license_name, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, MalwareFindingSelector):
+            for malware_name in selector.malware_names:
+                if re.fullmatch(malware_name, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, SASTFindingSelector):
+            for selector_sub_type in selector.sub_types:
+                if re.fullmatch(selector_sub_type, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, VulnerabilityFindingSelector):
+            if (
+                finding_property >= selector.cve_score_range.min
+                and finding_property <= selector.cve_score_range.max
+            ):
+                return categorisation
