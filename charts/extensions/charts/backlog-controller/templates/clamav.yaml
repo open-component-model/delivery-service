@@ -109,7 +109,7 @@ metadata:
   name: {{ $name := print "clamav-freshclam-config-" $cfgName }}{{ $name }}
 data:
   freshclam: |-
-    DatabaseMirror freshclam.{{ .Release.Namespace }}.svc.cluster.local:8080
-    PrivateMirror freshclam.{{ .Release.Namespace }}.svc.cluster.local:8080
+    DatabaseMirror freshclam.{{ $.Release.Namespace }}.svc.cluster.local:8080
+    PrivateMirror freshclam.{{ $.Release.Namespace }}.svc.cluster.local:8080
 ---
 {{- end }}
