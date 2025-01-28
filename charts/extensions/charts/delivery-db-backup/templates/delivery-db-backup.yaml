@@ -1,12 +1,12 @@
-{{- range $index, $value := .Values.configurations }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: delivery-db-backup-{{ $value.DELIVERY_GEAR_CFG_NAME }}
+  name: delivery-db-backup
 spec:
-  schedule: {{ $value.SCHEDULE | quote }} # schedule may contain asterisks, quote to avoid yaml parser errors
-  successfulJobsHistoryLimit: {{ $value.SUCCESSFUL_JOBS_HISTORY_LIMIT }}
-  failedJobsHistoryLimit: {{ $value.FAILED_JOBS_HISTORY_LIMIT }}
+  schedule: {{ default "0 0 * * *" .Values.schedule | quote }} # schedule contains asterisks, quote to avoid yaml parser errors
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ default 1 .Values.successful_jobs_history_limit }}
+  failedJobsHistoryLimit: {{ default 1 .Values.failed_jobs_history_limit }}
   jobTemplate:
     spec:
       template:
@@ -15,24 +15,22 @@ spec:
             app: delivery-db-backup
         spec:
           containers:
-          - name: delivery-db-backup-{{ $value.DELIVERY_GEAR_CFG_NAME }}
-            image: {{ include "image" $.Values.image }}
+          - name: delivery-db-backup
+            image: {{ include "image" .Values.image }}
             imagePullPolicy: IfNotPresent
             command:
             - python3
             - -m
             - delivery_db_backup
             env:
-            - name: DELIVERY_GEAR_CFG_NAME
-              value: {{ $value.DELIVERY_GEAR_CFG_NAME }}
-            - name: CFG_FACTORY_SECRET_PATH
-              value: {{ $value.CFG_FACTORY_SECRET_PATH }}
+            - name: SECRET_FACTORY_PATH
+              value: /secrets
+            - name: SCAN_CFG_PATH
+              value: /scan_cfg/scan_cfg
+            - name: FEATURES_CFG_PATH
+              value: /features_cfg/features_cfg
             - name: K8S_TARGET_NAMESPACE
-              value: {{ $value.K8S_TARGET_NAMESPACE }}
-            {{- if $value.K8S_CFG_NAME }}
-            - name: K8S_CFG_NAME
-              value: {{ $value.K8S_CFG_NAME }}
-            {{- end }}
+              value: {{ .Release.Namespace }}
             volumeMounts:
             - name: delivery-db
               mountPath: /secrets/delivery-db
@@ -43,35 +41,23 @@ spec:
             - name: oci-registry
               mountPath: /secrets/oci-registry
             - name: scan-cfg
-              mountPath: /cfg
-            - name: cfg-factory
-              mountPath: "/cfg_factory"
-              readOnly: true
+              mountPath: /scan_cfg
           volumes:
             - name: delivery-db
               secret:
                 secretName: secret-factory-delivery-db
-                optional: true # TODO: only optional until cfg factory support has been removed
             - name: github
               secret:
                 secretName: secret-factory-github
-                optional: true # TODO: only optional until cfg factory support has been removed
             - name: kubernetes
               secret:
                 secretName: secret-factory-kubernetes
-                optional: true # extensions in general are optional
+                optional: true # might use incluster config
             - name: oci-registry
               secret:
                 secretName: secret-factory-oci-registry
-                optional: true # TODO: only optional until cfg factory support has been removed
             - name: scan-cfg
               configMap:
                 name: scan-cfg
                 optional: true # TODO: only optional until old scan cfg has been removed
-            - name: cfg-factory
-              secret:
-                secretName: cfg-factory-secret
-                optional: true
           restartPolicy: Never
----
-{{- end }}
