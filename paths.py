@@ -1,5 +1,9 @@
+import collections.abc
+import logging
 import os
 
+
+logger = logging.getLogger(__name__)
 
 _own_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -23,19 +27,69 @@ _compliance_summary_path = os.path.join(_own_dir, 'compliance_summary')
 artefact_metadata_cfg = os.path.join(_compliance_summary_path, 'artefact_metadata_cfg.yaml')
 
 _features_path = os.path.join(_own_dir, 'features')
-features_cfg = os.path.join(_features_path, 'features_cfg.yaml')
 
 swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')
 
+_odg_path = os.path.join(_own_dir, 'odg')
 
-def features_cfg_path() -> str:
-    if (
-        (env_features_cfg_path := os.environ.get('FEATURES_CFG_PATH')) and
-        os.path.isfile(env_features_cfg_path)
-    ):
-        return env_features_cfg_path
 
-    if os.path.isfile(features_cfg):
-        return features_cfg
+def features_cfg_candidates() -> collections.abc.Generator[str | None, None, None]:
+    yield os.environ.get('FEATURES_CFG_PATH')
+    yield os.path.join(_features_path, 'features_cfg.yaml')
 
-    return None
+
+def scan_cfg_candidates() -> collections.abc.Generator[str | None, None, None]:
+    yield os.environ.get('SCAN_CFG_PATH')
+    yield os.path.join(_odg_path, 'scan_cfg.yaml')
+
+
+def findings_cfg_candidates() -> collections.abc.Generator[str | None, None, None]:
+    yield os.environ.get('FINDINGS_CFG_PATH')
+    yield os.path.join(_odg_path, 'findings_cfg.yaml')
+
+
+def find_path(
+    candidates: collections.abc.Iterable[str | None],
+    absent_ok: bool=False,
+) -> str | None:
+    for candidate in candidates:
+        if not candidate:
+            continue
+
+        if not os.path.isfile(candidate):
+            logger.warning(f'not an existing file: {candidate=}')
+            continue
+
+        return candidate
+
+    if absent_ok:
+        return None
+
+    raise ValueError(f'did not find file at any of {candidates=}')
+
+
+def features_cfg_path(
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=features_cfg_candidates(),
+        absent_ok=absent_ok,
+    )
+
+
+def scan_cfg_path(
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=scan_cfg_candidates(),
+        absent_ok=absent_ok,
+    )
+
+
+def findings_cfg_path(
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=findings_cfg_candidates(),
+        absent_ok=absent_ok,
+    )
