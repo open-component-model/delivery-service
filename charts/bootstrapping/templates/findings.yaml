@@ -4,6 +4,6 @@ kind: ConfigMap
 metadata:
   name: findings-cfg
 data:
-  findings: |
+  findings_cfg: |
     {{- toYaml $findings | nindent 4 }}
 {{- end }}
