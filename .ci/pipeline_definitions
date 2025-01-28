@@ -150,6 +150,10 @@ delivery-service:
               attribute: delivery-db-backup.image.repository
             - ref: ocm-resource:extensions.tag
               attribute: delivery-db-backup.image.tag
+            - ref: ocm-resource:extensions.repository
+              attribute: backlog-controller.sast.image.repository
+            - ref: ocm-resource:extensions.tag
+              attribute: backlog-controller.sast.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             registry: europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear
