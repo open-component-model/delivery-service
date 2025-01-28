@@ -27,7 +27,7 @@ spec:
       terminationGracePeriodSeconds: 300 # 5 min
       containers:
         - name: sast
-          image: {{ $.Values.sast.image }}
+          image: {{ include "image" $.Values.sast.image }}
           imagePullPolicy: IfNotPresent
           command:
           - python3
