@@ -1,6 +1,6 @@
 aiohttp
 boto3
-dacite
+dacite<=1.8.1
 gardener-cicd-libs==1.2590.0
 github3.py
 kubernetes
