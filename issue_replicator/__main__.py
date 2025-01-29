@@ -9,14 +9,12 @@ import sys
 import time
 
 import ci.log
-import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import dso.model
 import github.compliance.issue as gci
-import github.compliance.model as gcm
 
-import config
+import consts
 import ctx_util
 import issue_replicator.github
 import k8s.backlog
@@ -24,6 +22,9 @@ import k8s.logging
 import k8s.model
 import k8s.util
 import lookups
+import odg.findings
+import odg.scan_cfg
+import paths
 import rescore.utility
 
 
@@ -57,40 +58,13 @@ def handle_sigterm_and_sigint(signum, frame):
     wants_to_terminate = True
 
 
-def deserialise_issue_replicator_configuration(
-    cfg_name: str,
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
-) -> config.IssueReplicatorConfig:
-    scan_cfg_crd = kubernetes_api.custom_kubernetes_api.get_namespaced_custom_object(
-        group=k8s.model.ScanConfigurationCrd.DOMAIN,
-        version=k8s.model.ScanConfigurationCrd.VERSION,
-        plural=k8s.model.ScanConfigurationCrd.PLURAL_NAME,
-        namespace=namespace,
-        name=cfg_name,
-    )
-
-    if scan_cfg_crd and (spec := scan_cfg_crd.get('spec')):
-        issue_replicator_config = config.deserialise_issue_replicator_config(spec_config=spec)
-    else:
-        issue_replicator_config = None
-
-    if not issue_replicator_config:
-        logger.warning(
-            f'no issue replicator configuration for config elem {cfg_name} set, '
-            'job is not able to process current issue replicator backlog and will terminate'
-        )
-        sys.exit(0)
-
-    return issue_replicator_config
-
-
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    finding_types: list[odg.findings.FindingType],
     chunk_size: int=10,
-) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding]:
-    if not artefacts:
+) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
+    if not artefacts or not finding_types:
         return
 
     findings: list[dso.model.ArtefactMetadata] = []
@@ -101,115 +75,113 @@ def _iter_findings_for_artefact(
 
         findings.extend(delivery_client.query_metadata(
             artefacts=chunked_artefacts,
-            type=(
-                dso.model.Datatype.ARTEFACT_SCAN_INFO,
-                dso.model.Datatype.VULNERABILITY,
-                dso.model.Datatype.LICENSE,
-                dso.model.Datatype.MALWARE_FINDING,
-                dso.model.Datatype.DIKI_FINDING,
-            ),
+            type=[dso.model.Datatype.ARTEFACT_SCAN_INFO] + finding_types,
         ))
 
         rescorings.extend(delivery_client.query_metadata(
             artefacts=chunked_artefacts,
             type=dso.model.Datatype.RESCORING,
-            referenced_type=(
-                dso.model.Datatype.VULNERABILITY,
-                dso.model.Datatype.LICENSE,
-                dso.model.Datatype.MALWARE_FINDING,
-            ),
+            referenced_type=finding_types,
         ))
 
     for finding in findings:
+        if finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+            yield issue_replicator.github.AggregatedFinding(finding)
+            continue
+
         filtered_rescorings = rescore.utility.rescorings_for_finding_by_specificity(
             finding=finding,
             rescorings=rescorings,
         )
 
-        if filtered_rescorings:
-            severity = gcm.Severity[filtered_rescorings[0].data.severity]
-        elif finding.meta.type != dso.model.Datatype.ARTEFACT_SCAN_INFO:
-            # artefact scan info does not have any severity but is just retrieved to evaluate
-            # whether a scan exists for the given artefacts (if no finding is found)
-            severity = gcm.Severity[finding.data.severity]
-        else:
-            severity = None
-
         yield issue_replicator.github.AggregatedFinding(
             finding=finding,
-            severity=severity,
             rescorings=filtered_rescorings,
         )
 
 
-def _group_findings_by_type_and_date(
-    issue_replicator_config: config.IssueReplicatorConfig,
+def _iter_findings_with_processing_dates(
     findings: collections.abc.Iterable[issue_replicator.github.AggregatedFinding],
-    dates: collections.abc.Sequence[datetime.date],
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
+    sprints: collections.abc.Sequence[datetime.date],
+) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
+    for finding in findings:
+        if (finding_type := finding.finding.meta.type) == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+            yield finding
+            continue
+
+        for finding_cfg in finding_cfgs:
+            if finding_cfg.type == finding_type:
+                break
+        else:
+            raise RuntimeError(f'did not find finding cfg for type "{finding_type}"')
+
+        for categorisation in finding_cfg.categorisations:
+            if categorisation.name == finding.severity:
+                break
+        else:
+            raise ValueError(
+                f'did not find categorisation with name "{finding.severity}" for {finding_type=}'
+            )
+
+        if categorisation.exclude_from_reporting or categorisation.allowed_processing_time is None:
+            continue # finding does not have to be processed anymore
+
+        latest_processing_date = finding.finding.discovery_date + datetime.timedelta(
+            days=categorisation.allowed_processing_time,
+        )
+
+        for sprint in sorted(sprints):
+            if sprint >= latest_processing_date:
+                finding.latest_processing_date = sprint
+                break
+        else:
+            logger.warning(
+                f'could not determine target sprint for {finding=}, will use earliest sprint'
+            )
+            # we checked that at least one sprint exists earlier
+            finding.latest_processing_date = sprints[0]
+
+        yield finding
+
+
+def _group_findings_by_cfg_source_and_date(
+    findings: collections.abc.Sequence[issue_replicator.github.AggregatedFinding],
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
+    sprints: collections.abc.Sequence[datetime.date],
 ) -> collections.abc.Generator[
     tuple[
-        dso.model.Datatype, # finding type (e.g. vulnerability, license, malware...)
+        tuple[issue_replicator.github.AggregatedFinding], # findings
+        odg.findings.Finding,
         dso.model.Datasource,
         datetime.date, # latest processing date
-        tuple[issue_replicator.github.AggregatedFinding], # findings
     ],
     None,
     None,
 ]:
-    '''
-    Groups all findings by finding type and latest processing date. Also, thresholds provided by
-    configuration are applied on the findings before yielding.
-    '''
-    datasource_for_datatype = {
-        dso.model.Datatype.VULNERABILITY: dso.model.Datasource.BDBA,
-        dso.model.Datatype.LICENSE: dso.model.Datasource.BDBA,
-        dso.model.Datatype.MALWARE_FINDING: dso.model.Datasource.CLAMAV,
-        dso.model.Datatype.DIKI_FINDING: dso.model.Datasource.DIKI,
-    }
-
-    for date in dates:
-        for finding_type_cfg in issue_replicator_config.finding_type_issue_replication_cfgs:
-            finding_type = finding_type_cfg.finding_type
-            finding_source = datasource_for_datatype.get(finding_type)
+    for sprint in sprints:
+        for finding_cfg in finding_cfgs:
+            datasource = dso.model.Datatype.datatype_to_datasource(finding_cfg.type)
 
             filtered_findings = tuple(
                 finding for finding in findings
                 if (
-                    finding.finding.meta.type == finding_type and
-                    finding.finding.meta.datasource == finding_source and
-                    finding.calculate_latest_processing_date(
-                        sprints=dates,
-                        max_processing_days=issue_replicator_config.max_processing_days,
-                    ) == date
+                    finding.finding.meta.type == finding_cfg.type
+                    and finding.finding.meta.datasource == datasource
+                    and finding.latest_processing_date == sprint
                 )
             )
 
-            if (
-                finding_type == dso.model.Datatype.VULNERABILITY
-                and isinstance(finding_type_cfg, config.VulnerabilityIssueReplicationCfg)
-            ):
-                filtered_findings = tuple(
-                    finding for finding in filtered_findings
-                    if finding.finding.data.cvss_v3_score >= finding_type_cfg.cve_threshold
-                )
-
-            yield (
-                finding_type,
-                finding_source,
-                date,
-                filtered_findings,
-            )
+            yield filtered_findings, finding_cfg, datasource, sprint
 
 
 def replicate_issue(
-    cfg_name: str,
-    issue_replicator_config: config.IssueReplicatorConfig,
+    artefact: dso.model.ComponentArtefactId,
+    issue_replicator_cfg: odg.scan_cfg.IssueReplicatorConfig,
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-    backlog_item: k8s.backlog.BacklogItem,
 ):
-    artefact = backlog_item.artefact
-
     # issues are grouped across multiple versions + extra identities, hence ignoring properties here
     artefact.component_version = None
     artefact.artefact.artefact_version = None
@@ -217,12 +189,12 @@ def replicate_issue(
 
     logger.info(f'starting issue replication of {artefact}')
 
-    compliance_snapshots = [
-        cs for cs in delivery_client.query_metadata(
-            artefacts=(artefact,),
-            type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
-        ) if cs.data.cfg_name == cfg_name # TODO mv to delivery service
-    ]
+    mapping = issue_replicator_cfg.mapping(artefact.component_name)
+
+    compliance_snapshots = delivery_client.query_metadata(
+        artefacts=(artefact,),
+        type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
+    )
     logger.info(f'{len(compliance_snapshots)=}')
 
     active_compliance_snapshots = tuple(
@@ -241,14 +213,33 @@ def replicate_issue(
         correlation_id = compliance_snapshot.data.correlation_id
         correlation_ids_by_latest_processing_date[date] = correlation_id
 
+    sprints = list(correlation_ids_by_latest_processing_date.keys())
+    if not (sprints := list(correlation_ids_by_latest_processing_date.keys())):
+        logger.warning('did not find any sprints, exiting...')
+        return
+
     artefacts = tuple({
         cs.artefact for cs in active_compliance_snapshots
     })
     logger.info(f'{len(artefacts)=}')
 
-    findings = tuple(_iter_findings_for_artefact(
+    finding_types = [
+        finding_cfg.type
+        for finding_cfg in finding_cfgs
+        if finding_cfg.issues.enable_issues and any(finding_cfg.matches(a) for a in artefacts)
+    ]
+    logger.info(f'{finding_types=}')
+
+    findings = _iter_findings_for_artefact(
         delivery_client=delivery_client,
         artefacts=artefacts,
+        finding_types=finding_types,
+    )
+
+    findings = tuple(_iter_findings_with_processing_dates(
+        findings=findings,
+        finding_cfgs=finding_cfgs,
+        sprints=sprints,
     ))
     logger.info(f'{len(findings)=}')
 
@@ -260,56 +251,42 @@ def replicate_issue(
         if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO
     }
 
-    findings_by_type_and_date = _group_findings_by_type_and_date(
-        issue_replicator_config=issue_replicator_config,
+    findings_by_cfg_source_and_date = _group_findings_by_cfg_source_and_date(
         findings=findings,
-        dates=correlation_ids_by_latest_processing_date.keys(),
+        finding_cfgs=finding_cfgs,
+        sprints=sprints,
     )
 
     def _issue_type(
-        finding_type: str,
+        finding_type: odg.findings.FindingType,
         finding_source: str,
     ) -> str:
         if (
-            finding_type == dso.model.Datatype.VULNERABILITY
+            finding_type is odg.findings.FindingType.VULNERABILITY
             and finding_source == dso.model.Datasource.BDBA
         ):
             return gci._label_bdba
 
         elif (
-            finding_type == dso.model.Datatype.LICENSE
+            finding_type is odg.findings.FindingType.LICENSE
             and finding_source == dso.model.Datasource.BDBA
         ):
             return gci._label_licenses
 
         elif (
-            finding_type == dso.model.Datatype.MALWARE_FINDING
+            finding_type is odg.findings.FindingType.MALWARE
             and finding_source == dso.model.Datasource.CLAMAV
         ):
             return gci._label_malware
 
         elif (
-            finding_type == dso.model.Datatype.DIKI_FINDING
+            finding_type is odg.findings.FindingType.DIKI
             and finding_source == dso.model.Datasource.DIKI
         ):
             return gci._label_diki
 
         else:
             raise NotImplementedError(f'{finding_type=} is not supported for {finding_source=}')
-
-    def _find_finding_type_issue_replication_cfg(
-        finding_cfgs: collections.abc.Iterable[config.FindingTypeIssueReplicationCfgBase],
-        finding_type: str,
-        absent_ok: bool=False,
-    ) -> config.FindingTypeIssueReplicationCfgBase:
-        for finding_cfg in finding_cfgs:
-            if finding_cfg.finding_type == finding_type:
-                return finding_cfg
-
-        if absent_ok:
-            return None
-
-        return ValueError(f'no finding-type specific cfg found for {finding_type=}')
 
     is_in_bom = len(active_compliance_snapshots) > 0
 
@@ -323,16 +300,12 @@ def replicate_issue(
         a.artefact for a in artefacts
     }
 
-    for finding_type, finding_source, date, findings in findings_by_type_and_date:
+    issue_replicator.github.wait_for_quota_if_required(gh_api=mapping.github_api)
+    for findings, finding_cfg, finding_source, date in findings_by_cfg_source_and_date:
         correlation_id = correlation_ids_by_latest_processing_date.get(date)
 
-        finding_type_issue_replication_cfg = _find_finding_type_issue_replication_cfg(
-            finding_cfgs=issue_replicator_config.finding_type_issue_replication_cfgs,
-            finding_type=finding_type,
-        )
-
         issue_type = _issue_type(
-            finding_type=finding_type,
+            finding_type=finding_cfg.type,
             finding_source=finding_source,
         )
 
@@ -345,9 +318,8 @@ def replicate_issue(
         artefact_ids_without_scan = all_artefact_ids - scanned_artefact_ids
 
         issue_replicator.github.create_or_update_or_close_issue(
-            cfg_name=cfg_name,
-            issue_replicator_config=issue_replicator_config,
-            finding_type_issue_replication_cfg=finding_type_issue_replication_cfg,
+            mapping=mapping,
+            finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_client=delivery_client,
             issue_type=issue_type,
@@ -357,6 +329,7 @@ def replicate_issue(
             latest_processing_date=date,
             is_in_bom=is_in_bom,
             artefact_ids_without_scan=artefact_ids_without_scan,
+            delivery_dashboard_url=issue_replicator_cfg.delivery_dashboard_url,
         )
 
     logger.info(f'finished issue replication of {artefact}')
@@ -383,12 +356,12 @@ def parse_args():
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
     parser.add_argument(
-        '--cfg-name',
-        help='''
-            specify the context the process should run in, not relevant for the artefact
-            enumerator as well as backlog controller as these are context independent
-        ''',
-        default=os.environ.get('CFG_NAME'),
+        '--scan-cfg-path',
+        help='path to the `scan_cfg.yaml` file that should be used',
+    )
+    parser.add_argument(
+        '--findings-cfg-path',
+        help='path to the `findings.yaml` file that should be used',
     )
     parser.add_argument(
         '--delivery-service-url',
@@ -407,12 +380,6 @@ def parse_args():
             'or via environment variable "K8S_TARGET_NAMESPACE"'
         )
 
-    if not parsed_arguments.cfg_name:
-        raise ValueError(
-            'name of the to-be-used scan configuration must be set, either via '
-            'argument "--cfg-name" or via environment variable "CFG_NAME"'
-        )
-
     return parsed_arguments
 
 
@@ -421,7 +388,6 @@ def main():
     signal.signal(signal.SIGINT, handle_sigterm_and_sigint)
 
     parsed_arguments = parse_args()
-    cfg_name = parsed_arguments.cfg_name
     namespace = parsed_arguments.k8s_namespace
     delivery_service_url = parsed_arguments.delivery_service_url
 
@@ -436,25 +402,31 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=config.Services.ISSUE_REPLICATOR,
+        service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=config.Services.ISSUE_REPLICATOR,
+        service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
-    issue_replicator_config = deserialise_issue_replicator_configuration(
-        cfg_name=cfg_name,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
+    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
+        scan_cfg_path = paths.scan_cfg_path()
+
+    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
+    issue_replicator_cfg = scan_cfg.issue_replicator
+
+    if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
+        findings_cfg_path = paths.findings_cfg_path()
+
+    finding_cfgs = odg.findings.Finding.from_file(findings_cfg_path)
+    finding_cfgs = [finding_cfg for finding_cfg in finding_cfgs if finding_cfg.issues.enable_issues]
 
     if not delivery_service_url:
-        delivery_service_url = issue_replicator_config.delivery_service_url
+        delivery_service_url = issue_replicator_cfg.delivery_service_url
 
     delivery_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
@@ -469,26 +441,18 @@ def main():
     )
 
     global ready_to_terminate, wants_to_terminate
-    github_api = issue_replicator_config.github_api_lookup(
-        issue_replicator_config.github_issues_repository.html_url,
-    )
     while not wants_to_terminate:
-        ready_to_terminate = True
-        issue_replicator.github.wait_for_quota_if_required(
-            gh_api=github_api,
-        )
         ready_to_terminate = False
 
         backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=config.Services.ISSUE_REPLICATOR,
-            cfg_name=cfg_name,
+            service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
         )
 
         if not backlog_crd:
             ready_to_terminate = True
-            sleep_interval = issue_replicator_config.lookup_new_backlog_item_interval
+            sleep_interval = consts.BACKLOG_ITEM_SLEEP_INTERVAL_SECONDS
             logger.info(f'no open backlog item found, will sleep for {sleep_interval} sec')
             time.sleep(sleep_interval)
             continue
@@ -503,11 +467,11 @@ def main():
         # cache clear is necessary to prevent creating duplicated issues
         issue_replicator.github._all_issues.cache_clear()
         replicate_issue(
-            cfg_name=cfg_name,
-            issue_replicator_config=issue_replicator_config,
+            artefact=backlog_item.artefact,
+            issue_replicator_cfg=issue_replicator_cfg,
+            finding_cfgs=finding_cfgs,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_client=delivery_client,
-            backlog_item=backlog_item,
         )
 
         k8s.util.delete_custom_resource(

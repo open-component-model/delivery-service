@@ -7,36 +7,34 @@ import functools
 import json
 import logging
 import re
-import requests
 import textwrap
 import time
 import urllib.parse
 
 import github3
-import github3.issues.comment
 import github3.issues.issue
 import github3.issues.milestone
+import requests
 
 import ci.util
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import delivery.model
-import dso.cvss
 import dso.labels
 import dso.model
 import github.compliance.issue as gci
 import github.compliance.milestone as gcmi
-import github.compliance.model as gcm
 import github.compliance.report as gcr
 import github.retry
 import github.user
 import github.util
-import rescore.utility
 import version as version_util
 
-import config
 import k8s.util
+import odg.findings
+import odg.scan_cfg
+import rescore.utility
 
 
 logger = logging.getLogger(__name__)
@@ -50,34 +48,15 @@ class IssueComments(enum.StrEnum):
 @dataclasses.dataclass
 class AggregatedFinding:
     finding: dso.model.ArtefactMetadata
-    severity: gcm.Severity
-    rescorings: tuple[dso.model.ArtefactMetadata]
+    rescorings: list[dso.model.ArtefactMetadata] = dataclasses.field(default_factory=list)
+    latest_processing_date: datetime.date | None = None
 
-    def calculate_latest_processing_date(
-        self,
-        sprints: collections.abc.Iterable[datetime.date],
-        max_processing_days: gcm.MaxProcessingTimesDays=None,
-    ) -> datetime.date | None:
-        if not self.severity:
-            return None
+    @property
+    def severity(self) -> str:
+        if self.rescorings:
+            return self.rescorings[0].data.severity
 
-        if not max_processing_days:
-            max_processing_days = gcm.MaxProcessingTimesDays()
-        max_days = max_processing_days.for_severity(severity=self.severity)
-
-        date = self.finding.discovery_date + datetime.timedelta(days=max_days)
-
-        for sprint in sorted(sprints):
-            if sprint >= date:
-                break
-        else:
-            logger.warning(
-                f'could not determine target sprint for {self.finding=} with {self.severity=}, '
-                f'will use unchanged latest processing {date=}'
-            )
-            return date
-
-        return sprint
+        return self.finding.data.severity
 
 
 @dataclasses.dataclass
@@ -91,8 +70,7 @@ class GroupedFindings:
     def summary(
         self,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        delivery_dashboard_url: str | None=None,
-        cfg_name: str | None=None,
+        delivery_dashboard_url: str,
         sprint_name: str | None=None,
     ) -> str:
         component_version = version_util.greatest_version(
@@ -118,14 +96,12 @@ class GroupedFindings:
 
         ''')
 
-        if delivery_dashboard_url:
-            delivery_dashboard_url = _delivery_dashboard_url(
-                cfg_name=cfg_name,
-                base_url=delivery_dashboard_url,
-                component_artefact_id=component_artefact_id,
-                sprint_name=sprint_name,
-            )
-            summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+        delivery_dashboard_url = _delivery_dashboard_url(
+            base_url=delivery_dashboard_url,
+            component_artefact_id=component_artefact_id,
+            sprint_name=sprint_name,
+        )
+        summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
         return summary
 
@@ -173,7 +149,7 @@ def _all_issues(
 
 
 def _issue_assignees(
-    issue_replicator_config: config.IssueReplicatorConfig,
+    mapping: odg.scan_cfg.IssueReplicatorMapping,
     delivery_client: delivery.client.DeliveryServiceClient,
     artefact: dso.model.ComponentArtefactId,
 ) -> tuple[set[str], set[delivery.model.Status]]:
@@ -190,11 +166,7 @@ def _issue_assignees(
 
         gh_users = delivery.client.github_users_from_responsibles(
             responsibles=responsibles,
-            github_url=issue_replicator_config.github_issues_repository.html_url,
-        )
-
-        github_api = issue_replicator_config.github_api_lookup(
-            issue_replicator_config.github_issues_repository.html_url,
+            github_url=mapping.repository.html_url,
         )
 
         assignees = set(
@@ -202,7 +174,7 @@ def _issue_assignees(
             for gh_user in gh_users
             if github.user.is_user_active(
                 username=gh_user.username,
-                github=github_api,
+                github=mapping.github_api,
             )
         )
     except requests.exceptions.HTTPError as e:
@@ -217,15 +189,15 @@ def _issue_assignees(
     valid_assignees = set(
         a.lower()
         for a in gcr._valid_issue_assignees(
-            repository=issue_replicator_config.github_issues_repository,
+            repository=mapping.repository,
         )
     )
 
     if invalid_assignees := (assignees - valid_assignees):
         logger.warning(
             f'unable to assign {invalid_assignees} to issues in repository '
-            f'{issue_replicator_config.github_issues_repository.html_url}. Please make sure '
-            'the users have the necessary permissions to see issues in the repository.'
+            f'{mapping.repository.html_url}. Please make sure the users have the necessary '
+            'permissions to see issues in the repository.'
         )
         assignees -= invalid_assignees
         logger.info(
@@ -237,7 +209,7 @@ def _issue_assignees(
 
 
 def _issue_milestone(
-    issue_replicator_config: config.IssueReplicatorConfig,
+    mapping: odg.scan_cfg.IssueReplicatorMapping,
     delivery_client: delivery.client.DeliveryServiceClient,
     latest_processing_date: datetime.date,
 ) -> tuple[github3.issues.milestone.Milestone | None, list[github3.issues.milestone.Milestone]]:
@@ -247,9 +219,9 @@ def _issue_milestone(
     )
 
     return gcmi.find_or_create_sprint_milestone(
-        repo=issue_replicator_config.github_issues_repository,
+        repo=mapping.repository,
         sprints=sprints,
-        milestone_cfg=issue_replicator_config.milestone_cfg,
+        milestone_cfg=mapping.milestones,
     )
 
 
@@ -300,7 +272,6 @@ def _artefact_url(
 
 
 def _delivery_dashboard_url(
-    cfg_name: str,
     base_url: str,
     component_artefact_id: dso.model.ComponentArtefactId,
     sprint_name: str=None,
@@ -315,7 +286,6 @@ def _delivery_dashboard_url(
         'version': component_artefact_id.component_version,
         'view': 'bom',
         'rootExpanded': True,
-        'scanConfigName': cfg_name,
     }
 
     if sprint_name:
@@ -340,11 +310,11 @@ def _delivery_dashboard_url(
 
 
 def _vulnerability_template_vars(
-    cfg_name: str,
-    issue_replicator_config: config.IssueReplicatorConfig,
+    finding_cfg: odg.findings.Finding,
     grouped_findings: list[GroupedFindings],
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str,
     sprint_name: str=None,
 ) -> dict[str, str]:
     summary += '# Summary of found vulnerabilities'
@@ -373,21 +343,14 @@ def _vulnerability_template_vars(
     ) -> str:
         finding = findings[0].finding
         rescorings = findings[0].rescorings
+        severity = findings[0].severity
 
         def _vulnerability_str():
             _vuln_str = f'`{finding.data.cve}` | `{finding.data.cvss_v3_score}` | '
-
-            if rescorings:
-                severity = dso.cvss.CVESeverity[rescorings[0].data.severity]
-                _vuln_str += f'`{severity.name}` (rescored) |'
-            else:
-                severity = dso.cvss.CVESeverity[finding.data.severity]
-                _vuln_str += f'`{severity.name}` |'
+            _vuln_str += f'`{severity}` (rescored) |' if rescorings else f'`{severity}` |'
 
             if not (cve_rescoring_rules and cve_categorisation and finding.data.cvss):
                 return _vuln_str
-
-            orig_sev = dso.cvss.CVESeverity[finding.data.severity]
 
             rules = tuple(rescore.utility.matching_rescore_rules(
                 rescoring_rules=cve_rescoring_rules,
@@ -395,15 +358,21 @@ def _vulnerability_template_vars(
                 cvss=finding.data.cvss,
             ))
 
-            rescored = rescore.utility.rescore_severity(
-                rescoring_rules=rules,
-                severity=orig_sev,
+            current_categorisation = odg.findings.categorise_finding(
+                finding_cfg=finding_cfg,
+                finding_property=finding.data.cvss_v3_score,
             )
 
-            if severity is rescored:
+            rescored_categorisation = rescore.utility.rescore_finding(
+                finding_cfg=finding_cfg,
+                current_categorisation=current_categorisation,
+                rescoring_rules=rules,
+            )
+
+            if rescored_categorisation.value == current_categorisation.value:
                 return _vuln_str
 
-            return _vuln_str + f' `{rescored.name}`'
+            return _vuln_str + f' `{rescored_categorisation.name}`'
 
         versions = ', <br/>'.join((f'`{f.finding.data.package_version}`' for f in sorted(
             findings,
@@ -416,14 +385,13 @@ def _vulnerability_template_vars(
         return f'\n| `{finding.data.package_name}` | {_vulnerability_str()} | {versions} |'
 
     cve_rescoring_rules = []
-    if issue_replicator_config.cve_rescoring_ruleset:
-        cve_rescoring_rules = issue_replicator_config.cve_rescoring_ruleset.rules
+    if finding_cfg.rescoring_ruleset:
+        cve_rescoring_rules = finding_cfg.rescoring_ruleset.rules
 
     for grouped_finding in grouped_findings:
         summary += '\n' + grouped_finding.summary(
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=issue_replicator_config.delivery_dashboard_url,
-            cfg_name=cfg_name,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
 
@@ -488,11 +456,10 @@ def _vulnerability_template_vars(
 
 
 def _malware_template_vars(
-    cfg_name: str,
-    issue_replicator_config: config.IssueReplicatorConfig,
     grouped_findings: list[GroupedFindings],
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str,
     sprint_name: str=None,
 ) -> dict[str, str]:
     summary += '# Summary of found Malware'
@@ -507,8 +474,7 @@ def _malware_template_vars(
     for grouped_finding in grouped_findings:
         summary += '\n' + grouped_finding.summary(
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=issue_replicator_config.delivery_dashboard_url,
-            cfg_name=cfg_name,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
 
@@ -527,11 +493,10 @@ def _malware_template_vars(
 
 
 def _license_template_vars(
-    cfg_name: str,
-    issue_replicator_config: config.IssueReplicatorConfig,
     grouped_findings: list[GroupedFindings],
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str,
     sprint_name: str=None,
 ) -> dict[str, str]:
     summary += '# Summary of found licenses'
@@ -560,14 +525,13 @@ def _license_template_vars(
     ) -> str:
         finding = findings[0].finding
         rescorings = findings[0].rescorings
+        severity = findings[0].severity
 
         def _license_str():
             if rescorings:
-                severity = gcm.Severity[rescorings[0].data.severity]
-                return f'`{finding.data.license.name}` | `{severity.name}` (rescored)'
+                return f'`{finding.data.license.name}` | `{severity}` (rescored)'
 
-            severity = gcm.Severity[finding.data.severity]
-            return f'`{finding.data.license.name}` | `{severity.name}`'
+            return f'`{finding.data.license.name}` | `{severity}`'
 
         versions = ', <br/>'.join((f'`{f.finding.data.package_version}`' for f in sorted(
             findings,
@@ -582,8 +546,7 @@ def _license_template_vars(
     for grouped_finding in grouped_findings:
         summary += '\n' + grouped_finding.summary(
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=issue_replicator_config.delivery_dashboard_url,
-            cfg_name=cfg_name,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
 
@@ -713,14 +676,14 @@ def _diki_template_vars(
 
 
 def _template_vars(
-    cfg_name: str,
-    issue_replicator_config: config.IssueReplicatorConfig,
+    finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
     artefacts: tuple[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     artefact_ids_without_scan: set[dso.model.LocalArtefactId],
     latest_processing_date: datetime.date,
+    delivery_dashboard_url: str,
     sprint_name: str=None,
 ) -> dict:
     # contained `artefacts` may only differ in their `component_version`, `artefact_version`,
@@ -833,29 +796,27 @@ def _template_vars(
         }
     elif issue_type == gci._label_bdba:
         template_variables |= _vulnerability_template_vars(
-            cfg_name=cfg_name,
-            issue_replicator_config=issue_replicator_config,
+            finding_cfg=finding_cfg,
             grouped_findings=sorted_grouped_findings,
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_licenses:
         template_variables |= _license_template_vars(
-            cfg_name=cfg_name,
-            issue_replicator_config=issue_replicator_config,
             grouped_findings=sorted_grouped_findings,
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_malware:
         template_variables |= _malware_template_vars(
-            cfg_name=cfg_name,
-            issue_replicator_config=issue_replicator_config,
             grouped_findings=sorted_grouped_findings,
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_diki:
@@ -869,7 +830,7 @@ def _template_vars(
 
 @github.retry.retry_and_throttle
 def close_issue_if_present(
-    issue_replicator_config: config.IssueReplicatorConfig,
+    mapping: odg.scan_cfg.IssueReplicatorMapping,
     issue: github3.issues.issue.ShortIssue,
     closing_reason: IssueComments,
 ):
@@ -880,7 +841,7 @@ def close_issue_if_present(
 
     issue.create_comment(closing_reason)
     if not github.util.close_issue(issue):
-        repository_url = issue_replicator_config.github_issues_repository.html_url
+        repository_url = mapping.repository.html_url
         logger.warning(f'failed to close {issue.id=} with {repository_url=}')
 
 
@@ -922,8 +883,8 @@ def update_issue(
 
 
 def _create_or_update_issue(
-    cfg_name: str,
-    issue_replicator_config: config.IssueReplicatorConfig,
+    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
     artefacts: tuple[dso.model.ComponentArtefactId],
@@ -934,6 +895,7 @@ def _create_or_update_issue(
     latest_processing_date: datetime.date,
     is_scanned: bool,
     artefact_ids_without_scan: set[dso.model.LocalArtefactId],
+    delivery_dashboard_url: str,
     extra_title: str=None,
     sprint_name: str=None,
     assignees: set[str]=set(),
@@ -945,9 +907,7 @@ def _create_or_update_issue(
     ) -> collections.abc.Generator[str, None, None]:
         ctx_label_regex = {f'{gci._label_prefix_ctx}.*'} # always keep ctx_labels
 
-        preserve_labels_regexes = (
-            issue_replicator_config.github_issue_labels_to_preserve | ctx_label_regex
-        )
+        preserve_labels_regexes = set(mapping.github_issue_labels_to_preserve) | ctx_label_regex
 
         for label in issue.original_labels:
             for pattern in preserve_labels_regexes:
@@ -978,24 +938,18 @@ def _create_or_update_issue(
     is_overdue = latest_processing_date < datetime.date.today()
 
     template_variables = _template_vars(
-        cfg_name=cfg_name,
-        issue_replicator_config=issue_replicator_config,
+        finding_cfg=finding_cfg,
         component_descriptor_lookup=component_descriptor_lookup,
         issue_type=issue_type,
         artefacts=artefacts,
         findings=findings,
         artefact_ids_without_scan=artefact_ids_without_scan,
         latest_processing_date=latest_processing_date,
+        delivery_dashboard_url=delivery_dashboard_url,
         sprint_name='Overdue' if is_overdue else sprint_name,
     )
 
-    for issue_template_cfg in issue_replicator_config.github_issue_template_cfgs:
-        if issue_template_cfg.type == issue_type:
-            break
-    else:
-        raise ValueError(f'no template for {issue_type=}')
-
-    body = issue_template_cfg.body.format(**template_variables)
+    body = finding_cfg.issues.template.format(**template_variables)
 
     if is_overdue:
         labels.add(gci._label_overdue)
@@ -1016,7 +970,7 @@ def _create_or_update_issue(
 
     return gci._create_issue(
         issue_type=issue_type,
-        repository=issue_replicator_config.github_issues_repository,
+        repository=mapping.repository,
         body=body,
         title=title,
         extra_labels=labels,
@@ -1028,8 +982,8 @@ def _create_or_update_issue(
 
 
 def _create_or_update_or_close_issue_per_finding(
-    cfg_name: str,
-    issue_replicator_config: config.IssueReplicatorConfig,
+    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
@@ -1040,6 +994,7 @@ def _create_or_update_or_close_issue_per_finding(
     latest_processing_date: datetime.date,
     is_scanned: bool,
     artefact_ids_without_scan: set[dso.model.LocalArtefactId],
+    delivery_dashboard_url: str,
     sprint_name: str=None,
     assignees: set[str]=set(),
     assignees_statuses: set[str]=set(),
@@ -1061,8 +1016,8 @@ def _create_or_update_or_close_issue_per_finding(
         processed_issues.update(finding_issues)
 
         _create_or_update_issue(
-            cfg_name=cfg_name,
-            issue_replicator_config=issue_replicator_config,
+            mapping=mapping,
+            finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
             issue_type=issue_type,
             artefacts=artefacts,
@@ -1073,6 +1028,7 @@ def _create_or_update_or_close_issue_per_finding(
             latest_processing_date=latest_processing_date,
             is_scanned=is_scanned,
             artefact_ids_without_scan=artefact_ids_without_scan,
+            delivery_dashboard_url=delivery_dashboard_url,
             extra_title=data.key,
             sprint_name=sprint_name,
             assignees=assignees,
@@ -1083,16 +1039,15 @@ def _create_or_update_or_close_issue_per_finding(
     for issue in issues:
         if issue not in processed_issues and issue.state == 'open':
             close_issue_if_present(
-                issue_replicator_config=issue_replicator_config,
+                mapping=mapping,
                 issue=issue,
                 closing_reason=IssueComments.NO_FINDINGS,
             )
 
 
 def create_or_update_or_close_issue(
-    cfg_name: str,
-    issue_replicator_config: config.IssueReplicatorConfig,
-    finding_type_issue_replication_cfg: config.FindingTypeIssueReplicationCfgBase,
+    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
     issue_type: str,
@@ -1102,21 +1057,21 @@ def create_or_update_or_close_issue(
     latest_processing_date: datetime.date,
     is_in_bom: bool,
     artefact_ids_without_scan: set[dso.model.LocalArtefactId],
+    delivery_dashboard_url: str,
 ):
     is_scanned = len(artefact_ids_without_scan) == 0
 
     labels = {
         correlation_id,
-        f'{gci._label_prefix_ctx}/{cfg_name}',
     }
 
     known_issues = _all_issues(
-        repository=issue_replicator_config.github_issues_repository,
+        repository=mapping.repository,
         state='open',
     ) | _all_issues(
-        repository=issue_replicator_config.github_issues_repository,
+        repository=mapping.repository,
         state='closed',
-        number=issue_replicator_config.number_included_closed_issues,
+        number=mapping.number_included_closed_issues,
     )
 
     issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
@@ -1128,7 +1083,7 @@ def create_or_update_or_close_issue(
     if not is_in_bom:
         for issue in issues:
             close_issue_if_present(
-                issue_replicator_config=issue_replicator_config,
+                mapping=mapping,
                 issue=issue,
                 closing_reason=IssueComments.NOT_IN_BOM,
             )
@@ -1137,7 +1092,7 @@ def create_or_update_or_close_issue(
     if is_scanned and not findings:
         for issue in issues:
             close_issue_if_present(
-                issue_replicator_config=issue_replicator_config,
+                mapping=mapping,
                 issue=issue,
                 closing_reason=IssueComments.NO_FINDINGS,
             )
@@ -1151,9 +1106,9 @@ def create_or_update_or_close_issue(
             # not scanned yet but no open issue found either -> nothing to do
             return
 
-    if finding_type_issue_replication_cfg.enable_issue_assignees:
+    if finding_cfg.issues.enable_assignees:
         assignees, assignees_statuses = _issue_assignees(
-            issue_replicator_config=issue_replicator_config,
+            mapping=mapping,
             delivery_client=delivery_client,
             artefact=artefacts[0],
         )
@@ -1162,7 +1117,7 @@ def create_or_update_or_close_issue(
         assignees_statuses = set()
 
     milestone, failed_milestones = _issue_milestone(
-        issue_replicator_config=issue_replicator_config,
+        mapping=mapping,
         delivery_client=delivery_client,
         latest_processing_date=latest_processing_date,
     )
@@ -1172,10 +1127,10 @@ def create_or_update_or_close_issue(
     else:
         sprint_name = None
 
-    if finding_type_issue_replication_cfg.enable_issue_per_finding:
+    if finding_cfg.issues.enable_per_finding:
         return _create_or_update_or_close_issue_per_finding(
-            cfg_name=cfg_name,
-            issue_replicator_config=issue_replicator_config,
+            mapping=mapping,
+            finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
             issue_type=issue_type,
             artefacts=artefacts,
@@ -1186,6 +1141,7 @@ def create_or_update_or_close_issue(
             latest_processing_date=latest_processing_date,
             is_scanned=is_scanned,
             artefact_ids_without_scan=artefact_ids_without_scan,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
             assignees=assignees,
             assignees_statuses=assignees_statuses,
@@ -1193,8 +1149,8 @@ def create_or_update_or_close_issue(
         )
 
     return _create_or_update_issue(
-        cfg_name=cfg_name,
-        issue_replicator_config=issue_replicator_config,
+        mapping=mapping,
+        finding_cfg=finding_cfg,
         component_descriptor_lookup=component_descriptor_lookup,
         issue_type=issue_type,
         artefacts=artefacts,
@@ -1205,6 +1161,7 @@ def create_or_update_or_close_issue(
         latest_processing_date=latest_processing_date,
         is_scanned=is_scanned,
         artefact_ids_without_scan=artefact_ids_without_scan,
+        delivery_dashboard_url=delivery_dashboard_url,
         sprint_name=sprint_name,
         assignees=assignees,
         assignees_statuses=assignees_statuses,
