@@ -1,4 +1,0 @@
-image:
-  pullPolicy: IfNotPresent
-  repository: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/freshclam
-  tag: 1.8.0

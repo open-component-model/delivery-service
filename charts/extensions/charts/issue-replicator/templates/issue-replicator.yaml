@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: issuereplicator
+spec:
+  replicas: 0 # will be scaled automatically by backlog-controller
+  selector:
+    matchLabels:
+      app: issue-replicator
+      delivery-gear.gardener.cloud/service: issueReplicator
+  template:
+    metadata:
+      labels:
+        app: issue-replicator
+        delivery-gear.gardener.cloud/service: issueReplicator
+    spec:
+      terminationGracePeriodSeconds: 300 # 5 min
+      containers:
+        - name: issue-replicator
+          image: {{ include "image" .Values.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - issue_replicator
+          env:
+            - name: SECRET_FACTORY_PATH
+              value: /secrets
+            - name: SCAN_CFG_PATH
+              value: /scan_cfg/scan_cfg
+            - name: FINDINGS_CFG_PATH
+              value: /findings_cfg/findings_cfg
+            - name: FEATURES_CFG_PATH
+              value: /features_cfg/features_cfg
+            - name: K8S_TARGET_NAMESPACE
+              value: {{ .Release.Namespace }}
+          volumeMounts:
+            - name: github
+              mountPath: /secrets/github
+            - name: kubernetes
+              mountPath: /secrets/kubernetes
+            - name: oci-registry
+              mountPath: /secrets/oci-registry
+            - name: scan-cfg
+              mountPath: /scan_cfg
+            - name: findings-cfg
+              mountPath: /findings_cfg
+            - name: features-cfg
+              mountPath: "/features_cfg"
+              readOnly: true
+          lifecycle:
+            preStop: # hook ensures that just created pods have at least enough time alive to add a termination signal handler
+              exec:
+                command:
+                  - sleep
+                  - "60"
+          resources:
+            requests:
+              memory: 1000Mi
+              cpu: 500m
+            limits:
+              memory: 2000Mi
+              cpu: 1000m
+      volumes:
+        - name: github
+          secret:
+            secretName: secret-factory-github
+        - name: kubernetes
+          secret:
+            secretName: secret-factory-kubernetes
+            optional: true # might use incluster config
+        - name: oci-registry
+          secret:
+            secretName: secret-factory-oci-registry
+        - name: scan-cfg
+          configMap:
+            name: scan-cfg
+        - name: findings-cfg
+          configMap:
+            name: findings-cfg
+        - name: features-cfg
+          secret:
+            secretName: features-cfg
+            optional: true

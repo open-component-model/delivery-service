@@ -14,24 +14,24 @@ spec:
     spec:
       containers:
         - name: backlog-controller
-          image: {{ include "image" (index .Values "backlog-controller" "image") }} # indexing required since `-` is not allowed in variable names
+          image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
           command:
-          - python3
-          - -m
-          - backlog_controller
+            - python3
+            - -m
+            - backlog_controller
           env:
-          - name: SECRET_FACTORY_PATH
-            value: /secrets
-          - name: SCAN_CFG_PATH
-            value: /scan_cfg/scan_cfg
-          - name: K8S_TARGET_NAMESPACE
-            value: {{ .Release.Namespace }}
+            - name: SECRET_FACTORY_PATH
+              value: /secrets
+            - name: SCAN_CFG_PATH
+              value: /scan_cfg/scan_cfg
+            - name: K8S_TARGET_NAMESPACE
+              value: {{ .Release.Namespace }}
           volumeMounts:
-          - name: kubernetes
-            mountPath: /secrets/kubernetes
-          - name: scan-cfg
-            mountPath: /scan_cfg
+            - name: kubernetes
+              mountPath: /secrets/kubernetes
+            - name: scan-cfg
+              mountPath: /scan_cfg
           resources:
             requests:
               memory: 100Mi
@@ -47,4 +47,3 @@ spec:
         - name: scan-cfg
           configMap:
             name: scan-cfg
-            optional: true # TODO: only optional until old scan cfg has been removed

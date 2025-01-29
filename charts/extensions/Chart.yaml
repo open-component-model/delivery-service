@@ -10,9 +10,21 @@ dependencies:
   - name: backlog-controller
     repository: file://charts/backlog-controller
     condition: backlog-controller.enabled
+  - name: bdba
+    repository: file://charts/bdba
+    condition: bdba.enabled
+  - name: cache-manager
+    repository: file://charts/cache-manager
+    condition: cache-manager.enabled
+  - name: clamav
+    repository: file://charts/clamav
+    condition: clamav.enabled
   - name: delivery-db-backup
     repository: file://charts/delivery-db-backup
     condition: delivery-db-backup.enabled
-  - name: freshclam
-    repository: file://charts/freshclam
-    condition: freshclam.enabled
+  - name: issue-replicator
+    repository: file://charts/issue-replicator
+    condition: issue-replicator.enabled
+  - name: sast
+    repository: file://charts/sast
+    condition: sast.enabled
