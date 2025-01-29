@@ -6,11 +6,8 @@ import signal
 import sys
 import time
 
-import botocore.client
-
 import ci.log
 import cnudie.access
-import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import dso.model
@@ -20,8 +17,6 @@ import tarutil
 
 import bdba.client
 import bdba.scanning
-import bdba.util
-import config
 import ctx_util
 import deliverydb_cache.model as dcm
 import deliverydb_cache.util as dcu
@@ -31,6 +26,10 @@ import k8s.model
 import k8s.util
 import lookups
 import ocm_util
+import odg.findings
+import odg.scan_cfg
+import paths
+import secret_mgmt
 
 
 logger = logging.getLogger(__name__)
@@ -57,38 +56,10 @@ def handle_termination_signal(*args):
     wants_to_terminate = True
 
 
-def deserialise_bdba_configuration(
-    cfg_name: str,
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
-) -> config.BDBAConfig:
-    scan_cfg_crd = kubernetes_api.custom_kubernetes_api.get_namespaced_custom_object(
-        group=k8s.model.ScanConfigurationCrd.DOMAIN,
-        version=k8s.model.ScanConfigurationCrd.VERSION,
-        plural=k8s.model.ScanConfigurationCrd.PLURAL_NAME,
-        namespace=namespace,
-        name=cfg_name,
-    )
-
-    if scan_cfg_crd and (spec := scan_cfg_crd.get('spec')):
-        bdba_config = config.deserialise_bdba_config(spec_config=spec)
-    else:
-        bdba_config = None
-
-    if not bdba_config:
-        logger.warning(
-            f'no bdba configuration for config elem {cfg_name} set, '
-            'job is not able to process current scan backlog and will terminate'
-        )
-        sys.exit(0)
-
-    return bdba_config
-
-
 def _mark_compliance_summary_cache_for_deletion(
     delivery_client: delivery.client.DeliveryServiceClient,
     component: ocm.ComponentIdentity,
-    finding_type: str,
+    finding_type: odg.findings.FindingType,
 ):
     descriptor = dcm.CachedPythonFunction(
         encoding_format=dcm.EncodingFormat.PICKLE,
@@ -107,40 +78,71 @@ def _mark_compliance_summary_cache_for_deletion(
 
 
 def scan(
-    backlog_item: k8s.backlog.BacklogItem,
-    bdba_config: config.BDBAConfig,
+    artefact: dso.model.ComponentArtefactId,
+    bdba_cfg: odg.scan_cfg.BDBAConfig,
+    vulnerability_cfg: odg.findings.Finding | None,
+    license_cfg: odg.findings.Finding | None,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-    bdba_client: bdba.client.BDBAApi,
     oci_client: oci.client.Client,
-    s3_client: 'botocore.client.S3',
+    secret_factory: secret_mgmt.SecretFactory,
 ):
-    if backlog_item.artefact.artefact_kind is not dso.model.ArtefactKind.RESOURCE:
-        logger.warning(
-            f'found unsupported artefact kind {backlog_item.artefact.artefact_kind}, skipping...'
+    logger.info(f'scanning {artefact}')
+
+    retrieve_vulnerability_findings = vulnerability_cfg and vulnerability_cfg.matches(artefact)
+    retrieve_license_findings = license_cfg and license_cfg.matches(artefact)
+
+    if (
+        not retrieve_vulnerability_findings
+        and not retrieve_license_findings
+    ):
+        logger.info(
+            f'both the vulnerability and license finding configuration filter-out this {artefact=}, '
+            'hence further processing will be skipped...'
         )
+        return
+    elif not retrieve_vulnerability_findings:
+        logger.info(
+            f'the vulnerabiltiy finding configuration filters-out this {artefact=}, hence only '
+            'license findings will be considered'
+        )
+    elif not retrieve_license_findings:
+        logger.info(
+            f'the license finding configuration filters-out this {artefact=}, hence only '
+            'vulnerability findings will be considered'
+        )
+
+    if not bdba_cfg.is_supported(artefact_kind=artefact.artefact_kind):
         return
 
     resource_node = k8s.util.get_ocm_node(
         component_descriptor_lookup=component_descriptor_lookup,
-        artefact=backlog_item.artefact,
+        artefact=artefact,
     )
+    access = resource_node.resource.access
 
-    if not resource_node.resource.type in bdba_config.artefact_types:
+    if not bdba_cfg.is_supported(access_type=access.type):
         return
 
-    if not bdba_config.node_filter(resource_node):
-        return
+    mapping = bdba_cfg.mapping(artefact.component_name)
+
+    logger.info(f'using BDBA secret element "{mapping.bdba_secret_name}"')
+    bdba_secret = secret_factory.bdba(mapping.bdba_secret_name)
+    bdba_client = bdba.client.client(
+        bdba_cfg=bdba_secret,
+        group_id=mapping.group_id,
+        secret_factory=secret_factory,
+    )
 
     known_scan_results = bdba.scanning.retrieve_existing_scan_results(
         bdba_client=bdba_client,
-        group_id=bdba_config.group_id,
+        group_id=mapping.group_id,
         resource_node=resource_node,
     )
 
     processor = bdba.scanning.ResourceGroupProcessor(
         bdba_client=bdba_client,
-        group_id=bdba_config.group_id,
+        group_id=mapping.group_id,
     )
 
     access = resource_node.resource.access
@@ -150,10 +152,17 @@ def scan(
             image_reference=access.imageReference,
             oci_client=oci_client,
             include_config_blob=False,
-            fallback_to_first_subimage_if_index=True
+            fallback_to_first_subimage_if_index=True,
         )
 
     elif access.type is ocm.AccessType.S3:
+        if not mapping.aws_secret_name:
+            raise ValueError('"aws_secret_name" must be configured for resources stored in S3')
+
+        logger.info(f'using AWS secret element "{mapping.aws_secret_name}"')
+        aws_secret = secret_factory.aws(mapping.aws_secret_name)
+        s3_client = aws_secret.session.client('s3')
+
         content_iterator = tarutil.concat_blobs_as_tarstream(
             blobs=[
                 cnudie.access.s3_access_as_blob_descriptor(
@@ -177,43 +186,40 @@ def scan(
         )
 
     else:
-        raise NotImplementedError(access)
+        # we filtered supported access types already earlier
+        raise RuntimeError('this is a bug, this line should never be reached')
 
     scan_results = processor.process(
         resource_node=resource_node,
         content_iterator=content_iterator,
-        processing_mode=bdba_config.processing_mode,
         known_scan_results=known_scan_results,
+        processing_mode=mapping.processing_mode,
         delivery_client=delivery_client,
-        license_cfg=bdba_config.license_cfg,
-        cve_rescoring_ruleset=bdba_config.cve_rescoring_ruleset,
-        auto_assess_max_severity=bdba_config.auto_assess_max_severity,
+        vulnerability_cfg=vulnerability_cfg,
+        license_cfg=license_cfg,
     )
-
-    if bdba_config.blacklist_finding_types:
-        scan_results = tuple(
-            scan_result for scan_result in scan_results
-            if scan_result.meta.type not in bdba_config.blacklist_finding_types
-        )
 
     delivery_client.update_metadata(data=scan_results)
 
     component = ocm.ComponentIdentity(
-        name=backlog_item.artefact.component_name,
-        version=backlog_item.artefact.component_version,
-    )
-    _mark_compliance_summary_cache_for_deletion(
-        delivery_client=delivery_client,
-        component=component,
-        finding_type=dso.model.Datatype.VULNERABILITY,
-    )
-    _mark_compliance_summary_cache_for_deletion(
-        delivery_client=delivery_client,
-        component=component,
-        finding_type=dso.model.Datatype.LICENSE,
+        name=artefact.component_name,
+        version=artefact.component_version,
     )
 
-    logger.info(f'finished scan of artefact {backlog_item.artefact}')
+    if retrieve_vulnerability_findings:
+        _mark_compliance_summary_cache_for_deletion(
+            delivery_client=delivery_client,
+            component=component,
+            finding_type=odg.findings.FindingType.VULNERABILITY,
+        )
+    if retrieve_license_findings:
+        _mark_compliance_summary_cache_for_deletion(
+            delivery_client=delivery_client,
+            component=component,
+            finding_type=odg.findings.FindingType.LICENSE,
+        )
+
+    logger.info(f'finished scan of artefact {artefact}')
 
 
 def parse_args():
@@ -237,12 +243,12 @@ def parse_args():
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
     parser.add_argument(
-        '--cfg-name',
-        help='''
-            specify the context the process should run in, not relevant for the artefact
-            enumerator as well as backlog controller as these are context independent
-        ''',
-        default=os.environ.get('CFG_NAME'),
+        '--scan-cfg-path',
+        help='path to the `scan_cfg.yaml` file that should be used',
+    )
+    parser.add_argument(
+        '--findings-cfg-path',
+        help='path to the `findings.yaml` file that should be used',
     )
     parser.add_argument(
         '--delivery-service-url',
@@ -261,12 +267,6 @@ def parse_args():
             'or via environment variable "K8S_TARGET_NAMESPACE"'
         )
 
-    if not parsed_arguments.cfg_name:
-        raise ValueError(
-            'name of the to-be-used scan configuration must be set, either via '
-            'argument "--cfg-name" or via environment variable "CFG_NAME"'
-        )
-
     return parsed_arguments
 
 
@@ -275,7 +275,6 @@ def main():
     signal.signal(signal.SIGINT, handle_termination_signal)
 
     parsed_arguments = parse_args()
-    cfg_name = parsed_arguments.cfg_name
     namespace = parsed_arguments.k8s_namespace
     delivery_service_url = parsed_arguments.delivery_service_url
 
@@ -290,32 +289,37 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=config.Services.BDBA,
+        service=odg.scan_cfg.Services.BDBA,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=config.Services.BDBA,
+        service=odg.scan_cfg.Services.BDBA,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
-    bdba_config = deserialise_bdba_configuration(
-        cfg_name=cfg_name,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
+    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
+        scan_cfg_path = paths.scan_cfg_path()
 
-    bdba_cfg = secret_factory.bdba(bdba_config.cfg_name)
-    bdba_client = bdba.client.client(
-        bdba_cfg=bdba_cfg,
-        group_id=bdba_config.group_id,
-        secret_factory=secret_factory,
+    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
+    bdba_cfg = scan_cfg.bdba
+
+    if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
+        findings_cfg_path = paths.findings_cfg_path()
+
+    vulnerability_cfg = odg.findings.Finding.from_file(
+        path=findings_cfg_path,
+        finding_type=odg.findings.FindingType.VULNERABILITY,
+    )
+    license_cfg = odg.findings.Finding.from_file(
+        path=findings_cfg_path,
+        finding_type=odg.findings.FindingType.LICENSE,
     )
 
     if not delivery_service_url:
-        delivery_service_url = bdba_config.delivery_service_url
+        delivery_service_url = bdba_cfg.delivery_service_url
 
     delivery_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
@@ -331,29 +335,22 @@ def main():
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
         cache_dir=parsed_arguments.cache_dir,
         delivery_client=delivery_client,
+        oci_client=oci_client,
     )
-
-    if bdba_config.aws_cfg_name:
-        aws_cfg = secret_factory.aws(bdba_config.aws_cfg_name)
-
-        s3_client = aws_cfg.session.client('s3')
-    else:
-        s3_client = None
 
     global ready_to_terminate, wants_to_terminate
     while not wants_to_terminate:
         ready_to_terminate = False
 
         backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=config.Services.BDBA,
-            cfg_name=cfg_name,
+            service=odg.scan_cfg.Services.BDBA,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
         )
 
         if not backlog_crd:
             ready_to_terminate = True
-            sleep_interval = bdba_config.lookup_new_backlog_item_interval
+            sleep_interval = 60
             logger.info(f'no open backlog item found, will sleep for {sleep_interval} sec')
             time.sleep(sleep_interval)
             continue
@@ -366,13 +363,14 @@ def main():
         )
 
         scan(
-            backlog_item=backlog_item,
-            bdba_config=bdba_config,
+            artefact=backlog_item.artefact,
+            bdba_cfg=bdba_cfg,
+            vulnerability_cfg=vulnerability_cfg,
+            license_cfg=license_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_client=delivery_client,
-            bdba_client=bdba_client,
             oci_client=oci_client,
-            s3_client=s3_client,
+            secret_factory=secret_factory,
         )
 
         k8s.util.delete_custom_resource(
