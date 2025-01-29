@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: clamav
+spec:
+  replicas: 0 # will be scaled automatically by backlog-controller
+  selector:
+    matchLabels:
+      app: clamav
+      delivery-gear.gardener.cloud/service: clamav
+  template:
+    metadata:
+      labels:
+        app: clamav
+        delivery-gear.gardener.cloud/service: clamav
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: clamav
+      terminationGracePeriodSeconds: 1800 # 30 min
+      containers:
+        - name: clamav
+          image: {{ include "image" .Values.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SECRET_FACTORY_PATH
+              value: /secrets
+            - name: SCAN_CFG_PATH
+              value: /scan_cfg/scan_cfg
+            - name: FINDINGS_CFG_PATH
+              value: /findings_cfg/findings_cfg
+            - name: FEATURES_CFG_PATH
+              value: /features_cfg/features_cfg
+            - name: K8S_TARGET_NAMESPACE
+              value: {{ .Release.Namespace }}
+          volumeMounts:
+            - name: aws
+              mountPath: /secrets/aws
+            - name: github
+              mountPath: /secrets/github
+            - name: kubernetes
+              mountPath: /secrets/kubernetes
+            - name: oci-registry
+              mountPath: /secrets/oci-registry
+            - name: scan-cfg
+              mountPath: /scan_cfg
+            - name: findings-cfg
+              mountPath: /findings_cfg
+            - name: features-cfg
+              mountPath: "/features_cfg"
+              readOnly: true
+            - name: freshclam-config
+              mountPath: /etc/clamav/freshclam.conf
+              subPath: freshclam
+          lifecycle:
+            preStop: # hook ensures that just created pods have at least enough time alive to add a termination signal handler
+              exec:
+                command:
+                  - sleep
+                  - "60"
+          resources:
+            requests:
+              memory: 2Gi
+              cpu: 500m
+            limits:
+              memory: 8Gi
+              cpu: 2000m
+      volumes:
+        - name: aws
+          secret:
+            secretName: secret-factory-aws
+            optional: true # aws client is optional
+        - name: github
+          secret:
+            secretName: secret-factory-github
+        - name: kubernetes
+          secret:
+            secretName: secret-factory-kubernetes
+            optional: true # might use incluster config
+        - name: oci-registry
+          secret:
+            secretName: secret-factory-oci-registry
+        - name: scan-cfg
+          configMap:
+            name: scan-cfg
+        - name: findings-cfg
+          configMap:
+            name: findings-cfg
+        - name: features-cfg
+          secret:
+            secretName: features-cfg
+            optional: true
+        - name: freshclam-config
+          configMap:
+            name: clamav-freshclam-config

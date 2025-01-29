@@ -127,21 +127,21 @@ delivery-service:
             - ref: ocm-resource:extensions.tag
               attribute: artefact-enumerator.image.tag
             - ref: ocm-resource:extensions.repository
-              attribute: backlog-controller.backlog-controller.image.repository
+              attribute: backlog-controller.image.repository
             - ref: ocm-resource:extensions.tag
-              attribute: backlog-controller.backlog-controller.image.tag
+              attribute: backlog-controller.image.tag
             - ref: ocm-resource:extensions.repository
-              attribute: backlog-controller.bdba.image.repository
+              attribute: bdba.image.repository
             - ref: ocm-resource:extensions.tag
-              attribute: backlog-controller.bdba.image.tag
+              attribute: bdba.image.tag
             - ref: ocm-resource:extension-clamav.repository
-              attribute: backlog-controller.clamav.image.repository
+              attribute: clamav.image.repository
             - ref: ocm-resource:extension-clamav.tag
-              attribute: backlog-controller.clamav.image.tag
+              attribute: clamav.image.tag
             - ref: ocm-resource:extensions.repository
-              attribute: backlog-controller.issue-replicator.image.repository
+              attribute: issue-replicator.image.repository
             - ref: ocm-resource:extensions.tag
-              attribute: backlog-controller.issue-replicator.image.tag
+              attribute: issue-replicator.image.tag
             - ref: ocm-resource:extension-cache-manager.repository
               attribute: cache-manager.image.repository
             - ref: ocm-resource:extension-cache-manager.tag
@@ -151,9 +151,9 @@ delivery-service:
             - ref: ocm-resource:extensions.tag
               attribute: delivery-db-backup.image.tag
             - ref: ocm-resource:extensions.repository
-              attribute: backlog-controller.sast.image.repository
+              attribute: sast.image.repository
             - ref: ocm-resource:extensions.tag
-              attribute: backlog-controller.sast.image.tag
+              attribute: sast.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             registry: europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear
