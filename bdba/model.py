@@ -15,7 +15,6 @@ import dateutil.parser
 
 import ci.util
 import dso.cvss
-import dso.labels
 import dso.model
 import ocm
 
@@ -274,18 +273,6 @@ class ScanRequest:
     display_name: str
     target_product_id: int | None
     custom_metadata: dict
-
-    def auto_triage_scan(self) -> bool:
-        # hardcode auto-triage to be determined by artefact
-        artefact = self.artefact
-
-        # pylint: disable=E1101
-        if not (label := artefact.find_label(name=dso.labels.BinaryIdScanLabel.name)):
-            return False
-
-        label: dso.labels.BinaryIdScanLabel = dso.labels.deserialise_label(label=label)
-
-        return label.value.policy is dso.labels.ScanPolicy.SKIP
 
     def __str__(self):
         return (

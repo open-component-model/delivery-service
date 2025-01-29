@@ -218,15 +218,6 @@ class ResourceGroupProcessor:
                 client=self.bdba_client,
             )
 
-        assessed_vulns_by_component = collections.defaultdict(list)
-
-        if scan_request.auto_triage_scan():
-            assessed_vulns_by_component = bdba.assessments.auto_triage(
-                analysis_result=scan_result,
-                bdba_client=self.bdba_client,
-                assessed_vulns_by_component=assessed_vulns_by_component,
-            )
-
         if vulnerability_cfg and vulnerability_cfg:
             refetching_required = bdba.rescore.rescore(
                 bdba_client=self.bdba_client,
