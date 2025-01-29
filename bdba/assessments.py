@@ -1,13 +1,9 @@
-import collections
 import collections.abc
-import logging
 
 import dso.labels
 
 import bdba.client
 import bdba.model as bm
-
-logger = logging.getLogger(__name__)
 
 
 def upload_version_hints(
@@ -50,74 +46,3 @@ def upload_version_hints(
         )
 
     return scan_result
-
-
-def auto_triage(
-    bdba_client: bdba.client.BDBAApi,
-    analysis_result: bm.AnalysisResult=None,
-    product_id: int=None,
-    assessment_txt: str=None,
-    assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
-) -> dict[str, list[str]]:
-    '''
-    Automatically triage all current vulnerabilities below the given CVSS-threshold on the given
-    BDBA scan.
-
-    Components with matching vulnerabilities will be assigned an arbitrary version
-    (`[ci]-auto-triage`) since a version is required by BDBA to be able to triage.
-    '''
-    if not ((product_id is not None) ^ (analysis_result is not None)):
-        raise ValueError('exactly one of product_id, analysis_result must be passed')
-
-    if analysis_result:
-        product_id = analysis_result.product_id
-
-    analysis_result = bdba_client.scan_result(product_id=product_id)
-
-    product_name = analysis_result.name
-    assessment_txt = assessment_txt or 'Auto-generated due to skip-scan label'
-
-    for component in analysis_result.components:
-        component_version = component.version
-        for vulnerability in component.vulnerabilities:
-            if vulnerability.historical:
-                continue
-            if vulnerability.has_triage:
-                continue
-
-            # component version needs to be set to triage. If we actually have a vulnerability
-            # we want to auto-triage we need to set the version first.
-            component_name = component.name
-            vulnerability_cve = vulnerability.cve
-
-            component_id = f'{component_name}:{component_version}'
-            if vulnerability_cve in assessed_vulns_by_component[component_id]:
-                continue
-
-            if not component_version:
-                component_version = '[ci]-auto-triage'
-                bdba_client.set_component_version(
-                    component_name=component_name,
-                    component_version=component_version,
-                    scope=bm.VersionOverrideScope.APP,
-                    objects=list(eo.sha1 for eo in component.extended_objects),
-                    app_id=product_id,
-                )
-
-            triage_dict = {
-                'component': component_name,
-                'version': component_version,
-                'vulns': [vulnerability_cve],
-                'scope': bm.TriageScope.RESULT.value,
-                'reason': 'OT', # "other"
-                'description': assessment_txt,
-                'product_id': product_id,
-            }
-            logger.debug(
-                f'Auto-triaging {vulnerability_cve=} {component_name=} {product_id=} {product_name=}'
-            )
-            bdba_client.add_triage_raw(
-                triage_dict=triage_dict,
-            )
-            assessed_vulns_by_component[component_id].append(vulnerability_cve)
-    return assessed_vulns_by_component

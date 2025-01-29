@@ -16,7 +16,6 @@ import oci
 import ocm
 import tarutil
 
-import bdba.assessments
 import bdba.client
 import bdba.model
 import bdba.scanning
@@ -184,20 +183,6 @@ def rescore(
 
     print()
     print(f'{total_vulns=}, {total_rescored=}')
-
-
-def assess(
-    bdba_cfg_name: str,
-    product_id: int,
-    assessment: str,
-):
-    bdba_client = bdba.client.client(bdba_cfg_name)
-
-    bdba.assessments.auto_triage(
-        bdba_client=bdba_client,
-        product_id=product_id,
-        assessment_txt=assessment,
-    )
 
 
 def scan(
