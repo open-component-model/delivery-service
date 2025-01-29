@@ -16,6 +16,7 @@ import dateutil.parser
 import ci.util
 import dso.cvss
 import dso.labels
+import dso.model
 import ocm
 
 
@@ -69,7 +70,7 @@ class Triage:
     reason: str
     description: str | None
     modified: datetime.datetime
-    user: dict = dataclasses.field(default_factory=dict)
+    user: dso.model.BDBAUser
 
     def __repr__(self):
         return (
@@ -139,6 +140,16 @@ class Vulnerability:
             return
 
         yield from self.triage
+
+    @property
+    def okay_to_skip(self) -> bool:
+        '''
+        Indiacates whether it is okay to not store this vulnerability and the delivery-db but just
+        ignore it. This is the case if the vulnerability
+        - is declared as historical: package in the detected version is not actually affected
+        - has a missing CVSS or severity: the vulnerability mighth still be in dispute upstream
+        '''
+        return self.historical or not self.cvss or not self.cve_severity()
 
     def __repr__(self):
         return f'{self.__class__.__name__}: {self.cve}'

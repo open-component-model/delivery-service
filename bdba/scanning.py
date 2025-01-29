@@ -1,6 +1,4 @@
-import collections
 import collections.abc
-import dataclasses
 import logging
 
 import botocore.exceptions
@@ -19,8 +17,7 @@ import bdba.client
 import bdba.model as bm
 import bdba.rescore
 import bdba.util
-import config
-import rescore.model
+import odg.findings
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging(print_thread_id=True)
@@ -39,7 +36,7 @@ class ResourceGroupProcessor:
         self,
         resource_node: cnudie.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
-        known_artifact_scans: tuple[bm.Product],
+        known_artifact_scans: collections.abc.Iterable[bm.Product],
     ) -> bm.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
@@ -177,16 +174,12 @@ class ResourceGroupProcessor:
         self,
         resource_node: cnudie.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
-        known_scan_results: tuple[bm.Product],
+        known_scan_results: collections.abc.Iterable[bm.Product],
         processing_mode: bm.ProcessingMode,
-        delivery_client: delivery.client.DeliveryServiceClient=None,
-        license_cfg: config.LicenseCfg=None,
-        cve_rescoring_ruleset: rescore.model.CveRescoringRuleSet=None,
-        auto_assess_max_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
+        delivery_client: delivery.client.DeliveryServiceClient | None=None,
+        vulnerability_cfg: odg.findings.Finding | None=None,
+        license_cfg: odg.findings.Finding | None=None,
     ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
-        resource = resource_node.resource
-        component = resource_node.component
-
         scan_request = self.scan_request(
             resource_node=resource_node,
             content_iterator=content_iterator,
@@ -204,14 +197,9 @@ class ResourceGroupProcessor:
             scan_failed = True
             logger.warning(bse.print_stacktrace())
 
-        # don't include component version here since it is also not considered in the BDBA scan
-        # -> this will deduplicate findings of the same artefact version across different
-        # component versions
-        component = dataclasses.replace(scan_request.component, version=None)
-        resource = scan_request.artefact
         scanned_element = cnudie.iter.ResourceNode(
-            path=(cnudie.iter.NodePathEntry(component),),
-            resource=resource,
+            path=(cnudie.iter.NodePathEntry(resource_node.component),),
+            resource=resource_node.resource,
         )
 
         if scan_failed:
@@ -222,7 +210,7 @@ class ResourceGroupProcessor:
             f'scan of {scan_result.display_name} succeeded, going to post-process results'
         )
 
-        if version_hints := _package_version_hints(resource=resource):
+        if version_hints := _package_version_hints(resource=resource_node.resource):
             logger.info(f'uploading package-version-hints for {scan_result.display_name}')
             scan_result = bdba.assessments.upload_version_hints(
                 scan_result=scan_result,
@@ -239,32 +227,28 @@ class ResourceGroupProcessor:
                 assessed_vulns_by_component=assessed_vulns_by_component,
             )
 
-        if cve_rescoring_ruleset:
-            assessed_vulns_by_component = bdba.rescore.rescore(
+        if vulnerability_cfg and vulnerability_cfg:
+            refetching_required = bdba.rescore.rescore(
                 bdba_client=self.bdba_client,
                 scan_result=scan_result,
                 scanned_element=scanned_element,
-                cve_rescoring_ruleset=cve_rescoring_ruleset,
-                max_rescore_severity=auto_assess_max_severity,
-                assessed_vulns_by_component=assessed_vulns_by_component,
+                vulnerability_cfg=vulnerability_cfg,
             )
 
-        if assessed_vulns_by_component:
-            logger.info(
-                f'retrieving result again from bdba for {scan_result.display_name} ' +
-                '(this may take a while)'
-            )
-            scan_result = self.bdba_client.wait_for_scan_result(
-                product_id=scan_result.product_id,
-            )
+            if refetching_required:
+                logger.info(f'retrieving result again from bdba for {scan_result.display_name}')
+                scan_result = self.bdba_client.wait_for_scan_result(
+                    product_id=scan_result.product_id,
+                )
 
         logger.info(f'post-processing of {scan_result.display_name} done')
 
         yield from bdba.util.iter_artefact_metadata(
             scanned_element=scanned_element,
             scan_result=scan_result,
-            license_cfg=license_cfg,
             delivery_client=delivery_client,
+            vulnerability_cfg=vulnerability_cfg,
+            license_cfg=license_cfg,
         )
 
 

@@ -12,11 +12,9 @@ import ci.log
 import cnudie.iter
 import delivery.client
 import dso.model
-import github.compliance.model as gcm
-import github.compliance.report as gcr
 
-import config
 import bdba.model as bm
+import odg.findings
 
 
 logger = logging.getLogger(__name__)
@@ -48,8 +46,9 @@ def iter_existing_findings(
 def iter_artefact_metadata(
     scanned_element: cnudie.iter.ResourceNode,
     scan_result: bm.AnalysisResult,
-    license_cfg: config.LicenseCfg=None,
     delivery_client: delivery.client.DeliveryServiceClient=None,
+    vulnerability_cfg: odg.findings.Finding | None=None,
+    license_cfg: odg.findings.Finding | None=None,
 ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     discovery_date = datetime.date.today()
@@ -60,13 +59,21 @@ def iter_artefact_metadata(
         artefact=scanned_element.resource,
     )
 
+    # don't include component version here since it is also not considered in the BDBA scan
+    # -> this will deduplicate findings of the same artefact version across different
+    # component versions
+    finding_artefact_ref = dataclasses.replace(
+        artefact_ref,
+        component_version=None,
+    )
+
     # rescoring should not reference artefact version so that the `ARTEFACT` rescoring scope will be
     # used -> rescoring will be used for future versions as well, so there is no need to replicate
     # BDBA triages to new BDBA scans
     rescoring_artefact_ref = dataclasses.replace(
-        artefact_ref,
+        finding_artefact_ref,
         artefact=dataclasses.replace(
-            artefact_ref.artefact,
+            finding_artefact_ref.artefact,
             artefact_version=None,
         ),
     )
@@ -110,112 +117,116 @@ def iter_artefact_metadata(
         )
 
         yield dso.model.ArtefactMetadata(
-            artefact=artefact_ref,
+            artefact=finding_artefact_ref,
             meta=meta,
             data=structure_info,
             discovery_date=discovery_date,
         )
 
-        meta = dso.model.Metadata(
-            datasource=datasource,
-            type=dso.model.Datatype.LICENSE,
-            creation_date=now,
-        )
-
-        for license in licenses:
-            if not license_cfg or license_cfg.is_allowed(license=license.name):
-                continue
-
-            license_finding = dso.model.LicenseFinding(
-                package_name=package_name,
-                package_version=package_version,
-                base_url=scan_result.base_url,
-                report_url=scan_result.report_url,
-                product_id=scan_result.product_id,
-                group_id=scan_result.group_id,
-                severity=gcm.Severity.BLOCKER.name,
-                license=license,
+        if license_cfg and license_cfg.matches(artefact_ref):
+            meta = dso.model.Metadata(
+                datasource=datasource,
+                type=dso.model.Datatype.LICENSE,
+                creation_date=now,
             )
 
-            artefact_metadata = dso.model.ArtefactMetadata(
-                artefact=artefact_ref,
-                meta=meta,
-                data=license_finding,
-                discovery_date=discovery_date,
-            )
-
-            findings.append(artefact_metadata)
-            yield artefact_metadata
-
-        for vulnerability in package.vulnerabilities:
-            if not vulnerability.cvss or not vulnerability.cve_severity():
-                # we only support vulnerabilities with a valid cvss v3 vector
-                continue
-
-            if vulnerability.historical:
-                continue
-
-            for triage in vulnerability.triages:
-                meta = dso.model.Metadata(
-                    datasource=datasource,
-                    type=dso.model.Datatype.RESCORING,
-                    creation_date=triage.modified.astimezone(datetime.UTC),
+            for license in licenses:
+                categorisation = odg.findings.categorise_finding(
+                    finding_cfg=license_cfg,
+                    finding_property=license.name,
                 )
 
-                vulnerability_rescoring = dso.model.CustomRescoring(
-                    finding=dso.model.RescoringVulnerabilityFinding(
-                        package_name=package_name,
-                        cve=vulnerability.cve,
-                    ),
-                    referenced_type=dso.model.Datatype.VULNERABILITY,
-                    severity=gcm.Severity.NONE.name, # bdba only allows triaging to NONE
-                    user=dso.model.BDBAUser(
-                        username=triage.user.get('username'),
-                        email=triage.user.get('email'),
-                        firstname=triage.user.get('firstname'),
-                        lastname=triage.user.get('lastname'),
-                    ),
-                    matching_rules=[dso.model.MetaRescoringRules.BDBA_TRIAGE],
-                    comment=triage.description,
+                if not categorisation:
+                    continue
+
+                license_finding = dso.model.LicenseFinding(
+                    package_name=package_name,
+                    package_version=package_version,
+                    base_url=scan_result.base_url,
+                    report_url=scan_result.report_url,
+                    product_id=scan_result.product_id,
+                    group_id=scan_result.group_id,
+                    severity=categorisation.name,
+                    license=license,
                 )
 
-                yield dso.model.ArtefactMetadata(
-                    artefact=rescoring_artefact_ref,
+                artefact_metadata = dso.model.ArtefactMetadata(
+                    artefact=finding_artefact_ref,
                     meta=meta,
-                    data=vulnerability_rescoring,
+                    data=license_finding,
+                    discovery_date=discovery_date,
                 )
 
+                findings.append(artefact_metadata)
+                yield artefact_metadata
+
+        if vulnerability_cfg and vulnerability_cfg.matches(artefact_ref):
             meta = dso.model.Metadata(
                 datasource=datasource,
                 type=dso.model.Datatype.VULNERABILITY,
                 creation_date=now,
             )
 
-            vulnerability_finding = dso.model.VulnerabilityFinding(
-                package_name=package_name,
-                package_version=package_version,
-                base_url=scan_result.base_url,
-                report_url=scan_result.report_url,
-                product_id=scan_result.product_id,
-                group_id=scan_result.group_id,
-                severity=gcr._criticality_classification(
-                    cve_score=vulnerability.cve_severity(),
-                ).name,
-                cve=vulnerability.cve,
-                cvss_v3_score=vulnerability.cve_severity(),
-                cvss=vulnerability.cvss,
-                summary=vulnerability.summary,
-            )
+            for vulnerability in package.vulnerabilities:
+                if vulnerability.okay_to_skip:
+                    continue # we only support active vulnerabilities with a valid cvss v3 vector
 
-            artefact_metadata = dso.model.ArtefactMetadata(
-                artefact=artefact_ref,
-                meta=meta,
-                data=vulnerability_finding,
-                discovery_date=discovery_date,
-            )
+                categorisation = odg.findings.categorise_finding(
+                    finding_cfg=vulnerability_cfg,
+                    finding_property=vulnerability.cve_severity(),
+                )
 
-            findings.append(artefact_metadata)
-            yield artefact_metadata
+                if not categorisation:
+                    continue
+
+                for triage in vulnerability.triages:
+                    meta_rescoring = dso.model.Metadata(
+                        datasource=datasource,
+                        type=dso.model.Datatype.RESCORING,
+                        creation_date=triage.modified.astimezone(datetime.UTC),
+                    )
+
+                    vulnerability_rescoring = dso.model.CustomRescoring(
+                        finding=dso.model.RescoringVulnerabilityFinding(
+                            package_name=package_name,
+                            cve=vulnerability.cve,
+                        ),
+                        referenced_type=dso.model.Datatype.VULNERABILITY,
+                        severity=vulnerability_cfg.none_categorisation.name,
+                        user=triage.user,
+                        matching_rules=[dso.model.MetaRescoringRules.BDBA_TRIAGE],
+                        comment=triage.description,
+                    )
+
+                    yield dso.model.ArtefactMetadata(
+                        artefact=rescoring_artefact_ref,
+                        meta=meta_rescoring,
+                        data=vulnerability_rescoring,
+                    )
+
+                vulnerability_finding = dso.model.VulnerabilityFinding(
+                    package_name=package_name,
+                    package_version=package_version,
+                    base_url=scan_result.base_url,
+                    report_url=scan_result.report_url,
+                    product_id=scan_result.product_id,
+                    group_id=scan_result.group_id,
+                    severity=categorisation.name,
+                    cve=vulnerability.cve,
+                    cvss_v3_score=vulnerability.cve_severity(),
+                    cvss=vulnerability.cvss,
+                    summary=vulnerability.summary,
+                )
+
+                artefact_metadata = dso.model.ArtefactMetadata(
+                    artefact=finding_artefact_ref,
+                    meta=meta,
+                    data=vulnerability_finding,
+                    discovery_date=discovery_date,
+                )
+
+                findings.append(artefact_metadata)
+                yield artefact_metadata
 
     if delivery_client:
         # delete those BDBA findings which were found before for this scan but which are not part

@@ -1,14 +1,13 @@
-import collections
-import collections.abc
 import logging
 
 import cnudie.iter
 import dso.cvss
 import dso.labels
+import dso.model
 
 import bdba.client
 import bdba.model as bm
-import rescore.model as rm
+import odg.findings
 import rescore.utility as ru
 
 logger = logging.getLogger(__name__)
@@ -33,31 +32,41 @@ def rescore(
     bdba_client: bdba.client.BDBAApi,
     scan_result: bm.AnalysisResult,
     scanned_element: cnudie.iter.ResourceNode,
-    cve_rescoring_ruleset: rm.CveRescoringRuleSet,
-    max_rescore_severity: dso.cvss.CVESeverity=dso.cvss.CVESeverity.MEDIUM,
-    assessed_vulns_by_component: dict[str, list[str]]=collections.defaultdict(list),
-) -> dict[str, list[str]]:
+    vulnerability_cfg: odg.findings.Finding,
+) -> bool:
     '''
-    rescores bdba-findings for the scanned element of the given components scan result.
+    Rescores bdba-findings for the scanned element of the given components scan result.
     Rescoring is only possible if cve-categorisations are available from categoristion-label
-    in either resource or component.
+    in either resource or component. Returns a boolean indicating whether a triage was applied
+    or not (if yes, a refetching of the scan result may be required).
     '''
-    if not (categorisation := cve_categorisation(resource_node=scanned_element)):
-        return assessed_vulns_by_component
+    if not vulnerability_cfg.rescoring_ruleset:
+        return False
 
-    product_id = scan_result.product_id
+    if not (cve_category := cve_categorisation(resource_node=scanned_element)):
+        return False
 
-    logger.info(f'rescoring {scan_result.display_name} - {product_id=}')
+    artefact = dso.model.component_artefact_id_from_ocm(
+        component=scanned_element.component,
+        artefact=scanned_element.resource,
+    )
 
-    components_with_vulnerabilities = [
+    if not vulnerability_cfg.matches(artefact):
+        return False
+
+    logger.info(f'rescoring {scan_result.display_name} - {scan_result.product_id=}')
+
+    components_with_vulnerabilities = (
         component for component in scan_result.components
         if tuple(component.vulnerabilities)
-    ]
+    )
 
     components_with_vulnerabilities = sorted(
         components_with_vulnerabilities,
         key=lambda c: c.name,
     )
+
+    triages_were_applied = False
 
     for c in components_with_vulnerabilities:
         if not c.version:
@@ -66,35 +75,35 @@ def rescore(
         vulns_to_assess = []
 
         for v in c.vulnerabilities:
-            if v.historical:
-                continue
-            if v.has_triage:
-                continue
-
-            if not v.cvss:
-                continue # happens if only cvss-v2 is available - ignore for now
-
-            component_id = f'{c.name}:{c.version}'
-            if v.cve in assessed_vulns_by_component[component_id]:
+            if v.okay_to_skip or v.has_triage:
+                # we don't need to add a triage if the vuln is skipped anyways or was already triaged
                 continue
 
-            orig_severity = dso.cvss.CVESeverity.from_cve_score(v.cve_severity())
-            if orig_severity > max_rescore_severity:
+            categorisation = odg.findings.categorise_finding(
+                finding_cfg=vulnerability_cfg,
+                finding_property=v.cve_severity(),
+            )
+
+            if (
+                not categorisation
+                or not categorisation.automatic_rescoring
+            ):
                 continue
 
             matching_rules = ru.matching_rescore_rules(
-                rescoring_rules=cve_rescoring_ruleset.rules,
-                categorisation=categorisation,
+                rescoring_rules=vulnerability_cfg.rescoring_ruleset.rules,
+                categorisation=cve_category,
                 cvss=v.cvss,
             )
-            rescored = ru.rescore_severity(
-                rescoring_rules=tuple(matching_rules),
-                severity=orig_severity,
+
+            rescored_categorisation = ru.rescore_finding(
+                finding_cfg=vulnerability_cfg,
+                current_categorisation=categorisation,
+                rescoring_rules=matching_rules,
             )
 
-            if rescored is dso.cvss.CVESeverity.NONE:
+            if rescored_categorisation.value == 0: # BDBA only allows binary triages
                 vulns_to_assess.append(v)
-                assessed_vulns_by_component[component_id].append(v.cve)
 
         if vulns_to_assess:
             logger.info(f'{len(vulns_to_assess)=}: {[v.cve for v in vulns_to_assess]}')
@@ -105,7 +114,8 @@ def rescore(
                 'scope': bm.TriageScope.RESULT.value,
                 'reason': 'OT',
                 'description': 'auto-assessed as irrelevant based on cve-categorisation',
-                'product_id': product_id,
+                'product_id': scan_result.product_id,
             })
+            triages_were_applied = True
 
-    return assessed_vulns_by_component
+    return triages_were_applied

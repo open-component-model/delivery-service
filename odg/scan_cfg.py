@@ -154,8 +154,6 @@ class BDBAMapping(Mapping):
         Name of the AWS secret element to use to retrieve artefacts from S3.
     :param ProcessingMode processing_mode:
         Defines the scanning behaviour in case there is already an existing scan.
-    :param CVESeverity auto_assess_max_severity:
-        Only findings below or equal to this severity will be auto-rescored.
     '''
     group_id: int
     bdba_secret_name: str
