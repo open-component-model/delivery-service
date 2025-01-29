@@ -14,9 +14,9 @@ import kubernetes.client.rest
 import ci.util
 import dso.model
 
-import config
 import k8s.model
 import k8s.util
+import odg.scan_cfg
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,6 @@ class BacklogItem:
 
 def create_backlog_crd_body(
     service: str,
-    cfg_name: str,
     name: str,
     namespace: str,
     backlog_item: BacklogItem,
@@ -78,7 +77,6 @@ def create_backlog_crd_body(
         'metadata': {
             'labels': {
                 k8s.model.LABEL_SERVICE: service,
-                k8s.model.LABEL_CFG_NAME: cfg_name,
             },
             'name': name,
             'namespace': namespace,
@@ -88,15 +86,13 @@ def create_backlog_crd_body(
 
 
 def iter_existing_backlog_items_for_artefact(
-    service: config.Services,
-    cfg_name: str,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: dso.model.ComponentArtefactId,
 ) -> collections.abc.Generator[dict, None, None]:
     labels = {
         k8s.model.LABEL_SERVICE: service,
-        k8s.model.LABEL_CFG_NAME: cfg_name,
     }
     label_selector = k8s.util.create_label_selector(labels=labels)
 
@@ -117,13 +113,13 @@ def iter_existing_backlog_items_for_artefact(
             ),
         )
 
-        if service is config.Services.BDBA:
+        if service is odg.scan_cfg.Services.BDBA:
             if crd_artefact == artefact:
                 yield backlog_crd
-        elif service is config.Services.CLAMAV:
+        elif service is odg.scan_cfg.Services.CLAMAV:
             if crd_artefact == artefact:
                 yield backlog_crd
-        elif service is config.Services.ISSUE_REPLICATOR:
+        elif service is odg.scan_cfg.Services.ISSUE_REPLICATOR:
             if (
                 crd_artefact.artefact_kind is artefact.artefact_kind
                 and crd_artefact.component_name == artefact.component_name
@@ -136,15 +132,14 @@ def iter_existing_backlog_items_for_artefact(
 
 
 def create_backlog_item(
-    service: config.Services,
-    cfg_name: str,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: dso.model.ComponentArtefactId,
     priority: BacklogPriorities=BacklogPriorities.LOW,
 ):
     name = k8s.util.generate_kubernetes_name(
-        name_parts=(service, cfg_name, str(priority)),
+        name_parts=(service, str(priority)),
     )
 
     backlog_item = BacklogItem(
@@ -155,7 +150,6 @@ def create_backlog_item(
 
     body = create_backlog_crd_body(
         service=service,
-        cfg_name=cfg_name,
         name=name,
         namespace=namespace,
         backlog_item=backlog_item,
@@ -171,8 +165,7 @@ def create_backlog_item(
 
 
 def create_unique_backlog_item(
-    service: config.Services,
-    cfg_name: str,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: dso.model.ComponentArtefactId,
@@ -187,7 +180,6 @@ def create_unique_backlog_item(
     '''
     backlog_items = iter_existing_backlog_items_for_artefact(
         service=service,
-        cfg_name=cfg_name,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
         artefact=artefact,
@@ -216,7 +208,6 @@ def create_unique_backlog_item(
 
     create_backlog_item(
         service=service,
-        cfg_name=cfg_name,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
         artefact=artefact,
@@ -226,17 +217,14 @@ def create_unique_backlog_item(
 
 
 def get_backlog_crd_and_claim(
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    cfg_name: str | None=None,
     shortcut_claim: bool=False,
 ) -> dict | None:
     labels = {
         k8s.model.LABEL_SERVICE: service,
     }
-    if cfg_name:
-        labels[k8s.model.LABEL_CFG_NAME] = cfg_name
     label_selector = k8s.util.create_label_selector(labels=labels)
     label_selector += f', {LABEL_CLAIMED}!=True'
 
@@ -296,7 +284,6 @@ def get_backlog_crd_and_claim(
         time.sleep(retry_interval)
         return get_backlog_crd_and_claim(
             service=service,
-            cfg_name=cfg_name,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
         )

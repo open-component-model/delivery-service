@@ -8,9 +8,9 @@ import traceback
 
 import kubernetes.client.rest
 
-import config
 import k8s.model
 import k8s.util
+import odg.scan_cfg
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ def trim_logs_to_fit_max_storage_size(
 
 
 def handle_conflict(
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     name: str,
@@ -100,7 +100,7 @@ def handle_conflict(
 
 
 def create_log_collection(
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     name: str,
@@ -150,7 +150,7 @@ def create_log_collection(
 
 
 def log_to_crd_for_level(
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     log_level: int,
@@ -231,7 +231,7 @@ def log_to_crd_for_level(
 
 
 def log_to_crd(
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
 ):
@@ -245,7 +245,7 @@ def log_to_crd(
 
 
 def continuously_log_to_crd(
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     loop_interval: int=120,
@@ -266,7 +266,7 @@ def continuously_log_to_crd(
 
 
 def init_logging_thread(
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
 ):

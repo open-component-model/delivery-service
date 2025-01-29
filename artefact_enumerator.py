@@ -109,7 +109,6 @@ def correlation_id(
 
 
 def create_compliance_snapshot(
-    cfg_name: str,
     artefact: dso.model.ComponentArtefactId,
     latest_processing_date: datetime.date,
     now: datetime.datetime=datetime.datetime.now(),
@@ -123,7 +122,6 @@ def create_compliance_snapshot(
     )
 
     data = dso.model.ComplianceSnapshot(
-        cfg_name=cfg_name,
         latest_processing_date=latest_processing_date,
         correlation_id=correlation_id(
             artefact=artefact,
@@ -190,7 +188,6 @@ def _iter_ocm_artefacts(
 
 
 def _create_and_update_compliance_snapshots_of_artefact(
-    cfg_name: str,
     artefact: dso.model.ComponentArtefactId,
     compliance_snapshots: list[dso.model.ArtefactMetadata],
     sprints: tuple[datetime.date],
@@ -208,7 +205,6 @@ def _create_and_update_compliance_snapshots_of_artefact(
             continue
 
         compliance_snapshots.append(create_compliance_snapshot(
-            cfg_name=cfg_name,
             artefact=artefact,
             latest_processing_date=sprint_date,
             now=now,
@@ -267,7 +263,6 @@ def _calculate_backlog_item_priority(
 
 
 def _create_backlog_item(
-    cfg_name: str,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: dso.model.ComponentArtefactId,
@@ -305,7 +300,6 @@ def _create_backlog_item(
 
     was_created = k8s.backlog.create_unique_backlog_item(
         service=service,
-        cfg_name=cfg_name,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
         artefact=artefact,
@@ -318,7 +312,6 @@ def _create_backlog_item(
 
 
 def _process_compliance_snapshots_of_artefact(
-    cfg_name: str,
     scan_config: config.ScanConfiguration,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -331,7 +324,6 @@ def _process_compliance_snapshots_of_artefact(
     today: datetime.date=datetime.date.today(),
 ):
     compliance_snapshots, update_is_required = _create_and_update_compliance_snapshots_of_artefact(
-        cfg_name=cfg_name,
         artefact=artefact,
         compliance_snapshots=compliance_snapshots,
         sprints=sprints,
@@ -341,7 +333,6 @@ def _process_compliance_snapshots_of_artefact(
 
     if scan_config.bdba_config:
         compliance_snapshots, bdba_update_is_required = _create_backlog_item(
-            cfg_name=cfg_name,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
             artefact=artefact,
@@ -358,7 +349,6 @@ def _process_compliance_snapshots_of_artefact(
             type=types,
         )
         compliance_snapshots, issue_update_is_required = _create_backlog_item(
-            cfg_name=cfg_name,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
             artefact=artefact,
@@ -373,7 +363,6 @@ def _process_compliance_snapshots_of_artefact(
     if scan_config.clamav_config:
         interval = scan_config.clamav_config.rescan_interval
         compliance_snapshots, malware_update_is_required = _create_backlog_item(
-            cfg_name=cfg_name,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
             artefact=artefact,
@@ -398,7 +387,6 @@ def _process_compliance_snapshots_of_artefact(
 
 
 def _process_inactive_compliance_snapshots(
-    cfg_name: str,
     scan_config: config.ScanConfiguration,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -454,7 +442,6 @@ def _process_inactive_compliance_snapshots(
                 priority = k8s.backlog.BacklogPriorities.HIGH
                 was_created = k8s.backlog.create_unique_backlog_item(
                     service=config.Services.ISSUE_REPLICATOR,
-                    cfg_name=cfg_name,
                     namespace=namespace,
                     kubernetes_api=kubernetes_api,
                     artefact=artefact,
@@ -475,7 +462,6 @@ def _process_inactive_compliance_snapshots(
 
 
 def enumerate_artefacts(
-    cfg_name: str,
     scan_config: config.ScanConfiguration,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -484,16 +470,15 @@ def enumerate_artefacts(
     types: tuple[dso.model.Datatype],
 ):
     '''
-    retrieves first of all the unique artefacts referenced by the configured components and the
+    Retrieves first of all the unique artefacts referenced by the configured components and the
     available runtime artefacts from the respective custom resources as well as all compliance
-    snapshots belonging to the given `cfg_name`. These compliance snapshots are differentiated
-    between "active" (still referenced by one of the before retrieved artefacts) and "inactive"
-    (not referenced anymore). While iterating the artefacts, the active compliance snapshots are
-    being created/updated (status change) and based on this, it is evaluated if a new backlog item
-    must be created (and if yes, it will be created). The inactive compliance snapshots are also
-    being updated (status change) and if the configured grace period has passed, they are deleted
-    from the delivery-db. Also, for each artefact becoming inactive, a backlog item for the issue
-    replicator must be created.
+    snapshots. These compliance snapshots are differentiated between "active" (still referenced by
+    one of the artefacts retrieved before) and "inactive" (not referenced anymore). While iterating
+    the artefacts, the active compliance snapshots are being created/updated (status change) and
+    based on this, it is evaluated if a new backlog item must be created (and if yes, it will be
+    created). The inactive compliance snapshots are also being updated (status change) and if the
+    configured grace period has passed, they are deleted from the delivery-db. Also, for each
+    artefact becoming inactive, a backlog item for the issue replicator will be be created.
     '''
     # store current date + time to ensure they are consistent for whole enumeration
     now = datetime.datetime.now()
@@ -531,10 +516,6 @@ def enumerate_artefacts(
     compliance_snapshots = delivery_client.query_metadata(
         type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
     )
-    compliance_snapshots = [
-        compliance_snapshot for compliance_snapshot in compliance_snapshots
-        if compliance_snapshot.data.cfg_name == cfg_name # TODO mv to delivery service
-    ]
     logger.info(f'{len(compliance_snapshots)=}')
 
     active_compliance_snapshots = tuple(
@@ -555,7 +536,6 @@ def enumerate_artefacts(
         ]
 
         _process_compliance_snapshots_of_artefact(
-            cfg_name=cfg_name,
             scan_config=scan_config,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
@@ -569,7 +549,6 @@ def enumerate_artefacts(
         )
 
     _process_inactive_compliance_snapshots(
-        cfg_name=cfg_name,
         scan_config=scan_config,
         namespace=namespace,
         kubernetes_api=kubernetes_api,

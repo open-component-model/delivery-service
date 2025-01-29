@@ -29,6 +29,7 @@ import k8s.backlog
 import k8s.model
 import k8s.util
 import middleware.auth
+import odg.scan_cfg
 import rescore.utility
 import rescore.model as rm
 import util
@@ -617,23 +618,9 @@ async def create_backlog_items_for_rescored_artefacts(
     kubernetes_api: k8s.util.KubernetesApi,
     db_session: sqlasync.session.AsyncSession,
     rescorings: collections.abc.Iterable[dso.model.ComponentArtefactId],
-    scan_config_name: str=None,
 ):
-    if not scan_config_name:
-        scan_configs = k8s.util.iter_scan_configurations(
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-        )
-
-        # only if there is one scan config we can assume for sure that this config should be used
-        if len(scan_configs) != 1:
-            return
-
-        scan_config_name = scan_configs[0].name
-
     db_statement = sa.select(dm.ArtefactMetaData).where(
         dm.ArtefactMetaData.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
-        dm.ArtefactMetaData.cfg_name == scan_config_name,
     )
     db_stream = await db_session.stream(db_statement)
 
@@ -655,8 +642,7 @@ async def create_backlog_items_for_rescored_artefacts(
 
     for artefact in artefacts:
         k8s.backlog.create_backlog_item(
-            service=config.Services.ISSUE_REPLICATOR,
-            cfg_name=scan_config_name,
+            service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
             artefact=artefact,
@@ -677,10 +663,6 @@ class Rescore(aiohttp.web.View):
         tags:
         - Rescoring
         parameters:
-        - in: query
-          name: scanConfigName
-          type: string
-          required: false
         - in: body
           name: body
           required: false
@@ -695,15 +677,11 @@ class Rescore(aiohttp.web.View):
           "201":
             description: Successful operation.
         '''
-        params = self.request.rel_url.query
-
         body = await self.request.json()
         rescorings_raw: list[dict] = body.get('entries')
 
         user: middleware.auth.GithubUser = self.request[consts.REQUEST_GITHUB_USER]
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
-
-        scan_config_name = util.param(params, 'scanConfigName')
 
         def iter_rescorings(
             rescorings_raw: list[dict],
@@ -746,7 +724,6 @@ class Rescore(aiohttp.web.View):
             kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
             db_session=db_session,
             rescorings=rescorings,
-            scan_config_name=scan_config_name,
         )
 
         return aiohttp.web.Response(
@@ -952,10 +929,6 @@ class Rescore(aiohttp.web.View):
           items:
             type: string
           required: true
-        - in: query
-          name: scanConfigName
-          type: string
-          required: false
         responses:
           "204":
             description: Successful operation.
@@ -963,7 +936,6 @@ class Rescore(aiohttp.web.View):
         params = self.request.rel_url.query
 
         ids = params.getall('id')
-        scan_config_name = util.param(params, 'scanConfigName')
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
@@ -992,7 +964,6 @@ class Rescore(aiohttp.web.View):
             kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
             db_session=db_session,
             rescorings=rescorings,
-            scan_config_name=scan_config_name,
         )
 
         return aiohttp.web.Response(

@@ -17,9 +17,9 @@ import dso.model
 import github.compliance.model as gcm
 import ocm
 
-import config
 import ctx_util
 import k8s.model
+import odg.scan_cfg
 import secret_mgmt
 import secret_mgmt.kubernetes
 
@@ -112,8 +112,7 @@ def label_is_true(label: str):
 
 
 def scale_replica_set(
-    service: config.Services,
-    cfg_name: str,
+    service: odg.scan_cfg.Services,
     namespace: str,
     kubernetes_api: KubernetesApi,
     desired_replicas: int,
@@ -121,7 +120,7 @@ def scale_replica_set(
     retry_count: int=0,
 ):
     name = generate_kubernetes_name(
-        name_parts=(service, cfg_name),
+        name_parts=(service,),
         generate_num_suffix=False,
     )
     replica_set = kubernetes_api.apps_kubernetes_api.read_namespaced_replica_set(
@@ -163,7 +162,6 @@ def scale_replica_set(
         time.sleep(retry_interval)
         return scale_replica_set(
             service=service,
-            cfg_name=cfg_name,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
             desired_replicas=desired_replicas,
