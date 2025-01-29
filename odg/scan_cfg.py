@@ -202,26 +202,19 @@ class BDBAConfig(BacklogItemMixins):
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for BDBA scans, {supported_artefact_kinds=}'
+                )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{access_type=} is not supported for BDBA scans, {supported_access_types=}'
+                )
 
-        if is_supported:
-            return True
-
-        error_msg = (
-            f'{artefact_kind=} and/or {access_type=} are/is not supported '
-            f'({supported_artefact_kinds=}; {supported_access_types=})'
-        )
-
-        if self.on_unsupported is WarningVerbosities.FAIL:
-            raise ValueError(error_msg)
-        elif self.on_unsupported is WarningVerbosities.WARNING:
-            logger.warning(error_msg)
-        elif self.on_unsupported is WarningVerbosities.IGNORE:
-            pass
-
-        return False
+        return is_supported
 
 
 @dataclasses.dataclass(frozen=True)
@@ -343,26 +336,20 @@ class ClamAVConfig(BacklogItemMixins):
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for ClamAV scans, '
+                    f'{supported_artefact_kinds=}'
+                )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{access_type=} is not supported for ClamAV scans, {supported_access_types=}'
+                )
 
-        if is_supported:
-            return True
-
-        error_msg = (
-            f'{artefact_kind=} and/or {access_type=} are/is not supported '
-            f'({supported_artefact_kinds=}; {supported_access_types=})'
-        )
-
-        if self.on_unsupported is WarningVerbosities.FAIL:
-            raise ValueError(error_msg)
-        elif self.on_unsupported is WarningVerbosities.WARNING:
-            logger.warning(error_msg)
-        elif self.on_unsupported is WarningVerbosities.IGNORE:
-            pass
-
-        return False
+        return is_supported
 
 
 @dataclasses.dataclass

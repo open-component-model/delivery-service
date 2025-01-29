@@ -1,10 +1,3 @@
-'''
-This module reads all Kubernetes CRDs of type "ScanConfiguration" and starts a
-separate thread for each of these configurations. Then it retrieves all artefacts
-of the specified components and types and updates their respective compliance
-snapshot in the delivery database. If certain changes apply to the compliance
-snapshots, a corresponding backlog item is created as a result.
-'''
 import argparse
 import atexit
 import collections
@@ -13,7 +6,6 @@ import datetime
 import hashlib
 import logging
 import os
-import threading
 
 import ci.log
 import cnudie.iter
@@ -22,14 +14,15 @@ import delivery.client
 import dso.model
 import ocm
 
-import config
 import ctx_util
 import k8s.backlog
 import k8s.logging
-import k8s.model
 import k8s.runtime_artefacts
 import k8s.util
 import lookups
+import odg.findings
+import odg.scan_cfg
+import paths
 
 
 logger = logging.getLogger(__name__)
@@ -38,34 +31,6 @@ k8s.logging.configure_kubernetes_logging()
 
 own_dir = os.path.abspath(os.path.dirname(__file__))
 default_cache_dir = os.path.join(own_dir, '.cache')
-
-
-def deserialise_scan_configurations(
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
-) -> collections.abc.Generator[tuple[str, config.ScanConfiguration, None, None]]:
-    scan_cfg_crds = kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(
-        group=k8s.model.ScanConfigurationCrd.DOMAIN,
-        version=k8s.model.ScanConfigurationCrd.VERSION,
-        plural=k8s.model.ScanConfigurationCrd.PLURAL_NAME,
-        namespace=namespace,
-    ).get('items')
-
-    for scan_cfg_crd in scan_cfg_crds:
-        if not (spec := scan_cfg_crd.get('spec')):
-            continue
-
-        cfg_name = scan_cfg_crd.get('metadata').get('name')
-
-        yield cfg_name, config.deserialise_scan_configuration(
-            spec_config=spec,
-            included_services=(
-                config.Services.ARTEFACT_ENUMERATOR,
-                config.Services.BDBA,
-                config.Services.ISSUE_REPLICATOR,
-                config.Services.CLAMAV,
-            ),
-        )
 
 
 def sprint_dates(
@@ -142,9 +107,7 @@ def create_compliance_snapshot(
 
 
 def _iter_ocm_artefacts(
-    components: tuple[config.Component],
-    artefact_types: tuple[str],
-    node_filter: collections.abc.Callable[[cnudie.iter.Node], bool],
+    components: collections.abc.Iterable[odg.scan_cfg.Component],
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:
@@ -171,15 +134,10 @@ def _iter_ocm_artefacts(
             else:
                 component = component_descriptor_lookup(component_id).component
 
-            # note: adjust node filter here once other artefacts become processable as well
             for artefact_node in cnudie.iter.iter(
                 component=component,
                 lookup=component_descriptor_lookup,
-                node_filter=lambda node: (
-                    cnudie.iter.Filter.resources(node) and
-                    node.artefact.type in artefact_types and
-                    node_filter(node)
-                ),
+                node_filter=cnudie.iter.Filter.artefacts,
             ):
                 yield dso.model.component_artefact_id_from_ocm(
                     component=artefact_node.component,
@@ -231,10 +189,9 @@ def _create_and_update_compliance_snapshots_of_artefact(
 
 
 def _calculate_backlog_item_priority(
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     compliance_snapshots: list[dso.model.ArtefactMetadata],
     interval: int,
-    status: dso.model.ComplianceSnapshotStatuses | str | int | None=None,
     now: datetime.datetime=datetime.datetime.now(),
 ) -> k8s.backlog.BacklogPriorities:
     '''
@@ -249,7 +206,7 @@ def _calculate_backlog_item_priority(
             service=service,
         )
 
-        if not current_state or (status and status != current_state.status):
+        if not current_state:
             priority = max(priority, k8s.backlog.BacklogPriorities.HIGH)
             # the priority won't change anymore in this loop -> early exit
             break
@@ -267,9 +224,8 @@ def _create_backlog_item(
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: dso.model.ComponentArtefactId,
     compliance_snapshots: list[dso.model.ArtefactMetadata],
-    service: config.Services,
+    service: odg.scan_cfg.Services,
     interval_seconds: int,
-    status: dso.model.ComplianceSnapshotStatuses | str | int | None=None,
     now: datetime.datetime=datetime.datetime.now(),
 ) -> tuple[list[dso.model.ArtefactMetadata], bool]:
     priority = _calculate_backlog_item_priority(
@@ -277,7 +233,6 @@ def _create_backlog_item(
         compliance_snapshots=compliance_snapshots,
         interval=interval_seconds,
         now=now,
-        status=status,
     )
 
     if not priority:
@@ -291,11 +246,10 @@ def _create_backlog_item(
     for compliance_snapshot in compliance_snapshots:
         compliance_snapshot.data.state.append(dso.model.ComplianceSnapshotState(
             timestamp=now,
-            status=status,
             service=service,
         ))
         compliance_snapshot.data.purge_old_states(
-            service=service
+            service=service,
         )
 
     was_created = k8s.backlog.create_unique_backlog_item(
@@ -311,19 +265,51 @@ def _create_backlog_item(
     return compliance_snapshots, True
 
 
+def _create_backlog_item_for_extension(
+    finding_cfgs: collections.abc.Iterable[odg.findings.Finding],
+    finding_types: collections.abc.Sequence[odg.findings.FindingType],
+    artefact: dso.model.ComponentArtefactId,
+    compliance_snapshots: list[dso.model.ArtefactMetadata],
+    service: odg.scan_cfg.Services,
+    interval_seconds: int,
+    namespace: str,
+    kubernetes_api: k8s.util.KubernetesApi,
+    now: datetime.datetime=datetime.datetime.now(),
+) -> tuple[list[dso.model.ArtefactMetadata], bool]:
+    if not any(
+        finding_cfg for finding_cfg in finding_cfgs
+        if (
+            finding_cfg.type in finding_types
+            and finding_cfg.matches(artefact)
+        )
+    ):
+        # findings are filtered out for this artefact anyways -> no need to create a BLI
+        return compliance_snapshots, False
+
+    return _create_backlog_item(
+        namespace=namespace,
+        kubernetes_api=kubernetes_api,
+        artefact=artefact,
+        compliance_snapshots=compliance_snapshots,
+        service=service,
+        interval_seconds=interval_seconds,
+        now=now,
+    )
+
+
 def _process_compliance_snapshots_of_artefact(
-    scan_config: config.ScanConfiguration,
+    scan_cfg: odg.scan_cfg.ScanConfiguration,
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     delivery_client: delivery.client.DeliveryServiceClient,
     artefact: dso.model.ComponentArtefactId,
     compliance_snapshots: list[dso.model.ArtefactMetadata],
     sprints: tuple[datetime.date],
-    types: tuple[dso.model.Datatype],
     now: datetime.datetime=datetime.datetime.now(),
     today: datetime.date=datetime.date.today(),
 ):
-    compliance_snapshots, update_is_required = _create_and_update_compliance_snapshots_of_artefact(
+    compliance_snapshots, metadata_update_required = _create_and_update_compliance_snapshots_of_artefact( # noqa: E501
         artefact=artefact,
         compliance_snapshots=compliance_snapshots,
         sprints=sprints,
@@ -331,49 +317,47 @@ def _process_compliance_snapshots_of_artefact(
         today=today,
     )
 
-    if scan_config.bdba_config:
-        compliance_snapshots, bdba_update_is_required = _create_backlog_item(
+    if scan_cfg.bdba and scan_cfg.bdba.is_supported(artefact_kind=artefact.artefact_kind):
+        compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
+            finding_cfgs=finding_cfgs,
+            finding_types=(odg.findings.FindingType.VULNERABILITY, odg.findings.FindingType.LICENSE),
+            artefact=artefact,
+            compliance_snapshots=compliance_snapshots,
+            service=odg.scan_cfg.Services.BDBA,
+            interval_seconds=scan_cfg.bdba.interval,
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+            now=now,
+        )
+        metadata_update_required |= snapshots_have_changed
+
+    if scan_cfg.clamav and scan_cfg.clamav.is_supported(artefact_kind=artefact.artefact_kind):
+        compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
+            finding_cfgs=finding_cfgs,
+            finding_types=(odg.findings.FindingType.MALWARE,),
+            artefact=artefact,
+            compliance_snapshots=compliance_snapshots,
+            service=odg.scan_cfg.Services.CLAMAV,
+            interval_seconds=scan_cfg.clamav.interval,
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+            now=now,
+        )
+        metadata_update_required |= snapshots_have_changed
+
+    if scan_cfg.issue_replicator:
+        compliance_snapshots, snapshots_have_changed = _create_backlog_item(
             namespace=namespace,
             kubernetes_api=kubernetes_api,
             artefact=artefact,
             compliance_snapshots=compliance_snapshots,
-            service=config.Services.BDBA,
-            interval_seconds=scan_config.bdba_config.rescan_interval,
+            service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
+            interval_seconds=scan_cfg.issue_replicator.interval,
             now=now,
         )
-        update_is_required |= bdba_update_is_required
+        metadata_update_required |= snapshots_have_changed
 
-    if scan_config.issue_replicator_config:
-        findings = delivery_client.query_metadata(
-            artefacts=(artefact,),
-            type=types,
-        )
-        compliance_snapshots, issue_update_is_required = _create_backlog_item(
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-            artefact=artefact,
-            compliance_snapshots=compliance_snapshots,
-            service=config.Services.ISSUE_REPLICATOR,
-            interval_seconds=scan_config.issue_replicator_config.replication_interval,
-            status=len(findings),
-            now=now,
-        )
-        update_is_required |= issue_update_is_required
-
-    if scan_config.clamav_config:
-        interval = scan_config.clamav_config.rescan_interval
-        compliance_snapshots, malware_update_is_required = _create_backlog_item(
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-            artefact=artefact,
-            compliance_snapshots=compliance_snapshots,
-            service=config.Services.CLAMAV,
-            interval_seconds=interval,
-            now=now,
-        )
-        update_is_required |= malware_update_is_required
-
-    if not update_is_required:
+    if not metadata_update_required:
         logger.info(
             f'{len(compliance_snapshots)} compliance snapshots did not change, '
             f'no need to update in delivery-db ({artefact=})'
@@ -387,7 +371,7 @@ def _process_compliance_snapshots_of_artefact(
 
 
 def _process_inactive_compliance_snapshots(
-    scan_config: config.ScanConfiguration,
+    scan_cfg: odg.scan_cfg.ScanConfiguration,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     delivery_client: delivery.client.DeliveryServiceClient,
@@ -416,18 +400,8 @@ def _process_inactive_compliance_snapshots(
                 current_general_state = compliance_snapshot.data.current_state()
                 update_is_required = True
 
-                if scan_config.issue_replicator_config:
-                    compliance_snapshot.data.state.append(dso.model.ComplianceSnapshotState(
-                        timestamp=now,
-                        status=0,
-                        service=config.Services.ISSUE_REPLICATOR,
-                    ))
-                    compliance_snapshot.data.purge_old_states(
-                        service=config.Services.ISSUE_REPLICATOR,
-                    )
-
             if now - current_general_state.timestamp >= datetime.timedelta(
-                seconds=scan_config.artefact_enumerator_config.compliance_snapshot_grace_period,
+                seconds=scan_cfg.artefact_enumerator.compliance_snapshot_grace_period,
             ):
                 deletable_compliance_snapshots.append(compliance_snapshot)
 
@@ -438,10 +412,10 @@ def _process_inactive_compliance_snapshots(
                 f'({artefact=})'
             )
 
-            if scan_config.issue_replicator_config:
+            if scan_cfg.issue_replicator:
                 priority = k8s.backlog.BacklogPriorities.HIGH
                 was_created = k8s.backlog.create_unique_backlog_item(
-                    service=config.Services.ISSUE_REPLICATOR,
+                    service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
                     namespace=namespace,
                     kubernetes_api=kubernetes_api,
                     artefact=artefact,
@@ -462,12 +436,12 @@ def _process_inactive_compliance_snapshots(
 
 
 def enumerate_artefacts(
-    scan_config: config.ScanConfiguration,
+    scan_cfg: odg.scan_cfg.ScanConfiguration,
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    types: tuple[dso.model.Datatype],
 ):
     '''
     Retrieves first of all the unique artefacts referenced by the configured components and the
@@ -484,7 +458,7 @@ def enumerate_artefacts(
     now = datetime.datetime.now()
     today = datetime.date.today()
 
-    time_range = scan_config.artefact_enumerator_config.sprints_time_range
+    time_range = scan_cfg.artefact_enumerator.sprints_relative_time_range
     logger.info(f'{time_range=}')
     sprints = tuple(
         date for date in sprint_dates(delivery_client=delivery_client)
@@ -493,9 +467,7 @@ def enumerate_artefacts(
     logger.info(f'{len(sprints)=}')
 
     ocm_artefacts = set(_iter_ocm_artefacts(
-        components=scan_config.artefact_enumerator_config.components,
-        artefact_types=scan_config.artefact_enumerator_config.artefact_types,
-        node_filter=scan_config.artefact_enumerator_config.node_filter,
+        components=scan_cfg.artefact_enumerator.components,
         delivery_client=delivery_client,
         component_descriptor_lookup=component_descriptor_lookup,
     ))
@@ -536,20 +508,20 @@ def enumerate_artefacts(
         ]
 
         _process_compliance_snapshots_of_artefact(
-            scan_config=scan_config,
+            scan_cfg=scan_cfg,
+            finding_cfgs=finding_cfgs,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
             delivery_client=delivery_client,
             artefact=artefact,
             compliance_snapshots=compliance_snapshots,
             sprints=sprints,
-            types=types,
             now=now,
             today=today,
         )
 
     _process_inactive_compliance_snapshots(
-        scan_config=scan_config,
+        scan_cfg=scan_cfg,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
         delivery_client=delivery_client,
@@ -577,6 +549,14 @@ def parse_args():
         '--k8s-namespace',
         help='specify kubernetes cluster namespace to interact with',
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
+    )
+    parser.add_argument(
+        '--scan-cfg-path',
+        help='path to the `scan_cfg.yaml` file that should be used',
+    )
+    parser.add_argument(
+        '--findings-cfg-path',
+        help='path to the `findings.yaml` file that should be used',
     )
     parser.add_argument(
         '--delivery-service-url',
@@ -613,58 +593,50 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=config.Services.ARTEFACT_ENUMERATOR,
+        service=odg.scan_cfg.Services.ARTEFACT_ENUMERATOR,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=config.Services.ARTEFACT_ENUMERATOR,
+        service=odg.scan_cfg.Services.ARTEFACT_ENUMERATOR,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
-    scan_configs_for_cfg_name = deserialise_scan_configurations(
+    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
+        scan_cfg_path = paths.scan_cfg_path()
+
+    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
+
+    if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
+        findings_cfg_path = paths.findings_cfg_path()
+
+    finding_cfgs = odg.findings.Finding.from_file(findings_cfg_path)
+
+    if not (delivery_service_url := parsed_arguments.delivery_service_url):
+        delivery_service_url = scan_cfg.artefact_enumerator.delivery_service_url
+
+    delivery_client = delivery.client.DeliveryServiceClient(
+        routes=delivery.client.DeliveryServiceRoutes(
+            base_url=delivery_service_url,
+        ),
+        auth_token_lookup=lookups.github_auth_token_lookup,
+    )
+
+    component_descriptor_lookup = lookups.init_component_descriptor_lookup(
+        cache_dir=parsed_arguments.cache_dir,
+        delivery_client=delivery_client,
+    )
+
+    enumerate_artefacts(
+        scan_cfg=scan_cfg,
+        finding_cfgs=finding_cfgs,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
+        delivery_client=delivery_client,
+        component_descriptor_lookup=component_descriptor_lookup,
     )
-
-    types = (
-        dso.model.Datatype.VULNERABILITY,
-        dso.model.Datatype.LICENSE,
-        dso.model.Datatype.MALWARE_FINDING,
-    )
-
-    for cfg_name, scan_config in scan_configs_for_cfg_name:
-        if not (delivery_service_url := parsed_arguments.delivery_service_url):
-            delivery_service_url = scan_config.artefact_enumerator_config.delivery_service_url
-
-        delivery_client = delivery.client.DeliveryServiceClient(
-            routes=delivery.client.DeliveryServiceRoutes(
-                base_url=delivery_service_url,
-            ),
-            auth_token_lookup=lookups.github_auth_token_lookup,
-        )
-
-        component_descriptor_lookup = lookups.init_component_descriptor_lookup(
-            cache_dir=parsed_arguments.cache_dir,
-            delivery_client=delivery_client,
-        )
-
-        thread = threading.Thread(
-            target=enumerate_artefacts,
-            args=(
-                cfg_name,
-                scan_config,
-                namespace,
-                kubernetes_api,
-                delivery_client,
-                component_descriptor_lookup,
-                types,
-            ),
-        )
-        thread.name = cfg_name
-        thread.start()
 
 
 if __name__ == '__main__':

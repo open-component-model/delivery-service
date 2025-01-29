@@ -114,6 +114,11 @@ def scan(
         )
 
     if not bdba_cfg.is_supported(artefact_kind=artefact.artefact_kind):
+        if bdba_cfg.on_unsupported is odg.scan_cfg.WarningVerbosities.FAIL:
+            raise TypeError(
+                f'{artefact.artefact_kind} is not supported by the BDBA extension, maybe the filter '
+                'configurations have to be adjusted to filter out this artefact kind'
+            )
         return
 
     resource_node = k8s.util.get_ocm_node(
@@ -123,6 +128,11 @@ def scan(
     access = resource_node.resource.access
 
     if not bdba_cfg.is_supported(access_type=access.type):
+        if bdba_cfg.on_unsupported is odg.scan_cfg.WarningVerbosities.FAIL:
+            raise TypeError(
+                f'{access.type} is not supported by the BDBA extension, maybe the filter '
+                'configurations have to be adjusted to filter out this access type'
+            )
         return
 
     mapping = bdba_cfg.mapping(artefact.component_name)
