@@ -46,7 +46,6 @@ class ArtefactMetaData(Base):
     data_key = sa.Column(sa.CHAR(length=40))
     datasource = sa.Column(sa.String(length=64)) # bdba, checkmarx
 
-    cfg_name = sa.Column(sa.String(length=64)) # relevant for compliance snapshots
     referenced_type = sa.Column(sa.String(length=64)) # type of finding a rescoring applies to
 
     discovery_date = sa.Column(sa.Date)

@@ -33,11 +33,9 @@ def on_backlog_change(
     kubernetes_api: k8s.util.KubernetesApi,
 ):
     service = metadata.get('labels').get(k8s.model.LABEL_SERVICE)
-    cfg_name = metadata.get('labels').get(k8s.model.LABEL_CFG_NAME)
 
     labels = {
         k8s.model.LABEL_SERVICE: service,
-        k8s.model.LABEL_CFG_NAME: cfg_name,
     }
     label_selector = k8s.util.create_label_selector(labels=labels)
 
@@ -106,7 +104,6 @@ def on_backlog_change(
 
     k8s.util.scale_replica_set(
         service=service,
-        cfg_name=cfg_name,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
         desired_replicas=desired_replicas,

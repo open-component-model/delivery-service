@@ -204,13 +204,11 @@ class ScanConfigurations(aiohttp.web.View):
 
 def iter_backlog_items(
     service: str,
-    cfg_name: str,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
 ) -> collections.abc.Generator[dict, None, None]:
     labels = {
         k8s.model.LABEL_SERVICE: service,
-        k8s.model.LABEL_CFG_NAME: cfg_name,
     }
     label_selector = k8s.util.create_label_selector(labels=labels)
 
@@ -253,10 +251,6 @@ class BacklogItems(aiohttp.web.View):
           name: service
           type: string
           required: true
-        - in: query
-          name: cfg_name
-          type: string
-          required: true
         responses:
           "200":
             description: Successful operation.
@@ -268,12 +262,10 @@ class BacklogItems(aiohttp.web.View):
         params = self.request.rel_url.query
 
         service = util.param(params, 'service', required=True)
-        cfg_name = util.param(params, 'cfg_name', required=True)
 
         return aiohttp.web.json_response(
             data=tuple(iter_backlog_items(
                 service=service,
-                cfg_name=cfg_name,
                 namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                 kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
             )),
@@ -337,10 +329,6 @@ class BacklogItems(aiohttp.web.View):
           type: string
           required: true
         - in: query
-          name: cfg_name
-          type: string
-          required: true
-        - in: query
           name: priority
           type: string
           enum:
@@ -370,7 +358,6 @@ class BacklogItems(aiohttp.web.View):
         params = self.request.rel_url.query
 
         service = util.param(params, 'service', required=True)
-        cfg_name = util.param(params, 'cfg_name', required=True)
         priority_str = util.param(
             params=params,
             name='priority',
@@ -389,7 +376,6 @@ class BacklogItems(aiohttp.web.View):
 
             k8s.backlog.create_backlog_item(
                 service=service,
-                cfg_name=cfg_name,
                 namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                 kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
                 artefact=artefact,

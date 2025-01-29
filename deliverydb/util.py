@@ -38,7 +38,6 @@ def to_db_artefact_metadata(
     else:
         data_key = None
 
-    cfg_name = data.cfg_name if hasattr(data, 'cfg_name') else None
     referenced_type = data.referenced_type if hasattr(data, 'referenced_type') else None
 
     meta_raw = dataclasses.asdict(
@@ -61,7 +60,6 @@ def to_db_artefact_metadata(
         data_key=data_key,
         meta=meta_raw,
         datasource=meta.datasource,
-        cfg_name=cfg_name,
         referenced_type=referenced_type,
         creation_date=meta.creation_date,
         discovery_date=artefact_metadata.discovery_date,

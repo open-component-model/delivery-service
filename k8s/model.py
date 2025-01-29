@@ -6,7 +6,6 @@ import kubernetes.client
 
 DOMAIN = 'delivery-gear.gardener.cloud'
 LABEL_SERVICE = f'{DOMAIN}/service'
-LABEL_CFG_NAME = f'{DOMAIN}/cfg-name'
 
 
 @dataclasses.dataclass(frozen=True)
