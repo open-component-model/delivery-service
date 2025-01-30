@@ -25,6 +25,8 @@ import k8s.util
 import lookups
 import middleware.auth
 import middleware.db_session
+import odg.findings
+import odg.scan_cfg
 import paths
 import secret_mgmt
 import secret_mgmt.oauth_cfg
@@ -290,6 +292,12 @@ class FeatureDeliveryDB(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
+class FeatureFindingConfigurations(FeatureBase):
+    name: str = 'finding-configurations'
+    finding_cfgs: list[odg.findings.Finding] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass(frozen=True)
 class FeatureTests(FeatureBase):
     name: str = 'tests'
     components_with_tests: tuple[ComponentWithDownloadableTestResults] = tuple()
@@ -405,6 +413,21 @@ class FeatureRescoring(FeatureBase):
             ):
                 return rs
         return None
+
+
+@dataclasses.dataclass(frozen=True)
+class FeatureScanConfiguration(FeatureBase):
+    name: str = 'scan-configuration'
+    scan_cfg: odg.scan_cfg.ScanConfiguration | None = None
+
+    def serialize(self) -> dict[str, any]:
+        return {
+            'state': self.state,
+            'name': self.name,
+            'scan_cfg': util.purge_callables_from_dict(
+                data=util.dict_serialisation(self.scan_cfg),
+            ),
+        }
 
 
 @dataclasses.dataclass(frozen=True)
@@ -779,8 +802,30 @@ def apply_raw_cfg():
     global feature_cfgs
     raw = ci.util.parse_yaml_file(paths.features_cfg_path())
     for cfg in deserialise_cfg(raw):
+        # remove previous feature cfg of the type and instead add new one as it might have changed
         feature_cfgs = [f for f in feature_cfgs if type(f) is not type(cfg)]
         feature_cfgs.append(cfg)
+
+    if scan_cfg_path := paths.scan_cfg_path(absent_ok=True):
+        scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
+        scan_cfg_feature = FeatureScanConfiguration(FeatureStates.AVAILABLE, scan_cfg=scan_cfg)
+    else:
+        scan_cfg_feature = FeatureScanConfiguration(FeatureStates.UNAVAILABLE)
+
+    feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureScanConfiguration)]
+    feature_cfgs.append(scan_cfg_feature)
+
+    if findings_cfg_path := paths.findings_cfg_path(absent_ok=True):
+        finding_cfgs = odg.findings.Finding.from_file(findings_cfg_path)
+        finding_cfgs_feature = FeatureFindingConfigurations(
+            state=FeatureStates.AVAILABLE,
+            finding_cfgs=finding_cfgs,
+        )
+    else:
+        finding_cfgs_feature = FeatureFindingConfigurations(FeatureStates.UNAVAILABLE)
+
+    feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureFindingConfigurations)]
+    feature_cfgs.append(finding_cfgs_feature)
 
 
 class CfgFileChangeEventHandler(watchdog.events.FileSystemEventHandler):
@@ -870,6 +915,12 @@ async def init_features(
 
     event_handler = CfgFileChangeEventHandler()
     watch_for_file_changes(event_handler, paths.features_cfg_path())
+
+    if scan_cfg_path := paths.scan_cfg_path(absent_ok=True):
+        watch_for_file_changes(event_handler, scan_cfg_path)
+    if findings_cfg_path := paths.findings_cfg_path(absent_ok=True):
+        watch_for_file_changes(event_handler, findings_cfg_path)
+
     apply_raw_cfg()
 
     return middlewares

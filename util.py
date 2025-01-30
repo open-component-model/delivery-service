@@ -34,6 +34,24 @@ def normalise_url_to_second_and_tld(url: str):
     return '.'.join(parts).lower()
 
 
+def purge_callables_from_dict(data) -> dict:
+    if isinstance(data, str):
+        return data
+    elif isinstance(data, dict):
+        return dict(
+            (k, purge_callables_from_dict(v))
+            for k, v in data.items()
+            if not isinstance(v, collections.abc.Callable)
+        )
+    elif isinstance(data, collections.abc.Iterable):
+        return [
+            purge_callables_from_dict(o)
+            for o in data
+            if not isinstance(o, collections.abc.Callable)
+        ]
+    return data
+
+
 def dict_serialisation(data) -> dict:
     if isinstance(data, enum.Enum):
         return data.value
