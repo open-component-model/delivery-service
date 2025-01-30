@@ -21,7 +21,6 @@ import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import delivery.model
-import dso.labels
 import dso.model
 import github.compliance.issue as gci
 import github.compliance.milestone as gcmi
@@ -415,21 +414,7 @@ def _vulnerability_template_vars(
             ),
         )
 
-        rescore_label = ocm_node.artefact.find_label(
-            name=dso.labels.CveCategorisationLabel.name,
-        )
-        if not rescore_label:
-            rescore_label = ocm_node.component.find_label(
-                name=dso.labels.CveCategorisationLabel.name,
-            )
-
-        if rescore_label:
-            rescore_label: dso.labels.CveCategorisationLabel = dso.labels.deserialise_label(
-                label=rescore_label,
-            )
-            cve_categorisation = rescore_label.value
-        else:
-            cve_categorisation = None
+        cve_categorisation = rescore.utility.find_cve_categorisation(ocm_node)
 
         summary += (
             '\n| Affected Package | CVE | CVE Score | Severity | Rescoring Suggestion | Package Version(s) |' # noqa: E501
