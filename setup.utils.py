@@ -22,7 +22,6 @@ def modules():
     return [
         'bdba.model',
         'config',
-        'config_filter',
         'consts',
         'ctx_util',
         'lookups',
