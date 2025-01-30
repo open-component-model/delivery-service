@@ -553,10 +553,15 @@ class ScanConfiguration:
 
     @staticmethod
     def from_dict(scan_configuration_raw: dict) -> typing.Self:
+        '''
+        Mixes-in properties of `defaults` into extension specific configuration. Extensions
+        configured as `None` or an empty object will also be consider as "active" in case they don't
+        require any configuration to be provided.
+        '''
         # mix-in default values in extension-specific ones
         defaults = scan_configuration_raw.get('defaults', {})
         for extension, extension_cfg in scan_configuration_raw.items():
-            scan_configuration_raw[extension] = defaults | extension_cfg
+            scan_configuration_raw[extension] = defaults | (extension_cfg or {})
 
         return dacite.from_dict(
             data_class=ScanConfiguration,

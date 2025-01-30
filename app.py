@@ -150,6 +150,9 @@ def add_app_context_vars(
         features.FeatureTests,
     ).get_component_with_tests
 
+    finding_cfgs = features.get_feature(features.FeatureFindingConfigurations).finding_cfgs
+    scan_cfg = features.get_feature(features.FeatureScanConfiguration).scan_cfg
+
     rescoring_feature = features.get_feature(features.FeatureRescoring)
     rescoring_rule_set_lookup = rescoring_feature.find_rule_set
     default_rule_set_for_type_callback = lambda rule_set_type: (
@@ -206,12 +209,14 @@ def add_app_context_vars(
     app[consts.APP_RESCORING_RULE_SET_LOOKUP] = rescoring_rule_set_lookup
     app[consts.APP_DEFAULT_RULE_SET_FOR_TYPE_CALLBACK] = default_rule_set_for_type_callback
     app[consts.APP_EOL_CLIENT] = eol.EolClient()
+    app[consts.APP_FINDING_CFGS] = finding_cfgs
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup
     app[consts.APP_GITHUB_REPO_LOOKUP] = github_repo_lookup
     app[consts.APP_INVALID_SEMVER_OK] = parsed_arguments.invalid_semver_ok
     app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
     app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
     app[consts.APP_OCI_CLIENT] = oci_client
+    app[consts.APP_SCAN_CFG] = scan_cfg
     app[consts.APP_SECRET_FACTORY] = secret_factory
     app[consts.APP_SERVICE_EXTENSIONS_CALLBACK] = service_extensions_callback
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
