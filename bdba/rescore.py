@@ -1,8 +1,6 @@
 import logging
 
 import cnudie.iter
-import dso.cvss
-import dso.labels
 import dso.model
 
 import bdba.client
@@ -11,21 +9,6 @@ import odg.findings
 import rescore.utility as ru
 
 logger = logging.getLogger(__name__)
-
-
-def cve_categorisation(
-    resource_node: cnudie.iter.ResourceNode,
-) -> dso.cvss.CveCategorisation | None:
-    label_name = dso.labels.CveCategorisationLabel.name
-    label = resource_node.resource.find_label(name=label_name)
-    if not label:
-        # fallback to component
-        label = resource_node.component.find_label(name=label_name)
-
-    if not label:
-        return None
-
-    return dso.labels.deserialise_label(label).value
 
 
 def rescore(
@@ -43,7 +26,7 @@ def rescore(
     if not vulnerability_cfg.rescoring_ruleset:
         return False
 
-    if not (cve_category := cve_categorisation(resource_node=scanned_element)):
+    if not (cve_categorisation := ru.find_cve_categorisation(scanned_element)):
         return False
 
     artefact = dso.model.component_artefact_id_from_ocm(
@@ -92,7 +75,7 @@ def rescore(
 
             matching_rules = ru.matching_rescore_rules(
                 rescoring_rules=vulnerability_cfg.rescoring_ruleset.rules,
-                categorisation=cve_category,
+                categorisation=cve_categorisation,
                 cvss=v.cvss,
             )
 

@@ -101,21 +101,6 @@ def _find_cve_rescoring_rule_set(
     )
 
 
-def _find_cve_label(
-    artefact_node: cnudie.iter.Node | cnudie.iter.ArtefactNode,
-) -> dso.cvss.CveCategorisation | None:
-    label_name = dso.labels.CveCategorisationLabel.name
-    artefact = artefact_node.artefact
-    component = artefact_node.component
-
-    if not (categorisation_label := artefact.find_label(label_name)):
-        if not (categorisation_label := component.find_label(label_name)):
-            return None
-
-    categorisation_label = dso.labels.deserialise_label(categorisation_label)
-    return categorisation_label.value
-
-
 async def _find_artefact_metadata(
     db_session: sqlasync.session.AsyncSession,
     artefact: dso.model.ComponentArtefactId,
@@ -847,7 +832,7 @@ class Rescore(aiohttp.web.View):
                     text=f'{artefact=}',
                 )
 
-            categorisation = _find_cve_label(artefact_node=artefact_node)
+            categorisation = rescore.utility.find_cve_categorisation(artefact_node)
         else:
             categorisation = None
 

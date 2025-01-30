@@ -3,8 +3,10 @@ import datetime
 import enum
 import re
 
-import dso.model
+import cnudie.iter
 import dso.cvss
+import dso.labels
+import dso.model
 
 import odg.findings
 import rescore.model
@@ -144,6 +146,18 @@ def rescorings_for_finding_by_specificity(
         ),
         reverse=True,
     ))
+
+
+def find_cve_categorisation(
+    artefact_node: cnudie.iter.Node | cnudie.iter.ArtefactNode,
+) -> dso.cvss.CveCategorisation | None:
+    label_name = dso.labels.CveCategorisationLabel.name
+
+    if not (categorisation_label := artefact_node.artefact.find_label(label_name)):
+        if not (categorisation_label := artefact_node.component.find_label(label_name)):
+            return None
+
+    return dso.labels.deserialise_label(categorisation_label).value
 
 
 def matching_rescore_rules(
