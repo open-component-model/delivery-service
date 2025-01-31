@@ -17,6 +17,7 @@ import tarutil
 
 import bdba.client
 import bdba.scanning
+import consts
 import ctx_util
 import deliverydb_cache.model as dcm
 import deliverydb_cache.util as dcu
@@ -350,7 +351,7 @@ def main():
 
         if not backlog_crd:
             ready_to_terminate = True
-            sleep_interval = 60
+            sleep_interval = consts.BACKLOG_ITEM_SLEEP_INTERVAL_SECONDS
             logger.info(f'no open backlog item found, will sleep for {sleep_interval} sec')
             time.sleep(sleep_interval)
             continue
