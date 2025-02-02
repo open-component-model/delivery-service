@@ -21,7 +21,6 @@ class ModelValidationError(ValueError):
 
 
 class FindingType(enum.StrEnum):
-    CRYPTO = 'finding/crypto'
     DIKI = 'finding/diki'
     LICENSE = 'finding/license'
     MALWARE = 'finding/malware'
