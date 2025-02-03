@@ -12,11 +12,7 @@ import dacite
 import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 
-import cnudie.iter
-import cnudie.iter_async
-import cnudie.retrieve_async
 import dso.cvss
-import dso.labels
 import dso.model
 import github.compliance.model as gcm
 
@@ -29,13 +25,12 @@ import k8s.backlog
 import k8s.model
 import k8s.util
 import middleware.auth
+import ocm_util
 import odg.scan_cfg
 import rescore.utility
 import rescore.model as rm
 import util
 import yp
-
-import ocm_util
 
 
 logger = logging.getLogger(__name__)
