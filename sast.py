@@ -152,7 +152,9 @@ def fetch_component_versions(
        - If no time range is specified, all versions are considered.
     3. If max_versions_limit is set, the versions are limited accordingly.
     '''
+    logger.info(f'Fetching versions for component: {component.component_name}')
     if component.version and component.max_versions_limit == 1:
+        logger.info(f'Using explicit version: {component.version}')
         return [component.version]
 
     versions = version_lookup(component.component_name)
@@ -182,6 +184,7 @@ def fetch_component_versions(
                 ).component
             ).date() <= start_date
         ]
+        logger.info(f'{len(versions)} versions found within timerange: {component.timerange_days}')
 
     if not component.max_versions_limit:
         return versions
