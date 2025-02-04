@@ -221,10 +221,9 @@ def delete_old_backup_versions(
     def oci_cfg_lookup(
         **kwargs,
     ):
-        creds = cfg_for_delete.credentials()
         return oci.auth.OciBasicAuthCredentials(
-            username=creds.username(),
-            password=creds.passwd(),
+            username=cfg_for_delete.username,
+            password=cfg_for_delete.password,
         )
 
     oci_client = oci.client.Client(
