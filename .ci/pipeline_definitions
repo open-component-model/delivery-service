@@ -22,54 +22,6 @@ delivery-service:
           prefix: ''
 
   jobs:
-    pull-request:
-      <<: *check-steps
-      traits:
-        pull-request: ~
-        component_descriptor:
-          ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
-
-    update-dependencies:
-      traits:
-        update_component_deps:
-          merge_policies:
-          - component_names:
-            - '^((?!github\.com/gardener/cc-utils).)*$' # everything except github.com/gardener/cc-utils
-            merge_mode: manual
-            merge_method: rebase
-          - component_names:
-            - 'github\.com/gardener/cc-utils'
-            merge_mode: auto_merge
-            merge_method: rebase
-        cronjob:
-          interval: 5m
-        component_descriptor:
-          ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
-
-    automatic-release:
-      steps:
-        trigger-release:
-          execute: trigger_release.py
-          inputs:
-            component_descriptor_dir: component_descriptor_dir
-          vars:
-            RELEASE_JOB_NAME: pipeline.variant("manual-release").job_name()
-            PIPELINE_NAME: pipeline_descriptor.get("name")
-          depends:
-            - component_descriptor
-      traits:
-        component_descriptor:
-          ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
-        notifications:
-          cicd-team:
-            on_error:
-              triggering_policy: only_first
-              recipients:
-                - email_addresses:
-                  - christian.cwienk@sap.com
-                  - philipp.heil@sap.com
-                  - j.brand@sap.com
-
     manual-release:
       steps:
         <<: *steps
@@ -81,28 +33,28 @@ delivery-service:
           inject_effective_version: True
         publish:
           dockerimages:
-            delivery-service: &delivery-service-image
+            delivery-service:
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/delivery-service
               dockerfile: Dockerfile.service
               tag_as_latest: True
               inputs:
                 steps:
                   build_python_packages: ~
-            extensions: &extensions-image
+            extensions:
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extensions
               dockerfile: Dockerfile.extensions
               tag_as_latest: True
               inputs:
                 steps:
                   build_python_packages: ~
-            extension-cache-manager: &extension-cache-manager-image
+            extension-cache-manager:
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-cache-manager
               dockerfile: Dockerfile.extensions.cache-manager
               tag_as_latest: True
               inputs:
                 steps:
                   build_python_packages: ~
-            extension-clamav: &extension-clamav-image
+            extension-clamav:
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-clamav
               dockerfile: Dockerfile.extensions.clamav
               tag_as_latest: True
@@ -174,35 +126,3 @@ delivery-service:
                 - setuptools
                 - pip
                 - distribution-package
-
-    head-update:
-      steps:
-        <<: *steps
-        build_python_packages:
-          output_dir: packages
-      traits:
-        version: ~
-        notifications:
-          default:
-            on_error:
-              triggering_policy: only_first
-        component_descriptor:
-          ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
-        publish:
-          dockerimages:
-            delivery-service:
-              <<: *delivery-service-image
-              tag_as_latest: False
-              image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/delivery-service
-            extensions:
-              <<: *extensions-image
-              tag_as_latest: False
-              image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/extensions
-            extension-cache-manager:
-              <<: *extension-cache-manager-image
-              tag_as_latest: False
-              image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/extension-cache-manager
-            extension-clamav:
-              <<: *extension-clamav-image
-              tag_as_latest: False
-              image: europe-docker.pkg.dev/gardener-project/snapshots/ocm-gear/extension-clamav
