@@ -1,4 +1,3 @@
-import dataclasses
 import functools
 import logging
 
@@ -136,10 +135,6 @@ class OsInfoRoutes(aiohttp.web.View):
             raise aiohttp.web.HTTPBadRequest(text=os_id)
 
         return aiohttp.web.json_response(
-            data=[
-                dataclasses.asdict(
-                    obj=release_info,
-                    dict_factory=util.dict_serialisation,
-                ) for release_info in release_infos
-            ],
+            data=release_infos,
+            dumps=util.dict_to_json_factory,
         )
