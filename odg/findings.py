@@ -21,9 +21,11 @@ class ModelValidationError(ValueError):
 
 
 class FindingType(enum.StrEnum):
+    CHECKMARX = 'codechecks/aggregated'
     DIKI = 'finding/diki'
     LICENSE = 'finding/license'
     MALWARE = 'finding/malware'
+    OS_IDS = 'os_ids'
     SAST = 'finding/sast'
     VULNERABILITY = 'finding/vulnerability'
 
