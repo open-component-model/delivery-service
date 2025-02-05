@@ -53,7 +53,6 @@ def parse_args():
     parser.add_argument('--port', default=5000, type=int)
     parser.add_argument('--max-workers', default=4, type=int)
     parser.add_argument('--shortcut-auth', action='store_true', default=False)
-    parser.add_argument('--delivery-db-cfg', default='internal')
     parser.add_argument('--delivery-db-url', default=None)
     parser.add_argument('--cache-dir', default=default_cache_dir)
     parser.add_argument(
