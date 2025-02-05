@@ -64,6 +64,9 @@
           - .*
 
 - type: finding/diki
+  filter:
+    - semantics: include
+      artefact_kind: runtime
   issues:
     enable_assignees: False
     enable_per_finding: True
@@ -77,3 +80,28 @@
     - name: HIGH
       value: 4
       allowed_processing_time: 30
+
+- type: codechecks/aggregated
+  issues:
+    enable_issues: False
+  categorisations:
+    - name: CLEAN
+      value: 0
+    - name: LOW
+      value: 1
+      exclude_from_reporting: True
+    - name: HIGH
+      value: 4
+
+- type: os_ids
+  issues:
+    enable_issues: False
+  categorisations:
+    - name: UNKNOWN
+      value: -1
+    - name: CLEAN
+      value: 0
+    - name: MEDIUM
+      value: 2
+    - name: CRITICAL
+      value: 8
