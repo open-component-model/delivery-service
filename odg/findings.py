@@ -179,6 +179,12 @@ class FindingFilter:
         def match_regexes(patterns: list[str], string: str) -> bool:
             if not patterns:
                 return True
+            if not string:
+                # considering the case there is only an "exclude" filter, then artefacts whose
+                # property is empty should not be filtered-out although the pattern would match;
+                # in contrast, when there is an "include" filter, then artefacts whose property is
+                # empty should also be included
+                return self.semantics is FindingFilterSemantics.INCLUDE
             return any(re.fullmatch(pattern, string, re.IGNORECASE) for pattern in patterns)
 
         if not match_regexes(self.component_name, artefact.component_name):
