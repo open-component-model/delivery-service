@@ -99,7 +99,7 @@ def create_missing_linter_finding(
         artefact=artefact,
         meta=dso.model.Metadata(
             datasource=dso.model.Datasource.SAST_LINT_CHECK,
-            type=dso.model.Datatype.SAST_FINDING,
+            type=odg.findings.FindingType.SAST,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
         ),
