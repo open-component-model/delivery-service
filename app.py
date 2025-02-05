@@ -164,9 +164,9 @@ def add_app_context_vars(
         )
     )
 
-    service_extensions_feature = features.get_feature(features.FeatureServiceExtensions)
-    kubernetes_api_callback = service_extensions_feature.get_kubernetes_api
-    namespace_callback = service_extensions_feature.get_namespace
+    cluster_access_feature = features.get_feature(features.FeatureClusterAccess)
+    kubernetes_api_callback = cluster_access_feature.get_kubernetes_api
+    namespace_callback = cluster_access_feature.get_namespace
 
     special_component_callback = features.get_feature(
         features.FeatureSpecialComponents,

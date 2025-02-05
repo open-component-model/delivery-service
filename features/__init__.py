@@ -277,6 +277,26 @@ class FeatureAuthentication(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
+class FeatureClusterAccess(FeatureBase):
+    name: str = 'cluster-access'
+    namespace: str = None
+    kubernetes_cfg_name: str = None
+    kubeconfig_path: str = None
+
+    def get_namespace(self) -> str:
+        return self.namespace
+
+    @functools.cache
+    def get_kubernetes_api(self) -> str:
+        if not self.kubernetes_cfg_name:
+            return k8s.util.kubernetes_api(kubeconfig_path=self.kubeconfig_path)
+
+        secret_factory = ctx_util.secret_factory()
+        kubernetes_cfg = secret_factory.kubernetes(self.kubernetes_cfg_name)
+        return k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
+
+
+@dataclasses.dataclass(frozen=True)
 class FeatureDeliveryDB(FeatureBase):
     name: str = 'delivery-db'
     db_url: str = None
@@ -338,26 +358,6 @@ class FeatureRepoContexts(FeatureBase):
                 'repoContexts': list(self.get_ocm_repos()),
             },
         }
-
-
-@dataclasses.dataclass(frozen=True)
-class FeatureServiceExtensions(FeatureBase):
-    name: str = 'service-extensions'
-    namespace: str = None
-    kubernetes_cfg_name: str = None
-    kubeconfig_path: str = None
-
-    def get_namespace(self) -> str:
-        return self.namespace
-
-    @functools.cache
-    def get_kubernetes_api(self) -> str:
-        if not self.kubernetes_cfg_name:
-            return k8s.util.kubernetes_api(kubeconfig_path=self.kubeconfig_path)
-
-        secret_factory = ctx_util.secret_factory()
-        kubernetes_cfg = secret_factory.kubernetes(self.kubernetes_cfg_name)
-        return k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -881,7 +881,7 @@ async def init_features(
 
     feature_cfgs.append(FeatureDeliveryDB(delivery_db_feature_state, db_url=db_url))
 
-    extension_feature = FeatureServiceExtensions(FeatureStates.UNAVAILABLE)
+    cluster_access_feature = FeatureClusterAccess(FeatureStates.UNAVAILABLE)
     if not (k8s_cfg_name := parsed_arguments.k8s_cfg_name):
         k8s_cfg_name = os.environ.get('K8S_CFG_NAME')
 
@@ -889,7 +889,7 @@ async def init_features(
         k8s_namespace = os.environ.get('K8S_TARGET_NAMESPACE')
 
     if k8s_namespace:
-        extension_feature = FeatureServiceExtensions(
+        cluster_access_feature = FeatureClusterAccess(
             state=FeatureStates.AVAILABLE,
             namespace=k8s_namespace,
             kubernetes_cfg_name=k8s_cfg_name,
@@ -897,11 +897,11 @@ async def init_features(
         )
     else:
         logger.warning(
-            'required cfgs for service-extension feature missing, will be disabled; '
+            'required cfgs for cluster access feature missing, will be disabled; '
             f'{k8s_cfg_name=}, {k8s_namespace=}'
         )
 
-    feature_cfgs.append(extension_feature)
+    feature_cfgs.append(cluster_access_feature)
 
     event_handler = CfgFileChangeEventHandler()
     watch_for_file_changes(event_handler, paths.features_cfg_path())

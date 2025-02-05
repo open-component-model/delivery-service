@@ -36,7 +36,7 @@ def iter_container_statuses(
 
 
 class ContainerStatuses(aiohttp.web.View):
-    required_features = (features.FeatureServiceExtensions,)
+    required_features = (features.FeatureClusterAccess,)
 
     async def get(self):
         '''
@@ -103,7 +103,7 @@ def iter_log_collections(
 
 
 class LogCollections(aiohttp.web.View):
-    required_features = (features.FeatureServiceExtensions,)
+    required_features = (features.FeatureClusterAccess,)
 
     async def get(self):
         '''
@@ -157,7 +157,7 @@ class LogCollections(aiohttp.web.View):
 
 
 class ServiceExtensions(aiohttp.web.View):
-    required_features = (features.FeatureServiceExtensions,)
+    required_features = (features.FeatureClusterAccess,)
 
     async def get(self):
         '''
@@ -182,7 +182,7 @@ class ServiceExtensions(aiohttp.web.View):
 
 
 class ScanConfigurations(aiohttp.web.View):
-    required_features = (features.FeatureServiceExtensions,)
+    required_features = (features.FeatureKubernetes,)
 
     async def get(self):
         '''
@@ -240,7 +240,7 @@ def iter_backlog_items(
 
 
 class BacklogItems(aiohttp.web.View):
-    required_features = (features.FeatureServiceExtensions,)
+    required_features = (features.FeatureClusterAccess,)
 
     async def options(self):
         return aiohttp.web.Response()
@@ -455,7 +455,7 @@ def iter_runtime_artefacts(
 
 
 class RuntimeArtefacts(aiohttp.web.View):
-    required_features = (features.FeatureServiceExtensions,)
+    required_features = (features.FeatureClusterAccess,)
 
     async def options(self):
         return aiohttp.web.Response()
