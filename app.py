@@ -62,7 +62,6 @@ def parse_args():
         default=False,
         help='whether to raise on invalid (semver) version when resolving greatest version',
     )
-    parser.add_argument('--service-extensions', nargs='*')
     parser.add_argument(
         '--k8s-cfg-name',
         help='specify kubernetes cluster to interact with extensions (and logs)',
@@ -168,7 +167,6 @@ def add_app_context_vars(
     service_extensions_feature = features.get_feature(features.FeatureServiceExtensions)
     kubernetes_api_callback = service_extensions_feature.get_kubernetes_api
     namespace_callback = service_extensions_feature.get_namespace
-    service_extensions_callback = service_extensions_feature.get_services
 
     special_component_callback = features.get_feature(
         features.FeatureSpecialComponents,
@@ -218,7 +216,6 @@ def add_app_context_vars(
     app[consts.APP_OCI_CLIENT] = oci_client
     app[consts.APP_SCAN_CFG] = scan_cfg
     app[consts.APP_SECRET_FACTORY] = secret_factory
-    app[consts.APP_SERVICE_EXTENSIONS_CALLBACK] = service_extensions_callback
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
     app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK] = sprint_date_display_name_callback
     app[consts.APP_SPRINTS] = sprints
