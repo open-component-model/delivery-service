@@ -218,7 +218,11 @@ class ResourceGroupProcessor:
                 client=self.bdba_client,
             )
 
-        if vulnerability_cfg and vulnerability_cfg:
+        if scan_request.skip_vulnerability_scan:
+            logger.info('skipping vulnerabilities due to skip-scan label')
+            vulnerability_cfg = None
+
+        if vulnerability_cfg:
             refetching_required = bdba.rescore.rescore(
                 bdba_client=self.bdba_client,
                 scan_result=scan_result,
