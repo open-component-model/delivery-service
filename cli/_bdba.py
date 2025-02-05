@@ -2,7 +2,6 @@ import collections.abc
 import dataclasses
 import itertools
 import logging
-import os
 import pprint
 
 import tabulate
@@ -10,7 +9,6 @@ import tabulate
 import ci.util
 import cnudie.access
 import cnudie.iter
-import dso.cvss
 import dso.model
 import oci
 import ocm
@@ -22,8 +20,6 @@ import bdba.scanning
 import ctx_util
 import lookups
 import ocm_util
-import rescore.utility as ru
-import rescore.model as rm
 
 
 __cmd_name__ = 'bdba'
@@ -74,115 +70,6 @@ def ls_products(
 
         for app in client.list_apps(group_id=group_id, custom_attribs=metadata):
             print(app.product_id)
-
-
-def rescore(
-    bdba_cfg_name: str,
-    product_id: int,
-    categorisation: str,
-    rescoring_rules: str,
-    assess: bool=False,
-):
-    client = bdba.client.client(bdba_cfg_name)
-
-    if not os.path.isfile(categorisation):
-        print(f'{categorisation} must point to an existing file w/ CveCategorisation')
-        exit(1)
-
-    if not os.path.isfile(rescoring_rules):
-        print(f'{rescoring_rules} must point to an existing file w/ RescoringRules')
-        exit(1)
-
-    logger.info(f'retrieving bdba {product_id=}')
-    result = client.scan_result(product_id=product_id)
-
-    categorisation = dso.cvss.CveCategorisation.from_dict(
-        ci.util.parse_yaml_file(categorisation),
-    )
-
-    rescoring_rules = tuple(
-        rm.cve_rescoring_rules_from_dicts(
-            ci.util.parse_yaml_file(rescoring_rules)
-        )
-    )
-
-    components_with_vulnerabilities = [c for c in result.components if tuple(c.vulnerabilities)]
-
-    logger.info(f'{len(result.components)=}, {len(components_with_vulnerabilities)=}')
-
-    components_with_vulnerabilities = sorted(
-        components_with_vulnerabilities,
-        key=lambda c: c.name,
-    )
-
-    total_vulns = 0
-    total_rescored = 0
-
-    for c in components_with_vulnerabilities:
-        vulns_count = 0
-        rescored_count = 0
-        vulns_to_assess = []
-        printed_cname = False
-
-        for v in c.vulnerabilities:
-            if v.historical:
-                continue
-            if v.has_triage:
-                continue
-
-            vulns_count += 1
-
-            if not v.cvss:
-                continue # happens if only cvss-v2 is available - ignore for now
-
-            rules = tuple(ru.matching_rescore_rules(
-                rescoring_rules=rescoring_rules,
-                categorisation=categorisation,
-                cvss=v.cvss,
-            ))
-            orig_severity = dso.cvss.CVESeverity.from_cve_score(v.cve_severity())
-            rescored = ru.rescore_severity(
-                rescoring_rules=rules,
-                severity=orig_severity,
-            )
-
-            if orig_severity is not rescored:
-                rescored_count += 1
-
-                if not printed_cname:
-                    print(f'{c.name}:{c.version}')
-                    printed_cname = True
-
-                print(f'  rescore {orig_severity.name} -> {rescored.name} - {v.cve}')
-                if assess and rescored is dso.cvss.CVESeverity.NONE:
-                    if not c.version:
-                        print(f'setting dummy-version for {c.name}')
-                        client.set_component_version(
-                            component_name=c.name,
-                            component_version='does-not-matter',
-                            objects=[eo.sha1 for eo in c.extended_objects],
-                            app_id=product_id,
-                        )
-                    else:
-                        vulns_to_assess.append(v)
-
-        if assess and vulns_to_assess:
-            client.add_triage_raw({
-                'component': c.name,
-                'version': c.version or 'does-not-matter',
-                'vulns': [v.cve for v in vulns_to_assess],
-                'scope': bdba.model.TriageScope.RESULT.value,
-                'reason': 'OT',
-                'description': 'assessed as irrelevant based on cve-categorisation',
-                'product_id': product_id,
-            })
-            print(f'auto-assessed {len(vulns_to_assess)=}')
-
-        total_vulns += vulns_count
-        total_rescored += rescored_count
-
-    print()
-    print(f'{total_vulns=}, {total_rescored=}')
 
 
 def scan(
