@@ -140,21 +140,22 @@ async def prefill_compliance_summary_cache(
     component_id: ocm.ComponentIdentity,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     eol_client: eol.EolClient,
-    finding_types: collections.abc.Sequence[str],
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     artefact_metadata_cfg_by_type: dict[str, compliance_summary.ArtefactMetadataCfg],
     db_session: sqlasync.session.AsyncSession,
 ):
     logger.info(f'Updating compliance summary for {component_id.name}:{component_id.version}')
 
-    for finding_type in finding_types:
+    for finding_cfg in finding_cfgs:
         await compliance_summary.component_datatype_summaries(
             component=component_id,
-            finding_type=finding_type,
-            datasource=dso.model.Datatype.datatype_to_datasource(finding_type),
+            finding_cfg=finding_cfg,
+            finding_type=finding_cfg.type,
+            datasource=dso.model.Datatype.datatype_to_datasource(finding_cfg.type),
             db_session=db_session,
             component_descriptor_lookup=component_descriptor_lookup,
             eol_client=eol_client,
-            artefact_metadata_cfg=artefact_metadata_cfg_by_type.get(finding_type),
+            artefact_metadata_cfg=artefact_metadata_cfg_by_type.get(finding_cfg.type),
         )
 
 
@@ -164,7 +165,7 @@ async def prefill_compliance_summary_caches(
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
     eol_client: eol.EolClient,
-    finding_types: collections.abc.Sequence[str],
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     artefact_metadata_cfg_by_type: dict[str, compliance_summary.ArtefactMetadataCfg],
     invalid_semver_ok: bool,
     db_session: sqlasync.session.AsyncSession,
@@ -211,7 +212,7 @@ async def prefill_compliance_summary_caches(
                     component_id=component_id,
                     component_descriptor_lookup=component_descriptor_lookup,
                     eol_client=eol_client,
-                    finding_types=finding_types,
+                    finding_cfgs=finding_cfgs,
                     artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
                     db_session=db_session,
                 )
@@ -238,7 +239,7 @@ async def prefill_function_caches(
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
     eol_client: eol.EolClient,
-    finding_types: collections.abc.Sequence[str],
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     artefact_metadata_cfg_by_type: dict[str, compliance_summary.ArtefactMetadataCfg],
     invalid_semver_ok: bool,
     db_session: sqlasync.session.AsyncSession,
@@ -254,7 +255,7 @@ async def prefill_function_caches(
                     version_lookup=version_lookup,
                     oci_client=oci_client,
                     eol_client=eol_client,
-                    finding_types=finding_types,
+                    finding_cfgs=finding_cfgs,
                     artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
                     invalid_semver_ok=invalid_semver_ok,
                     db_session=db_session,
@@ -349,7 +350,6 @@ async def main():
         findings_cfg_path = paths.findings_cfg_path()
 
     finding_cfgs = odg.findings.Finding.from_file(findings_cfg_path)
-    finding_types = [str(finding_cfg.type) for finding_cfg in finding_cfgs]
 
     delivery_db_secrets = secret_factory.delivery_db()
     if len(delivery_db_secrets) != 1:
@@ -397,7 +397,7 @@ async def main():
             version_lookup=version_lookup,
             oci_client=oci_client,
             eol_client=eol_client,
-            finding_types=finding_types,
+            finding_cfgs=finding_cfgs,
             artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
             invalid_semver_ok=parsed_arguments.invalid_semver_ok,
             db_session=db_session,

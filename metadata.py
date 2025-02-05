@@ -23,6 +23,7 @@ import deliverydb.util as du
 import deliverydb_cache.model as dcm
 import features
 import middleware.cors
+import odg.findings
 import util
 
 
@@ -591,6 +592,6 @@ async def _mark_compliance_summary_cache_for_deletion(
             db_session=db_session,
             defer_db_commit=True, # only commit at the end of the query
             component=component,
-            finding_type=datatype,
+            finding_type=odg.findings.FindingType(datatype),
             datasource=artefact_metadata.datasource,
         )

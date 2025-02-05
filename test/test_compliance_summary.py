@@ -7,6 +7,8 @@ import dso.model
 import unixutil.model
 
 import compliance_summary as cs
+import odg.findings
+import paths
 
 
 # surpress warnings due to unknown os-id
@@ -98,14 +100,19 @@ def component_artefact_id() -> dso.model.ComponentArtefactId:
 
 @pytest.mark.asyncio
 async def test_vulnerability(component_artefact_id):
-    type = 'finding/vulnerability'
     meta = dso.model.Metadata(
         datasource=None,
-        type=type,
+        type=odg.findings.FindingType.VULNERABILITY,
     )
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    finding_cfg = odg.findings.Finding.from_file(
+        path=paths.findings_cfg_path(),
+        finding_type=odg.findings.FindingType.VULNERABILITY,
+    )
+
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.VulnerabilityFinding(
@@ -121,11 +128,14 @@ async def test_vulnerability(component_artefact_id):
                 cvss=dict(),
                 summary=None,
             ),
-        ),
-    ) == cs.ComplianceEntrySeverity.CLEAN.name
+        )],
+        rescorings=[],
+        eol_client=None,
+    )).categorisation is cs.ComplianceEntryCategorisation.CLEAN
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.VulnerabilityFinding(
@@ -141,20 +151,27 @@ async def test_vulnerability(component_artefact_id):
                 cvss=dict(),
                 summary=None,
             ),
-        ),
-    ) == cs.ComplianceEntrySeverity.CRITICAL.name
+        )],
+        rescorings=[],
+        eol_client=None,
+    )).categorisation == 'CRITICAL'
 
 
 @pytest.mark.asyncio
 async def test_malware(component_artefact_id):
-    type = 'finding/malware'
     meta = dso.model.Metadata(
         datasource=None,
-        type=type,
+        type=odg.findings.FindingType.MALWARE,
     )
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    finding_cfg = odg.findings.Finding.from_file(
+        path=paths.findings_cfg_path(),
+        finding_type=odg.findings.FindingType.MALWARE,
+    )
+
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.ClamAVMalwareFinding(
@@ -171,11 +188,14 @@ async def test_malware(component_artefact_id):
                 signature_version=None,
                 freshclam_timestamp=None,
             ),
-        ),
-    ) == cs.ComplianceEntrySeverity.CLEAN.name
+        )],
+        rescorings=[],
+        eol_client=None,
+    )).categorisation is cs.ComplianceEntryCategorisation.CLEAN
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.ClamAVMalwareFinding(
@@ -192,8 +212,10 @@ async def test_malware(component_artefact_id):
                 signature_version=None,
                 freshclam_timestamp=None,
             ),
-        ),
-    ) == cs.ComplianceEntrySeverity.BLOCKER.name
+        )],
+        rescorings=[],
+        eol_client=None,
+    )).categorisation == 'BLOCKER'
 
 
 @pytest.mark.asyncio
@@ -202,26 +224,34 @@ async def test_os_id(
     artefact_metadata_cfg_by_type,
     component_artefact_id,
 ):
-    type = 'os_ids'
+    type = odg.findings.FindingType.OS_IDS
     meta = dso.model.Metadata(
         datasource=None,
         type=type,
     )
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    finding_cfg = odg.findings.Finding.from_file(
+        path=paths.findings_cfg_path(),
+        finding_type=type,
+    )
+
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.OsID(
                 os_info=unixutil.model.OperatingSystemId(),
             ),
-        ),
+        )],
+        rescorings=[],
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
-    ) == cs.ComplianceEntrySeverity.UNKNOWN.name
+    )).categorisation == 'UNKNOWN'
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.OsID(
@@ -230,13 +260,15 @@ async def test_os_id(
                     ID='fooOs',
                 ),
             ),
-        ),
+        )],
+        rescorings=[],
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
-    ) == cs.ComplianceEntrySeverity.MEDIUM.name
+    )).categorisation == 'MEDIUM'
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.OsID(
@@ -245,13 +277,15 @@ async def test_os_id(
                     ID='fooOs',
                 ),
             ),
-        ),
+        )],
+        rescorings=[],
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
-    ) == cs.ComplianceEntrySeverity.CLEAN.name
+    )).categorisation is cs.ComplianceEntryCategorisation.CLEAN
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.OsID(
@@ -260,13 +294,15 @@ async def test_os_id(
                     ID='fooOs',
                 ),
             ),
-        ),
+        )],
+        rescorings=[],
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
-    ) == cs.ComplianceEntrySeverity.CRITICAL.name
+    )).categorisation == 'CRITICAL'
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.OsID(
@@ -275,22 +311,28 @@ async def test_os_id(
                     ID='fooOs',
                 ),
             ),
-        ),
+        )],
+        rescorings=[],
         artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
         eol_client=eol_client,
-    ) == cs.ComplianceEntrySeverity.UNKNOWN.name
+    )).categorisation == 'UNKNOWN'
 
 
 @pytest.mark.asyncio
 async def test_licenses(component_artefact_id):
-    type = 'finding/license'
     meta = dso.model.Metadata(
         datasource=None,
-        type=type,
+        type=odg.findings.FindingType.LICENSE,
     )
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    finding_cfg = odg.findings.Finding.from_file(
+        path=paths.findings_cfg_path(),
+        finding_type=odg.findings.FindingType.LICENSE,
+    )
+
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.LicenseFinding(
@@ -303,11 +345,14 @@ async def test_licenses(component_artefact_id):
                 severity='NONE',
                 license=None,
             ),
-        ),
-    ) == cs.ComplianceEntrySeverity.CLEAN.name
+        )],
+        rescorings=[],
+        eol_client=None,
+    )).categorisation is cs.ComplianceEntryCategorisation.CLEAN
 
-    assert await cs.severity_for_finding(
-        finding=dso.model.ArtefactMetadata(
+    assert (await cs.calculate_summary_entry(
+        finding_cfg=finding_cfg,
+        findings=[dso.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
             data=dso.model.LicenseFinding(
@@ -320,5 +365,7 @@ async def test_licenses(component_artefact_id):
                 severity='BLOCKER',
                 license=None,
             ),
-        ),
-    ) == cs.ComplianceEntrySeverity.BLOCKER.name
+        )],
+        rescorings=[],
+        eol_client=None,
+    )).categorisation == 'BLOCKER'

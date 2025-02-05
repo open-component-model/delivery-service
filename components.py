@@ -22,7 +22,6 @@ import cnudie.iter_async
 import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
-import dso.model
 import github.util
 import oci.client_async
 import oci.model as om
@@ -1333,20 +1332,14 @@ class ComplianceSummary(aiohttp.web.View):
             async for component_node in components_dependencies
         ]
 
-        finding_types = (
-            dso.model.Datatype.LICENSE,
-            dso.model.Datatype.VULNERABILITY,
-            dso.model.Datatype.OS_IDS,
-            dso.model.Datatype.CODECHECKS_AGGREGATED,
-            dso.model.Datatype.MALWARE_FINDING,
-        )
+        finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
 
         shortcut_cache = deliverydb.cache.parse_shortcut_cache(self.request)
 
         compliance_summary = [
             await cs.component_compliance_summary(
                 component=component,
-                finding_types=finding_types,
+                finding_cfgs=finding_cfgs,
                 db_session=db_session,
                 component_descriptor_lookup=component_descriptor_lookup,
                 eol_client=eol_client,
