@@ -33,7 +33,6 @@ import middleware.route_feature_check as rfc
 import osinfo
 import paths
 import rescore.artefacts
-import rescore.model as rm
 import secret_mgmt
 import service_extensions
 import special_component
@@ -151,18 +150,6 @@ def add_app_context_vars(
     finding_cfgs = features.get_feature(features.FeatureFindingConfigurations).finding_cfgs
     scan_cfg = features.get_feature(features.FeatureScanConfiguration).scan_cfg
 
-    rescoring_feature = features.get_feature(features.FeatureRescoring)
-    rescoring_rule_set_lookup = rescoring_feature.find_rule_set
-    default_rule_set_for_type_callback = lambda rule_set_type: (
-        rm.find_default_rule_set_for_type_and_name(
-            default_rule_set_ref=rm.find_default_rule_set_for_type(
-                default_rule_sets=rescoring_feature.default_rule_sets,
-                rule_set_type=rule_set_type,
-            ),
-            rule_sets=rescoring_feature.rescoring_rule_sets,
-        )
-    )
-
     cluster_access_feature = features.get_feature(features.FeatureClusterAccess)
     kubernetes_api_callback = cluster_access_feature.get_kubernetes_api
     namespace_callback = cluster_access_feature.get_namespace
@@ -203,8 +190,6 @@ def add_app_context_vars(
     app[consts.APP_BASE_URL] = base_url
     app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP] = component_descriptor_lookup
     app[consts.APP_COMPONENT_WITH_TESTS_CALLBACK] = component_with_tests_callback
-    app[consts.APP_RESCORING_RULE_SET_LOOKUP] = rescoring_rule_set_lookup
-    app[consts.APP_DEFAULT_RULE_SET_FOR_TYPE_CALLBACK] = default_rule_set_for_type_callback
     app[consts.APP_EOL_CLIENT] = eol.EolClient()
     app[consts.APP_FINDING_CFGS] = finding_cfgs
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup

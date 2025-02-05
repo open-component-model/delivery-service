@@ -32,7 +32,6 @@ import secret_mgmt
 import secret_mgmt.oauth_cfg
 import secret_mgmt.signing_cfg
 import util
-import rescore.model as rm
 import yp
 
 
@@ -390,28 +389,6 @@ class FeatureSpecialComponents(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
-class FeatureRescoring(FeatureBase):
-    name: str = 'rescoring'
-    default_rule_sets: list[rm.DefaultRuleSet] = dataclasses.field(default_factory=list)
-    rescoring_rule_sets: list[rm.RuleSet] = dataclasses.field(default_factory=list)
-    cve_categorisation_label_url: str = None
-    cve_severity_url: str = None
-
-    def find_rule_set(
-        self,
-        name: str,
-        rule_set_type: rm.RuleSetType,
-    ) -> rm.RuleSet | None:
-        for rs in self.rescoring_rule_sets:
-            if (
-                rs.name == name
-                and rs.type is rule_set_type
-            ):
-                return rs
-        return None
-
-
-@dataclasses.dataclass(frozen=True)
 class FeatureScanConfiguration(FeatureBase):
     name: str = 'scan-configuration'
     scan_cfg: odg.scan_cfg.ScanConfiguration | None = None
@@ -605,39 +582,6 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
     )
 
 
-def deserialise_rescoring(rescoring_raw: dict) -> FeatureRescoring:
-    cve_rescoring_rule_sets = rm.deserialise_rule_sets(
-        rescoring_cfg_raw=rescoring_raw,
-        rule_set_type=rm.RuleSetType.CVE,
-        rule_set_ctor=rm.CveRescoringRuleSet,
-        rules_from_dict=rm.cve_rescoring_rules_from_dicts,
-    )
-    sast_rescoring_rule_sets = rm.deserialise_rule_sets(
-        rescoring_cfg_raw=rescoring_raw,
-        rule_set_type=rm.RuleSetType.SAST,
-        rule_set_ctor=rm.SastRescoringRuleSet,
-        rules_from_dict=rm.sast_rescoring_rules_from_dict,
-    )
-    default_rule_sets = [
-        dacite.from_dict(
-            data_class=rm.DefaultRuleSet,
-            data=default_rule_set_raw,
-            config=dacite.Config(
-                cast=[rm.RuleSetType],
-            )
-        )
-        for default_rule_set_raw in rescoring_raw['defaultRuleSetNames']
-    ]
-
-    return FeatureRescoring(
-        state=FeatureStates.AVAILABLE,
-        default_rule_sets=default_rule_sets,
-        rescoring_rule_sets=cve_rescoring_rule_sets + sast_rescoring_rule_sets,
-        cve_categorisation_label_url=rescoring_raw.get('cveCategorisationLabelUrl'),
-        cve_severity_url=rescoring_raw.get('cveSeverityUrl'),
-    )
-
-
 def deserialise_sprints(sprints_raw: dict) -> FeatureSprints:
     def deserialise_sprint_date_display_name_mappings() -> tuple[SprintDateNameMapping]:
         sprint_date_name_mappings_raw = sprints_raw.get('sprintDateNameMappings', tuple())
@@ -743,15 +687,6 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
         yield special_components
     else:
         yield deserialise_special_components(special_components)
-
-    rescoring = raw.get(
-        'rescoring',
-        FeatureRescoring(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(rescoring, FeatureRescoring):
-        yield rescoring
-    else:
-        yield deserialise_rescoring(rescoring)
 
     sprints = raw.get(
         'sprints',

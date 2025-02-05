@@ -19,11 +19,6 @@ class Rescore(enum.Enum):
     TO_NONE = 'to-none'
 
 
-class RuleSetType(enum.StrEnum):
-    CVE = 'cve'
-    SAST = 'sast'
-
-
 @dataclasses.dataclass(frozen=True)
 class Rule:
     name: str
@@ -146,100 +141,22 @@ class CveRescoringRule(Rule):
 class RuleSet[T: Rule]:
     name: str
     rules: list[T]
-    type: RuleSetType
     description: str | None = None
 
 
 @dataclasses.dataclass
 class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
-    type: RuleSetType = RuleSetType.CVE
+    pass
 
 
 @dataclasses.dataclass
 class SastRescoringRuleSet(RuleSet[SastRescoringRule]):
-    type: RuleSetType = RuleSetType.SAST
-
-
-@dataclasses.dataclass(frozen=True)
-class DefaultRuleSet:
-    name: str
-    type: RuleSetType
-
-
-def find_default_rule_set_for_type_and_name(
-    default_rule_set_ref: DefaultRuleSet,
-    rule_sets: tuple[RuleSet],
-    absent_ok: bool = True,
-) -> RuleSet:
-    for ruleset in rule_sets:
-        if (
-            ruleset.name == default_rule_set_ref.name
-            and ruleset.type is default_rule_set_ref.type
-        ):
-            return ruleset
-
-    if not absent_ok:
-        raise ValueError(f'No default rule_set found for the {ruleset.type}.')
-
-
-def find_default_rule_set_for_type(
-    default_rule_sets: list[DefaultRuleSet],
-    rule_set_type: RuleSetType,
-) -> DefaultRuleSet:
-    for default_rule_set in default_rule_sets:
-        if default_rule_set.type is rule_set_type:
-            return default_rule_set
-
-    raise ValueError(f'No default rule_set_name found for {default_rule_set.type}.')
-
-
-def deserialise_default_rule_sets(
-    rescoring_cfg_raw: dict,
-    rule_set_type: RuleSetType,
-) -> list[DefaultRuleSet]:
-    default_rule_sets = [
-        dacite.from_dict(
-            data_class=DefaultRuleSet,
-            data=default_rule_set_raw,
-            config=dacite.Config(
-                cast=[enum.Enum],
-            ),
-        )
-        for default_rule_set_raw in rescoring_cfg_raw['defaultRuleSetNames']
-        if RuleSetType(default_rule_set_raw['type']) is rule_set_type
-    ]
-
-    if not default_rule_sets:
-        raise ValueError(f'No default rule sets found for {rule_set_type=}.')
-
-    return default_rule_sets
-
-
-def deserialise_rule_sets(
-    rescoring_cfg_raw: dict,
-    rule_set_type: RuleSetType,
-    rule_set_ctor: collections.abc.Callable[..., RuleSet],
-    rules_from_dict: collections.abc.Callable[
-        [list[dict]], collections.abc.Iterable[SastRescoringRule]
-    ],
-) -> tuple[RuleSet, ...]:
-    # Pylint struggles with generic dataclasses, see: github.com/pylint-dev/pylint/issues/9488
-    return tuple( #noqa:E1123
-        rule_set_ctor(
-            name=rule_set_raw['name'],
-            description=rule_set_raw.get('description'),
-            rules=list(
-                rules_from_dict(rule_set_raw['rules'])
-            )
-        )
-        for rule_set_raw in rescoring_cfg_raw['rescoringRuleSets']
-        if RuleSetType(rule_set_raw['type']) is rule_set_type
-    )
+    pass
 
 
 def cve_rescoring_rules_from_dicts(
     rules: list[dict]
-) -> typing.Generator[CveRescoringRule, None, None]:
+) -> collections.abc.Generator[CveRescoringRule, None, None]:
     '''
     deserialises cve_rescoring rules. Each dict is expected to have the following form:
 
