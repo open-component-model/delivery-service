@@ -126,7 +126,7 @@ def iter_artefact_metadata(
         if license_cfg and license_cfg.matches(artefact_ref):
             meta = dso.model.Metadata(
                 datasource=datasource,
-                type=dso.model.Datatype.LICENSE,
+                type=odg.findings.FindingType.LICENSE,
                 creation_date=now,
             )
 
@@ -163,7 +163,7 @@ def iter_artefact_metadata(
         if vulnerability_cfg and vulnerability_cfg.matches(artefact_ref):
             meta = dso.model.Metadata(
                 datasource=datasource,
-                type=dso.model.Datatype.VULNERABILITY,
+                type=odg.findings.FindingType.VULNERABILITY,
                 creation_date=now,
             )
 
@@ -191,7 +191,7 @@ def iter_artefact_metadata(
                             package_name=package_name,
                             cve=vulnerability.cve,
                         ),
-                        referenced_type=dso.model.Datatype.VULNERABILITY,
+                        referenced_type=odg.findings.FindingType.VULNERABILITY,
                         severity=vulnerability_cfg.none_categorisation.name,
                         user=triage.user,
                         matching_rules=[dso.model.MetaRescoringRules.BDBA_TRIAGE],
@@ -236,8 +236,8 @@ def iter_artefact_metadata(
             delivery_client=delivery_client,
             resource_node=scanned_element,
             finding_type=(
-                dso.model.Datatype.VULNERABILITY,
-                dso.model.Datatype.LICENSE,
+                odg.findings.FindingType.VULNERABILITY,
+                odg.findings.FindingType.LICENSE,
             ),
         )
 
