@@ -27,12 +27,6 @@ class LogCollectionCrd(Crd):
 
 
 @dataclasses.dataclass(frozen=True)
-class ScanConfigurationCrd(Crd):
-    KIND = 'ScanConfiguration'
-    PLURAL_NAME = 'scanconfigurations'
-
-
-@dataclasses.dataclass(frozen=True)
 class BacklogItemCrd(Crd):
     KIND = 'BacklogItem'
     PLURAL_NAME = 'backlogitems'
@@ -42,12 +36,6 @@ class BacklogItemCrd(Crd):
 class RuntimeArtefactCrd(Crd):
     KIND = 'RuntimeArtefact'
     PLURAL_NAME = 'runtimeartefacts'
-
-
-@dataclasses.dataclass(frozen=True)
-class ScanConfiguration:
-    name: str
-    config: dict
 
 
 @dataclasses.dataclass(frozen=True)

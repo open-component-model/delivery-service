@@ -59,5 +59,4 @@ spec:
             - name: scan-cfg
               configMap:
                 name: scan-cfg
-                optional: true # TODO: only optional until old scan cfg has been removed
           restartPolicy: Never

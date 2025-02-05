@@ -1,5 +1,4 @@
 import dataclasses
-import functools
 import http
 import logging
 import random
@@ -14,13 +13,10 @@ import yaml
 import cnudie.iter
 import cnudie.retrieve
 import dso.model
-import github.compliance.model as gcm
 import ocm
 
-import ctx_util
 import k8s.model
 import odg.scan_cfg
-import secret_mgmt
 import secret_mgmt.kubernetes
 
 
@@ -172,50 +168,6 @@ def scale_replica_set(
     logger.info(
         f'scaled replica set {name} in {namespace=} from {current_replicas} to {desired_replicas}'
     )
-
-
-@functools.lru_cache(maxsize=1)
-def iter_scan_configurations(
-    namespace: str,
-    kubernetes_api: KubernetesApi,
-) -> list[k8s.model.ScanConfiguration]:
-    scan_configurations_raw = kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(
-        group=k8s.model.ScanConfigurationCrd.DOMAIN,
-        version=k8s.model.ScanConfigurationCrd.VERSION,
-        plural=k8s.model.ScanConfigurationCrd.PLURAL_NAME,
-        namespace=namespace,
-    ).get('items')
-
-    scan_configurations = []
-    for scan_configuration in scan_configurations_raw:
-        spec = scan_configuration.get('spec')
-
-        if bdba_config := spec.get('bdba'):
-            # enrich bdba config with bdba url to be able to show bdba url in dashboard
-            secret_factory = ctx_util.secret_factory()
-            cfg_name = bdba_config.get('cfg_name')
-
-            try:
-                bdba_cfg = secret_factory.bdba(cfg_name)
-            except (secret_mgmt.SecretTypeNotFound, secret_mgmt.SecretElementNotFound):
-                logger.warning(f'no bdba-cfg found for {cfg_name}')
-                pass
-
-            if bdba_cfg:
-                bdba_config['base_url'] = bdba_cfg.api_url
-        if issue_replicator_config := spec.get('issueReplicator'):
-            # enrich issue replicator config with max processing days to be able to show
-            # preview effects of rescorings on due date in dashboard
-            if not 'max_processing_days' in issue_replicator_config:
-                mpd = gcm.MaxProcessingTimesDays()
-                issue_replicator_config['max_processing_days'] = dataclasses.asdict(mpd)
-
-        scan_configurations.append(k8s.model.ScanConfiguration(
-            name=scan_configuration.get('metadata').get('name'),
-            config=spec,
-        ))
-
-    return scan_configurations
 
 
 def get_ocm_node(

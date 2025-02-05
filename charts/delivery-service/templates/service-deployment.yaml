@@ -126,11 +126,9 @@ spec:
         - name: scan-cfg
           configMap:
             name: scan-cfg
-            optional: true # TODO: only optional until old scan cfg has been removed
         - name: findings-cfg
           configMap:
             name: findings-cfg
-            optional: true # TODO: only optional until old scan cfg has been removed
         - name: features-cfg
           secret:
             secretName: features-cfg

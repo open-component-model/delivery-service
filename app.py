@@ -354,10 +354,6 @@ def add_routes(
         handler=service_extensions.ContainerStatuses,
     )
     app.router.add_view(
-        path='/service-extensions/scan-configurations',
-        handler=service_extensions.ScanConfigurations,
-    )
-    app.router.add_view(
         path='/service-extensions/backlog-items',
         handler=service_extensions.BacklogItems,
     )
