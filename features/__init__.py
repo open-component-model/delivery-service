@@ -867,10 +867,14 @@ async def init_features(
         delivery_db_feature_state = FeatureStates.AVAILABLE
     else:
         try:
-            db_cfg = secret_factory.delivery_db(parsed_arguments.delivery_db_cfg)
-            db_url = db_cfg.url
+            delivery_db_cfgs = secret_factory.delivery_db()
+            if len(delivery_db_cfgs) != 1:
+                raise ValueError(
+                    f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}'
+                )
+            db_url = delivery_db_cfgs[0].url
             delivery_db_feature_state = FeatureStates.AVAILABLE
-        except (secret_mgmt.SecretTypeNotFound, secret_mgmt.SecretElementNotFound):
+        except secret_mgmt.SecretTypeNotFound:
             logger.warning('Delivery database config not found')
 
     if delivery_db_feature_state is FeatureStates.AVAILABLE:
