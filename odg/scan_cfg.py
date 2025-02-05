@@ -1,3 +1,4 @@
+import collections.abc
 import dataclasses
 import datetime
 import enum
@@ -579,3 +580,18 @@ class ScanConfiguration:
         return ScanConfiguration.from_dict(
             scan_configuration_raw=scan_configuration_raw,
         )
+
+    def enabled_extensions(
+        self,
+        convert_to_camel_case: bool=False,
+    ) -> collections.abc.Generator[str, None, None]:
+        for extension_name in dataclasses.asdict(self).keys():
+            if not getattr(self, extension_name):
+                continue # extension is not configured
+
+            if not convert_to_camel_case:
+                yield extension_name
+                continue
+
+            first_part, *remaining_parts = extension_name.split('_')
+            yield first_part + ''.join(part.title() for part in remaining_parts)
