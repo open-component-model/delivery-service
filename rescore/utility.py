@@ -67,7 +67,7 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            finding.meta.type == dso.model.Datatype.VULNERABILITY
+            finding.meta.type == odg.findings.FindingType.VULNERABILITY
             and (
                 rescoring.data.finding.cve != finding.data.cve
                 or rescoring.data.finding.package_name != finding.data.package_name
@@ -76,7 +76,7 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            finding.meta.type == dso.model.Datatype.LICENSE
+            finding.meta.type == odg.findings.FindingType.LICENSE
             and (
                 rescoring.data.finding.license.name != finding.data.license.name
                 or rescoring.data.finding.package_name != finding.data.package_name
@@ -85,7 +85,7 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            finding.meta.type == dso.model.Datatype.MALWARE_FINDING
+            finding.meta.type == odg.findings.FindingType.MALWARE
             and rescoring.data.finding.key != finding.data.finding.key
         ):
             continue
@@ -166,27 +166,6 @@ def matching_rescore_rules(
             continue
 
         yield rescoring_rule
-
-
-def rescore_severity(
-    rescoring_rules: collections.abc.Iterable[rescore.model.CveRescoringRule],
-    severity: dso.cvss.CVESeverity,
-    minimum_severity: int=dso.cvss.CVESeverity.NONE,
-) -> dso.cvss.CVESeverity:
-    for rule in rescoring_rules:
-        if rule.rescore is rescore.model.Rescore.NO_CHANGE:
-            continue
-        elif rule.rescore is rescore.model.Rescore.REDUCE:
-            severity = severity.reduce(
-                severity_classes=1,
-                minimum_severity=minimum_severity,
-            )
-        elif rule.rescore is rescore.model.Rescore.NOT_EXPLOITABLE:
-            return dso.cvss.CVESeverity(minimum_severity)
-        else:
-            raise NotImplementedError(rule.rescore)
-
-    return severity
 
 
 def rescore_finding(
@@ -284,7 +263,7 @@ def rescoring_for_sast_finding(
         ),
         data=dso.model.CustomRescoring(
             finding=finding.data,
-            referenced_type=dso.model.Datatype.SAST_FINDING,
+            referenced_type=odg.findings.FindingType.SAST,
             severity=rescored_categorisation.name,
             user=user,
             matching_rules=[rule.name for rule in matching_rules],
