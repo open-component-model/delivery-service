@@ -30,9 +30,9 @@ import util
 logger = logging.getLogger(__name__)
 
 types_with_reusable_discovery_dates = (
-    dso.model.Datatype.VULNERABILITY,
-    dso.model.Datatype.LICENSE,
-    dso.model.Datatype.DIKI_FINDING,
+    odg.findings.FindingType.VULNERABILITY,
+    odg.findings.FindingType.LICENSE,
+    odg.findings.FindingType.DIKI,
 )
 
 
@@ -234,11 +234,26 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
         db_stream = await db_session.stream(db_statement)
 
-        data = util.dict_to_json_factory([
-            await serialise_and_enrich_finding(du.db_artefact_metadata_row_to_dso(row))
-            async for partition in db_stream.partitions(size=50)
-            for row in partition
-        ])
+        finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
+
+        artefact_metadata = []
+        async for partition in db_stream.partitions(size=50):
+            for row in partition:
+                artefact_metadatum = du.db_artefact_metadata_row_to_dso(row)
+
+                # only yield findings which were not explicitly filtered-out by central finding-cfg
+                for finding_cfg in finding_cfgs:
+                    if (
+                        finding_cfg.type == artefact_metadatum.meta.type
+                        and not finding_cfg.matches(artefact_metadatum.artefact)
+                    ):
+                        # artefact metadatum is filtered-out, do not include it
+                        break
+                else:
+                    # artefact metadatum was not explicitly filtered-out by central finding-cfg
+                    artefact_metadata.append(await serialise_and_enrich_finding(artefact_metadatum))
+
+        data = util.dict_to_json_factory(artefact_metadata)
 
         response = aiohttp.web.StreamResponse(
             headers={
@@ -510,7 +525,7 @@ def reuse_discovery_date_if_possible(
     if new_metadata.type not in types_with_reusable_discovery_dates:
         return None
 
-    if new_metadata.type == dso.model.Datatype.VULNERABILITY:
+    if new_metadata.type == odg.findings.FindingType.VULNERABILITY:
         if (
             new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
             and new_metadata.data.get('cve') == old_metadata.data.get('cve')
@@ -519,7 +534,7 @@ def reuse_discovery_date_if_possible(
             # resource-/package-version, so we must re-use its discovery date
             return old_metadata.discovery_date
 
-    elif new_metadata.type == dso.model.Datatype.LICENSE:
+    elif new_metadata.type == odg.findings.FindingType.LICENSE:
         if (
             new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
             and new_metadata.data.get('license').get('name')
@@ -529,7 +544,7 @@ def reuse_discovery_date_if_possible(
             # resource-/package-version, so we must re-use its discovery date
             return old_metadata.discovery_date
 
-    elif new_metadata.type == dso.model.Datatype.DIKI_FINDING:
+    elif new_metadata.type == odg.findings.FindingType.DIKI:
         if (
             new_metadata.data.get('provider_id') == old_metadata.data.get('provider_id')
             and new_metadata.data.get('ruleset_id') == old_metadata.data.get('ruleset_id')
