@@ -10,186 +10,108 @@ import rescore.utility
 
 
 @pytest.fixture
-def rescoring_rules_raw() -> dict:
+def cve_rescoring_ruleset() -> dict:
     return {
-        'defaultRuleSetNames': [
+        'name': 'my-cve-rescoring',
+        'description': 'this is a very good description',
+        'rules': [
             {
-                'name': 'my-sast-rescoring-does-not-exist',
-                'type': 'sast',
-            },
-            {
-                'name': 'my-sast-rescoring',
-                'type': 'sast',
-            },
-            {
-                'name': 'my-cve-rescoring',
-                'type': 'cve',
-            },
-        ],
-        'rescoringRuleSets': [
-            {
-                'name': 'my-sast-rescoring',
-                'type': 'sast',
+                'category_value': 'network_exposure:public',
+                'name': 'network-exposure-public',
                 'rules': [
                     {
-                        'name': 'local-linting-is-optional-for-internal-components',
-                        'match': [{'component_name': 'github.internal/.*'}],
-                        'sub_types': ['local-linting'],
-                        'sast_status': 'no-linter',
-                        'rescore': 'to-none'
+                        'cve_values': ['AV:N'],
+                        'rescore': 'no-change'
                     },
                     {
-                        'name': 'central-linting-is-optional-for-external-components',
-                        'match': [{'component_name': 'github.com/.*'}],
-                        'sub_types': ['central-linting'],
-                        'sast_status': 'no-linter',
-                        'rescore': 'to-none'
+                        'cve_values': ['AV:A'],
+                        'rescore': 'reduce'
                     },
-                ],
-            },
-            {
-                'name': 'my-cve-rescoring',
-                'type': 'cve',
-                'rules': [
                     {
-                        'category_value': 'network_exposure:public',
-                        'name': 'network-exposure-public',
-                        'rules': [
-                            {
-                                'cve_values': ['AV:N'],
-                                'rescore': 'no-change'
-                            },
-                            {
-                                'cve_values': ['AV:A'],
-                                'rescore': 'reduce'
-                            },
-                            {
-                                'cve_values': ['AV:L', 'AV:P'],
-                                'rescore': 'not-exploitable'
-                            },
-                        ]
-                    }
-                ],
+                        'cve_values': ['AV:L', 'AV:P'],
+                        'rescore': 'not-exploitable'
+                    },
+                ]
             }
-        ]
+        ],
     }
 
 
-def test_deserialise_rescoring_rule_sets(
-    rescoring_rules_raw: dict,
+@pytest.fixture
+def sast_rescoring_ruleset() -> dict:
+    return {
+        'name': 'my-sast-rescoring',
+        'rules': [
+            {
+                'name': 'local-linting-is-optional-for-internal-components',
+                'match': [{'component_name': 'github.internal/.*'}],
+                'sub_types': ['local-linting'],
+                'sast_status': 'no-linter',
+                'rescore': 'to-none'
+            },
+            {
+                'name': 'central-linting-is-optional-for-external-components',
+                'match': [{'component_name': 'github.com/.*'}],
+                'sub_types': ['central-linting'],
+                'sast_status': 'no-linter',
+                'rescore': 'to-none'
+            },
+        ],
+    }
+
+
+def test_deserialise_cve_rescoring_ruleset(
+    cve_rescoring_ruleset: dict,
 ):
-    cve_rescoring_rule_sets = rescore.model.deserialise_rule_sets(
-        rescoring_cfg_raw=rescoring_rules_raw,
-        rule_set_type=rescore.model.RuleSetType.CVE,
-        rule_set_ctor=rescore.model.CveRescoringRuleSet,
-        rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
+    rescoring_ruleset = rescore.model.CveRescoringRuleSet( # noqa: E1123
+        name=cve_rescoring_ruleset['name'],
+        rules=list(
+            rescore.model.cve_rescoring_rules_from_dicts(cve_rescoring_ruleset['rules'])
+        ),
+        description=cve_rescoring_ruleset.get('description'),
     )
 
-    assert isinstance(cve_rescoring_rule_sets[0], rescore.model.CveRescoringRuleSet)
+    assert len(rescoring_ruleset.rules) == 3
 
-    ruleset = cve_rescoring_rule_sets[0]
-    assert len(ruleset.rules) == 3
-
-    rule1, rule2, rule3 = ruleset.rules
+    rule1, rule2, rule3 = rescoring_ruleset.rules
     assert rule1.rescore is rescore.model.Rescore.NO_CHANGE
     assert rule2.rescore is rescore.model.Rescore.REDUCE
     assert rule3.rescore is rescore.model.Rescore.NOT_EXPLOITABLE
 
 
-def test_deserialise_rescoring_rule_sets_default_rule_set_names(
-    rescoring_rules_raw: dict,
+def test_deserialise_sast_rescoring_ruleset(
+    sast_rescoring_ruleset: dict,
 ):
-    cve_rescoring_rule_sets = rescore.model.deserialise_rule_sets(
-        rescoring_cfg_raw=rescoring_rules_raw,
-        rule_set_type=rescore.model.RuleSetType.CVE,
-        rule_set_ctor=rescore.model.CveRescoringRuleSet,
-        rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
+    rescoring_ruleset = rescore.model.SastRescoringRuleSet( # noqa: E1123
+        name=sast_rescoring_ruleset['name'],
+        rules=list(
+            rescore.model.sast_rescoring_rules_from_dict(sast_rescoring_ruleset['rules'])
+        ),
+        description=sast_rescoring_ruleset.get('description'),
     )
 
-    default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-        default_rule_set_ref=rescore.model.deserialise_default_rule_sets(
-            rescoring_cfg_raw=rescoring_rules_raw,
-            rule_set_type=rescore.model.RuleSetType.CVE,
-        )[0],
-        rule_sets=cve_rescoring_rule_sets,
-    )
+    assert len(rescoring_ruleset.rules) == 2
 
-    assert default_rule_set is not None
-    assert default_rule_set.name == "my-cve-rescoring"
-    assert default_rule_set.type is rescore.model.RuleSetType.CVE
-
-
-# deserialization with extra attributes
-def test_deserialise_with_extra_attributes(
-    rescoring_rules_raw: dict
-):
-    rescoring_rules_raw['rescoringRuleSets'][0]['extra_attribute'] = 'extra_value'
-
-    cve_rescoring_rule_sets = rescore.model.deserialise_rule_sets(
-        rescoring_cfg_raw=rescoring_rules_raw,
-        rule_set_type=rescore.model.RuleSetType.CVE,
-        rule_set_ctor=rescore.model.CveRescoringRuleSet,
-        rules_from_dict=rescore.model.cve_rescoring_rules_from_dicts,
-    )
-
-    assert isinstance(cve_rescoring_rule_sets[0], rescore.model.CveRescoringRuleSet)
-    assert len(cve_rescoring_rule_sets[0].rules) == 3
-
-
-def test_deserialise_sast_rescoring_rule_sets(
-    rescoring_rules_raw: dict,
-):
-    sast_rescoring_rule_sets = rescore.model.deserialise_rule_sets(
-        rescoring_cfg_raw=rescoring_rules_raw,
-        rule_set_type=rescore.model.RuleSetType.SAST,
-        rule_set_ctor=rescore.model.SastRescoringRuleSet,
-        rules_from_dict=rescore.model.sast_rescoring_rules_from_dict,
-    )
-
-    assert isinstance(sast_rescoring_rule_sets[0], rescore.model.SastRescoringRuleSet)
-
-    ruleset = sast_rescoring_rule_sets[0]
-    assert len(ruleset.rules) == 2
-
-    rule1, rule2 = ruleset.rules
+    rule1, rule2 = rescoring_ruleset.rules
     assert rule1.rescore is rescore.model.Rescore.TO_NONE
     assert rule2.rescore is rescore.model.Rescore.TO_NONE
 
 
-def test_deserialise_sast_rescoring_rule_sets_default_rule_set_names(
-    rescoring_rules_raw: dict,
+def test_deserialise_with_extra_attributes(
+    cve_rescoring_ruleset: dict,
+    sast_rescoring_ruleset: dict
 ):
-    sast_rescoring_rule_sets = rescore.model.deserialise_rule_sets(
-        rescoring_cfg_raw=rescoring_rules_raw,
-        rule_set_type=rescore.model.RuleSetType.SAST,
-        rule_set_ctor=rescore.model.SastRescoringRuleSet,
-        rules_from_dict=rescore.model.sast_rescoring_rules_from_dict,
-    )
-    default_rule_set_refs = rescore.model.deserialise_default_rule_sets(
-        rescoring_cfg_raw=rescoring_rules_raw,
-        rule_set_type=rescore.model.RuleSetType.SAST,
-    )
-    for default_rule_set_ref in default_rule_set_refs:
-        default_rule_set = rescore.model.find_default_rule_set_for_type_and_name(
-            default_rule_set_ref=default_rule_set_ref,
-            rule_sets=sast_rescoring_rule_sets,
-        )
-        if default_rule_set:
-            break
-    else:
-        default_rule_set = None
+    cve_rescoring_ruleset['extra_attribute'] = 'extra_value'
+    sast_rescoring_ruleset['extra_attribute'] = 'extra_value'
 
-    assert default_rule_set is not None
-    assert default_rule_set.name == 'my-sast-rescoring'
-    assert default_rule_set.type is rescore.model.RuleSetType.SAST
+    test_deserialise_cve_rescoring_ruleset(cve_rescoring_ruleset)
+    test_deserialise_sast_rescoring_ruleset(sast_rescoring_ruleset)
 
 
 @pytest.fixture
 def sast_finding_cfg(
-    rescoring_rules_raw: dict,
+    sast_rescoring_ruleset: dict,
 ) -> odg.findings.Finding:
-    sast_rescoring_ruleset = rescoring_rules_raw['rescoringRuleSets'][0]
-
     return odg.findings.Finding.from_dict(
         findings_raw=[{
             'type': 'finding/sast',
@@ -241,7 +163,7 @@ def sast_finding_public(
         ),
         meta=dso.model.Metadata(
             datasource=dso.model.Datasource.SAST_LINT_CHECK,
-            type=dso.model.Datatype.SAST_FINDING,
+            type=odg.findings.FindingType.SAST,
             creation_date=datetime.datetime.now(),
             last_update=datetime.datetime.now(),
         ),
