@@ -70,6 +70,7 @@ class GroupedFindings:
         self,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
         delivery_dashboard_url: str,
+        finding_type: odg.findings.FindingType,
         sprint_name: str | None=None,
     ) -> str:
         component_version = version_util.greatest_version(
@@ -98,6 +99,7 @@ class GroupedFindings:
         delivery_dashboard_url = _delivery_dashboard_url(
             base_url=delivery_dashboard_url,
             component_artefact_id=component_artefact_id,
+            finding_type=finding_type,
             sprint_name=sprint_name,
         )
         summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
@@ -273,6 +275,7 @@ def _artefact_url(
 def _delivery_dashboard_url(
     base_url: str,
     component_artefact_id: dso.model.ComponentArtefactId,
+    finding_type: odg.findings.FindingType,
     sprint_name: str=None,
 ):
     url = ci.util.urljoin(
@@ -285,6 +288,7 @@ def _delivery_dashboard_url(
         'version': component_artefact_id.component_version,
         'view': 'bom',
         'rootExpanded': True,
+        'findingType': finding_type,
     }
 
     if sprint_name:
@@ -391,6 +395,7 @@ def _vulnerability_template_vars(
         summary += '\n' + grouped_finding.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
+            finding_type=finding_cfg.type,
             sprint_name=sprint_name,
         )
 
@@ -445,6 +450,7 @@ def _malware_template_vars(
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str,
+    finding_type: odg.findings.FindingType,
     sprint_name: str=None,
 ) -> dict[str, str]:
     summary += '# Summary of found Malware'
@@ -460,6 +466,7 @@ def _malware_template_vars(
         summary += '\n' + grouped_finding.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
+            finding_type=finding_type,
             sprint_name=sprint_name,
         )
 
@@ -482,6 +489,7 @@ def _license_template_vars(
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str,
+    finding_type: odg.findings.FindingType,
     sprint_name: str=None,
 ) -> dict[str, str]:
     summary += '# Summary of found licenses'
@@ -532,6 +540,7 @@ def _license_template_vars(
         summary += '\n' + grouped_finding.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
+            finding_type=finding_type,
             sprint_name=sprint_name,
         )
 
@@ -794,6 +803,7 @@ def _template_vars(
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
+            finding_type=finding_cfg.type,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_malware:
@@ -802,6 +812,7 @@ def _template_vars(
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
+            finding_type=finding_cfg.type,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_diki:
