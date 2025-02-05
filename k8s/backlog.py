@@ -113,10 +113,11 @@ def iter_existing_backlog_items_for_artefact(
             ),
         )
 
-        if service is odg.scan_cfg.Services.BDBA:
-            if crd_artefact == artefact:
-                yield backlog_crd
-        elif service is odg.scan_cfg.Services.CLAMAV:
+        if service in (
+            odg.scan_cfg.Services.BDBA,
+            odg.scan_cfg.Services.CLAMAV,
+            odg.scan_cfg.Services.SAST_LINT_CHECK,
+        ):
             if crd_artefact == artefact:
                 yield backlog_crd
         elif service is odg.scan_cfg.Services.ISSUE_REPLICATOR:
