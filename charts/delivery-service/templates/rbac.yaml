@@ -16,7 +16,6 @@ rules:
       - replicasets
       - ingresses
       - runtimeartefacts
-      - scanconfigurations
     verbs:
       - create
       - get

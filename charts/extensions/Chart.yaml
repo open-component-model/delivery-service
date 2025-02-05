@@ -2,8 +2,6 @@ apiVersion: v2
 name: extensions
 version: 0.1.0
 dependencies:
-  - name: configuration
-    repository: file://charts/configuration
   - name: artefact-enumerator
     repository: file://charts/artefact-enumerator
     condition: artefact-enumerator.enabled

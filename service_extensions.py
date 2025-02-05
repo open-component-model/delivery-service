@@ -181,33 +181,6 @@ class ServiceExtensions(aiohttp.web.View):
         )
 
 
-class ScanConfigurations(aiohttp.web.View):
-    required_features = (features.FeatureKubernetes,)
-
-    async def get(self):
-        '''
-        ---
-        tags:
-        - Service extensions
-        produces:
-        - application/json
-        responses:
-          "200":
-            description: Successful operation.
-            schema:
-              type: array
-              items:
-                type: object
-        '''
-        return aiohttp.web.json_response(
-            data=k8s.util.iter_scan_configurations(
-                namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
-                kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-            ),
-            dumps=util.dict_to_json_factory,
-        )
-
-
 def iter_backlog_items(
     service: str,
     namespace: str,
