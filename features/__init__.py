@@ -343,13 +343,9 @@ class FeatureRepoContexts(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureServiceExtensions(FeatureBase):
     name: str = 'service-extensions'
-    services: tuple[str] = tuple()
     namespace: str = None
     kubernetes_cfg_name: str = None
     kubeconfig_path: str = None
-
-    def get_services(self) -> tuple[str]:
-        return self.services
 
     def get_namespace(self) -> str:
         return self.namespace
@@ -886,30 +882,24 @@ async def init_features(
     feature_cfgs.append(FeatureDeliveryDB(delivery_db_feature_state, db_url=db_url))
 
     extension_feature = FeatureServiceExtensions(FeatureStates.UNAVAILABLE)
-    if services := parsed_arguments.service_extensions:
-        k8s_cfg_name = parsed_arguments.k8s_cfg_name
-        if not k8s_cfg_name:
-            k8s_cfg_name = os.environ.get('K8S_CFG_NAME')
+    if not (k8s_cfg_name := parsed_arguments.k8s_cfg_name):
+        k8s_cfg_name = os.environ.get('K8S_CFG_NAME')
 
-        kubeconfig_path = parsed_arguments.kubeconfig
+    if not (k8s_namespace := parsed_arguments.k8s_namespace):
+        k8s_namespace = os.environ.get('K8S_TARGET_NAMESPACE')
 
-        k8s_namespace = parsed_arguments.k8s_namespace
-        if not k8s_namespace:
-            k8s_namespace = os.environ.get('K8S_TARGET_NAMESPACE')
-
-        if k8s_namespace:
-            extension_feature = FeatureServiceExtensions(
-                state=FeatureStates.AVAILABLE,
-                services=tuple(services),
-                namespace=k8s_namespace,
-                kubernetes_cfg_name=k8s_cfg_name,
-                kubeconfig_path=kubeconfig_path,
-            )
-        else:
-            logger.warning(
-                'required cfgs for service-extension feature missing, will be disabled; '
-                f'{k8s_cfg_name=}, {k8s_namespace=}'
-            )
+    if k8s_namespace:
+        extension_feature = FeatureServiceExtensions(
+            state=FeatureStates.AVAILABLE,
+            namespace=k8s_namespace,
+            kubernetes_cfg_name=k8s_cfg_name,
+            kubeconfig_path=parsed_arguments.kubeconfig,
+        )
+    else:
+        logger.warning(
+            'required cfgs for service-extension feature missing, will be disabled; '
+            f'{k8s_cfg_name=}, {k8s_namespace=}'
+        )
 
     feature_cfgs.append(extension_feature)
 
