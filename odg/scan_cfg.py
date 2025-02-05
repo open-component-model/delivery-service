@@ -504,14 +504,35 @@ class IssueReplicatorConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
-class SASTConfig:
+class SASTConfig(BacklogItemMixins):
     '''
     :param str delivery_service_url
-    :param list[Component] components:
-        Components which should be analysed.
+    :param int interval:
+        Time after which an artefact must be re-scanned at latest.
+    :param WarningVerbosities on_unsupported
+        Defines the handling if a backlog item should be processed which contains unsupported
+        properties, e.g. an unsupported access type.
     '''
     delivery_service_url: str
-    components: list[Component]
+    interval: int = 60 * 60 * 24 # 24h
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+
+    def is_supported(
+        self,
+        artefact_kind: dso.model.ArtefactKind | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            dso.model.ArtefactKind.SOURCE,
+        )
+
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for SAST scans, {supported_artefact_kinds=}'
+                )
+            return False
+
+        return True
 
 
 @dataclasses.dataclass

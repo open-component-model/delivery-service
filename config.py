@@ -104,13 +104,10 @@ class ClamAVConfig:
 class SASTConfig:
     '''
     :param str delivery_service_url:
-    :param tuple[Component] components:
-        A tuple of components to be analyzed.
     :param SastRescoringRuleSet sast_rescoring_rulesets:
         A set of rules for rescoring SAST findings based on specified criteria.
     '''
     delivery_service_url: str
-    components: tuple[Component, ...]
     sast_rescoring_ruleset: rescore.model.SastRescoringRuleSet | None = None
 
 
@@ -546,15 +543,6 @@ def deserialise_sast_config(
         property_key='delivery_service_url',
         default_config=default_config,
     )
-    components_raw = deserialise_config_property(
-        config=sast_config,
-        property_key='components',
-        default_value=[],
-    )
-    components = tuple(
-        deserialise_component_config(component_config=component_raw)
-        for component_raw in components_raw
-    )
 
     rescoring_cfg_raw = deserialise_config_property(
         config=sast_config,
@@ -592,7 +580,6 @@ def deserialise_sast_config(
 
     return SASTConfig(
         delivery_service_url=delivery_service_url,
-        components=components,
         sast_rescoring_ruleset=default_rule_set,
     )
 
