@@ -336,10 +336,6 @@ class FeatureRepoContexts(FeatureBase):
     name: str = 'repo-contexts'
     ocm_repo_mappings: list[cnudie.retrieve.OcmRepositoryMappingEntry] = None
 
-    def get_ocm_repo_mappings(self) -> list[cnudie.retrieve.OcmRepositoryMappingEntry]:
-        if self.state is FeatureStates.AVAILABLE:
-            return self.ocm_repo_mappings
-
     def get_ocm_repos(self) -> collections.abc.Generator[ocm.OciOcmRepository, None, None] | None:
         if self.state is FeatureStates.UNAVAILABLE:
             return None
@@ -670,15 +666,6 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
     else:
         yield deserialise_addressbook(addressbook)
 
-    ocm_repo_mappings = raw.get(
-        'ocmRepoMappings',
-        FeatureRepoContexts(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(ocm_repo_mappings, FeatureRepoContexts):
-        yield ocm_repo_mappings
-    else:
-        yield deserialise_repo_contexts(ocm_repo_mappings)
-
     special_components = raw.get(
         'specialComponents',
         FeatureSpecialComponents(FeatureStates.UNAVAILABLE),
@@ -757,6 +744,19 @@ def apply_raw_cfg():
 
     feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureFindingConfigurations)]
     feature_cfgs.append(finding_cfgs_feature)
+
+    if (
+        (ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True))
+        and (ocm_repo_mappings_raw := ci.util.parse_yaml_file(ocm_repo_mappings_path))
+    ):
+        ocm_repo_mappings_feature = deserialise_repo_contexts(
+            ocm_repo_mappings_raw=ocm_repo_mappings_raw,
+        )
+    else:
+        ocm_repo_mappings_feature = FeatureRepoContexts(FeatureStates.UNAVAILABLE)
+
+    feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureRepoContexts)]
+    feature_cfgs.append(ocm_repo_mappings_feature)
 
 
 class CfgFileChangeEventHandler(watchdog.events.FileSystemEventHandler):
@@ -849,6 +849,8 @@ async def init_features(
         watch_for_file_changes(event_handler, scan_cfg_path)
     if findings_cfg_path := paths.findings_cfg_path(absent_ok=True):
         watch_for_file_changes(event_handler, findings_cfg_path)
+    if ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True):
+        watch_for_file_changes(event_handler, ocm_repo_mappings_path)
 
     apply_raw_cfg()
 

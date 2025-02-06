@@ -33,8 +33,8 @@ spec:
               value: /scan_cfg/scan_cfg
             - name: FINDINGS_CFG_PATH
               value: /findings_cfg/findings_cfg
-            - name: FEATURES_CFG_PATH
-              value: /features_cfg/features_cfg
+            - name: OCM_REPO_MAPPINGS_PATH
+              value: /ocm_repo_mappings/ocm_repo_mappings
             - name: K8S_TARGET_NAMESPACE
               value: {{ .Release.Namespace }}
           volumeMounts:
@@ -50,8 +50,8 @@ spec:
               mountPath: /scan_cfg
             - name: findings-cfg
               mountPath: /findings_cfg
-            - name: features-cfg
-              mountPath: "/features_cfg"
+            - name: ocm-repo-mappings
+              mountPath: /ocm_repo_mappings
               readOnly: true
             - name: freshclam-config
               mountPath: /etc/clamav/freshclam.conf
@@ -90,10 +90,9 @@ spec:
         - name: findings-cfg
           configMap:
             name: findings-cfg
-        - name: features-cfg
-          secret:
-            secretName: features-cfg
-            optional: true
+        - name: ocm-repo-mappings
+          configMap:
+            name: ocm-repo-mappings
         - name: freshclam-config
           configMap:
             name: clamav-freshclam-config

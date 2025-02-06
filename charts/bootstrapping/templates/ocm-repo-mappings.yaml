@@ -1,0 +1,9 @@
+{{- if $ocm_repo_mappings := .Values.ocm_repo_mappings }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ocm-repo-mappings
+data:
+  ocm_repo_mappings: |
+    {{- toYaml $ocm_repo_mappings | nindent 4 }}
+{{- end }}
