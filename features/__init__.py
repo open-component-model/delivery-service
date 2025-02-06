@@ -370,6 +370,12 @@ class FeatureSpecialComponents(FeatureBase):
         )
 
     def serialize(self) -> dict[str, any]:
+        if self.state is FeatureStates.UNAVAILABLE:
+            return {
+                'state': self.state,
+                'name': self.name,
+            }
+
         cfg = self.cfg.copy()
         github_api_lookup = lookups.github_api_lookup()
         for component in cfg['specialComponents']:
