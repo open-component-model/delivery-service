@@ -99,9 +99,8 @@ def semver_sanitising_oci_client_async(
 
 @functools.cache
 def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
-    if features_cfg_path := paths.features_cfg_path():
-        features_cfg_raw = ci.util.parse_yaml_file(features_cfg_path)
-        ocm_repo_mappings_raw = features_cfg_raw.get('ocmRepoMappings', tuple())
+    if ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True):
+        ocm_repo_mappings_raw = ci.util.parse_yaml_file(ocm_repo_mappings_path) or tuple()
     else:
         ocm_repo_mappings_raw = tuple()
 

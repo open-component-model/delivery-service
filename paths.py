@@ -33,29 +33,35 @@ swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')
 _odg_path = os.path.join(_own_dir, 'odg')
 
 
-def features_cfg_candidates() -> collections.abc.Generator[str | None, None, None]:
-    yield os.environ.get('FEATURES_CFG_PATH')
+def features_cfg_candidates() -> collections.abc.Generator[str, None, None]:
+    if features_cfg_path := os.environ.get('FEATURES_CFG_PATH'):
+        yield features_cfg_path
     yield os.path.join(_features_path, 'features_cfg.yaml')
 
 
-def scan_cfg_candidates() -> collections.abc.Generator[str | None, None, None]:
-    yield os.environ.get('SCAN_CFG_PATH')
+def scan_cfg_candidates() -> collections.abc.Generator[str, None, None]:
+    if scan_cfg_path := os.environ.get('SCAN_CFG_PATH'):
+        yield scan_cfg_path
     yield os.path.join(_odg_path, 'scan_cfg.yaml')
 
 
-def findings_cfg_candidates() -> collections.abc.Generator[str | None, None, None]:
-    yield os.environ.get('FINDINGS_CFG_PATH')
+def findings_cfg_candidates() -> collections.abc.Generator[str, None, None]:
+    if findings_cfg_path := os.environ.get('FINDINGS_CFG_PATH'):
+        yield findings_cfg_path
     yield os.path.join(_odg_path, 'findings_cfg.yaml')
 
 
+def ocm_repo_mappings_candidates() -> collections.abc.Generator[str, None, None]:
+    if ocm_repo_mappings_path := os.environ.get('OCM_REPO_MAPPINGS_PATH'):
+        yield ocm_repo_mappings_path
+    yield os.path.join(_odg_path, 'ocm_repo_mappings.yaml')
+
+
 def find_path(
-    candidates: collections.abc.Iterable[str | None],
+    candidates: collections.abc.Iterable[str],
     absent_ok: bool=False,
 ) -> str | None:
     for candidate in candidates:
-        if not candidate:
-            continue
-
         if not os.path.isfile(candidate):
             logger.warning(f'not an existing file: {candidate=}')
             continue
@@ -91,5 +97,14 @@ def findings_cfg_path(
 ) -> str | None:
     return find_path(
         candidates=findings_cfg_candidates(),
+        absent_ok=absent_ok,
+    )
+
+
+def ocm_repo_mappings_path(
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=ocm_repo_mappings_candidates(),
         absent_ok=absent_ok,
     )

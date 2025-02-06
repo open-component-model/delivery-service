@@ -1,0 +1,10 @@
+- prefix: ocm.software/ocmcli
+  repository: ghcr.io/open-component-model/ocm
+- prefix: ocm.software/ocm-gear
+  repository: europe-docker.pkg.dev/gardener-project/releases
+- prefix: github.com/gardener
+  repository: europe-docker.pkg.dev/gardener-project/releases
+- prefix: ''
+  repository: europe-docker.pkg.dev/gardener-project/releases
+- prefix: ''
+  repository: europe-docker.pkg.dev/gardener-project/snapshots
