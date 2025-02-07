@@ -20,9 +20,6 @@ import ci.log
 import http_requests
 
 import bdba.model as bm
-import ctx_util
-import secret_mgmt
-import secret_mgmt.bdba
 import util
 
 
@@ -121,11 +118,12 @@ class BDBAApi:
     def __init__(
         self,
         api_routes: BDBAApiRoutes,
-        bdba_cfg: secret_mgmt.bdba.BDBA,
+        token: str,
+        tls_verify: bool=True,
     ):
         self._routes = api_routes
-        self._token = bdba_cfg.token
-        self._tls_verify = bdba_cfg.tls_verify
+        self._token = token
+        self._tls_verify = tls_verify
         self._session = requests.Session()
         http_requests.mount_default_adapter(
             session=self._session,
@@ -507,43 +505,3 @@ class BDBAApi:
         )
 
         return response.content
-
-
-def client(
-    bdba_cfg: secret_mgmt.bdba.BDBA | None=None,
-    group_id: int | None=None,
-    url: str | None=None,
-    secret_factory: secret_mgmt.SecretFactory | None=None,
-) -> BDBAApi:
-    '''
-    Either pass `bdba_cfg` directly (or reference by name) or lookup `bdba_cfg` based on `group_id`
-    and `url`, most specific cfg wins.
-    '''
-
-    if not secret_factory:
-        secret_factory = ctx_util.secret_factory()
-
-    if bdba_cfg:
-        if isinstance(bdba_cfg, str):
-            bdba_cfg = secret_factory.bdba(bdba_cfg)
-
-        if bdba_cfg.matches(
-            group_id=group_id,
-            url=url,
-        ) is secret_mgmt.bdba.MatchScore.NO_MATCH:
-            raise ValueError(f'BDBA cfg does not match {group_id=} and {url=}')
-
-    else:
-        if not (bdba_cfg := secret_mgmt.bdba.find_cfg(
-            secret_factory=secret_factory,
-            group_id=group_id,
-            url=url,
-        )):
-            raise ValueError(f'No BDBA cfg found for {group_id=} and {url=}')
-
-    routes = BDBAApiRoutes(base_url=bdba_cfg.api_url)
-    api = BDBAApi(
-        api_routes=routes,
-        bdba_cfg=bdba_cfg,
-    )
-    return api

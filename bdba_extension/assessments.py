@@ -9,7 +9,7 @@ import bdba.model as bm
 def upload_version_hints(
     scan_result: bm.AnalysisResult,
     hints: collections.abc.Iterable[dso.labels.PackageVersionHint],
-    client: bdba.client.BDBAApi,
+    bdba_client: bdba.client.BDBAApi,
 ) -> bm.AnalysisResult:
     for component in scan_result.components:
         name = component.name
@@ -29,7 +29,7 @@ def upload_version_hints(
 
         digests = [eo.sha1 for eo in component.extended_objects]
 
-        client.set_component_version(
+        bdba_client.set_component_version(
             component_name=name,
             component_version=hint.version,
             objects=digests,
@@ -40,7 +40,7 @@ def upload_version_hints(
         # a short period of time. This even stays true if all component versions are set
         # using one single api request. That's why, adding a small delay in case multiple
         # hints and thus possible version overrides exist by retrieving scan result again
-        scan_result = client.wait_for_scan_result(
+        scan_result = bdba_client.wait_for_scan_result(
             product_id=scan_result.product_id,
             polling_interval_seconds=15, # re-scanning usually don't take a minute
         )
