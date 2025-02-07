@@ -16,7 +16,7 @@ import ocm
 import tarutil
 
 import bdba.client
-import bdba.scanning
+import bdba_extension.scanning
 import consts
 import ctx_util
 import deliverydb_cache.model as dcm
@@ -31,6 +31,7 @@ import odg.extensions_cfg
 import odg.findings
 import paths
 import secret_mgmt
+import secret_mgmt.bdba
 
 
 logger = logging.getLogger(__name__)
@@ -138,20 +139,24 @@ def scan(
     mapping = bdba_cfg.mapping(artefact.component_name)
 
     logger.info(f'using BDBA secret element "{mapping.bdba_secret_name}"')
-    bdba_secret = secret_factory.bdba(mapping.bdba_secret_name)
-    bdba_client = bdba.client.client(
-        bdba_cfg=bdba_secret,
-        group_id=mapping.group_id,
-        secret_factory=secret_factory,
+    bdba_secret: secret_mgmt.bdba.BDBA = secret_factory.bdba(mapping.bdba_secret_name)
+
+    if bdba_secret.matches(group_id=mapping.group_id) is secret_mgmt.bdba.MatchScore.NO_MATCH:
+        raise ValueError(f'BDBA cfg does not match {mapping.group_id=}')
+
+    bdba_client = bdba.client.BDBAApi(
+        api_routes=bdba.client.BDBAApiRoutes(base_url=bdba_secret.api_url),
+        token=bdba_secret.token,
+        tls_verify=bdba_secret.tls_verify,
     )
 
-    known_scan_results = bdba.scanning.retrieve_existing_scan_results(
+    known_scan_results = bdba_extension.scanning.retrieve_existing_scan_results(
         bdba_client=bdba_client,
         group_id=mapping.group_id,
         resource_node=resource_node,
     )
 
-    processor = bdba.scanning.ResourceGroupProcessor(
+    processor = bdba_extension.scanning.ResourceGroupProcessor(
         bdba_client=bdba_client,
         group_id=mapping.group_id,
     )
