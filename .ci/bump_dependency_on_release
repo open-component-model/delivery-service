@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+own_dir="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")"
+
+if [ -z "${EFFECTIVE_VERSION:-}" ];then
+  echo "environment variable EFFECTIVE_VERSION must be set!"
+  exit 1
+fi
+
+# replaces bdba-client=<semver> with bdba-client=<EFFECTIVE_VERSION>
+version_regex="s/\(bdba-client==\)[0-9]\+\.[0-9]\+\.[0-9]\+/\1${EFFECTIVE_VERSION}/g"
+
+# patch new bdba-client package version into consumer's requirements file
+sed -i "${version_regex}" "${own_dir}/../requirements.util.txt"

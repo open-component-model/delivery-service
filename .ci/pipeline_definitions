@@ -138,3 +138,4 @@ delivery-service:
                 - setuptools
                 - pip
                 - distribution-package
+          release_callback: '.ci/bump_dependency_on_release'
