@@ -137,3 +137,49 @@ delivery-service:
                 - setuptools
                 - pip
                 - distribution-package
+
+bdba:
+  jobs:
+    manual-release:
+      repo:
+        disable_ci_skip: True
+
+      steps:
+        build_bdba_python_package:
+          output_dir: packages
+
+      traits:
+        component_descriptor:
+          component_name: ocm.software/ocm-gear/bdba-client
+          ocm_repository: europe-docker.pkg.dev/gardener-project/releases
+          ocm_repository_mappings:
+          - repository: europe-docker.pkg.dev/gardener-project/releases
+            prefix: ''
+          - repository: europe-docker.pkg.dev/gardener-project/snapshots
+            prefix: ''
+
+        version:
+          preprocess: finalize
+          inject_effective_version: True
+          versionfile: BDBA_VERSION
+
+        release:
+          nextversion: bump_minor
+          release_notes_policy: disabled
+          release_commit_publishing_policy: tag_and_merge_back
+          git_tags:
+          - ref_template: refs/tags/bdba-{VERSION}
+          release_on_github: False
+          assets:
+            - type: build-step-file
+              mode: tar
+              step_name: build_bdba_python_package
+              step_output_dir: packages
+              path: 'dist/bdba*'
+              prefix: dist/
+              name: bdba
+              purposes:
+                - python
+                - setuptools
+                - pip
+                - distribution-package

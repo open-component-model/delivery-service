@@ -31,7 +31,7 @@ def modules():
 
 def packages():
     return [
-        'bdba',
+        'bdba_extension',
         'crypto_extension',
         'issue_replicator',
         'malware',

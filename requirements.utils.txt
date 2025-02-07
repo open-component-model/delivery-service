@@ -1,4 +1,5 @@
 aiohttp
+bdba==0.1.0
 boto3
 dacite
 gardener-cicd-libs==1.2606.0
