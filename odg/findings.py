@@ -9,6 +9,7 @@ import yaml
 
 import dso.model
 
+import consts
 import rescore.model as rm
 
 
@@ -72,6 +73,11 @@ class VulnerabilityFindingSelector:
     cve_score_range: MinMaxRange
 
 
+class RescoringModes(enum.StrEnum):
+    MANUAL = 'manual'
+    AUTOMATIC = 'automatic'
+
+
 @dataclasses.dataclass
 class FindingCategorisation:
     '''
@@ -87,16 +93,18 @@ class FindingCategorisation:
         0 to express that a finding is not relevant anymore.
     :param int allowed_processing_time:
         The days after which a finding must have been assessed at the latest.
+    :param RescoringModes rescoring:
+        Specifies whether the categorisation is applicable to user rescoring (-> `manual`) and/or to
+        full-automatic rescorings (-> `automatic`). Note that the latter requires a respective
+        rescoring ruleset to be available.
     :param Selector selector:
         Used to determine findings which should be assigned to this category.
-    :param bool automatic_rescoring:
-        If set and a rescoring ruleset is available, findings of this category are automatically
-        rescored according to the configured ruleset.
     '''
     id: str
     display_name: str
     value: int
     allowed_processing_time: int | None
+    rescoring: RescoringModes | list[RescoringModes] | None
     selector: (
         LicenseFindingSelector
         | MalwareFindingSelector
@@ -104,7 +112,16 @@ class FindingCategorisation:
         | VulnerabilityFindingSelector
         | None
     )
-    automatic_rescoring: bool = False
+
+    @property
+    def automatic_rescoring(self) -> bool:
+        if not self.rescoring:
+            return False
+
+        if isinstance(self.rescoring, list):
+            return RescoringModes.AUTOMATIC in self.rescoring
+
+        return self.rescoring is RescoringModes.AUTOMATIC
 
 
 @dataclasses.dataclass
@@ -289,22 +306,10 @@ class Finding:
 
         if isinstance(self.rescoring_ruleset, dict):
             if self.type is FindingType.SAST:
-                self.rescoring_ruleset = rm.SastRescoringRuleSet( # noqa: E1123
-                    name=self.rescoring_ruleset['name'],
-                    rules=list(
-                        rm.sast_rescoring_rules_from_dict(self.rescoring_ruleset['rules'])
-                    ),
-                    description=self.rescoring_ruleset.get('description'),
-                )
+                self.rescoring_ruleset = rm.SastRescoringRuleSet.from_dict(self.rescoring_ruleset)
 
             elif self.type is FindingType.VULNERABILITY:
-                self.rescoring_ruleset = rm.CveRescoringRuleSet( # noqa: E1123
-                    name=self.rescoring_ruleset['name'],
-                    rules=list(
-                        rm.cve_rescoring_rules_from_dicts(self.rescoring_ruleset['rules'])
-                    ),
-                    description=self.rescoring_ruleset.get('description'),
-                )
+                self.rescoring_ruleset = rm.CveRescoringRuleSet.from_dict(self.rescoring_ruleset)
 
         self._validate()
 
@@ -324,20 +329,7 @@ class Finding:
                 pass
 
     def _validate_diki(self):
-        violations = []
-
-        for categorisation in self.categorisations:
-            if categorisation.selector:
-                violations.append(
-                    'selectors are not supported by diki, the diki extension takes care of '
-                    'categorisation itself'
-                )
-
-        if not self.none_categorisation:
-            violations.append(
-                'there must be at least one categorisation with "value=0" to express that a '
-                'finding is not relevant anymore'
-            )
+        violations = self._validate_categorisations()
 
         if not violations:
             return
@@ -347,18 +339,9 @@ class Finding:
         raise e
 
     def _validate_license(self):
-        violations = []
-
-        for categorisation in self.categorisations:
-            selector = categorisation.selector
-            if selector and not isinstance(selector, LicenseFindingSelector):
-                violations.append(f'selector must be of type {LicenseFindingSelector}')
-
-        if not self.none_categorisation:
-            violations.append(
-                'there must be at least one categorisation with "value=0" to express that a '
-                'finding is not relevant anymore'
-            )
+        violations = self._validate_categorisations(
+            expected_selector=LicenseFindingSelector,
+        )
 
         if not violations:
             return
@@ -368,18 +351,9 @@ class Finding:
         raise e
 
     def _validate_malware(self):
-        violations = []
-
-        for categorisation in self.categorisations:
-            selector = categorisation.selector
-            if selector and not isinstance(selector, MalwareFindingSelector):
-                violations.append(f'selector must be of type {MalwareFindingSelector}')
-
-        if not self.none_categorisation:
-            violations.append(
-                'there must be at least one categorisation with "value=0" to express that a '
-                'finding is not relevant anymore'
-            )
+        violations = self._validate_categorisations(
+            expected_selector=MalwareFindingSelector,
+        )
 
         if not violations:
             return
@@ -389,24 +363,16 @@ class Finding:
         raise e
 
     def _validate_sast(self):
-        violations = []
+        violations = self._validate_categorisations(
+            expected_selector=SASTFindingSelector,
+        )
 
-        for categorisation in self.categorisations:
-            selector = categorisation.selector
-            if selector and not isinstance(selector, SASTFindingSelector):
-                violations.append(f'selector must be of type {SASTFindingSelector}')
+        if self.rescoring_ruleset:
+            if not isinstance(self.rescoring_ruleset, rm.SastRescoringRuleSet):
+                violations.append(f'rescoring rule set must be of type {rm.SastRescoringRuleSet}')
 
-        if not self.none_categorisation:
-            violations.append(
-                'there must be at least one categorisation with "value=0" to express that a '
-                'finding is not relevant anymore'
-            )
-
-        if (
-            self.rescoring_ruleset
-            and not isinstance(self.rescoring_ruleset, rm.SastRescoringRuleSet)
-        ):
-            violations.append(f'rescoring rule set must be of type {rm.SastRescoringRuleSet}')
+            else:
+                violations.extend(self._validate_rescoring_ruleset())
 
         if not violations:
             return
@@ -416,24 +382,16 @@ class Finding:
         raise e
 
     def _validate_vulnerabilty(self):
-        violations = []
+        violations = self._validate_categorisations(
+            expected_selector=VulnerabilityFindingSelector,
+        )
 
-        for categorisation in self.categorisations:
-            selector = categorisation.selector
-            if selector and not isinstance(selector, VulnerabilityFindingSelector):
-                violations.append(f'selector must be of type {VulnerabilityFindingSelector}')
+        if self.rescoring_ruleset:
+            if not isinstance(self.rescoring_ruleset, rm.CveRescoringRuleSet):
+                violations.append(f'rescoring rule set must be of type {rm.CveRescoringRuleSet}')
 
-        if not self.none_categorisation:
-            violations.append(
-                'there must be at least one categorisation with "value=0" to express that a '
-                'finding is not relevant anymore'
-            )
-
-        if (
-            self.rescoring_ruleset
-            and not isinstance(self.rescoring_ruleset, rm.CveRescoringRuleSet)
-        ):
-            violations.append(f'rescoring rule set must be of type {rm.CveRescoringRuleSet}')
+            else:
+                violations.extend(self._validate_rescoring_ruleset())
 
         if not violations:
             return
@@ -441,6 +399,74 @@ class Finding:
         e = ModelValidationError('vulnerability finding model violations found:')
         e.add_note('\n'.join(violations))
         raise e
+
+    def _validate_categorisations(
+        self,
+        expected_selector: object | None=None,
+    ) -> list[str]:
+        violations = []
+
+        for categorisation in self.categorisations:
+            selector = categorisation.selector
+            if selector and expected_selector and not isinstance(selector, expected_selector):
+                violations.append(f'selector must be of type {expected_selector}')
+
+            if categorisation.id.startswith(consts.RESCORING_OPERATOR_SET_TO_PREFIX):
+                violations.append(
+                    f'the prefix "{consts.RESCORING_OPERATOR_SET_TO_PREFIX}" is reserved for '
+                    'operations defined in the rescoring ruleset'
+                )
+
+        if not self.none_categorisation:
+            violations.append(
+                'there must be at least one categorisation with "value=0" to express that a '
+                'finding is not relevant anymore'
+            )
+
+        return violations
+
+    def _validate_rescoring_ruleset(self) -> list[str]:
+        violations = []
+
+        if self.rescoring_ruleset.operations:
+            for operation in self.rescoring_ruleset.operations.values():
+                violations.extend(self._validate_rescoring_ruleset_operation(operation))
+
+        for rule in self.rescoring_ruleset.rules:
+            violations.extend(self._validate_rescoring_ruleset_operation(
+                operation=rule.operation,
+                operations=self.rescoring_ruleset.operations,
+            ))
+
+        return violations
+
+    def _validate_rescoring_ruleset_operation(
+        self,
+        operation: rm.Operation | str,
+        operations: dict[str, rm.Operation | str] | None=None,
+    ) -> list[str]:
+        if not operations:
+            operations = dict()
+
+        if isinstance(operation, str):
+            if operation in operations:
+                return []
+
+            if (
+                operation.startswith(consts.RESCORING_OPERATOR_SET_TO_PREFIX)
+                and self.categorisation_by_id(operation.removeprefix(consts.RESCORING_OPERATOR_SET_TO_PREFIX)) # noqa: E501
+            ):
+                return []
+
+            return [f'no categorisation matches operator "{operation}"']
+
+        violations = []
+
+        for op in operation.order:
+            if not op in operations and not self.categorisation_by_id(op):
+                violations.append(f'no categorisation matches operator "{op}" in "{operation}"')
+
+        return violations
 
     @property
     def none_categorisation(self) -> FindingCategorisation | None:
@@ -497,6 +523,9 @@ def default_finding_categorisations(
         dacite.from_dict(
             data_class=FindingCategorisation,
             data=categorisation,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
         ) for categorisation in categorisation_raw[name]
     ]
 

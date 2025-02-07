@@ -4,6 +4,7 @@ import pytest
 
 import dso.model
 
+import consts
 import odg.findings
 import rescore.model
 import rescore.utility
@@ -14,27 +15,69 @@ def cve_rescoring_ruleset() -> dict:
     return {
         'name': 'my-cve-rescoring',
         'description': 'this is a very good description',
+        'operations': {
+            'reduce': {
+                'order': ['CRITICAL', 'MEDIUM', 'NONE'],
+            },
+            'not-exploitable': f'{consts.RESCORING_OPERATOR_SET_TO_PREFIX}NONE',
+        },
         'rules': [
             {
                 'category_value': 'network_exposure:public',
                 'name': 'network-exposure-public',
                 'rules': [
                     {
-                        'cve_values': ['AV:N'],
-                        'rescore': 'no-change'
-                    },
-                    {
                         'cve_values': ['AV:A'],
-                        'rescore': 'reduce'
+                        'operation': 'reduce',
                     },
                     {
                         'cve_values': ['AV:L', 'AV:P'],
-                        'rescore': 'not-exploitable'
+                        'operation': 'not-exploitable',
                     },
                 ]
             }
         ],
     }
+
+
+@pytest.fixture
+def vulnerability_finding_cfg(
+    cve_rescoring_ruleset: dict,
+) -> odg.findings.Finding:
+    return odg.findings.Finding.from_dict(
+        findings_raw=[{
+            'type': odg.findings.FindingType.VULNERABILITY,
+            'categorisations': [{
+                'id': 'NONE',
+                'display_name': 'NONE display name',
+                'value': 0,
+            }, {
+                'id': 'MEDIUM',
+                'display_name': 'MEDIUM display name',
+                'value': 2,
+                'allowed_processing_time': 90,
+                'selector': {
+                    'cve_score_range': {
+                        'min': 4.0,
+                        'max': 6.9,
+                    },
+                },
+            }, {
+                'id': 'CRITICAL',
+                'display_name': 'CRITICAL display name',
+                'value': 8,
+                'allowed_processing_time': 30,
+                'selector': {
+                    'cve_score_range': {
+                        'min': 9.0,
+                        'max': 10.0,
+                    },
+                },
+            }],
+            'rescoring_ruleset': cve_rescoring_ruleset,
+        }],
+        finding_type=odg.findings.FindingType.VULNERABILITY,
+    )
 
 
 @pytest.fixture
@@ -47,54 +90,73 @@ def sast_rescoring_ruleset() -> dict:
                 'match': [{'component_name': 'github.internal/.*'}],
                 'sub_types': ['local-linting'],
                 'sast_status': 'no-linter',
-                'rescore': 'to-none'
+                'operation': f'{consts.RESCORING_OPERATOR_SET_TO_PREFIX}no-linter-required',
             },
             {
                 'name': 'central-linting-is-optional-for-external-components',
                 'match': [{'component_name': 'github.com/.*'}],
                 'sub_types': ['central-linting'],
                 'sast_status': 'no-linter',
-                'rescore': 'to-none'
+                'operation': f'{consts.RESCORING_OPERATOR_SET_TO_PREFIX}no-linter-required',
             },
         ],
     }
 
 
+@pytest.fixture
+def sast_finding_cfg(
+    sast_rescoring_ruleset: dict,
+) -> odg.findings.Finding:
+    return odg.findings.Finding.from_dict(
+        findings_raw=[{
+            'type': odg.findings.FindingType.SAST,
+            'categorisations': [{
+                'id': 'no-findings',
+                'display_name': 'scan exists and has no findings',
+                'value': 0,
+                'rescoring': 'manual',
+            }, {
+                'id': 'no-linter-required',
+                'display_name': 'linting is optional for this component',
+                'value': 0,
+            }, {
+                'id': 'missing-scan',
+                'display_name': 'missing sast scan',
+                'value': 16,
+                'allowed_processing_time': 0,
+                'rescoring': 'automatic',
+                'selector': {
+                    'sub_types': ['.*'],
+                },
+            }],
+            'rescoring_ruleset': sast_rescoring_ruleset,
+        }],
+        finding_type=odg.findings.FindingType.SAST,
+    )
+
+
 def test_deserialise_cve_rescoring_ruleset(
     cve_rescoring_ruleset: dict,
 ):
-    rescoring_ruleset = rescore.model.CveRescoringRuleSet( # noqa: E1123
-        name=cve_rescoring_ruleset['name'],
-        rules=list(
-            rescore.model.cve_rescoring_rules_from_dicts(cve_rescoring_ruleset['rules'])
-        ),
-        description=cve_rescoring_ruleset.get('description'),
-    )
+    rescoring_ruleset = rescore.model.CveRescoringRuleSet.from_dict(cve_rescoring_ruleset)
 
-    assert len(rescoring_ruleset.rules) == 3
+    assert len(rescoring_ruleset.rules) == 2
 
-    rule1, rule2, rule3 = rescoring_ruleset.rules
-    assert rule1.rescore is rescore.model.Rescore.NO_CHANGE
-    assert rule2.rescore is rescore.model.Rescore.REDUCE
-    assert rule3.rescore is rescore.model.Rescore.NOT_EXPLOITABLE
+    rule1, rule2 = rescoring_ruleset.rules
+    assert rule1.operation == 'reduce'
+    assert rule2.operation == 'not-exploitable'
 
 
 def test_deserialise_sast_rescoring_ruleset(
     sast_rescoring_ruleset: dict,
 ):
-    rescoring_ruleset = rescore.model.SastRescoringRuleSet( # noqa: E1123
-        name=sast_rescoring_ruleset['name'],
-        rules=list(
-            rescore.model.sast_rescoring_rules_from_dict(sast_rescoring_ruleset['rules'])
-        ),
-        description=sast_rescoring_ruleset.get('description'),
-    )
+    rescoring_ruleset = rescore.model.SastRescoringRuleSet.from_dict(sast_rescoring_ruleset)
 
     assert len(rescoring_ruleset.rules) == 2
 
     rule1, rule2 = rescoring_ruleset.rules
-    assert rule1.rescore is rescore.model.Rescore.TO_NONE
-    assert rule2.rescore is rescore.model.Rescore.TO_NONE
+    assert rule1.operation == f'{consts.RESCORING_OPERATOR_SET_TO_PREFIX}no-linter-required'
+    assert rule2.operation == f'{consts.RESCORING_OPERATOR_SET_TO_PREFIX}no-linter-required'
 
 
 def test_deserialise_with_extra_attributes(
@@ -106,31 +168,6 @@ def test_deserialise_with_extra_attributes(
 
     test_deserialise_cve_rescoring_ruleset(cve_rescoring_ruleset)
     test_deserialise_sast_rescoring_ruleset(sast_rescoring_ruleset)
-
-
-@pytest.fixture
-def sast_finding_cfg(
-    sast_rescoring_ruleset: dict,
-) -> odg.findings.Finding:
-    return odg.findings.Finding.from_dict(
-        findings_raw=[{
-            'type': 'finding/sast',
-            'categorisations': [{
-                'name': 'scan exists and has no findings',
-                'value': 0,
-            }, {
-                'name': 'missing sast scan',
-                'value': 16,
-                'allowed_processing_time': 0,
-                'automatic_rescoring': True,
-                'selector': {
-                    'sub_types': ['.*'],
-                },
-            }],
-            'rescoring_ruleset': sast_rescoring_ruleset,
-        }],
-        finding_type=odg.findings.FindingType.SAST,
-    )
 
 
 @pytest.fixture
@@ -194,4 +231,4 @@ def test_generate_sast_rescorings(
     assert rescoring.data.matching_rules == [
         'central-linting-is-optional-for-external-components'
     ]
-    assert rescoring.data.severity == 'scan exists and has no findings'
+    assert rescoring.data.severity == 'no-linter-required'

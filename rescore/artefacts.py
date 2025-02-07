@@ -281,10 +281,10 @@ async def _iter_rescoring_proposals(
         if current_rescorings:
             rescoring = current_rescorings[0].data
             current_severity = rescoring.severity
-            matching_rules = rescoring.matching_rules
+            matching_rule_names = rescoring.matching_rules
         else:
             current_severity = severity
-            matching_rules = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
+            matching_rule_names = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
 
         for categorisation in finding_cfg.categorisations:
             if categorisation.id == current_severity:
@@ -322,7 +322,7 @@ async def _iter_rescoring_proposals(
                     },
                     'finding_type': finding_cfg.type,
                     'severity': current_severity,
-                    'matching_rules': matching_rules,
+                    'matching_rules': matching_rule_names,
                     'applicable_rescorings': serialised_current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
                     'sprint': sprint,
@@ -390,9 +390,10 @@ async def _iter_rescoring_proposals(
                         finding_cfg=finding_cfg,
                         current_categorisation=categorisation,
                         rescoring_rules=rescoring_rules,
+                        operations=finding_cfg.rescoring_ruleset.operations,
                     ).id
 
-                    matching_rules = [rule.name for rule in rescoring_rules]
+                    matching_rule_names = [rule.name for rule in rescoring_rules]
 
                 yield dacite.from_dict(
                     data_class=RescoringProposal,
@@ -410,7 +411,7 @@ async def _iter_rescoring_proposals(
                         },
                         'finding_type': finding_cfg.type,
                         'severity': current_severity,
-                        'matching_rules': matching_rules,
+                        'matching_rules': matching_rule_names,
                         'applicable_rescorings': serialised_current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
                         'sprint': sprint,
@@ -452,7 +453,7 @@ async def _iter_rescoring_proposals(
                         },
                         'finding_type': finding_cfg.type,
                         'severity': current_severity,
-                        'matching_rules': matching_rules,
+                        'matching_rules': matching_rule_names,
                         'applicable_rescorings': serialised_current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
                         'sprint': sprint,
