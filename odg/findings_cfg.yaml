@@ -12,10 +12,12 @@
       display_name: NONE
       value: 0
       allowed_processing_time: ~
+      rescoring: manual
     - id: BLOCKER
       display_name: BLOCKER
       value: 16
       allowed_processing_time: 0
+      rescoring: manual
       selector:
         license_names:
           - sleepycat
@@ -28,10 +30,12 @@
       display_name: NONE
       value: 0
       allowed_processing_time: ~
+      rescoring: manual
     - id: BLOCKER
       display_name: BLOCKER
       value: 16
       allowed_processing_time: 0
+      rescoring: manual
       selector:
         malware_names:
           - .*
@@ -48,23 +52,25 @@
         sub_types:
           - local-linting
         sast_status: no-linter
-        rescore: to-none
+        operation: set-to-NONE
       - name: central-linting-is-optional-for-external-components
         match:
           - component_name: github.com/.*
         sub_types:
           - central-linting
         sast_status: no-linter
-        rescore: to-none
+        operation: set-to-NONE
   categorisations:
     - id: NONE
       display_name: NONE
       value: 0
+      rescoring: manual
       allowed_processing_time: ~
     - id: BLOCKER
       display_name: BLOCKER
       value: 16
       allowed_processing_time: 0
+      rescoring: [manual, automatic]
       selector:
         sub_types:
           - .*

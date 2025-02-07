@@ -8,6 +8,7 @@ import dso.cvss
 import dso.labels
 import dso.model
 
+import consts
 import odg.findings
 import rescore.model
 
@@ -172,38 +173,50 @@ def rescore_finding(
     finding_cfg: odg.findings.Finding,
     current_categorisation: odg.findings.FindingCategorisation,
     rescoring_rules: collections.abc.Iterable[rescore.model.Rule],
+    operations: dict[str, rescore.model.Operation | str] | None,
 ) -> odg.findings.FindingCategorisation:
     '''
     Applies the `rescoring_rules` to the `current_categorisation`. A rescoring rule may either
-    express a generic operation (e.g. reduce, not-exploitable), or a rescoring to a concrete
+    express a generic operation (specified in the rescoring ruleset), or a rescoring to a concrete
     categorisation id.
     '''
     for rule in rescoring_rules:
-        if rule.rescore is rescore.model.Rescore.NO_CHANGE:
-            continue
-
-        elif rule.rescore is rescore.model.Rescore.REDUCE:
-            sorted_categorisations = sorted(
-                finding_cfg.categorisations,
-                key=lambda categorisation: categorisation.value,
-                reverse=True,
-            )
-            for categorisation in sorted_categorisations:
-                if categorisation.value < current_categorisation.value:
-                    current_categorisation = categorisation
-                    break
-
-        elif rule.rescore in (rescore.model.Rescore.NOT_EXPLOITABLE, rescore.model.Rescore.TO_NONE):
-            return finding_cfg.none_categorisation
-
+        if operations and rule.operation in operations.keys():
+            # specified operation is one of the pre-defined operations
+            operation = operations[rule.operation]
         else:
-            for categorisation in finding_cfg.categorisations:
-                if categorisation.id == rule.rescore:
-                    return categorisation
-            else:
+            operation = rule.operation
+
+        if isinstance(operation, str):
+            if not operation.startswith(consts.RESCORING_OPERATOR_SET_TO_PREFIX):
                 raise ValueError(
-                    f'did not find correspondig finding categorisation for {rule.rescore=}'
+                    f'invalid {operation=}, must match pattern '
+                    f'`{consts.RESCORING_OPERATOR_SET_TO_PREFIX}<categorisation-id>`'
                 )
+            operation = operation.removeprefix(consts.RESCORING_OPERATOR_SET_TO_PREFIX)
+
+        elif isinstance(operation, rescore.model.Operation):
+            for idx, op in enumerate(operation.order):
+                if op != current_categorisation.id:
+                    continue
+
+                # use either the "<value>"-next operation ("value" might be negative)
+                next_categorisation_idx = idx + operation.value
+
+                # ensure lower and upper limit (specified via "order" property)
+                next_categorisation_idx = min(next_categorisation_idx, len(operation.order) - 1)
+                next_categorisation_idx = max(next_categorisation_idx, 0)
+
+                operation = operation.order[next_categorisation_idx]
+                break
+
+        if not (rescored_categorisation := finding_cfg.categorisation_by_id(operation)):
+            raise ValueError(
+                f'did not find any categorisation with id "{operation}", this is probably caused '
+                'by a misconfigured rescoring ruleset or misconfigured categorisations'
+            )
+
+        current_categorisation = rescored_categorisation
 
     return current_categorisation
 
@@ -248,6 +261,7 @@ def rescoring_for_sast_finding(
         finding_cfg=sast_finding_cfg,
         current_categorisation=categorisation,
         rescoring_rules=matching_rules,
+        operations=sast_finding_cfg.rescoring_ruleset.operations,
     )
 
     if rescored_categorisation.id == categorisation.id:

@@ -7,7 +7,6 @@ import requests
 import ci.log
 import cnudie.iter
 import delivery.client
-import dso.cvss
 import dso.labels
 import dso.model
 import ocm

@@ -370,6 +370,7 @@ def _vulnerability_template_vars(
                 finding_cfg=finding_cfg,
                 current_categorisation=current_categorisation,
                 rescoring_rules=rules,
+                operations=finding_cfg.rescoring_ruleset.operations,
             )
 
             if rescored_categorisation.id == current_categorisation.id:

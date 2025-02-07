@@ -83,6 +83,7 @@ def rescore(
                 finding_cfg=vulnerability_cfg,
                 current_categorisation=categorisation,
                 rescoring_rules=matching_rules,
+                operations=vulnerability_cfg.rescoring_ruleset.operations,
             )
 
             if rescored_categorisation.value == 0: # BDBA only allows binary triages

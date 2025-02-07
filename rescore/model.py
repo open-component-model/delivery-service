@@ -11,28 +11,26 @@ import dso.cvss
 import dso.model
 
 
-class Rescore(enum.Enum):
-    REDUCE = 'reduce'
-    TO_BLOCKER = 'to-blocker'
-    NOT_EXPLOITABLE = 'not-exploitable'
-    NO_CHANGE = 'no-change'
-    TO_NONE = 'to-none'
+@dataclasses.dataclass
+class Operation:
+    order: list[str]
+    value: int = 1
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Rule:
     name: str
-    rescore: Rescore | int
+    operation: Operation | str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class SastRescoringRule(Rule):
     match: list[dso.model.MatchCondition]
     sub_types: list[dso.model.SastSubType]
     sast_status: dso.model.SastStatus
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class CveRescoringRule(Rule):
     '''
     a CVE rescoring rule intended to be used when re-scoring a CVE (see `CVSSV3` type) for an
@@ -42,7 +40,7 @@ class CveRescoringRule(Rule):
     for allowed values)
     cve_values is expected as a list of <CVSSV3-attrname>:<value> entries (see CVSSV3 for allowed
     values)
-    rescore indicates the rescoring that should be done, if the rule matches.
+    operation indicates the rescoring that should be done, if the rule matches.
 
     A rescoring rule matches iff the artefact's categorisation-value exactly matches the rule's
     category_value attr AND the CVE's values are included in the rule's `cve_values`.
@@ -141,17 +139,54 @@ class CveRescoringRule(Rule):
 class RuleSet[T: Rule]:
     name: str
     rules: list[T]
+    operations: dict[str, Operation | str] | None
     description: str | None = None
 
 
 @dataclasses.dataclass
 class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
-    pass
+
+    @staticmethod
+    def from_dict(raw: dict) -> typing.Self:
+        operations = dict(
+            (operation_name, operation_from_dict(operation))
+            for operation_name, operation in raw.get('operations', {}).items()
+        )
+
+        return CveRescoringRuleSet( # noqa: E1123
+            name=raw['name'],
+            rules=list(cve_rescoring_rules_from_dicts(raw['rules'])),
+            operations=operations,
+            description=raw.get('description'),
+        )
 
 
 @dataclasses.dataclass
 class SastRescoringRuleSet(RuleSet[SastRescoringRule]):
-    pass
+
+    @staticmethod
+    def from_dict(raw: dict) -> typing.Self:
+        operations = dict(
+            (operation_name, operation_from_dict(operation))
+            for operation_name, operation in raw.get('operations', {}).items()
+        )
+
+        return SastRescoringRuleSet( # noqa: E1123
+            name=raw['name'],
+            rules=list(sast_rescoring_rules_from_dict(raw['rules'])),
+            operations=operations,
+            description=raw.get('description'),
+        )
+
+
+def operation_from_dict(raw: dict) -> Operation | str:
+    if isinstance(raw, str):
+        return raw
+
+    return dacite.from_dict(
+        data_class=Operation,
+        data=raw,
+    )
 
 
 def cve_rescoring_rules_from_dicts(
@@ -165,7 +200,7 @@ def cve_rescoring_rules_from_dicts(
     rules:
       - cve_values:
         - <CVSSV3-attr>: <value>
-        rescore: <Rescore>
+        operation: <value>
     '''
     for rule in rules:
         category_value = rule['category_value']
@@ -173,14 +208,14 @@ def cve_rescoring_rules_from_dicts(
 
         for subrule in rule['rules']:
             cve_values = subrule['cve_values']
-            rescore = subrule['rescore']
+            operation = subrule['operation']
 
             yield dacite.from_dict(
                 data_class=CveRescoringRule,
                 data={
                     'category_value': category_value,
                     'cve_values': cve_values,
-                    'rescore': rescore,
+                    'operation': operation,
                     'name': name,
                 },
                 config=dacite.Config(
