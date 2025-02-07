@@ -32,6 +32,8 @@ python3 "${repo_dir}/setup.service.py" bdist_wheel
 rm -rf "${repo_dir}/build"
 python3 "${repo_dir}/setup.extensions.py" bdist_wheel
 rm -rf "${repo_dir}/build"
+python3 "${repo_dir}/setup.bdba_client.py" bdist_wheel
+rm -rf "${repo_dir}/build"
 
 # keep for subsequent docker build
 cp dist/* ${out_dir}
