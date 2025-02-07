@@ -1,18 +1,20 @@
 categorisations:
   - type: finding/vulnerability
     gardener:
-      - name: NONE
+      - id: NONE
+        display_name: NONE
         value: 0
-      - name: LOW
+      - id: LOW
+        display_name: LOW
         value: 1
         allowed_processing_time: 120
         automatic_rescoring: True
-        exclude_from_reporting: True
         selector:
           cve_score_range:
             min: 0.0
             max: 3.9
-      - name: MEDIUM
+      - id: MEDIUM
+        display_name: MEDIUM
         value: 2
         allowed_processing_time: 90
         automatic_rescoring: True
@@ -20,14 +22,16 @@ categorisations:
           cve_score_range:
             min: 4.0
             max: 6.9
-      - name: HIGH
+      - id: HIGH
+        display_name: HIGH
         value: 4
         allowed_processing_time: 30
         selector:
           cve_score_range:
             min: 7.0
             max: 8.9
-      - name: CRITICAL
+      - id: CRITICAL
+        display_name: CRITICAL
         value: 8
         allowed_processing_time: 30
         selector:

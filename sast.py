@@ -105,7 +105,7 @@ def create_missing_linter_finding(
         ),
         data=dso.model.SastFinding(
             sast_status=dso.model.SastStatus.NO_LINTER,
-            severity=categorisation.name,
+            severity=categorisation.id,
             sub_type=sub_type,
         ),
         discovery_date=creation_timestamp.date(),

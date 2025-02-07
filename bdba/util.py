@@ -146,7 +146,7 @@ def iter_artefact_metadata(
                     report_url=scan_result.report_url,
                     product_id=scan_result.product_id,
                     group_id=scan_result.group_id,
-                    severity=categorisation.name,
+                    severity=categorisation.id,
                     license=license,
                 )
 
@@ -192,7 +192,7 @@ def iter_artefact_metadata(
                             cve=vulnerability.cve,
                         ),
                         referenced_type=odg.findings.FindingType.VULNERABILITY,
-                        severity=vulnerability_cfg.none_categorisation.name,
+                        severity=vulnerability_cfg.none_categorisation.id,
                         user=triage.user,
                         matching_rules=[dso.model.MetaRescoringRules.BDBA_TRIAGE],
                         comment=triage.description,
@@ -211,7 +211,7 @@ def iter_artefact_metadata(
                     report_url=scan_result.report_url,
                     product_id=scan_result.product_id,
                     group_id=scan_result.group_id,
-                    severity=categorisation.name,
+                    severity=categorisation.id,
                     cve=vulnerability.cve,
                     cvss_v3_score=vulnerability.cve_severity(),
                     cvss=vulnerability.cvss,

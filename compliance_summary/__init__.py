@@ -34,16 +34,15 @@ class ComplianceEntryCategorisation(enum.StrEnum):
 
 
 def categorisation_to_summary_categorisation(
-    finding_cfg: odg.findings.Finding,
-    categorisation_name: str,
+    categorisation: odg.findings.FindingCategorisation,
 ) -> ComplianceEntryCategorisation | str:
-    if categorisation_name == finding_cfg.none_categorisation.name:
+    if categorisation.value == 0:
         # Rather use "CLEAN" instead of the custom none-categorisation for the summary as it either
         # means there are no findings or all findings have been assessed, whereas the
         # none-categorisation should only be used for the latter (e.g. "false-positive").
         return ComplianceEntryCategorisation.CLEAN
 
-    return categorisation_name
+    return categorisation.id
 
 
 def rescored_severity_if_any(
@@ -318,11 +317,11 @@ async def calculate_summary_entry(
         )
 
         for categorisation in finding_cfg.categorisations:
-            if categorisation.name == severity_name:
+            if categorisation.id == severity_name:
                 break
         else:
             raise ValueError(
-                f'did not find categorisation with name "{severity_name}" for {finding_cfg.type=}'
+                f'did not find categorisation with id "{severity_name}" for {finding_cfg.type=}'
             )
 
         if (
@@ -334,10 +333,7 @@ async def calculate_summary_entry(
     return ComplianceSummaryEntry(
         type=finding_cfg.type,
         source=finding.meta.datasource,
-        categorisation=categorisation_to_summary_categorisation(
-            finding_cfg=finding_cfg,
-            categorisation_name=most_severe_categorisation.name,
-        ),
+        categorisation=categorisation_to_summary_categorisation(most_severe_categorisation),
         value=most_severe_categorisation.value,
         scanStatus=ComplianceScanStatus.OK,
     )

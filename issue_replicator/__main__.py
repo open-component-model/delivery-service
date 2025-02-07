@@ -117,14 +117,14 @@ def _iter_findings_with_processing_dates(
             raise RuntimeError(f'did not find finding cfg for type "{finding_type}"')
 
         for categorisation in finding_cfg.categorisations:
-            if categorisation.name == finding.severity:
+            if categorisation.id == finding.severity:
                 break
         else:
             raise ValueError(
                 f'did not find categorisation with name "{finding.severity}" for {finding_type=}'
             )
 
-        if categorisation.exclude_from_reporting or categorisation.allowed_processing_time is None:
+        if categorisation.allowed_processing_time is None:
             continue # finding does not have to be processed anymore
 
         latest_processing_date = finding.finding.discovery_date + datetime.timedelta(

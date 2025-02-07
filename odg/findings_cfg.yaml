@@ -8,10 +8,12 @@
   issues:
     enable_assignees: False
   categorisations:
-    - name: NONE
+    - id: NONE
+      display_name: NONE
       value: 0
       allowed_processing_time: ~
-    - name: BLOCKER
+    - id: BLOCKER
+      display_name: BLOCKER
       value: 16
       allowed_processing_time: 0
       selector:
@@ -22,10 +24,12 @@
   issues:
     enable_assignees: False
   categorisations:
-    - name: NONE
+    - id: NONE
+      display_name: NONE
       value: 0
       allowed_processing_time: ~
-    - name: BLOCKER
+    - id: BLOCKER
+      display_name: BLOCKER
       value: 16
       allowed_processing_time: 0
       selector:
@@ -53,10 +57,12 @@
         sast_status: no-linter
         rescore: to-none
   categorisations:
-    - name: NONE
+    - id: NONE
+      display_name: NONE
       value: 0
       allowed_processing_time: ~
-    - name: BLOCKER
+    - id: BLOCKER
+      display_name: BLOCKER
       value: 16
       allowed_processing_time: 0
       selector:
@@ -71,13 +77,16 @@
     enable_assignees: False
     enable_per_finding: True
   categorisations:
-    - name: NONE
+    - id: NONE
+      display_name: NONE
       value: 0
       allowed_processing_time: ~
-    - name: MEDIUM
+    - id: MEDIUM
+      display_name: MEDIUM
       value: 2
       allowed_processing_time: 90
-    - name: HIGH
+    - id: HIGH
+      display_name: HIGH
       value: 4
       allowed_processing_time: 30
 
@@ -85,23 +94,29 @@
   issues:
     enable_issues: False
   categorisations:
-    - name: CLEAN
+    - id: CLEAN
+      display_name: CLEAN
       value: 0
-    - name: LOW
+    - id: LOW
+      display_name: LOW
       value: 1
-      exclude_from_reporting: True
-    - name: HIGH
+    - id: HIGH
+      display_name: HIGH
       value: 4
 
 - type: os_ids
   issues:
     enable_issues: False
   categorisations:
-    - name: UNKNOWN
+    - id: UNKNOWN
+      display_name: UNKNOWN
       value: -1
-    - name: CLEAN
+    - id: CLEAN
+      display_name: CLEAN
       value: 0
-    - name: MEDIUM
+    - id: MEDIUM
+      display_name: MEDIUM
       value: 2
-    - name: CRITICAL
+    - id: CRITICAL
+      display_name: CRITICAL
       value: 8

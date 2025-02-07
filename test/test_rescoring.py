@@ -170,7 +170,7 @@ def sast_finding_public(
         data=dso.model.SastFinding(
             sub_type=dso.model.SastSubType.CENTRAL_LINTING,
             sast_status=dso.model.SastStatus.NO_LINTER,
-            severity=sast_categorisation.name,
+            severity=sast_categorisation.id,
         )
     )
 
