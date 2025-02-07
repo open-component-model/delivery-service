@@ -372,10 +372,10 @@ def _vulnerability_template_vars(
                 rescoring_rules=rules,
             )
 
-            if rescored_categorisation.value == current_categorisation.value:
+            if rescored_categorisation.id == current_categorisation.id:
                 return _vuln_str
 
-            return _vuln_str + f' `{rescored_categorisation.name}`'
+            return _vuln_str + f' `{rescored_categorisation.display_name}`'
 
         versions = ', <br/>'.join((f'`{f.finding.data.package_version}`' for f in sorted(
             findings,

@@ -176,7 +176,7 @@ def rescore_finding(
     '''
     Applies the `rescoring_rules` to the `current_categorisation`. A rescoring rule may either
     express a generic operation (e.g. reduce, not-exploitable), or a rescoring to a concrete
-    categorisation value.
+    categorisation id.
     '''
     for rule in rescoring_rules:
         if rule.rescore is rescore.model.Rescore.NO_CHANGE:
@@ -198,7 +198,7 @@ def rescore_finding(
 
         else:
             for categorisation in finding_cfg.categorisations:
-                if categorisation.value == rule.rescore:
+                if categorisation.id == rule.rescore:
                     return categorisation
             else:
                 raise ValueError(
@@ -250,7 +250,7 @@ def rescoring_for_sast_finding(
         rescoring_rules=matching_rules,
     )
 
-    if rescored_categorisation.value == categorisation.value:
+    if rescored_categorisation.id == categorisation.id:
         return None # categorisation did not change -> no need to create a rescoring
 
     return dso.model.ArtefactMetadata(
@@ -264,7 +264,7 @@ def rescoring_for_sast_finding(
         data=dso.model.CustomRescoring(
             finding=finding.data,
             referenced_type=odg.findings.FindingType.SAST,
-            severity=rescored_categorisation.name,
+            severity=rescored_categorisation.id,
             user=user,
             matching_rules=[rule.name for rule in matching_rules],
             comment='Automatically rescored based on rules.',

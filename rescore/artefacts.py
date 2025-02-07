@@ -287,11 +287,11 @@ async def _iter_rescoring_proposals(
             matching_rules = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
 
         for categorisation in finding_cfg.categorisations:
-            if categorisation.name == current_severity:
+            if categorisation.id == current_severity:
                 break
         else:
             raise ValueError(
-                f'did not find categorisation with name "{current_severity}" for {finding_cfg.type=}'
+                f'did not find categorisation with id "{current_severity}" for {finding_cfg.type=}'
             )
 
         sprint = sprint_for_finding(
@@ -390,7 +390,7 @@ async def _iter_rescoring_proposals(
                         finding_cfg=finding_cfg,
                         current_categorisation=categorisation,
                         rescoring_rules=rescoring_rules,
-                    ).name
+                    ).id
 
                     matching_rules = [rule.name for rule in rescoring_rules]
 

@@ -75,7 +75,10 @@ class VulnerabilityFindingSelector:
 @dataclasses.dataclass
 class FindingCategorisation:
     '''
-    :param str name:
+    :param str id:
+        Stable identifier for the category (must not change as it will be written into findings as
+        well).
+    :param str display_name:
         Human-friendly name of the category (will be displayed to the user).
     :param int value:
         Finding type independent scala to determine the actual severity of the category, e.g. to
@@ -89,11 +92,9 @@ class FindingCategorisation:
     :param bool automatic_rescoring:
         If set and a rescoring ruleset is available, findings of this category are automatically
         rescored according to the configured ruleset.
-    :param bool exclude_from_reporting:
-        If set, findings belonging to this category won't be included in reportings, such as the
-        GitHub issues or in the Delivery-Dashboard compliance summary chips.
     '''
-    name: str
+    id: str
+    display_name: str
     value: int
     allowed_processing_time: int | None
     selector: (
@@ -104,7 +105,6 @@ class FindingCategorisation:
         | None
     )
     automatic_rescoring: bool = False
-    exclude_from_reporting: bool = False
 
 
 @dataclasses.dataclass
@@ -335,8 +335,8 @@ class Finding:
 
         if not self.none_categorisation:
             violations.append(
-                'there must be exactly one categorisation with "value=0" to express that a finding '
-                'is not relevant anymore'
+                'there must be at least one categorisation with "value=0" to express that a '
+                'finding is not relevant anymore'
             )
 
         if not violations:
@@ -356,8 +356,8 @@ class Finding:
 
         if not self.none_categorisation:
             violations.append(
-                'there must be exactly one categorisation with "value=0" to express that a finding '
-                'is not relevant anymore'
+                'there must be at least one categorisation with "value=0" to express that a '
+                'finding is not relevant anymore'
             )
 
         if not violations:
@@ -377,8 +377,8 @@ class Finding:
 
         if not self.none_categorisation:
             violations.append(
-                'there must be exactly one categorisation with "value=0" to express that a finding '
-                'is not relevant anymore'
+                'there must be at least one categorisation with "value=0" to express that a '
+                'finding is not relevant anymore'
             )
 
         if not violations:
@@ -398,8 +398,8 @@ class Finding:
 
         if not self.none_categorisation:
             violations.append(
-                'there must be exactly one categorisation with "value=0" to express that a finding '
-                'is not relevant anymore'
+                'there must be at least one categorisation with "value=0" to express that a '
+                'finding is not relevant anymore'
             )
 
         if (
@@ -425,8 +425,8 @@ class Finding:
 
         if not self.none_categorisation:
             violations.append(
-                'there must be exactly one categorisation with "value=0" to express that a finding '
-                'is not relevant anymore'
+                'there must be at least one categorisation with "value=0" to express that a '
+                'finding is not relevant anymore'
             )
 
         if (
@@ -450,6 +450,11 @@ class Finding:
         '''
         for categorisation in self.categorisations:
             if categorisation.value == 0:
+                return categorisation
+
+    def categorisation_by_id(self, id: str) -> FindingCategorisation | None:
+        for categorisation in self.categorisations:
+            if categorisation.id == id:
                 return categorisation
 
     def matches(self, artefact: dso.model.ComponentArtefactId) -> bool:
