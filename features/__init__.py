@@ -15,7 +15,6 @@ import dateutil.parser
 import github3.repos
 import yaml
 
-import ci.util
 import cnudie.retrieve
 import ocm
 
@@ -724,7 +723,7 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
 
 def apply_raw_cfg():
     global feature_cfgs
-    raw = ci.util.parse_yaml_file(paths.features_cfg_path())
+    raw = util.parse_yaml_file(paths.features_cfg_path())
     for cfg in deserialise_cfg(raw):
         # remove previous feature cfg of the type and instead add new one as it might have changed
         feature_cfgs = [f for f in feature_cfgs if type(f) is not type(cfg)]
@@ -756,7 +755,7 @@ def apply_raw_cfg():
 
     if (
         (ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True))
-        and (ocm_repo_mappings_raw := ci.util.parse_yaml_file(ocm_repo_mappings_path))
+        and (ocm_repo_mappings_raw := util.parse_yaml_file(ocm_repo_mappings_path))
     ):
         ocm_repo_mappings_feature = deserialise_repo_contexts(
             ocm_repo_mappings_raw=ocm_repo_mappings_raw,

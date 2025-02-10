@@ -9,11 +9,11 @@ import typing
 import dacite
 import dateutil.parser
 
-import ci.util
 import dso.model
 
 import k8s.model
 import k8s.util
+import util
 
 
 @dataclasses.dataclass(frozen=True)
@@ -28,10 +28,7 @@ class RuntimeArtefact:
     artefact: dso.model.ComponentArtefactId
 
     def as_dict(self) -> dict:
-        return dataclasses.asdict(
-            obj=self,
-            dict_factory=ci.util.dict_to_json_factory,
-        )
+        return util.dict_serialisation(self)
 
     @staticmethod
     def from_dict(runtime_artefact: dict) -> typing.Self:

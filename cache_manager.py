@@ -18,7 +18,6 @@ import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.sql.elements
 
 import ci.log
-import ci.util
 import cnudie.iter
 import cnudie.iter_async
 import cnudie.retrieve_async
@@ -40,6 +39,7 @@ import lookups
 import odg.extensions_cfg
 import odg.findings
 import paths
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -373,7 +373,7 @@ async def main():
     )
 
     artefact_metadata_cfg_by_type = compliance_summary.artefact_metadata_cfg_by_type(
-        artefact_metadata_cfg=ci.util.parse_yaml_file(paths.artefact_metadata_cfg),
+        artefact_metadata_cfg=util.parse_yaml_file(paths.artefact_metadata_cfg),
     )
 
     db_session = await deliverydb.sqlalchemy_session(db_url)

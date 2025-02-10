@@ -11,12 +11,12 @@ import dacite
 import dateutil.parser
 import kubernetes.client.rest
 
-import ci.util
 import dso.model
 
 import k8s.model
 import k8s.util
 import odg.extensions_cfg
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -41,10 +41,7 @@ class BacklogItem:
     priority: BacklogPriorities
 
     def as_dict(self) -> dict:
-        return dataclasses.asdict(
-            obj=self,
-            dict_factory=ci.util.dict_to_json_factory,
-        )
+        return util.dict_serialisation(self)
 
     @staticmethod
     def from_dict(backlog_item: dict) -> 'BacklogItem':

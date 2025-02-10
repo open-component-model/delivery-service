@@ -64,7 +64,9 @@ class BDBAApiRoutes:
     '''
 
     def __init__(self, base_url):
-        self._base_url = ci.util.not_empty(base_url)
+        if base_url is None:
+            raise ValueError(f'{base_url=} must not be None')
+        self._base_url = base_url
         self._api_url = functools.partial(self._url, 'api')
         self._rest_url = functools.partial(self._url, 'rest')
 
@@ -385,9 +387,11 @@ class BDBAApi:
         if scope == bm.TriageScope.ACCOUNT_WIDE:
             pass
         elif scope in (bm.TriageScope.FILE_NAME, bm.TriageScope.FILE_HASH, bm.TriageScope.RESULT):
-            ci.util.not_none(product_id)
+            if product_id is None:
+                raise ValueError(f'{product_id=} must not be None')
         elif scope == bm.TriageScope.GROUP:
-            ci.util.not_none(group_id)
+            if group_id is None:
+                raise ValueError(f'{group_id=} must not be None')
         else:
             raise NotImplementedError()
 

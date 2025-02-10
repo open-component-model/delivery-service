@@ -4,17 +4,15 @@ import os
 
 import yaml
 
-import ci.util
 
-
-repo_dir = os.path.abspath(ci.util.check_env('MAIN_REPO_DIR'))
+repo_dir = os.path.abspath(os.environ['MAIN_REPO_DIR'])
 CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
 FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
 REQUIREMENTS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
 EXTENSIONS_CHART_DIR = os.path.join(repo_dir, 'charts', 'extensions')
 
-dependency_name = ci.util.check_env('DEPENDENCY_NAME')
-dependency_version = ci.util.check_env('DEPENDENCY_VERSION')
+dependency_name = os.environ['DEPENDENCY_NAME']
+dependency_version = os.environ['DEPENDENCY_VERSION']
 
 
 def write_component_version_to_file(file_path: str):

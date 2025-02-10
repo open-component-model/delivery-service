@@ -6,7 +6,6 @@ import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.sql.elements as sqle
 
-import ci.util
 import cnudie.iter
 import cnudie.iter_async
 import cnudie.retrieve_async
@@ -15,6 +14,7 @@ import oci.model
 import ocm
 
 import deliverydb.model as dm
+import util
 
 
 def to_db_artefact_metadata(
@@ -26,12 +26,10 @@ def to_db_artefact_metadata(
     meta = artefact_metadata.meta
     data = artefact_metadata.data
 
-    data_raw = data
     if dataclasses.is_dataclass(data):
-        data_raw = dataclasses.asdict(
-            obj=data,
-            dict_factory=ci.util.dict_to_json_factory,
-        )
+        data_raw = util.dict_serialisation(data)
+    else:
+        data_raw = data
 
     if hasattr(data, 'key'):
         data_key = hashlib.sha1(data.key.encode('utf-8'), usedforsecurity=False).hexdigest()
@@ -40,10 +38,7 @@ def to_db_artefact_metadata(
 
     referenced_type = data.referenced_type if hasattr(data, 'referenced_type') else None
 
-    meta_raw = dataclasses.asdict(
-        obj=meta,
-        dict_factory=ci.util.dict_to_json_factory,
-    )
+    meta_raw = util.dict_serialisation(meta)
 
     return dm.ArtefactMetaData(
         id=artefact_metadata.id,
