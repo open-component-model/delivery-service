@@ -41,8 +41,13 @@ class WarningVerbosities(enum.StrEnum):
     WARNING = 'warning'
 
 
+@dataclasses.dataclass(kw_only=True)
+class ScanConfigMixins:
+    enabled: bool = True
+
+
 @dataclasses.dataclass
-class BacklogItemMixins:
+class BacklogItemMixins(ScanConfigMixins):
     '''
     Defines properties and functions which are shared among those extensions which determine their
     workload using the BacklogItem custom resource.
@@ -96,7 +101,7 @@ class TimeRange:
 
 
 @dataclasses.dataclass
-class ArtefactEnumeratorConfig:
+class ArtefactEnumeratorConfig(ScanConfigMixins):
     '''
     :param str delivery_service_url
     :param list[Component] components:
@@ -120,7 +125,7 @@ class ArtefactEnumeratorConfig:
 
 
 @dataclasses.dataclass
-class BacklogControllerConfig:
+class BacklogControllerConfig(ScanConfigMixins):
     '''
     :param int max_replicas:
         Maximum number of replicas per extension to which the backlog controller will scale. Note,
@@ -263,7 +268,7 @@ class PrefillFunctionCaches:
 
 
 @dataclasses.dataclass
-class CacheManagerConfig:
+class CacheManagerConfig(ScanConfigMixins):
     '''
     :param int max_cache_size_bytes
     :param int min_pruning_bytes:
@@ -373,7 +378,7 @@ class ClamAVConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
-class DeliveryDBBackup:
+class DeliveryDBBackup(ScanConfigMixins):
     '''
     :param str delivery_service_url
     :param str component_name:
