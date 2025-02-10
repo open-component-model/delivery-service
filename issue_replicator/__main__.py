@@ -283,6 +283,12 @@ def replicate_issue(
             return gci._label_malware
 
         elif (
+            finding_type is odg.findings.FindingType.SAST
+            and finding_source == dso.model.Datasource.SAST_LINT_CHECK
+        ):
+            return gci._label_sast
+
+        elif (
             finding_type is odg.findings.FindingType.DIKI
             and finding_source == dso.model.Datasource.DIKI
         ):
