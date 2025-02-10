@@ -48,6 +48,10 @@ spec:
               mountPath: /secrets/kubernetes
             - name: oci-registry
               mountPath: /secrets/oci-registry
+            - name: scan-cfg
+              mountPath: /scan_cfg
+            - name: findings-cfg
+              mountPath: /findings_cfg
             - name: features-cfg
               mountPath: "/features_cfg"
               readOnly: true
