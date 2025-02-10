@@ -597,12 +597,17 @@ async def _mark_compliance_summary_cache_for_deletion(
         datatypes = (artefact_metadata.type,)
 
     for datatype in datatypes:
+        try:
+            finding_type = odg.findings.FindingType(datatype)
+        except ValueError:
+            continue
+
         await dc.mark_function_cache_for_deletion(
             encoding_format=dcm.EncodingFormat.PICKLE,
             function='compliance_summary.component_datatype_summaries',
             db_session=db_session,
             defer_db_commit=True, # only commit at the end of the query
             component=component,
-            finding_type=odg.findings.FindingType(datatype),
+            finding_type=finding_type,
             datasource=artefact_metadata.datasource,
         )
