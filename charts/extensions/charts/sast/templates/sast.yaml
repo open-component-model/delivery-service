@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
-  name: sastLintCheck
+  name: sastlintcheck
 spec:
   replicas: 0 # will be scaled automatically by backlog-controller
   selector:
     matchLabels:
-      app: sast
-      delivery-gear.gardener.cloud/service: sast
+      app: sast-lint-check
+      delivery-gear.gardener.cloud/service: sastLintCheck
   template:
     metadata:
       labels:
-        app: sast
-        delivery-gear.gardener.cloud/service: sast
+        app: sast-lint-check
+        delivery-gear.gardener.cloud/service: sastLintCheck
     spec:
       topologySpreadConstraints:
         - maxSkew: 1
@@ -23,7 +23,7 @@ spec:
               app: sast
       terminationGracePeriodSeconds: 300 # 5 min
       containers:
-        - name: sast
+        - name: sast-lint-check
           image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
           command:
