@@ -24,8 +24,8 @@ import ctx_util
 import k8s.logging
 import k8s.util
 import lookups
+import odg.extensions_cfg
 import odg.findings
-import odg.scan_cfg
 import paths
 import secret_mgmt
 import secret_mgmt.delivery_db
@@ -284,8 +284,8 @@ def parse_args():
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
     parser.add_argument(
-        '--scan-cfg-path',
-        help='path to the `scan_cfg.yaml` file that should be used',
+        '--extensions-cfg-path',
+        help='path to the `extensions_cfg.yaml` file that should be used',
     )
 
     parsed_arguments = parser.parse_args()
@@ -314,24 +314,24 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=odg.scan_cfg.Services.DELIVERY_DB_BACKUP,
+        service=odg.extensions_cfg.Services.DELIVERY_DB_BACKUP,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=odg.scan_cfg.Services.DELIVERY_DB_BACKUP,
+        service=odg.extensions_cfg.Services.DELIVERY_DB_BACKUP,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
     logger.info('creating delivery-db backup')
 
-    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
-        scan_cfg_path = paths.scan_cfg_path()
+    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
+        extensions_cfg_path = paths.extensions_cfg_path()
 
-    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
-    delivery_db_backup_cfg = scan_cfg.delivery_db_backup
+    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    delivery_db_backup_cfg = extensions_cfg.delivery_db_backup
 
     delivery_db_cfgs = secret_factory.delivery_db()
     if len(delivery_db_cfgs) != 1:

@@ -22,8 +22,8 @@ import k8s.logging
 import k8s.model
 import k8s.util
 import lookups
+import odg.extensions_cfg
 import odg.findings
-import odg.scan_cfg
 import paths
 import rescore.utility
 
@@ -177,7 +177,7 @@ def _group_findings_by_cfg_source_and_date(
 
 def replicate_issue(
     artefact: dso.model.ComponentArtefactId,
-    issue_replicator_cfg: odg.scan_cfg.IssueReplicatorConfig,
+    issue_replicator_cfg: odg.extensions_cfg.IssueReplicatorConfig,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
@@ -356,8 +356,8 @@ def parse_args():
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
     parser.add_argument(
-        '--scan-cfg-path',
-        help='path to the `scan_cfg.yaml` file that should be used',
+        '--extensions-cfg-path',
+        help='path to the `extensions_cfg.yaml` file that should be used',
     )
     parser.add_argument(
         '--findings-cfg-path',
@@ -367,7 +367,7 @@ def parse_args():
         '--delivery-service-url',
         help='''
             specify the url of the delivery service to use instead of the one configured in the
-            respective scan configuration
+            respective extensions configuration
         ''',
     )
     parser.add_argument('--cache-dir', default=default_cache_dir)
@@ -402,22 +402,22 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
+        service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
+        service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
-    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
-        scan_cfg_path = paths.scan_cfg_path()
+    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
+        extensions_cfg_path = paths.extensions_cfg_path()
 
-    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
-    issue_replicator_cfg = scan_cfg.issue_replicator
+    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    issue_replicator_cfg = extensions_cfg.issue_replicator
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
         findings_cfg_path = paths.findings_cfg_path()
@@ -445,7 +445,7 @@ def main():
         ready_to_terminate = False
 
         backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
+            service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
         )

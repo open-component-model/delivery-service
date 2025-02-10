@@ -17,7 +17,7 @@ import k8s.backlog
 import k8s.logging
 import k8s.model
 import k8s.util
-import odg.scan_cfg
+import odg.extensions_cfg
 import paths
 
 
@@ -27,7 +27,7 @@ k8s.logging.configure_kubernetes_logging()
 
 
 def on_backlog_change(
-    backlog_controller_cfg: odg.scan_cfg.BacklogControllerConfig,
+    backlog_controller_cfg: odg.extensions_cfg.BacklogControllerConfig,
     metadata: dict,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -93,7 +93,7 @@ def on_backlog_change(
                 backlog_crd=backlog_crd,
             )
 
-    if service == odg.scan_cfg.Services.ISSUE_REPLICATOR:
+    if service == odg.extensions_cfg.Services.ISSUE_REPLICATOR:
         # only allow up-scaling to 1 for issue replicator because of github's secondary rate limits
         max_replicas = 1
     else:
@@ -131,8 +131,8 @@ def parse_args():
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
     parser.add_argument(
-        '--scan-cfg-path',
-        help='path to the `scan_cfg.yaml` file that should be used',
+        '--extensions-cfg-path',
+        help='path to the `extensions_cfg.yaml` file that should be used',
     )
 
     parsed_arguments = parser.parse_args()
@@ -161,16 +161,16 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=odg.scan_cfg.Services.BACKLOG_CONTROLLER,
+        service=odg.extensions_cfg.Services.BACKLOG_CONTROLLER,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
-    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
-        scan_cfg_path = paths.scan_cfg_path()
+    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
+        extensions_cfg_path = paths.extensions_cfg_path()
 
-    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
-    backlog_controller_cfg = scan_cfg.backlog_controller
+    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    backlog_controller_cfg = extensions_cfg.backlog_controller
 
     resource_version = ''
 

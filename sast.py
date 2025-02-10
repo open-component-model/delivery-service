@@ -25,8 +25,8 @@ import k8s.util
 import k8s.model
 import k8s.logging
 import lookups
+import odg.extensions_cfg
 import odg.findings
-import odg.scan_cfg
 import paths
 import rescore.model
 import rescore.utility
@@ -159,7 +159,7 @@ def iter_artefact_metadata(
     artefact: dso.model.ComponentArtefactId,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     sast_finding_config: odg.findings.Finding,
-    sast_config: odg.scan_cfg.SASTConfig,
+    sast_config: odg.extensions_cfg.SASTConfig,
     creation_timestamp: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
 ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
     '''
@@ -171,7 +171,7 @@ def iter_artefact_metadata(
         return
 
     if not sast_config.is_supported(artefact_kind=artefact.artefact_kind):
-        if sast_config.on_unsupported is odg.scan_cfg.WarningVerbosities.FAIL:
+        if sast_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{artefact.artefact_kind} is not supported by the SAST extension, maybe the filter '
                 'configurations have to be adjusted to filter out this artefact kind'
@@ -243,8 +243,8 @@ def parse_args():
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
     parser.add_argument(
-        '--scan-cfg-path',
-        help='path to the `scan_cfg.yaml` file that should be used',
+        '--extensions-cfg-path',
+        help='path to the `extensions_cfg.yaml` file that should be used',
     )
     parser.add_argument(
         '--findings-cfg-path',
@@ -254,7 +254,7 @@ def parse_args():
         '--delivery-service-url',
         help='''
             specify the url of the delivery service to use instead of the one configured in the
-            respective scan configuration
+            respective extensions configuration
         ''',
     )
     parser.add_argument('--cache-dir', default=default_cache_dir)
@@ -289,22 +289,22 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=odg.scan_cfg.Services.SAST_LINT_CHECK,
+        service=odg.extensions_cfg.Services.SAST_LINT_CHECK,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=odg.scan_cfg.Services.SAST_LINT_CHECK,
+        service=odg.extensions_cfg.Services.SAST_LINT_CHECK,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
-    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
-        scan_cfg_path = paths.scan_cfg_path()
+    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
+        extensions_cfg_path = paths.extensions_cfg_path()
 
-    scan_config = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
-    sast_config = scan_config.sast
+    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    sast_config = extensions_cfg.sast
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
         findings_cfg_path = paths.findings_cfg_path()
@@ -338,7 +338,7 @@ def main():
         ready_to_terminate = False
 
         backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=odg.scan_cfg.Services.SAST_LINT_CHECK,
+            service=odg.extensions_cfg.Services.SAST_LINT_CHECK,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
         )

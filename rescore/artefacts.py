@@ -23,8 +23,8 @@ import k8s.backlog
 import k8s.util
 import middleware.auth
 import ocm_util
+import odg.extensions_cfg
 import odg.findings
-import odg.scan_cfg
 import rescore.utility
 import util
 import yp
@@ -554,7 +554,7 @@ async def create_backlog_items_for_rescored_artefacts(
 
     for artefact in artefacts:
         k8s.backlog.create_backlog_item(
-            service=odg.scan_cfg.Services.ISSUE_REPLICATOR,
+            service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
             artefact=artefact,

@@ -23,15 +23,15 @@ spec:
           env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
-            - name: SCAN_CFG_PATH
-              value: /scan_cfg/scan_cfg
+            - name: EXTENSIONS_CFG_PATH
+              value: /extensions_cfg/extensions_cfg
             - name: K8S_TARGET_NAMESPACE
               value: {{ .Release.Namespace }}
           volumeMounts:
             - name: kubernetes
               mountPath: /secrets/kubernetes
-            - name: scan-cfg
-              mountPath: /scan_cfg
+            - name: extensions-cfg
+              mountPath: /extensions_cfg
           resources:
             requests:
               memory: 100Mi
@@ -44,6 +44,6 @@ spec:
           secret:
             secretName: secret-factory-kubernetes
             optional: true # might use incluster config
-        - name: scan-cfg
+        - name: extensions-cfg
           configMap:
-            name: scan-cfg
+            name: extensions-cfg

@@ -31,8 +31,8 @@ import github.util
 import version as version_util
 
 import k8s.util
+import odg.extensions_cfg
 import odg.findings
-import odg.scan_cfg
 import rescore.utility
 
 
@@ -150,7 +150,7 @@ def _all_issues(
 
 
 def _issue_assignees(
-    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_client: delivery.client.DeliveryServiceClient,
     artefact: dso.model.ComponentArtefactId,
 ) -> tuple[set[str], set[delivery.model.Status]]:
@@ -210,7 +210,7 @@ def _issue_assignees(
 
 
 def _issue_milestone(
-    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_client: delivery.client.DeliveryServiceClient,
     latest_processing_date: datetime.date,
 ) -> tuple[github3.issues.milestone.Milestone | None, list[github3.issues.milestone.Milestone]]:
@@ -827,7 +827,7 @@ def _template_vars(
 
 @github.retry.retry_and_throttle
 def close_issue_if_present(
-    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
     issue: github3.issues.issue.ShortIssue,
     closing_reason: IssueComments,
 ):
@@ -880,7 +880,7 @@ def update_issue(
 
 
 def _create_or_update_issue(
-    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
@@ -979,7 +979,7 @@ def _create_or_update_issue(
 
 
 def _create_or_update_or_close_issue_per_finding(
-    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     issue_type: str,
@@ -1043,7 +1043,7 @@ def _create_or_update_or_close_issue_per_finding(
 
 
 def create_or_update_or_close_issue(
-    mapping: odg.scan_cfg.IssueReplicatorMapping,
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,

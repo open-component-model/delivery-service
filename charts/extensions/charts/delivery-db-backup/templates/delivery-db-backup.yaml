@@ -25,8 +25,8 @@ spec:
             env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
-            - name: SCAN_CFG_PATH
-              value: /scan_cfg/scan_cfg
+            - name: EXTENSIONS_CFG_PATH
+              value: /extensions_cfg/extensions_cfg
             - name: K8S_TARGET_NAMESPACE
               value: {{ .Release.Namespace }}
             volumeMounts:
@@ -38,8 +38,8 @@ spec:
               mountPath: /secrets/kubernetes
             - name: oci-registry
               mountPath: /secrets/oci-registry
-            - name: scan-cfg
-              mountPath: /scan_cfg
+            - name: extensions-cfg
+              mountPath: /extensions_cfg
           volumes:
             - name: delivery-db
               secret:
@@ -54,7 +54,7 @@ spec:
             - name: oci-registry
               secret:
                 secretName: secret-factory-oci-registry
-            - name: scan-cfg
+            - name: extensions-cfg
               configMap:
-                name: scan-cfg
+                name: extensions-cfg
           restartPolicy: Never

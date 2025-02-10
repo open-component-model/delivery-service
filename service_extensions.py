@@ -60,11 +60,11 @@ class ContainerStatuses(aiohttp.web.View):
         '''
         params = self.request.rel_url.query
 
-        scan_cfg = self.request.app[consts.APP_SCAN_CFG]
+        extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
 
         service_filter = params.getall(
             key='service',
-            default=list(scan_cfg.enabled_extensions(convert_to_camel_case=True)),
+            default=list(extensions_cfg.enabled_extensions(convert_to_camel_case=True)),
         )
 
         return aiohttp.web.json_response(
@@ -136,11 +136,11 @@ class LogCollections(aiohttp.web.View):
         '''
         params = self.request.rel_url.query
 
-        scan_cfg = self.request.app[consts.APP_SCAN_CFG]
+        extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
 
         service_filter = params.getall(
             key='service',
-            default=list(scan_cfg.enabled_extensions(convert_to_camel_case=True)),
+            default=list(extensions_cfg.enabled_extensions(convert_to_camel_case=True)),
         )
 
         log_level = util.param(params, 'log_level', required=True)
@@ -174,10 +174,10 @@ class ServiceExtensions(aiohttp.web.View):
               items:
                 type: string
         '''
-        scan_cfg = self.request.app[consts.APP_SCAN_CFG]
+        extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
 
         return aiohttp.web.json_response(
-            data=list(scan_cfg.enabled_extensions(convert_to_camel_case=True)),
+            data=list(extensions_cfg.enabled_extensions(convert_to_camel_case=True)),
         )
 
 

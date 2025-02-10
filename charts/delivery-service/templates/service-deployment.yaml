@@ -52,8 +52,8 @@ spec:
           env:
           - name: SECRET_FACTORY_PATH
             value: /secrets
-          - name: SCAN_CFG_PATH
-            value: /scan_cfg/scan_cfg
+          - name: EXTENSIONS_CFG_PATH
+            value: /extensions_cfg/extensions_cfg
           - name: FINDINGS_CFG_PATH
             value: /findings_cfg/findings_cfg
           - name: FEATURES_CFG_PATH
@@ -83,8 +83,8 @@ spec:
               mountPath: /secrets/oci-registry
             - name: signing-cfg
               mountPath: /secrets/signing-cfg
-            - name: scan-cfg
-              mountPath: /scan_cfg
+            - name: extensions-cfg
+              mountPath: /extensions_cfg
             - name: findings-cfg
               mountPath: /findings_cfg
             - name: ocm-repo-mappings
@@ -127,9 +127,9 @@ spec:
           secret:
             secretName: secret-factory-signing-cfg
             optional: true # authentication is optional
-        - name: scan-cfg
+        - name: extensions-cfg
           configMap:
-            name: scan-cfg
+            name: extensions-cfg
         - name: findings-cfg
           configMap:
             name: findings-cfg
