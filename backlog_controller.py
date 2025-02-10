@@ -10,7 +10,6 @@ import kubernetes.client.rest
 import urllib3.exceptions
 
 import ci.log
-import ci.util
 
 import ctx_util
 import k8s.backlog

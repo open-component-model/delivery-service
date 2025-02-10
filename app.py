@@ -10,7 +10,6 @@ import aiohttp_swagger
 import yaml
 
 import ci.log
-import ci.util
 
 import artefacts
 import compliance_tests
@@ -37,6 +36,7 @@ import secret_mgmt
 import service_extensions
 import special_component
 import sprint
+import util
 
 
 ci.log.configure_default_logging(print_thread_id=True)
@@ -138,9 +138,7 @@ def add_app_context_vars(
         addressbook_source = None
 
     artefact_metadata_cfg_by_type = cs.artefact_metadata_cfg_by_type(
-        artefact_metadata_cfg=ci.util.parse_yaml_file(
-            paths.artefact_metadata_cfg,
-        ),
+        artefact_metadata_cfg=util.parse_yaml_file(paths.artefact_metadata_cfg),
     )
 
     component_with_tests_callback = features.get_feature(

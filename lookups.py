@@ -10,7 +10,6 @@ import aiohttp
 import requests
 import requests.adapters
 
-import ci.util
 import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
@@ -100,7 +99,7 @@ def semver_sanitising_oci_client_async(
 @functools.cache
 def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
     if ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True):
-        ocm_repo_mappings_raw = ci.util.parse_yaml_file(ocm_repo_mappings_path) or tuple()
+        ocm_repo_mappings_raw = util.parse_yaml_file(ocm_repo_mappings_path) or tuple()
     else:
         ocm_repo_mappings_raw = tuple()
 

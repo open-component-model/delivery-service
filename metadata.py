@@ -11,7 +11,6 @@ import sqlalchemy as sa
 import sqlalchemy.exc
 import sqlalchemy.ext.asyncio as sqlasync
 
-import ci.util
 import dso.model
 import ocm
 
@@ -203,10 +202,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 finding: dso.model.ArtefactMetadata,
                 meta: dict=None,
             ) -> dict:
-                finding_dict = dataclasses.asdict(
-                    obj=finding,
-                    dict_factory=ci.util.dict_to_json_factory,
-                )
+                finding_dict = util.dict_serialisation(finding)
 
                 if meta:
                     finding_dict['meta'] = meta

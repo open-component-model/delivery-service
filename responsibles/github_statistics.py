@@ -15,8 +15,6 @@ import github3.repos.repo
 import github3.repos.stats
 import github3.users
 
-import ci.util
-
 import ctx_util
 import paths
 import responsibles.user_model
@@ -409,9 +407,7 @@ def _negative_list() -> list[str]:
     '''
     cached wrapper to load negative list from disk
     '''
-    return ci.util.parse_yaml_file(
-        paths.responsibles_username_negative_list_path
-    )['usernames']
+    return util.parse_yaml_file(paths.responsibles_username_negative_list_path)['usernames']
 
 
 @cachetools.cached(cachetools.TTLCache(maxsize=200, ttl=60 * 60 * 24)) # 24h

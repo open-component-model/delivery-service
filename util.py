@@ -9,6 +9,7 @@ import urllib.parse
 
 import aiohttp.web
 import dateutil.parser
+import yaml
 
 import cnudie.iter
 import cnudie.retrieve
@@ -18,6 +19,11 @@ import ocm
 
 
 logger = logging.getLogger(__name__)
+
+
+def parse_yaml_file(path: str) -> dict:
+    with open(path) as file:
+        return yaml.safe_load(file)
 
 
 @functools.cache

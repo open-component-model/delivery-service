@@ -9,8 +9,8 @@ import ci.util
 import ocm
 
 
-component_descriptor_base_path = os.path.abspath(ci.util.check_env('BASE_DEFINITION_PATH'))
-component_descriptor_path = os.path.abspath(ci.util.check_env('COMPONENT_DESCRIPTOR_PATH'))
+component_descriptor_base_path = os.path.abspath(os.environ['BASE_DEFINITION_PATH'])
+component_descriptor_path = os.path.abspath(os.environ['COMPONENT_DESCRIPTOR_PATH'])
 
 own_dir = os.path.abspath(os.path.dirname(__file__))
 repo_dir = os.path.abspath(os.path.join(own_dir, os.pardir))
@@ -20,7 +20,7 @@ FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
 
 def parse_component_descriptor():
     component_descriptor = ocm.ComponentDescriptor.from_dict(
-        ci.util.parse_yaml_file(component_descriptor_base_path)
+        component_descriptor_dict=ci.util.parse_yaml_file(component_descriptor_base_path),
     )
     return component_descriptor
 

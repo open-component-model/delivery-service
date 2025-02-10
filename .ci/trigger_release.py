@@ -26,7 +26,7 @@ def parse_component_descriptor():
         ocm.SchemaVersion.V2,
     )
     return ocm.ComponentDescriptor.from_dict(
-        ci.util.parse_yaml_file(descriptor_path),
+        component_descriptor_dict=ci.util.parse_yaml_file(descriptor_path),
     )
 
 
@@ -53,10 +53,10 @@ def retrieve_latest_released_descriptor(
 def trigger_release_job():
     concourse_client = ccc.concourse.client_from_env()
 
-    logger.info('triggering release job {jn}'.format(jn=ci.util.check_env('RELEASE_JOB_NAME')))
+    logger.info('triggering release job {jn}'.format(jn=os.environ['RELEASE_JOB_NAME']))
     concourse_client.trigger_build(
-        pipeline_name=ci.util.check_env('PIPELINE_NAME'),
-        job_name=ci.util.check_env('RELEASE_JOB_NAME'),
+        pipeline_name=os.environ['PIPELINE_NAME'],
+        job_name=os.environ['RELEASE_JOB_NAME'],
     )
 
 
@@ -99,7 +99,7 @@ def main():
     component_diff = cnudie.retrieve.component_diff(
         left_component=latest_descriptor,
         right_component=current_descriptor,
-        ignore_component_names=(ci.util.check_env('COMPONENT_NAME'),),
+        ignore_component_names=(os.environ['COMPONENT_NAME'],),
         component_descriptor_lookup=component_descriptor_lookup,
     )
 
