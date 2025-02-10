@@ -16,7 +16,7 @@ import dso.model
 import ocm
 
 import k8s.model
-import odg.scan_cfg
+import odg.extensions_cfg
 import secret_mgmt.kubernetes
 
 
@@ -108,7 +108,7 @@ def label_is_true(label: str):
 
 
 def scale_replica_set(
-    service: odg.scan_cfg.Services,
+    service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: KubernetesApi,
     desired_replicas: int,

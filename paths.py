@@ -39,10 +39,10 @@ def features_cfg_candidates() -> collections.abc.Generator[str, None, None]:
     yield os.path.join(_features_path, 'features_cfg.yaml')
 
 
-def scan_cfg_candidates() -> collections.abc.Generator[str, None, None]:
-    if scan_cfg_path := os.environ.get('SCAN_CFG_PATH'):
-        yield scan_cfg_path
-    yield os.path.join(_odg_path, 'scan_cfg.yaml')
+def extensions_cfg_candidates() -> collections.abc.Generator[str, None, None]:
+    if extensions_cfg_path := os.environ.get('EXTENSIONS_CFG_PATH'):
+        yield extensions_cfg_path
+    yield os.path.join(_odg_path, 'extensions_cfg.yaml')
 
 
 def findings_cfg_candidates() -> collections.abc.Generator[str, None, None]:
@@ -83,11 +83,11 @@ def features_cfg_path(
     )
 
 
-def scan_cfg_path(
+def extensions_cfg_path(
     absent_ok: bool=False,
 ) -> str | None:
     return find_path(
-        candidates=scan_cfg_candidates(),
+        candidates=extensions_cfg_candidates(),
         absent_ok=absent_ok,
     )
 

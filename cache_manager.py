@@ -37,8 +37,8 @@ import k8s.logging
 import k8s.model
 import k8s.util
 import lookups
+import odg.extensions_cfg
 import odg.findings
-import odg.scan_cfg
 import paths
 
 
@@ -84,7 +84,7 @@ def is_pruning_required(
 
 async def prune_cache(
     cache_size_bytes: int,
-    cfg: odg.scan_cfg.CacheManagerConfig,
+    cfg: odg.extensions_cfg.CacheManagerConfig,
     db_session: sqlasync.session.AsyncSession,
     chunk_size: int=50,
 ):
@@ -160,7 +160,7 @@ async def prefill_compliance_summary_cache(
 
 
 async def prefill_compliance_summary_caches(
-    components: collections.abc.Iterable[odg.scan_cfg.Component],
+    components: collections.abc.Iterable[odg.extensions_cfg.Component],
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
@@ -219,7 +219,7 @@ async def prefill_compliance_summary_caches(
 
 
 async def prefill_component_versions_caches(
-    components: collections.abc.Iterable[odg.scan_cfg.Component],
+    components: collections.abc.Iterable[odg.extensions_cfg.Component],
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     db_session: sqlasync.session.AsyncSession,
 ):
@@ -233,8 +233,8 @@ async def prefill_component_versions_caches(
 
 
 async def prefill_function_caches(
-    function_names: collections.abc.Iterable[odg.scan_cfg.FunctionNames],
-    components: collections.abc.Iterable[odg.scan_cfg.Component],
+    function_names: collections.abc.Iterable[odg.extensions_cfg.FunctionNames],
+    components: collections.abc.Iterable[odg.extensions_cfg.Component],
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
@@ -248,7 +248,7 @@ async def prefill_function_caches(
         logger.info(f'Prefilling cache for {function_name=} and {components=}')
 
         match function_name:
-            case odg.scan_cfg.FunctionNames.COMPLIANCE_SUMMARY:
+            case odg.extensions_cfg.FunctionNames.COMPLIANCE_SUMMARY:
                 await prefill_compliance_summary_caches(
                     components=components,
                     component_descriptor_lookup=component_descriptor_lookup,
@@ -261,7 +261,7 @@ async def prefill_function_caches(
                     db_session=db_session,
                 )
 
-            case odg.scan_cfg.FunctionNames.COMPONENT_VERSIONS:
+            case odg.extensions_cfg.FunctionNames.COMPONENT_VERSIONS:
                 await prefill_component_versions_caches(
                     components=components,
                     version_lookup=version_lookup,
@@ -290,8 +290,8 @@ def parse_args():
         default=os.environ.get('K8S_TARGET_NAMESPACE'),
     )
     parser.add_argument(
-        '--scan-cfg-path',
-        help='path to the `scan_cfg.yaml` file that should be used',
+        '--extensions-cfg-path',
+        help='path to the `extensions_cfg.yaml` file that should be used',
     )
     parser.add_argument(
         '--findings-cfg-path',
@@ -329,22 +329,22 @@ async def main():
         kubernetes_api = k8s.util.kubernetes_api(kubeconfig_path=parsed_arguments.kubeconfig)
 
     k8s.logging.init_logging_thread(
-        service=odg.scan_cfg.Services.CACHE_MANAGER,
+        service=odg.extensions_cfg.Services.CACHE_MANAGER,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=odg.scan_cfg.Services.CACHE_MANAGER,
+        service=odg.extensions_cfg.Services.CACHE_MANAGER,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
 
-    if not (scan_cfg_path := parsed_arguments.scan_cfg_path):
-        scan_cfg_path = paths.scan_cfg_path()
+    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
+        extensions_cfg_path = paths.extensions_cfg_path()
 
-    scan_cfg = odg.scan_cfg.ScanConfiguration.from_file(scan_cfg_path)
-    cache_manager_cfg = scan_cfg.cache_manager
+    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    cache_manager_cfg = extensions_cfg.cache_manager
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
         findings_cfg_path = paths.findings_cfg_path()

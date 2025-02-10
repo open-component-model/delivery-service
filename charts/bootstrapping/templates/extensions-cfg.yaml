@@ -1,0 +1,9 @@
+{{- if $extensions_cfg := .Values.extensions_cfg }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: extensions-cfg
+data:
+  extensions_cfg: |
+    {{- toYaml $extensions_cfg | nindent 4 }}
+{{- end }}

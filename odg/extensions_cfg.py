@@ -43,12 +43,12 @@ class WarningVerbosities(enum.StrEnum):
 
 
 @dataclasses.dataclass(kw_only=True)
-class ScanConfigMixins:
+class ExtensionCfgMixins:
     enabled: bool = True
 
 
 @dataclasses.dataclass
-class BacklogItemMixins(ScanConfigMixins):
+class BacklogItemMixins(ExtensionCfgMixins):
     '''
     Defines properties and functions which are shared among those extensions which determine their
     workload using the BacklogItem custom resource.
@@ -102,7 +102,7 @@ class TimeRange:
 
 
 @dataclasses.dataclass
-class ArtefactEnumeratorConfig(ScanConfigMixins):
+class ArtefactEnumeratorConfig(ExtensionCfgMixins):
     '''
     :param str delivery_service_url
     :param list[Component] components:
@@ -126,7 +126,7 @@ class ArtefactEnumeratorConfig(ScanConfigMixins):
 
 
 @dataclasses.dataclass
-class BacklogControllerConfig(ScanConfigMixins):
+class BacklogControllerConfig(ExtensionCfgMixins):
     '''
     :param int max_replicas:
         Maximum number of replicas per extension to which the backlog controller will scale. Note,
@@ -269,7 +269,7 @@ class PrefillFunctionCaches:
 
 
 @dataclasses.dataclass
-class CacheManagerConfig(ScanConfigMixins):
+class CacheManagerConfig(ExtensionCfgMixins):
     '''
     :param int max_cache_size_bytes
     :param int min_pruning_bytes:
@@ -379,7 +379,7 @@ class ClamAVConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
-class DeliveryDBBackup(ScanConfigMixins):
+class DeliveryDBBackup(ExtensionCfgMixins):
     '''
     :param str delivery_service_url
     :param str component_name:
@@ -542,7 +542,7 @@ class SASTConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
-class ScanConfiguration:
+class ExtensionsConfiguration:
     artefact_enumerator: ArtefactEnumeratorConfig | None
     bdba: BDBAConfig | None
     clamav: ClamAVConfig | None
@@ -553,20 +553,20 @@ class ScanConfiguration:
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod
-    def from_dict(scan_configuration_raw: dict) -> typing.Self:
+    def from_dict(extensions_cfg_raw: dict) -> typing.Self:
         '''
         Mixes-in properties of `defaults` into extension specific configuration. Extensions
         configured as `None` or an empty object will also be consider as "active" in case they don't
         require any configuration to be provided.
         '''
         # mix-in default values in extension-specific ones
-        defaults = scan_configuration_raw.get('defaults', {})
-        for extension, extension_cfg in scan_configuration_raw.items():
-            scan_configuration_raw[extension] = defaults | (extension_cfg or {})
+        defaults = extensions_cfg_raw.get('defaults', {})
+        for extension, extension_cfg in extensions_cfg_raw.items():
+            extensions_cfg_raw[extension] = defaults | (extension_cfg or {})
 
         return dacite.from_dict(
-            data_class=ScanConfiguration,
-            data=scan_configuration_raw,
+            data_class=ExtensionsConfiguration,
+            data=extensions_cfg_raw,
             config=dacite.Config(
                 cast=[enum.Enum],
             ),
@@ -575,10 +575,10 @@ class ScanConfiguration:
     @staticmethod
     def from_file(path: str) -> typing.Self:
         with open(path) as file:
-            scan_configuration_raw = yaml.safe_load(file)
+            extensions_cfg_raw = yaml.safe_load(file)
 
-        return ScanConfiguration.from_dict(
-            scan_configuration_raw=scan_configuration_raw,
+        return ExtensionsConfiguration.from_dict(
+            extensions_cfg_raw=extensions_cfg_raw,
         )
 
     def enabled_extensions(

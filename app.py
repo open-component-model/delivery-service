@@ -147,8 +147,8 @@ def add_app_context_vars(
         features.FeatureTests,
     ).get_component_with_tests
 
+    extensions_cfg = features.get_feature(features.FeatureExtensionsConfiguration).extensions_cfg
     finding_cfgs = features.get_feature(features.FeatureFindingConfigurations).finding_cfgs
-    scan_cfg = features.get_feature(features.FeatureScanConfiguration).scan_cfg
 
     cluster_access_feature = features.get_feature(features.FeatureClusterAccess)
     kubernetes_api_callback = cluster_access_feature.get_kubernetes_api
@@ -191,6 +191,7 @@ def add_app_context_vars(
     app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP] = component_descriptor_lookup
     app[consts.APP_COMPONENT_WITH_TESTS_CALLBACK] = component_with_tests_callback
     app[consts.APP_EOL_CLIENT] = eol.EolClient()
+    app[consts.APP_EXTENSIONS_CFG] = extensions_cfg
     app[consts.APP_FINDING_CFGS] = finding_cfgs
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup
     app[consts.APP_GITHUB_REPO_LOOKUP] = github_repo_lookup
@@ -198,7 +199,6 @@ def add_app_context_vars(
     app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
     app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
     app[consts.APP_OCI_CLIENT] = oci_client
-    app[consts.APP_SCAN_CFG] = scan_cfg
     app[consts.APP_SECRET_FACTORY] = secret_factory
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
     app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK] = sprint_date_display_name_callback
