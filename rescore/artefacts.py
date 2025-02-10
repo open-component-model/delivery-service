@@ -197,7 +197,7 @@ def filesystem_paths_for_finding(
 
 def sprint_for_finding(
     discovery_date: datetime.date,
-    allowed_processing_time: int | None,
+    allowed_processing_time: datetime.timedelta | None,
     sprints: list[yp.Sprint],
 ) -> yp.Sprint | None:
     '''
@@ -210,7 +210,7 @@ def sprint_for_finding(
     if allowed_processing_time is None or not sprints:
         return None
 
-    date = discovery_date + datetime.timedelta(days=allowed_processing_time)
+    date = discovery_date + allowed_processing_time
 
     for sprint in sorted(sprints, key=lambda sprint: sprint.end_date):
         if sprint.end_date.date() > date:

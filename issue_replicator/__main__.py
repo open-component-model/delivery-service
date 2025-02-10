@@ -124,12 +124,10 @@ def _iter_findings_with_processing_dates(
                 f'did not find categorisation with name "{finding.severity}" for {finding_type=}'
             )
 
-        if categorisation.allowed_processing_time is None:
+        if (allowed_processing_time := categorisation.allowed_processing_time) is None:
             continue # finding does not have to be processed anymore
 
-        latest_processing_date = finding.finding.discovery_date + datetime.timedelta(
-            days=categorisation.allowed_processing_time,
-        )
+        latest_processing_date = finding.finding.discovery_date + allowed_processing_time
 
         for sprint in sorted(sprints):
             if sprint >= latest_processing_date:
