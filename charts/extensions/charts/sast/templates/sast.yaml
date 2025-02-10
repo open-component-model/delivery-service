@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
-  name: sast
+  name: sastLintCheck
 spec:
   replicas: 0 # will be scaled automatically by backlog-controller
   selector:
