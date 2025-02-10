@@ -11,6 +11,7 @@ import dso.model
 
 import consts
 import rescore.model as rm
+import util
 
 
 own_dir = os.path.abspath(os.path.dirname(__file__))
@@ -91,8 +92,14 @@ class FindingCategorisation:
         be able to sort by severity or to determine appropriate colours. Only values between 0 and
         100 are allowed. Note: There must be exactly one category per finding which defines value as
         0 to express that a finding is not relevant anymore.
-    :param int allowed_processing_time:
-        The days after which a finding must have been assessed at the latest.
+    :param str allowed_processing_time:
+        The time after which a finding must have been assessed at the latest. Known units:
+            - seconds: s, sec
+            - minutes: m, min
+            - hours: h, hr
+            - days: d (default)
+            - weeks: w
+            - years: a
     :param RescoringModes rescoring:
         Specifies whether the categorisation is applicable to user rescoring (-> `manual`) and/or to
         full-automatic rescorings (-> `automatic`). Note that the latter requires a respective
@@ -103,7 +110,7 @@ class FindingCategorisation:
     id: str
     display_name: str
     value: int
-    allowed_processing_time: int | None
+    allowed_processing_time: str | int | None
     rescoring: RescoringModes | list[RescoringModes] | None
     selector: (
         LicenseFindingSelector
@@ -112,6 +119,10 @@ class FindingCategorisation:
         | VulnerabilityFindingSelector
         | None
     )
+
+    def __post_init__(self):
+        if self.allowed_processing_time:
+            self.allowed_processing_time = util.convert_to_timedelta(self.allowed_processing_time)
 
     @property
     def automatic_rescoring(self) -> bool:

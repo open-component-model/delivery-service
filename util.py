@@ -5,6 +5,7 @@ import enum
 import functools
 import json
 import logging
+import re
 import urllib.parse
 
 import aiohttp.web
@@ -65,6 +66,8 @@ def dict_serialisation(data) -> dict:
         return data
     elif isinstance(data, (datetime.date, datetime.datetime)):
         return data.isoformat()
+    elif isinstance(data, datetime.timedelta):
+        return data.total_seconds()
     elif dataclasses.is_dataclass(data):
         return dict_serialisation(dataclasses.asdict(data))
     elif isinstance(data, dict):
@@ -213,3 +216,28 @@ def get_creation_date(component: ocm.Component) -> datetime.datetime:
         )
     else:
         return dateutil.parser.isoparse(creation_label.value)
+
+
+def convert_to_timedelta(
+    time: str | int,
+    default_unit: str='d',
+) -> datetime.timedelta:
+    seconds_per_unit = {
+        's': 1,
+        'sec': 1,
+        'm': 60,
+        'min': 60,
+        'h': 60 * 60,
+        'hr': 60 * 60,
+        'd': 60 * 60 * 24,
+        'w': 60 * 60 * 24 * 7,
+        'y': 60 * 60 * 24 * 365,
+        'yr': 60 * 60 * 24 * 365,
+    }
+    unit = None
+
+    if match := re.match(r'([0-9]+)\s*([a-z]*)', str(time).strip(), re.IGNORECASE):
+        time, unit = match.groups()
+    seconds = int(time) * seconds_per_unit[unit or default_unit]
+
+    return datetime.timedelta(seconds=seconds)
