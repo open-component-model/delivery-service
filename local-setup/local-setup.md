@@ -12,26 +12,25 @@ To get started, you first of all need to install the required toolchain:
 - [helm](https://helm.sh/docs/intro/install)
 - [ocm cli](https://github.com/open-component-model/ocm-cli) (only required if
 no specific version is set using the environment variable `OCM_GEAR_VERSION`)
-- Gardener CI/CD utilities `pip3 install gardener-cicd-libs`
 
 ## Configuration
 To customize the OCM-Gear according to your needs, you have to adjust the
-configuration templates [here](https://github.com/open-component-model/delivery-service/tree/master/local-setup/cfg).
+value files [here](https://github.com/open-component-model/delivery-service/tree/master/local-setup/kind/cluster).
 There are already reasonable defaults set for most entries, however, following
 entries must still be provided:
-- GitHub credentials to ensure repository access ([ref](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/github.yaml))
-- OCI registry credentials to access desired component descriptors and resources
-([ref](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/container_registry.yaml))
-- If you want to add more than one account for either GitHub or the OCI registry,
-you have to add them [here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/configs.yaml)
-as well
+- GitHub credentials to ensure repository access under `.secrets.github`
+[here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-bootstrapping.yaml)
+- OCI registry credentials to access desired component descriptors and resources under `secrets.oci-registry`
+[here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-bootstrapping.yaml)
 - GitHub App credentials to allow OAuth  
     (1) Go to your GitHub organization's settings  
     (2) Developer settings -> GitHub Apps -> New GitHub App  
     (3) Fill in the form ("Callback URL" -> `http://localhost`, "Request user
     authorization (OAuth) during installation" -> `True`, other checkboxes -> `False`)  
-    (4) Fill in `client_id` and `client_secret` [here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/delivery.yaml)  
-    (5) Generate a RSA key pair and store it also [here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/delivery.yaml)
+    (4) Fill in `client_id`, `client_secret` and desired `role_bindings` under `secrets.oauth-cfg`
+    [here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-bootstrapping.yaml)  
+    (5) Generate a RSA key pair and store it under `secrets.signing-cfg`
+    [here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-bootstrapping.yaml)  
     -> `ssh-keygen -t rsa -b 4096 -m PEM -f jwtRS256.key && openssl rsa -in jwtRS256.key -pubout -outform PEM -out jwtRS256.key.pub`
 
 ## Start-Up
@@ -58,17 +57,17 @@ storage, you have to delete the `/var/delivery-db` directory.
 ## Extensions
 OCM-Gear extensions can be dynamically added to your installation. However, some
 extensions require the presence of another extension or extra configuration to
-work properly. The basic configuration of the extensions is done via the
-[`values-extensions.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-extensions.yaml).
+work properly. The basic configuration of the extensions is done via `extensions_cfg`
+in [`values-bootstrapping.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-bootstrapping.yaml)
+as well as the enablement in [`values-extensions.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-extensions.yaml).
 
 ### Artefact Enumerator
 > Requires: -
 
 To set up the artefact enumerator, you need to set the
 `artefact-enumerator.enabled` flag. Also, you'll need to add extra configuration
-via `configuration.scanConfigurations.[].spec.artefactEnumerator`. Basically, this
-is to specify which OCM components should be processed by the other OCM-Gear
-extensions in a regular manner.
+via `extensions_cfg.artefactEnumerator`. Basically, this is to specify which OCM
+components should be processed by the other OCM-Gear extensions in a regular manner.
 
 ### Backlog Controller
 > Requires: -
@@ -80,37 +79,41 @@ To set up the backlog controller, you just need to set the
 > Requires: Artefact Enumerator, Backlog Controller
 
 To set up the BDBA scanner, you first of all need to add correspondig BDBA
-credentials [here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/bdba.yaml).
-To include these credentials, you'll also have to uncomment the bdba block in the
-[`configs.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/configs.yaml).
-After that, you must reference these credentials in the
-`configuration.scanConfigurations.[].spec.bdba` section.
+credentials under `secrets.bdba` [here](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-bootstrapping.yaml).
+Then, you'll have to specify the configuration via `extensions_cfg.bdba` and set
+the `bdba.enabled` flag.
+
+### Cache Manager
+> Requires: -
+
+To set up the cache manger, you just need to set the `cache-manager.enabled` flag
+and add configuration (if desired) via `extensions_cfg.cache_manager`.
 
 ### ClamAV
 > Requires: Artefact Enumerator, Backlog Controller
 
-To set up the ClamAV scanner, you need to set the `freshclam.enabled` flag and add
-configuration via `configuration.scanConfigurations.[].spec.clamav`.
+To set up the ClamAV scanner, you need to set the `clamav.enabled` flag and add
+configuration (if desired) via `extensions_cfg.clamav`.
 
 ### Delivery-DB Backup
 > Requires: -
 
 To enable the delivery-db backup extension, you have to set the
 `delivery-db-backup.enabled` flag and add configuration via
-`configuration.scanConfigurations.[].spec.deliveryDbBackup`. You have to make sure
-you have OCI registry credentials provided in your
-[`container_registry.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/container_registry.yaml)
-file and referenced in the [`configs.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/configs.yaml),
-which have write permissions to the OCI registry the backup component should be
-published to.
+`extensions_cfg.delivery_db_backup`. You have to make sure you have provided OCI
+registry credentials provided via the OCI registry secrets which have write
+permissions to the OCI registry the backup component should be published to.
 
 ### GitHub Issues
 > Requires: Artefact Enumerator, Backlog Controller
 
 To set up the GitHub issues extension, you need to add the configuration via
-`configuration.scanConfigurations.[].spec.issueReplicator`. Also, you have to make
-sure you have GitHub credentials provided in your
-[`github.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/github.yaml)
-file and referenced in the [`configs.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/cfg/configs.yaml),
-which have write permissions to the repository specified under
-`configuration.scanConfigurations.[].spec.issueReplicator.github_issues_target_repository_url`.
+`extensions_cfg.issue_replicator`. Also, you have to make sure you have provided
+GitHub credentials via the GitHub secrets which have write permissions to the
+repositories specified under `extensions_cfg.issue_replicator.mappings.[].github_repository`.
+
+### SAST
+> Requires: Artefact Enumerator, Backlog Controller
+
+To set up the SAST scanner, you need to set the `sast.enabled` flag and add
+configuration (if desired) via `extensions_cfg.sast`.

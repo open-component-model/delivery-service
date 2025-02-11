@@ -1,0 +1,53 @@
+ingress:
+  class: nginx
+  hosts:
+    - delivery-service
+
+additionalVolumes:
+  - name: sprints
+    configMap:
+      name: sprints
+      optional: true
+  - name: addressbook
+    configMap:
+      name: addressbook
+      optional: true
+  - name: github-mappings
+    configMap:
+      name: github-mappings
+      optional: true
+
+additionalVolumeMounts:
+  - name: sprints
+    mountPath: "/sprints"
+  - name: addressbook
+    mountPath: "/addressbook"
+  - name: github-mappings
+    mountPath: "/github_mappings"
+
+featuresCfg:
+  specialComponents:
+    - id: 0
+      name: ocm.software/ocm-gear
+      displayName: OCM Gear
+      type: OCM Gear
+      version: greatest
+      icon: home
+      dependencies: []
+    - id: 1
+      name: ocm.software/ocmcli
+      displayName: OCM Cli
+      type: OCM Core
+      version: greatest
+      icon: home
+      dependencies: []
+  addressbook:
+    addressbookRelpath: ./../../../../addressbook/addressbook
+    githubMappingsRelpath: ./../../../../github_mappings/github_mappings
+  sprints:
+    sprintsRelpath: ./../../../../sprints/sprints
+    sprintDateNameMappings:
+      - dateName: release_decision
+        displayName: Release Decision
+      - dateName: end_date
+        displayName: End Date

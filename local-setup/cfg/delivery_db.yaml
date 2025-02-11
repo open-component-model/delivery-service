@@ -1,7 +1,0 @@
-local:
-  credentials:
-    username: postgres
-    password: password-123
-  hostname: delivery-db.delivery.svc.cluster.local
-  port: 5432
-  db_type: postgresql+psycopg

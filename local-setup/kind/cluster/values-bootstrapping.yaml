@@ -1,0 +1,184 @@
+extensions_cfg:
+  defaults:
+    delivery_dashboard_url: http://localhost
+    delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
+  artefact_enumerator:
+    components:
+      - component_name: ocm.software/ocm-gear
+      - component_name: ocm.software/ocmcli
+    sprints_relative_time_range:
+      days_from: -90
+      days_to: 150
+  bdba:
+    enabled: False # disable in default because of missing BDBA credentials
+    mappings:
+      - prefix: ''
+        bdba_secret_name: local
+        group_id: -1
+  cache_manager:
+    prefill_function_caches:
+      components:
+        - component_name: ocm.software/ocm-gear
+        - component_name: ocm.software/ocmcli
+  clamav:
+    enabled: False # disable in default because of high memory
+    mappings:
+      - prefix: ''
+  delivery_db_backup:
+    enabled: False # disable in default because of missing `component_name` and `ocm_repo_url`
+    component_name: ''
+    ocm_repo_url: ''
+    backup_retention_count: 1
+  sast:
+    enabled: True
+  issue_replicator:
+    enabled: False # disable in default because of missing `github_repository`
+    mappings:
+      - prefix: ''
+        github_repository: ''
+
+findings:
+  - type: finding/vulnerability
+    categorisations: gardener
+    rescoring_ruleset: gardener
+    issues:
+      enable_assignees: False
+  - type: finding/license
+    categorisations:
+      - id: false-positive
+        display_name: false positive
+        value: 0
+        rescoring: manual
+      - id: other
+        display_name: other
+        value: 0
+        rescoring: manual
+      - id: blocker
+        display_name: violation
+        value: 16
+        allowed_processing_time: 0
+        rescoring: manual
+        selector:
+          license_names:
+            - sleepycat
+    issues:
+      enable_assignees: False
+  - type: finding/malware
+    categorisations:
+      - id: false-positive
+        display_name: false positive
+        value: 0
+        rescoring: manual
+      - id: other
+        display_name: other
+        value: 0
+        rescoring: manual
+      - id: blocker
+        display_name: malware
+        value: 16
+        allowed_processing_time: 0
+        rescoring: manual
+        selector:
+          malware_names:
+            - .*
+    issues:
+      enable_assignees: False
+  - type: finding/sast
+    categorisations:
+      - id: scan-exists
+        display_name: scan exists
+        value: 0
+        rescoring: manual
+      - id: scan-not-required
+        display_name: not required
+        value: 0
+        rescoring: manual
+      - id: missing-scan
+        display_name: missing-scan
+        value: 16
+        allowed_processing_time: 0
+        rescoring: automatic
+        selector:
+          sub_types:
+            - .*
+    rescoring_ruleset:
+      name: sast-rescoring
+      rules:
+        - match:
+            - component_name: github.com/.*
+            - component_name: ocm.software/.*
+          name: skip-scan-is-optional-for-opensource-components
+          operation: set-to-scan-not-required
+          sast_status: no-linter
+          sub_types:
+            - central-linting
+    issues:
+      enable_assignees: False
+
+ocm_repo_mappings:
+  - prefix: ocm.software/ocmcli
+    repository: ghcr.io/open-component-model/ocm
+  - prefix: ''
+    repository: europe-docker.pkg.dev/gardener-project/releases
+  - prefix: ''
+    repository: europe-docker.pkg.dev/gardener-project/snapshots
+
+secrets:
+  # bdba:
+  #   local:
+  #     api_url: ...
+  #     token: ...
+  #     group_ids:
+  #       - ...
+  delivery-db:
+    local:
+      db_type: postgresql+psycopg
+      hostname: delivery-db.delivery.svc.cluster.local
+      port: 5432
+      username: postgres
+      password: password-123
+  github:
+    github_com:
+      api_url: https://api.github.com
+      http_url: https://github.com
+      repo_urls: ['.*']
+      username: ...
+      auth_token: ...
+  oauth-cfg:
+    local:
+      client_id: ...
+      client_secret: ...
+      github_secret_name: github_com
+      type: github
+      name: GitHub
+      oauth_url: https://github.com/login/oauth/authorize
+      token_url: https://github.com/login/oauth/access_token
+      role_bindings:
+        - roles:
+            - admin
+          subjects:
+            - type: github-org
+              name: ...
+            - type: github-team
+              name: ...
+            - type: github-user
+              name: ...
+  oci-registry:
+    local:
+      image_reference_prefixes:
+        - europe-docker.pkg.dev/gardener-project
+      privileges: readonly
+      username: ...
+      password: ...
+  signing-cfg:
+    local:
+      id: '0'
+      algorithm: RS256
+      private_key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        ...
+        -----END RSA PRIVATE KEY-----
+      public_key: |
+        -----BEGIN PUBLIC KEY-----
+        ...
+        -----END PUBLIC KEY-----
