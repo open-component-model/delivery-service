@@ -319,6 +319,7 @@ def _process_compliance_snapshots_of_artefact(
 
     if (
         extensions_cfg.bdba
+        and extensions_cfg.bdba.enabled
         and extensions_cfg.bdba.is_supported(artefact_kind=artefact.artefact_kind)
     ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
@@ -336,6 +337,7 @@ def _process_compliance_snapshots_of_artefact(
 
     if (
         extensions_cfg.clamav
+        and extensions_cfg.clamav.enabled
         and extensions_cfg.clamav.is_supported(artefact_kind=artefact.artefact_kind)
     ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
@@ -351,7 +353,10 @@ def _process_compliance_snapshots_of_artefact(
         )
         metadata_update_required |= snapshots_have_changed
 
-    if extensions_cfg.issue_replicator:
+    if (
+        extensions_cfg.issue_replicator
+        and extensions_cfg.issue_replicator.enabled
+    ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item(
             namespace=namespace,
             kubernetes_api=kubernetes_api,
@@ -365,6 +370,7 @@ def _process_compliance_snapshots_of_artefact(
 
     if (
         extensions_cfg.sast
+        and extensions_cfg.sast.enabled
         and extensions_cfg.sast.is_supported(artefact_kind=artefact.artefact_kind)
     ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
