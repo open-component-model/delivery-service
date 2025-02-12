@@ -161,7 +161,7 @@ def add_app_context_vars(
 
     special_component_callback = features.get_feature(
         features.FeatureSpecialComponents,
-    ).get_special_component
+    ).find_special_component
 
     sprints_feature = features.get_feature(features.FeatureSprints)
     if sprints_feature.state is features.FeatureStates.AVAILABLE:
