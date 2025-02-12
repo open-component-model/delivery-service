@@ -31,6 +31,9 @@ def iter_container_statuses(
         if service_label not in service_filter:
             continue
 
+        if not pod.status:
+            continue
+
         for status in pod.status.container_statuses:
             yield k8s.model.ContainerStatus.from_v1_container_status(status)
 
