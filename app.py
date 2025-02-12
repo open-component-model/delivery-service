@@ -85,7 +85,10 @@ def get_base_url(
     namespace: str | None=None,
     port: int | None=None,
 ) -> str:
-    if not is_productive:
+    if (
+        not is_productive
+        or not kubernetes_api
+    ):
         return f'http://localhost:{port}'
 
     ingress = kubernetes_api.networking_kubernetes_api.read_namespaced_ingress(
@@ -149,7 +152,11 @@ def add_app_context_vars(
     finding_cfgs = features.get_feature(features.FeatureFindingConfigurations).finding_cfgs
 
     cluster_access_feature = features.get_feature(features.FeatureClusterAccess)
-    kubernetes_api_callback = cluster_access_feature.get_kubernetes_api
+    if cluster_access_feature.state is features.FeatureStates.AVAILABLE:
+        kubernetes_api_callback = cluster_access_feature.get_kubernetes_api
+    else:
+        kubernetes_api_callback = None
+
     namespace_callback = cluster_access_feature.get_namespace
 
     special_component_callback = features.get_feature(
@@ -176,7 +183,7 @@ def add_app_context_vars(
 
     base_url = get_base_url(
         is_productive=parsed_arguments.productive,
-        kubernetes_api=kubernetes_api_callback(),
+        kubernetes_api=kubernetes_api_callback() if kubernetes_api_callback else None,
         namespace=namespace_callback(),
         port=parsed_arguments.port,
     )
