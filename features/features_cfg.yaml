@@ -1,4 +1,11 @@
-specialComponents: []
+specialComponents:
+- id: 0
+  name: ocm.software/ocm-gear
+  displayName: Open Delivery Gear
+  type: OCM
+  version: greatest
+  icon: landscape
+  dependencies: []
 addressbook:
   # todo: create example repository
   repoUrl: https://github.com/open-component-model/example-yellow-pages
