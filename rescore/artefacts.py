@@ -592,6 +592,7 @@ class Rescore(aiohttp.web.View):
         body = await self.request.json()
         rescorings_raw: list[dict] = body.get('entries')
 
+        extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
         user: middleware.auth.GithubUser = self.request[consts.REQUEST_GITHUB_USER]
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
@@ -631,12 +632,17 @@ class Rescore(aiohttp.web.View):
             await db_session.rollback()
             raise
 
-        await create_backlog_items_for_rescored_artefacts(
-            namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
-            kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-            db_session=db_session,
-            rescorings=rescorings,
-        )
+        if (
+            extensions_cfg
+            and extensions_cfg.issue_replicator
+            and extensions_cfg.issue_replicator.enabled
+        ):
+            await create_backlog_items_for_rescored_artefacts(
+                namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
+                db_session=db_session,
+                rescorings=rescorings,
+            )
 
         return aiohttp.web.Response(
             status=http.HTTPStatus.CREATED,
@@ -803,6 +809,7 @@ class Rescore(aiohttp.web.View):
 
         ids = params.getall('id')
 
+        extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         try:
@@ -825,12 +832,17 @@ class Rescore(aiohttp.web.View):
             await db_session.rollback()
             raise
 
-        await create_backlog_items_for_rescored_artefacts(
-            namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
-            kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-            db_session=db_session,
-            rescorings=rescorings,
-        )
+        if (
+            extensions_cfg
+            and extensions_cfg.issue_replicator
+            and extensions_cfg.issue_replicator.enabled
+        ):
+            await create_backlog_items_for_rescored_artefacts(
+                namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
+                kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
+                db_session=db_session,
+                rescorings=rescorings,
+            )
 
         return aiohttp.web.Response(
             status=http.HTTPStatus.NO_CONTENT,
