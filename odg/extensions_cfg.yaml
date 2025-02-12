@@ -3,35 +3,42 @@ defaults:
   delivery_dashboard_url: http://localhost:3000
 
 artefact_enumerator:
+  enabled: False
   components:
     - component_name: ocm.software/ocm-gear
       ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
 
 bdba:
+  enabled: False
   mappings:
     - prefix: ''
-      group_id: ~ # must be set
-      bdba_secret_name: ~ # must be set
+      group_id: 0 # <int> must be set
+      bdba_secret_name: my-secret # <str> must be set
 
 cache_manager:
+  enabled: False
   prefill_function_caches:
     components:
       - component_name: ocm.software/ocm-gear
 
 clamav:
+  enabled: False
   mappings:
     - prefix: ''
 
 delivery_db_backup:
-  component_name: ~ # must be set
-  ocm_repo_url: ~ # must be set
+  enabled: False
+  component_name: my-component # <str> must be set
+  ocm_repo_url: my-ocm-repo # <str> must be set
 
 issue_replicator:
+  enabled: False
   mappings:
     - prefix: ''
-      github_repository: ~ # must be set
+      github_repository: my-github-repository # <str> must be set
 
 sast:
+  enabled: False
   components:
     - component_name: ocm.software/ocm-gear
       ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
