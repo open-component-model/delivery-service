@@ -121,7 +121,7 @@ class FindingCategorisation:
     )
 
     def __post_init__(self):
-        if self.allowed_processing_time:
+        if self.allowed_processing_time is not None:
             self.allowed_processing_time = util.convert_to_timedelta(self.allowed_processing_time)
 
     @property
