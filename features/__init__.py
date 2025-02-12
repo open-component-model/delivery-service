@@ -53,28 +53,30 @@ class SprintRules:
     frozenWarningOffsetDays: int | None
 
 
-class CurrentVersionSourceType(enum.Enum):
+class CurrentVersionSourceType(enum.StrEnum):
     GITHUB = 'github'
+
+
+@dataclasses.dataclass
+class CurrentVersionSource:
+    type: CurrentVersionSourceType
+    repo: str
+    relpath: list[dict | str]
+    postprocess: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
 class CurrentVersion:
-    @dataclasses.dataclass(frozen=True)
-    class CurrentVersionSource:
-        type: CurrentVersionSourceType
-        repo: str
-        relpath: list[dict | str]
-        postprocess: bool | None
-
     source: CurrentVersionSource
 
-    def retrieve(self, github_api_lookup):
+    def retrieve(self, github_api_lookup) -> str:
         '''
-        Returns the currently referenced version of the component, e.g. in the
-        Gardener context the current LSSD version for a specific landscape.
+        Returns the currently referenced version of the component, i.e. the one referenced in the
+        repository which may be different to the one referenced in the greatest component descriptor
+        (e.g. if the release is pending).
         '''
         if not self.source.type is CurrentVersionSourceType.GITHUB:
-            raise NotImplementedError()
+            raise ValueError(f'{self.source.type=} is not supported')
 
         repo_url = self.source.repo
 
@@ -120,6 +122,11 @@ class SpecialComponentsCfg:
     enrich components with further semantics and they are shown on the landing
     page of the Delivery-Dashboard and as pinned component.
 
+    :param str id:
+        (required), unique identifier (i.e. UUID) to be able to relate user-specific cfg made in the
+        dashboard to centrally configured special components. If an old special component is
+        removed, new ones must not reuse old identifiers as this will cause wrong user-specific cfg
+        being related to the new special component.
     :param str name:
         (required), name of the component, e.g. github.com/gardener/gardener
     :param str displayName:
@@ -137,8 +144,8 @@ class SpecialComponentsCfg:
     :param SprintRules sprintRules:
         (optional), rules to enrich the component with special conditions based
         on the current sprint
-    :param str repoContextUrl:
-        (optional), repo context which should be used instead of the default repo
+    :param str ocmRepo:
+        (optional), OCM repository which should be used instead of the default repo
     :param CurrentVersion currentVersion:
         (optional), specifies where to find the current (not yet) published
         component version
@@ -146,7 +153,7 @@ class SpecialComponentsCfg:
         (optional), list of dependencies in a certain version which belong to
         the `currentVersion` of the component
     '''
-    id: int
+    id: str
     name: str
     displayName: str
     type: str
@@ -155,9 +162,9 @@ class SpecialComponentsCfg:
     icon: str | None
     releasePipelineUrl: str | None
     sprintRules: SprintRules | None
-    repoContextUrl: str | None
+    ocmRepo: str | None
     currentVersion: CurrentVersion | None
-    dependencies: list[SpecialComponentDependency] | None
+    dependencies: list[SpecialComponentDependency] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -372,35 +379,30 @@ class FeatureRepoContexts(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureSpecialComponents(FeatureBase):
     name: str = 'special-components'
-    cfg: dict[str, any] = None
+    special_components: list[SpecialComponentsCfg] = dataclasses.field(default_factory=list)
 
-    def get_special_component(self, component_name: str) -> SpecialComponentsCfg | None:
-        return next(
-            (
-                component for component in self.cfg['specialComponents']
-                if component.name == component_name
-            ),
-            None,
-        )
+    def find_special_component(self, id: str) -> SpecialComponentsCfg | None:
+        for special_component in self.special_components:
+            if special_component.id == id:
+                return special_component
+
+        return None
 
     def serialize(self) -> dict[str, any]:
-        if self.state is FeatureStates.UNAVAILABLE:
-            return {
-                'state': self.state,
-                'name': self.name,
-            }
-
-        cfg = self.cfg.copy()
         github_api_lookup = lookups.github_api_lookup()
-        for component in cfg['specialComponents']:
-            if isinstance(component.version, CurrentVersion):
-                component.version = component.version.retrieve(
-                    github_api_lookup=github_api_lookup,
-                )
+
+        special_components = [
+            dataclasses.replace(
+                special_component,
+                version=special_component.version.retrieve(github_api_lookup),
+            ) if isinstance(special_component.version, CurrentVersion) else special_component
+            for special_component in self.special_components
+        ]
+
         return {
             'state': self.state,
             'name': self.name,
-            'cfg': cfg,
+            'specialComponents': special_components,
         }
 
 
@@ -541,8 +543,8 @@ def deserialise_repo_contexts(
 
 def deserialise_special_components(special_components_raw: dict) -> FeatureSpecialComponents:
     def deserialise_current_version_source(
-        current_version_source: CurrentVersion.CurrentVersionSource,
-    ) -> CurrentVersion.CurrentVersionSource:
+        current_version_source: dict,
+    ) -> dict:
         relpath = []
         path = ''
 
@@ -556,8 +558,6 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
         relpath.append(path)
 
         current_version_source['relpath'] = relpath
-        current_version_source['type'] = CurrentVersionSourceType(current_version_source['type'])
-
         return current_version_source
 
     special_components = [
@@ -566,20 +566,17 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
             data=special_component_raw,
             config=dacite.Config(
                 type_hooks={
-                    CurrentVersion.CurrentVersionSource:
-                        lambda cvs: deserialise_current_version_source(cvs),
+                    CurrentVersionSource: lambda cvs: deserialise_current_version_source(cvs),
+                    str: lambda s: str(s), # be backwards compatible -> allow plain integers
                 },
-                cast=[config.VersionFilter],
+                cast=[enum.Enum],
             ),
-        )
-        for special_component_raw in special_components_raw
+        ) for special_component_raw in special_components_raw
     ]
 
     return FeatureSpecialComponents(
         FeatureStates.AVAILABLE,
-        cfg={
-            'specialComponents': special_components,
-        },
+        special_components=special_components,
     )
 
 

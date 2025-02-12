@@ -17,16 +17,15 @@ class CurrentDependencies(aiohttp.web.View):
         - application/json
         parameters:
         - in: query
-          name: component_name
+          name: id
           type: string
           required: true
         '''
         params = self.request.rel_url.query
 
-        component_name = util.param(params, 'component_name', required=True)
-        component_cfg = self.request.app[consts.APP_SPECIAL_COMPONENT_CALLBACK](
-            component_name=component_name,
-        )
+        id = util.param(params, 'id', required=True)
+
+        component_cfg = self.request.app[consts.APP_SPECIAL_COMPONENT_CALLBACK](id)
 
         if not component_cfg:
             return aiohttp.web.json_response(
@@ -35,27 +34,26 @@ class CurrentDependencies(aiohttp.web.View):
 
         github_api_lookup = self.request.app[consts.APP_GITHUB_API_LOOKUP]
 
-        resolved_dependencies = []
-        for dependency in component_cfg.dependencies or []:
-            resolved_dependency = {
+        resolved_dependencies = [
+            {
                 'name': dependency.name,
                 'displayName': dependency.displayName,
-            }
-            if (dependency.currentVersion):
-                resolved_dependency['version'] = dependency.currentVersion.retrieve(
-                    github_api_lookup=github_api_lookup,
-                )
-            resolved_dependencies.append(resolved_dependency)
-
-        resp_media = {
-            'displayName': component_cfg.displayName,
-            'component_dependencies': resolved_dependencies
-        }
-        if component_cfg.currentVersion:
-            resp_media['version'] = component_cfg.currentVersion.retrieve(
-                github_api_lookup=github_api_lookup,
-            )
+                'version': (
+                    dependency.currentVersion.retrieve(github_api_lookup)
+                    if dependency.currentVersion
+                    else None
+                ),
+            } for dependency in component_cfg.dependencies
+        ]
 
         return aiohttp.web.json_response(
-            data=resp_media,
+            data={
+                'displayName': component_cfg.displayName,
+                'componentDependencies': resolved_dependencies,
+                'version': (
+                    component_cfg.currentVersion.retrieve(github_api_lookup)
+                    if component_cfg.currentVersion
+                    else None
+                ),
+            },
         )
