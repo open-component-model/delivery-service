@@ -57,6 +57,12 @@ def ocm_repo_mappings_candidates() -> collections.abc.Generator[str, None, None]
     yield os.path.join(_odg_path, 'ocm_repo_mappings.yaml')
 
 
+def profiles_candidates() -> collections.abc.Generator[str, None, None]:
+    if profiles_path := os.environ.get('PROFILES_PATH'):
+        yield profiles_path
+    yield os.path.join(_odg_path, 'profiles.yaml')
+
+
 def find_path(
     candidates: collections.abc.Iterable[str],
     absent_ok: bool=False,
@@ -106,5 +112,14 @@ def ocm_repo_mappings_path(
 ) -> str | None:
     return find_path(
         candidates=ocm_repo_mappings_candidates(),
+        absent_ok=absent_ok,
+    )
+
+
+def profiles_path(
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=profiles_candidates(),
         absent_ok=absent_ok,
     )

@@ -1,0 +1,11 @@
+- name: default
+  finding_types:
+    - finding/vulnerability
+    - finding/license
+    - finding/malware
+    - finding/sast
+    - finding/diki
+    - codechecks/aggregated
+    - os_ids
+  special_component_ids:
+    - 03e237b4-434e-4e1c-b786-5ceb6cc76c1c
