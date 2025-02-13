@@ -586,7 +586,10 @@ class ExtensionsConfiguration:
         convert_to_camel_case: bool=False,
     ) -> collections.abc.Generator[str, None, None]:
         for extension_name in dataclasses.asdict(self).keys():
-            if not getattr(self, extension_name):
+            if (
+                not (extension_cfg := getattr(self, extension_name))
+                or not extension_cfg.enabled
+            ):
                 continue # extension is not configured
 
             if not convert_to_camel_case:
