@@ -160,8 +160,6 @@ class LogCollections(aiohttp.web.View):
 
 
 class ServiceExtensions(aiohttp.web.View):
-    required_features = (features.FeatureClusterAccess,)
-
     async def get(self):
         '''
         ---
