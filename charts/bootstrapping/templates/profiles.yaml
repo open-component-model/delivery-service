@@ -1,0 +1,9 @@
+{{- if $profiles := .Values.profiles }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: profiles
+data:
+  profiles: |
+    {{- toYaml $profiles | nindent 4 }}
+{{- end }}
