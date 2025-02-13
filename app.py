@@ -159,6 +159,8 @@ def add_app_context_vars(
 
     namespace_callback = cluster_access_feature.get_namespace
 
+    profiles_callback = features.get_feature(features.FeatureProfiles).find_profile
+
     special_component_callback = features.get_feature(
         features.FeatureSpecialComponents,
     ).find_special_component
@@ -204,6 +206,7 @@ def add_app_context_vars(
     app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
     app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
     app[consts.APP_OCI_CLIENT] = oci_client
+    app[consts.APP_PROFILES_CALLBACK] = profiles_callback
     app[consts.APP_SECRET_FACTORY] = secret_factory
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
     app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK] = sprint_date_display_name_callback
@@ -242,6 +245,12 @@ def add_routes(
     app.router.add_view(
         path='/features',
         handler=features.Features,
+    )
+
+    # dedicated route instead of `/features` route to allow unauthorised retrieval (-> login page)
+    app.router.add_view(
+        path='/profiles',
+        handler=features.Profiles,
     )
 
     app.router.add_view(

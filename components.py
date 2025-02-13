@@ -1273,6 +1273,10 @@ class ComplianceSummary(aiohttp.web.View):
           type: integer
           required: false
           default: -1
+        - in: query
+          name: profile
+          type: string
+          required: false
         responses:
           "200":
             description: Successful operation.
@@ -1333,6 +1337,10 @@ class ComplianceSummary(aiohttp.web.View):
         ]
 
         finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
+
+        profiles_callback = self.request.app[consts.APP_PROFILES_CALLBACK]
+        if profile := profiles_callback(util.param(params, 'profile')):
+            finding_cfgs = profile.filter_finding_cfgs(finding_cfgs)
 
         shortcut_cache = deliverydb.cache.parse_shortcut_cache(self.request)
 

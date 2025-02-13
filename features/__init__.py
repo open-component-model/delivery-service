@@ -19,6 +19,7 @@ import cnudie.retrieve
 import ocm
 
 import config
+import consts
 import ctx_util
 import k8s.util
 import lookups
@@ -202,6 +203,31 @@ class SprintDateNameMapping:
     displayName: str
 
 
+@dataclasses.dataclass
+class Profile:
+    name: str
+    finding_types: list[str] = dataclasses.field(default_factory=list)
+    special_component_ids: list[str] = dataclasses.field(default_factory=list)
+
+    def filter_finding_cfgs(
+        self,
+        finding_cfgs: list[odg.findings.Finding],
+    ) -> list[odg.findings.Finding]:
+        return [
+            finding_cfg for finding_cfg in finding_cfgs
+            if finding_cfg.type in self.finding_types
+        ]
+
+    def filter_special_components(
+        self,
+        special_components: list[SpecialComponentsCfg],
+    ) -> list[SpecialComponentsCfg]:
+        return [
+            special_component for special_component in special_components
+            if special_component.id in self.special_component_ids
+        ]
+
+
 class FeatureStates(enum.Enum):
     AVAILABLE = 'available'
     UNAVAILABLE = 'unavailable'
@@ -211,7 +237,7 @@ class FeatureStates(enum.Enum):
 class FeatureBase:
     state: FeatureStates
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return dataclasses.asdict(self)
 
 
@@ -261,7 +287,7 @@ class FeatureAddressbook(FeatureBase):
 
         return github_mappings
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -274,7 +300,7 @@ class FeatureAuthentication(FeatureBase):
     signing_cfgs: list[secret_mgmt.signing_cfg.SigningCfg] = dataclasses.field(default_factory=list)
     oauth_cfgs: list[secret_mgmt.oauth_cfg.OAuthCfg] = dataclasses.field(default_factory=list)
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -309,7 +335,7 @@ class FeatureDeliveryDB(FeatureBase):
     def get_db_url(self) -> str | None:
         return self.db_url
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -321,7 +347,7 @@ class FeatureExtensionsConfiguration(FeatureBase):
     name: str = 'extensions-configuration'
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration | None = None
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -335,6 +361,36 @@ class FeatureExtensionsConfiguration(FeatureBase):
 class FeatureFindingConfigurations(FeatureBase):
     name: str = 'finding-configurations'
     finding_cfgs: list[odg.findings.Finding] = dataclasses.field(default_factory=list)
+
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+        if profile:
+            finding_cfgs_for_profile = profile.filter_finding_cfgs(
+                finding_cfgs=self.finding_cfgs,
+            )
+        else:
+            finding_cfgs_for_profile = self.finding_cfgs
+
+        return {
+            'state': self.state,
+            'name': self.name,
+            'finding_cfgs': finding_cfgs_for_profile,
+        }
+
+
+@dataclasses.dataclass(frozen=True)
+class FeatureProfiles(FeatureBase):
+    name: str = 'profiles'
+    profiles: list[Profile] = dataclasses.field(default_factory=list)
+
+    def find_profile(self, name: str | None) -> Profile | None:
+        if not name and self.profiles:
+            return self.profiles[0] # if no specific profile is requested, use default one (-> first)
+
+        for profile in self.profiles:
+            if profile.name == name:
+                return profile
+
+        return None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -366,7 +422,7 @@ class FeatureRepoContexts(FeatureBase):
             for mapping in self.ocm_repo_mappings
         }
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -388,15 +444,22 @@ class FeatureSpecialComponents(FeatureBase):
 
         return None
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         github_api_lookup = lookups.github_api_lookup()
+
+        if profile:
+            special_components_for_profile = profile.filter_special_components(
+                special_components=self.special_components,
+            )
+        else:
+            special_components_for_profile = self.special_components
 
         special_components = [
             dataclasses.replace(
                 special_component,
                 version=special_component.version.retrieve(github_api_lookup),
             ) if isinstance(special_component.version, CurrentVersion) else special_component
-            for special_component in self.special_components
+            for special_component in special_components_for_profile
         ]
 
         return {
@@ -458,7 +521,7 @@ class FeatureSprints(FeatureBase):
                 return sprint_date_display_name_mapping.displayName
         return sprint_date_name
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -477,7 +540,7 @@ class FeatureUpgradePRs(FeatureBase):
     def get_regex(self) -> re.Pattern | None:
         return self.regex
 
-    def serialize(self) -> dict[str, any]:
+    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -522,6 +585,18 @@ def deserialise_addressbook(addressbook_raw: dict) -> FeatureAddressbook:
         addressbook_relpath=addressbook_relpath,
         github_mappings_relpath=github_mappings_relpath,
         github_repo=github_repo,
+    )
+
+
+def deserialise_profiles(profiles_raw: dict) -> FeatureProfiles:
+    return FeatureProfiles(
+        FeatureStates.AVAILABLE,
+        profiles=[
+            dacite.from_dict(
+                data_class=Profile,
+                data=profile_raw,
+            ) for profile_raw in profiles_raw
+        ]
     )
 
 
@@ -763,6 +838,17 @@ def apply_raw_cfg():
     feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureRepoContexts)]
     feature_cfgs.append(ocm_repo_mappings_feature)
 
+    if (
+        (profiles_path := paths.profiles_path(absent_ok=True))
+        and (profiles_raw := util.parse_yaml_file(profiles_path))
+    ):
+        profiles_feature = deserialise_profiles(profiles_raw=profiles_raw)
+    else:
+        profiles_feature = FeatureProfiles(FeatureStates.UNAVAILABLE)
+
+    feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureProfiles)]
+    feature_cfgs.append(profiles_feature)
+
 
 class CfgFileChangeEventHandler(watchdog.events.FileSystemEventHandler):
     def dispatch(self, event):
@@ -856,6 +942,8 @@ async def init_features(
         watch_for_file_changes(event_handler, findings_cfg_path)
     if ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True):
         watch_for_file_changes(event_handler, ocm_repo_mappings_path)
+    if profiles_path := paths.profiles_path(absent_ok=True):
+        watch_for_file_changes(event_handler, profiles_path)
 
     apply_raw_cfg()
 
@@ -871,6 +959,11 @@ class Features(aiohttp.web.View):
         - Features
         produces:
         - application/json
+        parameters:
+        - in: query
+          name: profile
+          type: string
+          required: false
         responses:
           "200":
             schema:
@@ -894,11 +987,48 @@ class Features(aiohttp.web.View):
                           - available
                           - unavailable
         '''
-        self.feature_cfgs = list(f.serialize() for f in feature_cfgs)
+        params = self.request.rel_url.query
+
+        profiles_callback = self.request.app[consts.APP_PROFILES_CALLBACK]
+        profile = profiles_callback(util.param(params, 'profile'))
+
+        self.feature_cfgs = list(f.serialize(profile) for f in feature_cfgs)
 
         return aiohttp.web.json_response(
             data={
                 'features': self.feature_cfgs,
+            },
+            dumps=util.dict_to_json_factory,
+        )
+
+
+@middleware.auth.noauth
+class Profiles(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        description: Returns a list of available profile names.
+        tags:
+        - Features
+        produces:
+        - application/json
+        responses:
+          "200":
+            schema:
+              type: object
+              required:
+              - features
+              properties:
+                profiles:
+                  type: array
+                  items:
+                    type: string
+        '''
+        profiles_feature = get_feature(FeatureProfiles)
+
+        return aiohttp.web.json_response(
+            data={
+                'profiles': [profile.name for profile in profiles_feature.profiles],
             },
             dumps=util.dict_to_json_factory,
         )
