@@ -34,11 +34,13 @@ class KubernetesApi:
 
 
 def kubernetes_api(
-    kubernetes_cfg: secret_mgmt.kubernetes.Kubernetes | None=None,
+    kubernetes_cfg: secret_mgmt.kubernetes.Kubernetes | dict | None=None,
     kubeconfig_path: str | None=None,
 ) -> KubernetesApi:
     if kubernetes_cfg:
-        api_client = kubernetes.config.new_client_from_config_dict(kubernetes_cfg.kubeconfig)
+        if isinstance(kubernetes_cfg, secret_mgmt.kubernetes.Kubernetes):
+            kubernetes_cfg = kubernetes_cfg.kubeconfig
+        api_client = kubernetes.config.new_client_from_config_dict(kubernetes_cfg)
     elif kubeconfig_path:
         kubeconfig = yaml.safe_load(open(kubeconfig_path))
         api_client = kubernetes.config.new_client_from_config_dict(kubeconfig)
