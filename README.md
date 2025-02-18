@@ -14,9 +14,9 @@ cluster.
 
 # Local Development
 
-Delivery Service and Extensions require a python runtime environment (see setup*.py for details) to
+Delivery Service and Extensions require a python runtime environment (see `setup*.py` for details) to
 run. Typically, the python3 version from greatest released version of
-[alpine](https://endoflife.date/alpine) linux is used/tested (see Dockerfile.*). Greater or smaller
+[alpine](https://endoflife.date/alpine) linux is used/tested (see `Dockerfile.*`). Greater or smaller
 versions _may_ work, but are typically untested.
 
 For delivery-service, use `app.py` as entry point. Check online-help (app.py --help) for further
@@ -32,14 +32,26 @@ in a local kubernetes cluster using kind, please refer to
 
 <a id="getting-started"></a>
 ## Getting Started
-1. Install development dependencies
-```
-pip3 install -r requirements-dev.txt --upgrade --break-system-packages
+1. (Optional) Create a new [virtualenv](https://docs.python.org/3/library/venv.html)
+
+``` shell
+python -m venv venv
 ```
 
-2. Obtain secrets and configuration (tbd)
+Then activate the `venv`:
 
-3. Start delivery-service with (delivery) database
+``` shell
+source venv/bin/activate
+```
+
+2. Install development dependencies
+```
+pip3 install -r requirements-dev.txt --upgrade
+```
+
+3. Obtain secrets and configuration (tbd)
+
+4. Start delivery-service with (delivery) database
     - with [local](#db-local) database
     - with [remote](#db-remote) database
 
