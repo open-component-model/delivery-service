@@ -105,6 +105,8 @@ def _iter_findings_with_processing_dates(
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     sprints: collections.abc.Sequence[datetime.date],
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
+    sprints = sorted(sprints)
+
     for finding in findings:
         if (finding_type := finding.finding.meta.type) == dso.model.Datatype.ARTEFACT_SCAN_INFO:
             yield finding
@@ -129,7 +131,7 @@ def _iter_findings_with_processing_dates(
 
         latest_processing_date = finding.finding.discovery_date + allowed_processing_time
 
-        for sprint in sorted(sprints):
+        for sprint in sprints:
             if sprint >= latest_processing_date:
                 finding.latest_processing_date = sprint
                 break
@@ -211,8 +213,11 @@ def replicate_issue(
         correlation_id = compliance_snapshot.data.correlation_id
         correlation_ids_by_latest_processing_date[date] = correlation_id
 
-    sprints = list(correlation_ids_by_latest_processing_date.keys())
-    if not (sprints := list(correlation_ids_by_latest_processing_date.keys())):
+    active_sprints = set()
+    for compliance_snapshots in active_compliance_snapshots:
+        active_sprints.add(compliance_snapshot.data.latest_processing_date)
+
+    if not (all_sprints := list(correlation_ids_by_latest_processing_date.keys())):
         logger.warning('did not find any sprints, exiting...')
         return
 
@@ -237,7 +242,7 @@ def replicate_issue(
     findings = tuple(_iter_findings_with_processing_dates(
         findings=findings,
         finding_cfgs=finding_cfgs,
-        sprints=sprints,
+        sprints=active_sprints,
     ))
     logger.info(f'{len(findings)=}')
 
@@ -252,7 +257,7 @@ def replicate_issue(
     findings_by_cfg_source_and_date = _group_findings_by_cfg_source_and_date(
         findings=findings,
         finding_cfgs=finding_cfgs,
-        sprints=sprints,
+        sprints=all_sprints,
     )
 
     def _issue_type(

@@ -111,7 +111,9 @@ class ArtefactEnumeratorConfig(ExtensionCfgMixins):
         Earliest start and latest end date for which compliance snapshots should be created. If not
         set, all available sprints will be considered.
     :param int compliance_snapshot_grace_period:
-        Time after which inactive compliance snapshots are deleted from the delivery-db.
+        Time after which inactive compliance snapshots are deleted from the delivery-db. During this
+        period, the inactive snapshots are used to possibly close outdated GitHub issues (i.e. the
+        ones which have a due date which is by now out-of-scope of the configured time range).
     :param str schedule
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
