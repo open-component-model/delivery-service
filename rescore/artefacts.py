@@ -64,6 +64,7 @@ class RescoringProposal:
         LicenseFinding
         | VulnerabilityFinding
         | MalwareFinding
+        | dso.model.SastFinding
     )
     finding_type: str
     severity: str
@@ -318,6 +319,24 @@ async def _iter_rescoring_proposals(
                             'content_digest': am.data.finding.content_digest,
                             'malware': am.data.finding.malware,
                         },
+                        'severity': severity,
+                    },
+                    'finding_type': finding_cfg.type,
+                    'severity': current_severity,
+                    'matching_rules': matching_rule_names,
+                    'applicable_rescorings': serialised_current_rescorings,
+                    'discovery_date': am.discovery_date.isoformat(),
+                    'sprint': sprint,
+                },
+            )
+
+        elif finding_cfg.type is odg.findings.FindingType.SAST:
+            yield dacite.from_dict(
+                data_class=RescoringProposal,
+                data={
+                    'finding': {
+                        'sast_status': am.data.sast_status,
+                        'sub_type': am.data.sub_type,
                         'severity': severity,
                     },
                     'finding_type': finding_cfg.type,
