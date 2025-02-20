@@ -78,7 +78,10 @@ class SecretFactory:
                     region=aws_cfg.region(),
                 )
 
-        if bdba_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='bdba')):
+        if (
+            'bdba' in cfg_factory._cfg_types()
+            and (bdba_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='bdba')))
+        ):
             import secret_mgmt.bdba
             secrets_dict['bdba'] = {}
 
@@ -90,7 +93,10 @@ class SecretFactory:
                     tls_verify=bdba_cfg.tls_verify(),
                 )
 
-        if delivery_db_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='delivery_db')):
+        if (
+            'delivery_db' in cfg_factory._cfg_types()
+            and (delivery_db_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='delivery_db')))
+        ):
             import secret_mgmt.delivery_db
             secrets_dict['delivery-db'] = {}
 
@@ -127,7 +133,10 @@ class SecretFactory:
                     kubeconfig=kubernetes_cfg.kubeconfig(),
                 )
 
-        if delivery_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='delivery')):
+        if (
+            'delivery' in cfg_factory._cfg_types()
+            and (delivery_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='delivery')))
+        ):
             for delivery_cfg in delivery_cfgs:
                 if oauth_cfgs := delivery_cfg.oauth_cfgs():
                     import secret_mgmt.oauth_cfg

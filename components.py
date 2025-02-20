@@ -261,7 +261,7 @@ class Component(aiohttp.web.View):
             version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
             version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
             invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
-            db_session=self.request[consts.REQUEST_DB_SESSION],
+            db_session=self.request.get(consts.REQUEST_DB_SESSION),
         )
 
         return aiohttp.web.json_response(
@@ -334,7 +334,7 @@ class ComponentDependencies(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
-                db_session=self.request[consts.REQUEST_DB_SESSION],
+                db_session=self.request.get(consts.REQUEST_DB_SESSION),
             )
 
         component_dependencies = resolve_component_dependencies(
@@ -444,7 +444,7 @@ class ComponentResponsibles(aiohttp.web.View):
             version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
             version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
             invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
-            db_session=self.request[consts.REQUEST_DB_SESSION],
+            db_session=self.request.get(consts.REQUEST_DB_SESSION),
         )
         component = component_descriptor.component
         main_source = cnudie.util.main_source(component_descriptor.component)
@@ -811,7 +811,7 @@ class GreatestComponentVersions(aiohttp.web.View):
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 start_date=start_date,
                 end_date=end_date,
-                db_session=self.request[consts.REQUEST_DB_SESSION],
+                db_session=self.request.get(consts.REQUEST_DB_SESSION),
             )
         except ValueError:
             raise aiohttp.web.HTTPNotFound(text=f'Version {version} not found')
@@ -945,7 +945,7 @@ class UpgradePRs(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
                 invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
-                db_session=self.request[consts.REQUEST_DB_SESSION],
+                db_session=self.request.get(consts.REQUEST_DB_SESSION),
             )
 
             component_descriptor = await util.retrieve_component_descriptor(
@@ -1032,7 +1032,7 @@ class UpgradePRs(aiohttp.web.View):
             repo_url=repo_url,
             state=pr_state,
             pattern=self.request.app[consts.APP_UPR_REGEX_CALLBACK](),
-            db_session=self.request[consts.REQUEST_DB_SESSION],
+            db_session=self.request.get(consts.REQUEST_DB_SESSION),
         )
 
         return aiohttp.web.json_response(
@@ -1306,7 +1306,7 @@ class ComplianceSummary(aiohttp.web.View):
 
         recursion_depth = int(util.param(params, 'recursion_depth', default=-1))
 
-        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        db_session: sqlasync.session.AsyncSession = self.request.get(consts.REQUEST_DB_SESSION)
 
         if version == 'greatest':
             version = await greatest_version_if_none(
@@ -1495,7 +1495,7 @@ class ComponentMetadata(aiohttp.web.View):
                 text=f'"select" must not be "{Select.GREATEST.value}" if "version" is given',
             )
 
-        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        db_session: sqlasync.session.AsyncSession = self.request.get(consts.REQUEST_DB_SESSION)
 
         if select is Select.GREATEST:
             component_version = await greatest_component_version(

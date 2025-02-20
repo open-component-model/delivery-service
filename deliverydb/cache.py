@@ -244,7 +244,9 @@ def dbcached_route(
         async def wrapper(*args, **kwargs):
             # first non-keyword arg of http route functions is always the request object
             request: aiohttp.web.Request = args[0].request
-            db_session: sqlasync.session.AsyncSession = request[consts.REQUEST_DB_SESSION]
+
+            if not (db_session := request.get(consts.REQUEST_DB_SESSION)):
+                return await func(*args, **kwargs)
 
             body = await request.json() if request.has_body else None
 
