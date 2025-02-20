@@ -282,7 +282,10 @@ def rescoring_for_sast_finding(
             last_update=creation_timestamp,
         ),
         data=dso.model.CustomRescoring(
-            finding=finding.data,
+            finding=dso.model.RescoreSastFinding(
+                sast_status=finding.data.sast_status,
+                sub_type=finding.data.sub_type,
+            ),
             referenced_type=odg.findings.FindingType.SAST,
             severity=rescored_categorisation.id,
             user=user,
