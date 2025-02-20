@@ -214,7 +214,7 @@ def replicate_issue(
         correlation_ids_by_latest_processing_date[date] = correlation_id
 
     active_sprints = set()
-    for compliance_snapshots in active_compliance_snapshots:
+    for compliance_snapshot in active_compliance_snapshots:
         active_sprints.add(compliance_snapshot.data.latest_processing_date)
 
     if not (all_sprints := list(correlation_ids_by_latest_processing_date.keys())):
