@@ -560,6 +560,7 @@ async def create_backlog_items_for_rescored_artefacts(
         async for partition in db_stream.partitions(size=50)
         for row in partition
     ]
+    await db_session.close()
 
     active_compliance_snapshots = tuple(
         cs for cs in compliance_snapshots
@@ -656,12 +657,12 @@ class Rescore(aiohttp.web.View):
             and extensions_cfg.issue_replicator
             and extensions_cfg.issue_replicator.enabled
         ):
-            await create_backlog_items_for_rescored_artefacts(
+            asyncio.create_task(create_backlog_items_for_rescored_artefacts(
                 namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                 kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
                 db_session=db_session,
                 rescorings=rescorings,
-            )
+            ))
 
         return aiohttp.web.Response(
             status=http.HTTPStatus.CREATED,
@@ -856,12 +857,12 @@ class Rescore(aiohttp.web.View):
             and extensions_cfg.issue_replicator
             and extensions_cfg.issue_replicator.enabled
         ):
-            await create_backlog_items_for_rescored_artefacts(
+            asyncio.create_task(create_backlog_items_for_rescored_artefacts(
                 namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                 kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
                 db_session=db_session,
                 rescorings=rescorings,
-            )
+            ))
 
         return aiohttp.web.Response(
             status=http.HTTPStatus.NO_CONTENT,
