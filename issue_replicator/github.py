@@ -485,6 +485,55 @@ def _malware_template_vars(
     }
 
 
+def _sast_template_vars(
+    grouped_findings: list[GroupedFindings],
+    summary: str,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str,
+    sprint_name: str=None,
+) -> dict[str, str]:
+    summary += '# Summary of found SAST issues'
+
+    def iter_findings(
+        aggragated_findings: tuple[AggregatedFinding],
+    ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
+        for af in aggragated_findings:
+            sast_finding: dso.model.SastFinding = af.finding.data
+            sast_status = sast_finding.sast_status
+            sub_type = sast_finding.sub_type
+            severity = sast_finding.severity
+
+            if sub_type is dso.model.SastSubType.LOCAL_LINTING:
+                issue_text = 'No evidence about SAST-linting was found.'
+            elif sub_type is dso.model.SastSubType.CENTRAL_LINTING:
+                issue_text = 'No central linting found.'
+            else:
+                issue_text = 'Unknown SAST issue subtype.'
+
+            yield sast_status, severity, sub_type, issue_text
+
+    for grouped_finding in grouped_findings:
+        summary += '\n' + grouped_finding.summary(
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
+            finding_type=odg.findings.FindingType.SAST,
+            sprint_name=sprint_name,
+        )
+
+        summary += (
+            '\n| SAST Status | Severity | Sub Type | Issue Text |'
+            '\n| --- | --- | --- | --- |'
+        )
+        for sast_status, severity, sub_type, issue_text in iter_findings(grouped_finding.findings):
+            summary += f'\n| {sast_status} | {severity} | {sub_type} | {issue_text} |'
+
+        summary += '\n---'
+
+    return {
+        'summary': summary,
+    }
+
+
 def _license_template_vars(
     grouped_findings: list[GroupedFindings],
     summary: str,
@@ -688,6 +737,12 @@ def _template_vars(
     artefact_kind = artefact.artefact_kind
     artefact_name = artefact.artefact.artefact_name
     artefact_type = artefact.artefact.artefact_type
+    rescoring_url = _delivery_dashboard_url(
+        base_url=delivery_dashboard_url,
+        component_artefact_id=artefact,
+        finding_type=finding_cfg.type,
+        sprint_name=sprint_name,
+    )
 
     # all component versions which have artefacts with findings -> required for summary table
     component_versions: set[str] = set()
@@ -759,8 +814,9 @@ def _template_vars(
 
     if findings:
         summary += (
-            f'\nThe aforementioned {gcr._pluralise(artefact_type, len(artefact_ids))} '
-            'yielded findings relevant for future release decisions.\n'
+            f'\nThe aforementioned {artefact_kind} artefact'
+            f' (of type {gcr._pluralise(artefact_type, len(artefact_ids))})'
+            ' yielded findings relevant for future release decisions.\n'
         )
     else:
         summary += (
@@ -775,6 +831,7 @@ def _template_vars(
         'artefact_name': artefact_name,
         'artefact_type': artefact_type,
         'resource_type': artefact_type, # TODO deprecated -> remove once all templates are adjusted
+        'rescoring_url': rescoring_url,
     }
 
     sorted_grouped_findings = sorted(
@@ -814,6 +871,14 @@ def _template_vars(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
             finding_type=finding_cfg.type,
+            sprint_name=sprint_name,
+        )
+    elif issue_type == gci._label_sast:
+        template_variables |= _sast_template_vars(
+            grouped_findings=sorted_grouped_findings,
+            summary=summary,
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
     elif issue_type == gci._label_diki:
