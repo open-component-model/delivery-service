@@ -32,6 +32,8 @@ swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')
 
 _odg_path = os.path.join(_own_dir, 'odg')
 
+_crypto_path = os.path.join(_own_dir, 'crypto')
+
 
 def features_cfg_candidates() -> collections.abc.Generator[str, None, None]:
     if features_cfg_path := os.environ.get('FEATURES_CFG_PATH'):
@@ -61,6 +63,12 @@ def profiles_candidates() -> collections.abc.Generator[str, None, None]:
     if profiles_path := os.environ.get('PROFILES_PATH'):
         yield profiles_path
     yield os.path.join(_odg_path, 'profiles.yaml')
+
+
+def crypto_cfg_candidates() -> collections.abc.Generator[str, None, None]:
+    if crypto_cfg_path := os.environ.get('CRYPTO_CFG_PATH'):
+        yield crypto_cfg_path
+    yield os.path.join(_crypto_path, 'config.yaml')
 
 
 def find_path(
@@ -121,5 +129,14 @@ def profiles_path(
 ) -> str | None:
     return find_path(
         candidates=profiles_candidates(),
+        absent_ok=absent_ok,
+    )
+
+
+def crypto_cfg_path(
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=crypto_cfg_candidates(),
         absent_ok=absent_ok,
     )
