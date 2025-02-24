@@ -32,6 +32,12 @@ clamav:
       repository: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/freshclam
       tag: 1.8.0
 
+crypto:
+  enabled: false
+  image: # image property will be set during release
+    repository: ~
+    tag: ~
+
 delivery-db-backup:
   enabled: false
   image: # image property will be set during release

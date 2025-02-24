@@ -8,6 +8,8 @@ cache-manager:
   enabled: True
 clamav:
   enabled: False
+crypto:
+  enabled: False
 delivery-db-backup:
   enabled: False
 issue-replicator:
