@@ -167,7 +167,7 @@ def find_cbom_or_create(
             local_blob_path = os.path.join(tmp_dir, 'local_blob')
 
             with open(local_blob_path, 'wb') as file:
-                while chunk := blob.iter_content(chunk_size=4096):
+                for chunk in blob.iter_content(chunk_size=4096):
                     file.write(chunk)
 
             crypto.sbom.derive_sbom_for_source(
