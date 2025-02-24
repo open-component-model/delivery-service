@@ -23,6 +23,7 @@ def modules():
         'bdba.model',
         'config',
         'consts',
+        'crypto_extension.config',
         'ctx_util',
         'dockerutil',
         'lookups',

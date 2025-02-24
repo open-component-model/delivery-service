@@ -102,6 +102,42 @@
       value: 4
       allowed_processing_time: 30
 
+- type: finding/crypto
+  issues:
+    enable_issues: False
+  categorisations:
+    - id: false-positive
+      display_name: False Positive
+      value: 0
+      rescoring: manual
+    - id: security-irrelevant
+      display_name: Security Irrelevant
+      value: 0
+      rescoring: manual
+    - id: compliant
+      display_name: Compliant
+      value: 0
+      rescoring: manual
+      selector:
+        ratings:
+          - compliant
+    - id: maybe-standard-compliant
+      display_name: Maybe Compliant
+      value: 2
+      allowed_processing_time: 90
+      rescoring: manual
+      selector:
+        ratings:
+          - maybe-compliant
+    - id: not-standard-compliant
+      display_name: Not Compliant
+      value: 8
+      allowed_processing_time: 30
+      rescoring: manual
+      selector:
+        ratings:
+          - not-compliant
+
 - type: codechecks/aggregated
   issues:
     enable_issues: False

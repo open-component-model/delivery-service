@@ -15,7 +15,9 @@ import github.compliance.milestone as gcmi
 import ocm
 
 import bdba.model
+import crypto_extension.config
 import lookups
+import odg.shared_cfg
 
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,7 @@ class Services(enum.StrEnum):
     BDBA = 'bdba'
     CACHE_MANAGER = 'cacheManager'
     CLAMAV = 'clamav'
+    CRYPTO = 'crypto'
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
     ISSUE_REPLICATOR = 'issueReplicator'
     SAST = 'sast'
@@ -381,6 +384,181 @@ class ClamAVConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
+class StandardRef:
+    '''
+    :param str name:
+        The name of the standard used to regulate cryptographic usage within software.
+    :param str version:
+        The version of the standard used to regulate cryptographic usage within software.
+    :param SharedCfgReference ref:
+        Reference to a configuration file (YAML) which contains a property `standards` that lists
+        known regulatory cryptographic standards, which is used to find the standard described by
+        `name` and `version`.
+    '''
+    name: str
+    version: str
+    ref: (
+        odg.shared_cfg.SharedCfgGitHubReference
+        | odg.shared_cfg.SharedCfgLocalReference
+        | odg.shared_cfg.SharedCfgOCMReference
+    )
+
+    def retrieve_standard(
+        self,
+        shared_cfg_lookup: collections.abc.Callable[[odg.shared_cfg.SharedCfgReference], dict],
+    ) -> crypto_extension.config.Standard:
+        crypto_cfg_raw = shared_cfg_lookup(self.ref)
+
+        standards_raw = crypto_cfg_raw.get('standards', [])
+        for standard_raw in standards_raw:
+            if (
+                standard_raw['name'] == self.name
+                and standard_raw['version'] == self.version
+            ):
+                return dacite.from_dict(
+                    data_class=crypto_extension.config.Standard,
+                    data=standard_raw,
+                    config=dacite.Config(
+                        cast=[enum.Enum],
+                    ),
+                )
+
+        raise ValueError(f'could not retrieve crypto standard for {self}')
+
+
+@dataclasses.dataclass
+class LibrariesRef:
+    '''
+    :param SharedCfgReference ref:
+        Reference to a configuration file (YAML) which contains a property `libraries` that lists
+        known cryptographic libraries by their name.
+    '''
+    ref: (
+        odg.shared_cfg.SharedCfgGitHubReference
+        | odg.shared_cfg.SharedCfgLocalReference
+        | odg.shared_cfg.SharedCfgOCMReference
+    )
+
+
+@dataclasses.dataclass
+class CryptoMapping(Mapping):
+    '''
+    :param list[StandardRef | Standard] standards:
+        References to or inline defined standards the discovered cryptographic assets should be
+        validated against.
+    :param list[LibrariesRef | str] libraries:
+        References to configurations containing a list of cryptographic libraries or inline defined
+        known cryptographic libraries which should be used to filter the detected libraries for
+        cryptographic ones.
+    :param list[CryptoAssetTypes] included_asset_types:
+        The asset types which should be extracted from the CBOM. If `None` (!= empty list), all
+        available asset types will be reported.
+    :param str aws_secret_name:
+        Name of the AWS secret element to use to retrieve artefacts from S3.
+    '''
+    standards: list[StandardRef | crypto_extension.config.Standard]
+    libraries: list[LibrariesRef | str]
+    included_asset_types: list[dso.model.CryptoAssetTypes] | None
+    aws_secret_name: str | None
+
+    def __post_init__(self):
+        shared_cfg_lookup = odg.shared_cfg.shared_cfg_lookup()
+
+        self.standards = [
+            standard.retrieve_standard(shared_cfg_lookup)
+            if isinstance(standard, StandardRef)
+            else standard
+            for standard in self.standards
+        ]
+
+        libraries = []
+        for library in self.libraries:
+            if isinstance(library, str):
+                libraries.append(library)
+                continue
+
+            libraries.extend(shared_cfg_lookup(library.ref).get('libraries', []))
+        self.libraries = libraries
+
+
+@dataclasses.dataclass
+class CryptoConfig(BacklogItemMixins):
+    '''
+    :param str delivery_service_url
+    :param list[CryptoMapping] mappings
+    :param int interval:
+        Time after which an artefact must be re-scanned at latest.
+    :param WarningVerbosities on_unsupported:
+        Defines the handling if a backlog item should be processed which contains unsupported
+        properties, e.g. an unsupported access type.
+    '''
+    delivery_service_url: str
+    mappings: list[CryptoMapping]
+    interval: int = 60 * 60 * 24 # 24h
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+
+    def mapping(self, name: str, /) -> CryptoMapping:
+        for mapping in self.mappings:
+            if name.startswith(mapping.prefix):
+                return mapping
+
+        raise ValueError(f'No matching mapping entry found for {name=}')
+
+    def is_supported(
+        self,
+        artefact_kind: dso.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
+        artefact_type: str | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            dso.model.ArtefactKind.RESOURCE,
+        )
+        supported_access_types = (
+            ocm.AccessType.OCI_REGISTRY,
+            ocm.AccessType.LOCAL_BLOB,
+            ocm.AccessType.S3,
+        )
+        supported_artefact_types_by_access_type = {
+            ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
+        }
+
+        is_supported = True
+
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for crypto scans, '
+                    f'{supported_artefact_kinds=}'
+                )
+
+        if access_type and access_type not in supported_access_types:
+            is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{access_type=} is not supported for crypto scans, {supported_access_types=}'
+                )
+
+        if (
+            artefact_type
+            and access_type
+            and (artefact_types := supported_artefact_types_by_access_type.get(access_type))
+        ):
+            if not any(
+                artefact_type.startswith(supported_artefact_type)
+                for supported_artefact_type in artefact_types
+            ):
+                is_supported = False
+                if self.on_unsupported is WarningVerbosities.WARNING:
+                    logger.warning(
+                        f'{artefact_type=} is not supported for crypto scans with {access_type=}, '
+                        f'{supported_artefact_types_by_access_type=}'
+                    )
+
+        return is_supported
+
+
+@dataclasses.dataclass
 class DeliveryDBBackup(ExtensionCfgMixins):
     '''
     :param str delivery_service_url
@@ -547,8 +725,9 @@ class SASTConfig(BacklogItemMixins):
 class ExtensionsConfiguration:
     artefact_enumerator: ArtefactEnumeratorConfig | None
     bdba: BDBAConfig | None
-    clamav: ClamAVConfig | None
     cache_manager: CacheManagerConfig | None
+    clamav: ClamAVConfig | None
+    crypto: CryptoConfig | None
     delivery_db_backup: DeliveryDBBackup | None
     issue_replicator: IssueReplicatorConfig | None
     sast: SASTConfig | None
