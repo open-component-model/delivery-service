@@ -24,6 +24,22 @@ extensions_cfg:
     enabled: False # disable in default because of high memory
     mappings:
       - prefix: ''
+  crypto:
+    enabled: False # disable in default because of high memory
+    mappings:
+      - prefix: ''
+        standards:
+          - name: FIPS
+            version: 140-3
+            ref:
+              path: crypto_extension/config.yaml
+          - name: NCS
+            version: '1.0'
+            ref:
+              path: crypto_extension/config.yaml
+        libraries:
+          - ref:
+              path: crypto_extension/config.yaml
   delivery_db_backup:
     enabled: False # disable in default because of missing `component_name` and `ocm_repo_url`
     component_name: ''
@@ -120,6 +136,41 @@ findings:
             - central-linting
     issues:
       enable_assignees: False
+  - type: finding/crypto
+    categorisations:
+      - id: false-positive
+        display_name: False Positive
+        value: 0
+        rescoring: manual
+      - id: security-irrelevant
+        display_name: Security Irrelevant
+        value: 0
+        rescoring: manual
+      - id: compliant
+        display_name: Compliant
+        value: 0
+        rescoring: manual
+        selector:
+          ratings:
+            - compliant
+      - id: maybe-standard-compliant
+        display_name: Maybe Compliant
+        value: 2
+        allowed_processing_time: 90
+        rescoring: manual
+        selector:
+          ratings:
+            - maybe-compliant
+      - id: not-standard-compliant
+        display_name: Not Compliant
+        value: 8
+        allowed_processing_time: 30
+        rescoring: manual
+        selector:
+          ratings:
+            - not-compliant
+    issues:
+      enable_assignees: False
 
 ocm_repo_mappings:
   - prefix: ocm.software/ocmcli
@@ -136,6 +187,7 @@ profiles:
       - finding/license
       - finding/malware
       - finding/sast
+      - finding/crypto
     special_component_ids:
       - f7e84fdb-69fe-4837-b1c2-58cf4e58e5c7
       - 8ca887cf-0d09-4f28-bc88-727aa3e30a26
