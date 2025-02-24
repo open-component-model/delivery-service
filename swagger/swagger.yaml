@@ -150,6 +150,7 @@ definitions:
       - checkmarx
       - clamav
       - diki
+      - sast-lint-check
 
   Datatype:
     type: string
@@ -159,6 +160,7 @@ definitions:
       - finding/vulnerability
       - finding/malware
       - finding/diki
+      - finding/sast
       - codechecks/aggregated
       - os_ids
       - rescorings
@@ -210,7 +212,7 @@ definitions:
         $ref: '#/definitions/Datatype'
       source:
         $ref: '#/definitions/Datasource'
-      severity:
+      categorisation:
         type: string
         enum:
           - UNKNOWN
@@ -220,6 +222,8 @@ definitions:
           - HIGH
           - CRITICAL
           - BLOCKER
+      value:
+        type: integer
       scanStatus:
         type: string
         enum:
