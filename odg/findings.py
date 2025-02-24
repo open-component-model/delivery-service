@@ -71,6 +71,7 @@ class RescoringSpecificity(enum.Enum):
 
 class FindingType(enum.StrEnum):
     CHECKMARX = 'codechecks/aggregated'
+    CRYPTO = 'finding/crypto'
     DIKI = 'finding/diki'
     LICENSE = 'finding/license'
     MALWARE = 'finding/malware'
@@ -83,6 +84,15 @@ class FindingType(enum.StrEnum):
 class MinMaxRange:
     min: float
     max: float
+
+
+@dataclasses.dataclass
+class CryptoFindingSelector:
+    '''
+    :param list[str] ratings:
+        List of regexes to determine matching crypto findings based on their rating.
+    '''
+    ratings: list[str]
 
 
 @dataclasses.dataclass
@@ -160,7 +170,8 @@ class FindingCategorisation:
     allowed_processing_time: str | int | None
     rescoring: RescoringModes | list[RescoringModes] | None
     selector: (
-        LicenseFindingSelector
+        CryptoFindingSelector
+        | LicenseFindingSelector
         | MalwareFindingSelector
         | SASTFindingSelector
         | VulnerabilityFindingSelector
@@ -480,6 +491,8 @@ class Finding:
 
     def _validate(self):
         match self.type:
+            case FindingType.CRYPTO:
+                self._validate_crypto()
             case FindingType.DIKI:
                 self._validate_diki()
             case FindingType.LICENSE:
@@ -492,6 +505,18 @@ class Finding:
                 self._validate_vulnerabilty()
             case _:
                 pass
+
+    def _validate_crypto(self):
+        violations = self._validate_categorisations(
+            expected_selector=CryptoFindingSelector,
+        )
+
+        if not violations:
+            return
+
+        e = ModelValidationError('crypto finding model violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
 
     def _validate_diki(self):
         violations = self._validate_categorisations()
@@ -741,7 +766,12 @@ def categorise_finding(
         if not (selector := categorisation.selector):
             continue
 
-        if isinstance(selector, LicenseFindingSelector):
+        if isinstance(selector, CryptoFindingSelector):
+            for rating in selector.ratings:
+                if re.fullmatch(rating, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, LicenseFindingSelector):
             for license_name in selector.license_names:
                 if re.fullmatch(license_name, finding_property, re.IGNORECASE):
                     return categorisation

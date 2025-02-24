@@ -5,6 +5,7 @@
     - finding/malware
     - finding/sast
     - finding/diki
+    - finding/crypto
     - codechecks/aggregated
     - os_ids
   special_component_ids:
