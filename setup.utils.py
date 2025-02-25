@@ -24,6 +24,7 @@ def modules():
         'config',
         'consts',
         'ctx_util',
+        'dockerutil',
         'lookups',
         'ocm_util',
         'paths',
