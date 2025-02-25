@@ -16,7 +16,6 @@ import github3.issues.issue
 import github3.issues.milestone
 import requests
 
-import ci.util
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
@@ -33,6 +32,7 @@ import k8s.util
 import odg.extensions_cfg
 import odg.findings
 import rescore.utility
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -261,7 +261,7 @@ def _delivery_dashboard_url(
     finding_type: odg.findings.FindingType,
     sprint_name: str=None,
 ):
-    url = ci.util.urljoin(
+    url = util.urljoin(
         base_url,
         '#/component'
     )

@@ -16,7 +16,6 @@ import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.orm.query as sq
 import yaml
 
-import ci.util
 import cnudie.iter
 import cnudie.iter_async
 import cnudie.retrieve
@@ -1005,7 +1004,7 @@ class UpgradePRs(aiohttp.web.View):
                 logger.warning(f'no github-cfg found for {repo_url=}')
                 return [] # matching github-cfg is optional
 
-            parsed_url = ci.util.urlparse(repo_url)
+            parsed_url = util.urlparse(repo_url)
             org, repo = parsed_url.path.strip('/').split('/')
 
             try:
