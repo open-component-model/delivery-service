@@ -6,7 +6,6 @@ import pprint
 
 import tabulate
 
-import ci.util
 import cnudie.access
 import cnudie.iter
 import dso.model
@@ -20,6 +19,7 @@ import bdba.scanning
 import ctx_util
 import lookups
 import ocm_util
+import util
 
 
 __cmd_name__ = 'bdba'
@@ -96,7 +96,7 @@ def scan(
 
     if not bdba_api_url:
         bdba_api_url = bdba_cfg.api_url
-    bdba_group_url = ci.util.urljoin(bdba_api_url, 'group', str(bdba_group_id))
+    bdba_group_url = util.urljoin(bdba_api_url, 'group', str(bdba_group_id))
     logger.info(f'Using BDBA at: {bdba_api_url} with group {bdba_group_id}')
 
     lookup = lookups.init_component_descriptor_lookup(

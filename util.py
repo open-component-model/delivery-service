@@ -27,11 +27,31 @@ def parse_yaml_file(path: str) -> dict:
         return yaml.safe_load(file)
 
 
+def urlparse(url: str) -> urllib.parse.ParseResult:
+    if not '://' in url:
+        url = f'x://{url}'
+
+    return urllib.parse.urlparse(url)
+
+
+def urljoin(*parts):
+    if len(parts) == 1:
+        return parts[0]
+
+    first = parts[0]
+    last = parts[-1]
+    middle = parts[1:-1]
+
+    first = first.rstrip('/')
+    middle = list(map(lambda s: s.strip('/'), middle))
+    last = last.lstrip('/')
+
+    return '/'.join([first] + middle + [last])
+
+
 @functools.cache
 def normalise_url_to_second_and_tld(url: str):
-    if '://' not in url:
-        url = 'x://' + url
-    hostname = urllib.parse.urlparse(url).hostname
+    hostname = urlparse(url).hostname
 
     parts = hostname.strip('.').split('.')
     if parts[0] == 'api':
