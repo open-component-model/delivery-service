@@ -6,12 +6,10 @@ import dacite
 import dateutil.parser
 import yaml
 
-import ci.util
 import delivery.model as dm
 import version
 
-
-urljoin = ci.util.urljoin
+import util
 
 
 @dataclasses.dataclass
@@ -98,7 +96,7 @@ class Routes:
         architecture: aarch64, x86_64, ..
         '''
 
-        return urljoin(
+        return util.urljoin(
             self._base_url,
             branch,
             'releases',

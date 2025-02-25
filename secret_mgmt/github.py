@@ -5,10 +5,10 @@ import re
 import github3.github
 import github3.session
 
-import ci.util
 import http_requests
 
 import secret_mgmt
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class GitHub:
 
     @property
     def hostname(self) -> str | None:
-        parsed_http_url = ci.util.urlparse(self.http_url)
+        parsed_http_url = util.urlparse(self.http_url)
 
         if not (hostname := parsed_http_url.hostname):
             return None
@@ -42,12 +42,12 @@ class GitHub:
         self,
         repo_url: str,
     ) -> bool:
-        parsed_repo_url = ci.util.urlparse(repo_url)
+        parsed_repo_url = util.urlparse(repo_url)
 
         if not self.repo_urls:
             return self.hostname_matches(hostname=parsed_repo_url.hostname)
 
-        repo_url = ci.util.urljoin(parsed_repo_url.hostname, parsed_repo_url.path)
+        repo_url = util.urljoin(parsed_repo_url.hostname, parsed_repo_url.path)
 
         for repo_url_regex in self.repo_urls:
             if re.fullmatch(repo_url_regex, repo_url, re.RegexFlag.IGNORECASE):

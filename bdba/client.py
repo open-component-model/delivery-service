@@ -17,13 +17,13 @@ import dateutil.parser
 import requests
 
 import ci.log
-import ci.util
 import http_requests
 
 import bdba.model as bm
 import ctx_util
 import secret_mgmt
 import secret_mgmt.bdba
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -71,12 +71,12 @@ class BDBAApiRoutes:
         self._rest_url = functools.partial(self._url, 'rest')
 
     def _url(self, *parts):
-        return ci.util.urljoin(self._base_url, *parts)
+        return util.urljoin(self._base_url, *parts)
 
     def apps(self, group_id=None, custom_attribs={}):
         url = self._api_url('apps')
         if group_id is not None:
-            url = ci.util.urljoin(url, str(group_id))
+            url = util.urljoin(url, str(group_id))
 
         search_query = ' '.join(['meta:' + str(k) + '=' + str(v) for k,v in custom_attribs.items()])
         if search_query:

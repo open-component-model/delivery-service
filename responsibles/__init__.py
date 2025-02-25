@@ -5,7 +5,6 @@ import logging
 
 import github3
 
-import ci.util
 import github.codeowners
 import ocm
 
@@ -279,7 +278,7 @@ def user_identifiers_from_responsible(
 
             github_api = secret_mgmt.github.github_api(
                 secret_factory=secret_factory,
-                repo_url=ci.util.urljoin(gh_hostname, org_name),
+                repo_url=util.urljoin(gh_hostname, org_name),
             )
 
             team = github.codeowners.Team(responsible.teamname)

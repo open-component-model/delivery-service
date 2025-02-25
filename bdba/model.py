@@ -13,11 +13,12 @@ import traceback
 import dacite
 import dateutil.parser
 
-import ci.util
 import dso.cvss
 import dso.labels
 import dso.model
 import ocm
+
+import util
 
 
 logger = logging.getLogger()
@@ -230,7 +231,7 @@ class Result:
 
     @property
     def base_url(self) -> str:
-        parsed_url = ci.util.urlparse(self.report_url)
+        parsed_url = util.urlparse(self.report_url)
         return f'{parsed_url.scheme}://{parsed_url.netloc}'
 
     @property
