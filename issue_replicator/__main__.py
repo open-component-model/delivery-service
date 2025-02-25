@@ -182,17 +182,14 @@ def replicate_issue(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
 ):
-    # issues are grouped across multiple versions + extra identities, hence ignoring properties here
-    artefact.component_version = None
-    artefact.artefact.artefact_version = None
-    artefact.artefact.artefact_extra_id = dict()
-
     logger.info(f'starting issue replication of {artefact}')
 
     mapping = issue_replicator_cfg.mapping(artefact.component_name)
 
     compliance_snapshots = delivery_client.query_metadata(
-        artefacts=(artefact,),
+        artefacts=[dso.model.ComponentArtefactId(
+            group_id=artefact.effective_group_id,
+        )],
         type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
     )
     logger.info(f'{len(compliance_snapshots)=}')

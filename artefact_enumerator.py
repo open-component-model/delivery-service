@@ -61,11 +61,7 @@ def correlation_id(
     Also, a version prefix is added to be able to differentiate correlation
     ids in case their calculation changed
     '''
-    digest_str = (
-        artefact.component_name + artefact.artefact_kind +
-        artefact.artefact.artefact_name + artefact.artefact.artefact_type +
-        latest_processing_date.isoformat()
-    )
+    digest_str = artefact.effective_group_id + latest_processing_date.isoformat()
     digest = hashlib.shake_128(digest_str.encode('utf-8')).hexdigest(
         length=23,
     )

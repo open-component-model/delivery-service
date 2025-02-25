@@ -124,6 +124,9 @@ class ArtefactMetadataQuery(aiohttp.web.View):
             if artefact_ref.artefact_kind:
                 yield dm.ArtefactMetaData.artefact_kind == artefact_ref.artefact_kind
 
+            if artefact_ref.group_id:
+                yield dm.ArtefactMetaData.group_id == artefact_ref.group_id
+
             if not artefact_ref.artefact:
                 return
 

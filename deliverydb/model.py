@@ -40,6 +40,7 @@ class ArtefactMetaData(Base):
 
     artefact_extra_id_normalised = sa.Column(sa.String(length=1024))
     artefact_extra_id = sa.Column(sa.JSON)
+    group_id = sa.Column(sa.String(length=256))
 
     meta = sa.Column(sa.JSON, default=dict)
     data = sa.Column(sa.JSON, default=dict)
