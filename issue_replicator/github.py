@@ -28,7 +28,6 @@ import github.compliance.report as gcr
 import github.retry
 import github.user
 import github.util
-import version as version_util
 
 import k8s.util
 import odg.extensions_cfg
@@ -59,47 +58,37 @@ class AggregatedFinding:
 
 
 @dataclasses.dataclass
-class GroupedFindings:
-    component_name: str
-    component_versions: set[str]
-    artefact_kind: dso.model.ArtefactKind
-    artefact: dso.model.LocalArtefactId
+class FindingGroup:
+    artefact: dso.model.ComponentArtefactId
     findings: tuple[AggregatedFinding]
 
     def summary(
         self,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
         delivery_dashboard_url: str,
-        finding_type: odg.findings.FindingType,
+        finding_cfg: odg.findings.Finding,
         sprint_name: str | None=None,
     ) -> str:
-        component_version = version_util.greatest_version(
-            versions=self.component_versions,
-        )
-
-        component_artefact_id = dso.model.ComponentArtefactId(
-            component_name=self.component_name,
-            component_version=component_version,
-            artefact_kind=self.artefact_kind,
+        ocm_node = k8s.util.get_ocm_node(
+            component_descriptor_lookup=component_descriptor_lookup,
             artefact=self.artefact,
         )
 
-        ocm_node = k8s.util.get_ocm_node(
-            component_descriptor_lookup=component_descriptor_lookup,
-            artefact=component_artefact_id,
+        artefact_non_group_properties = finding_cfg.issues.grouping.strip_artefact(
+            artefact=self.artefact,
+            keep_group_attributes=False,
         )
 
         summary = textwrap.dedent(f'''\
-            ### {self.artefact.artefact_name}:{self.artefact.artefact_version}
-            {_artefact_id_to_str(artefact_id=self.artefact, include_version=False)}
+            {_artefact_to_str(artefact_non_group_properties)}
             {_artefact_url(ocm_node=ocm_node)}
 
         ''')
 
         delivery_dashboard_url = _delivery_dashboard_url(
             base_url=delivery_dashboard_url,
-            component_artefact_id=component_artefact_id,
-            finding_type=finding_type,
+            component_artefact_id=self.artefact,
+            finding_type=finding_cfg.type,
             sprint_name=sprint_name,
         )
         summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
@@ -239,22 +228,16 @@ def _issue_title(
     return title
 
 
-def _artefact_id_to_str(
-    artefact_id: dso.model.LocalArtefactId,
-    include_version: bool=True,
+def _artefact_to_str(
+    artefact: dso.model.ComponentArtefactId,
 ) -> str:
-    id = {
-        **({'version': artefact_id.artefact_version} if include_version else {}),
-        **artefact_id.artefact_extra_id,
-    }
-
-    if not id:
-        return ''
-
     id_str = '<br>'.join(
         f'{k}: {v}'
-        for k, v in id.items()
+        for k, v in artefact.as_dict_repr().items()
     )
+
+    if not id_str:
+        return ''
 
     # <pre>...</pre> is a code block like ```...``` which allows linebreaks using <br>
     # (this is required for markdown tables)
@@ -314,11 +297,11 @@ def _delivery_dashboard_url(
 
 def _vulnerability_template_vars(
     finding_cfg: odg.findings.Finding,
-    grouped_findings: list[GroupedFindings],
+    finding_groups: list[FindingGroup],
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str,
-    sprint_name: str=None,
+    sprint_name: str | None=None,
 ) -> dict[str, str]:
     summary += '# Summary of found vulnerabilities'
 
@@ -392,32 +375,24 @@ def _vulnerability_template_vars(
     if finding_cfg.rescoring_ruleset:
         cve_rescoring_rules = finding_cfg.rescoring_ruleset.rules
 
-    for grouped_finding in grouped_findings:
-        summary += '\n' + grouped_finding.summary(
+    for finding_group in finding_groups:
+        summary += '\n' + finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
-            finding_type=finding_cfg.type,
+            finding_cfg=finding_cfg,
             sprint_name=sprint_name,
         )
 
         report_urls = {(
             f'[BDBA {finding.finding.data.product_id}]'
             f'({finding.finding.data.report_url})'
-        ) for finding in grouped_finding.findings}
+        ) for finding in finding_group.findings}
         report_urls_str = '\n'.join(sorted(report_urls))
         summary += f'{report_urls_str}\n'
 
-        component_version = version_util.greatest_version(
-            versions=grouped_finding.component_versions,
-        )
         ocm_node = k8s.util.get_ocm_node(
             component_descriptor_lookup=component_descriptor_lookup,
-            artefact=dso.model.ComponentArtefactId(
-                component_name=grouped_finding.component_name,
-                component_version=component_version,
-                artefact_kind=grouped_finding.artefact_kind,
-                artefact=grouped_finding.artefact,
-            ),
+            artefact=finding_group.artefact,
         )
 
         cve_categorisation = rescore.utility.find_cve_categorisation(ocm_node)
@@ -428,7 +403,7 @@ def _vulnerability_template_vars(
         ) + ''.join(
             _grouped_findings_to_table_row(findings=grouped_findings_by_cve)
             for _, grouped_findings_by_package in sorted(
-                _group_findings(findings=grouped_finding.findings).items(),
+                _group_findings(findings=finding_group.findings).items(),
                 key=lambda grouped_finding: grouped_finding[0], # sort by package name
             )
             for grouped_findings_by_cve in sorted(
@@ -447,12 +422,12 @@ def _vulnerability_template_vars(
 
 
 def _malware_template_vars(
-    grouped_findings: list[GroupedFindings],
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str,
-    finding_type: odg.findings.FindingType,
-    sprint_name: str=None,
+    sprint_name: str | None=None,
 ) -> dict[str, str]:
     summary += '# Summary of found Malware'
 
@@ -463,11 +438,11 @@ def _malware_template_vars(
             finding_details: dso.model.MalwareFindingDetails = af.finding.data.finding
             yield finding_details.malware, finding_details.filename, finding_details.content_digest
 
-    for grouped_finding in grouped_findings:
-        summary += '\n' + grouped_finding.summary(
+    for finding_group in finding_groups:
+        summary += '\n' + finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
-            finding_type=finding_type,
+            finding_cfg=finding_cfg,
             sprint_name=sprint_name,
         )
 
@@ -476,7 +451,7 @@ def _malware_template_vars(
             '\n| --- | --- | --- |'
         ) + ''.join(
             f'\n| {malware} | {filename} | {content_digest} |'
-            for malware, filename, content_digest in iter_findings(grouped_finding.findings)
+            for malware, filename, content_digest in iter_findings(finding_group.findings)
         )
         summary += '\n---'
 
@@ -486,11 +461,12 @@ def _malware_template_vars(
 
 
 def _sast_template_vars(
-    grouped_findings: list[GroupedFindings],
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str,
-    sprint_name: str=None,
+    sprint_name: str | None=None,
 ) -> dict[str, str]:
     summary += '# Summary of found SAST issues'
 
@@ -512,11 +488,11 @@ def _sast_template_vars(
 
             yield sast_status, severity, sub_type, issue_text
 
-    for grouped_finding in grouped_findings:
-        summary += '\n' + grouped_finding.summary(
+    for finding_group in finding_groups:
+        summary += '\n' + finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
-            finding_type=odg.findings.FindingType.SAST,
+            finding_cfg=finding_cfg,
             sprint_name=sprint_name,
         )
 
@@ -524,7 +500,7 @@ def _sast_template_vars(
             '\n| SAST Status | Severity | Sub Type | Issue Text |'
             '\n| --- | --- | --- | --- |'
         )
-        for sast_status, severity, sub_type, issue_text in iter_findings(grouped_finding.findings):
+        for sast_status, severity, sub_type, issue_text in iter_findings(finding_group.findings):
             summary += f'\n| {sast_status} | {severity} | {sub_type} | {issue_text} |'
 
         summary += '\n---'
@@ -535,11 +511,11 @@ def _sast_template_vars(
 
 
 def _license_template_vars(
-    grouped_findings: list[GroupedFindings],
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str,
-    finding_type: odg.findings.FindingType,
     sprint_name: str=None,
 ) -> dict[str, str]:
     summary += '# Summary of found licenses'
@@ -586,18 +562,18 @@ def _license_template_vars(
 
         return f'\n| `{finding.data.package_name}` | {_license_str()} | {versions} |'
 
-    for grouped_finding in grouped_findings:
-        summary += '\n' + grouped_finding.summary(
+    for finding_group in finding_groups:
+        summary += '\n' + finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
-            finding_type=finding_type,
+            finding_cfg=finding_cfg,
             sprint_name=sprint_name,
         )
 
         report_urls = {(
             f'[BDBA {finding.finding.data.product_id}]'
             f'({finding.finding.data.report_url})'
-        ) for finding in grouped_finding.findings}
+        ) for finding in finding_group.findings}
         report_urls_str = '\n'.join(sorted(report_urls))
         summary += f'{report_urls_str}\n'
 
@@ -607,7 +583,7 @@ def _license_template_vars(
         ) + ''.join(
             _grouped_findings_to_table_row(findings=grouped_findings_by_license)
             for _, grouped_findings_by_package in sorted(
-                _group_findings(findings=grouped_finding.findings).items(),
+                _group_findings(findings=finding_group.findings).items(),
                 key=lambda grouped_finding: grouped_finding[0], # sort by package name
             )
             for grouped_findings_by_license in sorted(
@@ -623,15 +599,15 @@ def _license_template_vars(
 
 
 def _diki_template_vars(
-    grouped_findings: list[GroupedFindings],
+    finding_groups: list[FindingGroup],
     summary: str,
 ) -> dict[str, str]:
     # GitHub has a maximum character limit of 65,536
     MAX_SUMMARY_SIZE = 60000
 
     findings: list[AggregatedFinding] = []
-    for grouped_finding in grouped_findings:
-        findings.extend(grouped_finding.findings)
+    for finding_group in finding_groups:
+        findings.extend(finding_group.findings)
 
     def _targets_table(
         targets: list[dict],
@@ -721,22 +697,38 @@ def _diki_template_vars(
 
 def _template_vars(
     finding_cfg: odg.findings.Finding,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    issue_type: str,
-    artefacts: tuple[dso.model.ComponentArtefactId],
-    findings: tuple[AggregatedFinding],
-    artefact_ids_without_scan: set[dso.model.LocalArtefactId],
+    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts_without_scan: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    findings: collections.abc.Sequence[AggregatedFinding],
     latest_processing_date: datetime.date,
     delivery_dashboard_url: str,
-    sprint_name: str=None,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    sprint_name: str | None=None,
 ) -> dict:
-    # contained `artefacts` may only differ in their `component_version`, `artefact_version`,
-    # and `artefact_extra_id` (we aggregate the issues across those properties)
-    artefact = artefacts[0]
-    component_name = artefact.component_name
-    artefact_kind = artefact.artefact_kind
-    artefact_name = artefact.artefact.artefact_name
-    artefact_type = artefact.artefact.artefact_type
+    '''
+    Fills a dictionary with template variables intended to be used to fill a template for a GitHub
+    issue. The most prominent template variable is called `summary`. It contains a table showing
+    information on the artefact the issue is opened for as well as more detailed information on the
+    actual findings per artefact. The summary table first depicts the properties which are used to
+    group the artefacts (so the properties which all artefacts have in common) and then the remaining
+    properties per artefact. Also, artefacts which were not scanned yet are reported (if there are
+    any).
+    '''
+    artefact_sorting_key = lambda artefact: (
+        artefact.component_name,
+        artefact.component_version,
+        artefact.artefact_kind,
+        artefact.artefact.artefact_type,
+        artefact.artefact.artefact_name,
+        artefact.artefact.artefact_version,
+        artefact.artefact.normalised_artefact_extra_id,
+    )
+
+    sorted_artefacts = sorted(artefacts, key=artefact_sorting_key)
+    sorted_artefacts_without_scan = sorted(artefacts_without_scan, key=artefact_sorting_key)
+
+    artefact = sorted_artefacts[0]
+
     rescoring_url = _delivery_dashboard_url(
         base_url=delivery_dashboard_url,
         component_artefact_id=artefact,
@@ -744,146 +736,160 @@ def _template_vars(
         sprint_name=sprint_name,
     )
 
-    # all component versions which have artefacts with findings -> required for summary table
-    component_versions: set[str] = set()
-    # findings per artefact id for the detailed view
-    grouped_findings: dict[dso.model.LocalArtefactId, GroupedFindings] = dict()
-
-    for artefact in artefacts:
-        component_version = artefact.component_version
-        artefact_id = artefact.artefact
-
-        if artefact_id in grouped_findings:
-            component_versions.add(component_version)
-            grouped_findings[artefact_id].component_versions.add(component_version)
-            continue
-
-        filtered_findings = tuple(
-            finding for finding in findings
-            if finding.finding.artefact.artefact == artefact_id
-        )
-
-        if not filtered_findings:
-            # artefact has no findings for this datatype-sprint combination
-            continue
-
-        component_versions.add(component_version)
-        grouped_findings[artefact_id] = GroupedFindings(
-            component_name=component_name,
-            component_versions={component_version},
-            artefact_kind=artefact_kind,
-            artefact=artefact_id,
-            findings=filtered_findings,
-        )
-
-    c_versions_str = ', '.join(sorted(component_versions))
-
-    artefact_ids = sorted(
-        grouped_findings.keys(),
-        key=lambda id: (id.artefact_version, id.normalised_artefact_extra_id),
-    )
-    artefact_ids_str = ''.join(
-        _artefact_id_to_str(artefact_id=artefact_id)
-        for artefact_id in artefact_ids
-    )
-
-    artefact_ids_without_scan = sorted(
-        artefact_ids_without_scan,
-        key=lambda id: (id.artefact_version, id.normalised_artefact_extra_id),
-    )
-    artefacts_without_scan_str = ''.join(
-        _artefact_id_to_str(artefact_id=artefact_id_without_scan)
-        for artefact_id_without_scan in artefact_ids_without_scan
-    )
-
-    summary = textwrap.dedent(f'''\
+    summary = textwrap.dedent('''\
         # Compliance Status Summary
 
         |    |    |
         | -- | -- |
-        | Component | {component_name} |
-        | {gcr._pluralise('Component-Version', len(component_versions))} | {c_versions_str} |
-        | Artefact | {artefact_name} |
-        | Artefact-Type | {artefact_type} |
-        | {gcr._pluralise('Artefact-Id', len(artefact_ids))} | {artefact_ids_str} |
-        | Latest Processing Date | {latest_processing_date} |
     ''')
 
-    if artefact_ids_without_scan:
-        summary += f'| {gcr._pluralise('Artefact', len(artefact_ids_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
+    # first of all, display the artefact properties which are used for grouping in the summary table
+    artefact_group_properties = finding_cfg.issues.grouping.strip_artefact(
+        artefact=artefact,
+        keep_group_attributes=True,
+    )
 
-    if findings:
-        summary += (
-            f'\nThe aforementioned {artefact_kind} artefact'
-            f' (of type {gcr._pluralise(artefact_type, len(artefact_ids))})'
-            ' yielded findings relevant for future release decisions.\n'
+    if component_name := artefact_group_properties.component_name:
+        summary += f'| Component | {component_name} |\n'
+    if component_version := artefact_group_properties.component_version:
+        summary += f'| Component-Version | {component_version} |\n'
+    if artefact_kind := artefact_group_properties.artefact_kind:
+        summary += f'| Artefact-Kind | {artefact_kind} |\n'
+    if artefact_name := artefact_group_properties.artefact.artefact_name:
+        summary += f'| Artefact | {artefact_name} |\n'
+    if artefact_version := artefact_group_properties.artefact.artefact_version:
+        summary += f'| Artefact-Version | {artefact_version} |\n'
+    if artefact_type := artefact_group_properties.artefact.artefact_type:
+        summary += f'| Artefact-Type | {artefact_type} |\n'
+    if artefact_extra_id := artefact_group_properties.artefact.artefact_extra_id:
+        id_str = '<br>'.join(sorted(f'{k}: {v}' for k, v in artefact_extra_id.items()))
+        summary += f'| Artefact-Extra-Id | <pre>{id_str}</pre> |\n'
+
+    summary += f'| Latest Processing Date | {latest_processing_date} |\n'
+
+    # assign the findings to the artefact of the group they belong to
+    finding_groups: list[FindingGroup] = []
+    for artefact in sorted_artefacts:
+        findings_for_artefact = tuple(
+            finding for finding in findings
+            if (
+                finding.finding.artefact.component_name == artefact.component_name
+                and (
+                    # finding's component version might be `None`, i.e. for BDBA findings
+                    not finding.finding.artefact.component_version
+                    or finding.finding.artefact.component_version == artefact.component_version
+                ) and finding.finding.artefact.artefact_kind is artefact.artefact_kind
+                and finding.finding.artefact.artefact.artefact_name
+                    == artefact.artefact.artefact_name
+                and finding.finding.artefact.artefact.artefact_version
+                    == artefact.artefact.artefact_version
+                and finding.finding.artefact.artefact.artefact_type
+                    == artefact.artefact.artefact_type
+                and finding.finding.artefact.artefact.normalised_artefact_extra_id
+                    == artefact.artefact.normalised_artefact_extra_id
+            )
         )
-    else:
-        summary += (
-            '**The scan of the recent artefact version is currently pending, '
-            'hence no findings may show up.**'
-        )
+
+        if not findings_for_artefact:
+            continue
+
+        finding_groups.append(FindingGroup(
+            artefact=artefact,
+            findings=findings_for_artefact,
+        ))
+
+    # secondly, display the combinations of artefact properties which are not part of the group
+    artefacts_non_group_properties = [
+        finding_cfg.issues.grouping.strip_artefact(
+            artefact=finding_group.artefact,
+            keep_group_attributes=False,
+        ) for finding_group in finding_groups
+    ]
+
+    artefacts_non_group_properties_str = ''.join(
+        _artefact_to_str(artefact=artefact_non_group_properties)
+        for artefact_non_group_properties in artefacts_non_group_properties
+    )
+
+    if artefacts_non_group_properties:
+        summary += f'| {gcr._pluralise('ID', len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n' # noqa: E501
+
+    # lastly, display the artefacts which were not scanned yet
+    artefacts_without_scan_str = ''.join(
+        _artefact_to_str(artefact=artefact_without_scan)
+        for artefact_without_scan in sorted_artefacts_without_scan
+    )
+
+    if sorted_artefacts_without_scan:
+        summary += f'| {gcr._pluralise('Artefact', len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
 
     template_variables = {
         'component_name': component_name,
-        'component_version': c_versions_str,
+        'component_version': component_version,
         'artefact_kind': artefact_kind,
         'artefact_name': artefact_name,
+        'artefact_version': artefact_version,
         'artefact_type': artefact_type,
         'resource_type': artefact_type, # TODO deprecated -> remove once all templates are adjusted
         'rescoring_url': rescoring_url,
     }
 
-    sorted_grouped_findings = sorted(
-        (grouped_finding for grouped_finding in grouped_findings.values()),
-        key=lambda grouped_finding: (
-            grouped_finding.artefact.artefact_version,
-            grouped_finding.artefact.normalised_artefact_extra_id,
-        ),
-    )
-
     if not findings:
+        summary += (
+            '**The scan of the recent artefact version is currently pending, '
+            'hence no findings may show up.**'
+        )
+
         template_variables |= {
             'summary': summary,
         }
-    elif issue_type == gci._label_bdba:
+
+        return template_variables
+
+    summary += (
+        f'The aforementioned {gcr._pluralise('artefact', len(artefacts_non_group_properties))} '
+        'yielded findings relevant for future release decisions.\n'
+    )
+
+    if finding_cfg.type is odg.findings.FindingType.VULNERABILITY:
         template_variables |= _vulnerability_template_vars(
             finding_cfg=finding_cfg,
-            grouped_findings=sorted_grouped_findings,
+            finding_groups=finding_groups,
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-    elif issue_type == gci._label_licenses:
+    elif finding_cfg.type is odg.findings.FindingType.LICENSE:
         template_variables |= _license_template_vars(
-            grouped_findings=sorted_grouped_findings,
+            finding_cfg=finding_cfg,
+            finding_groups=finding_groups,
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
-            finding_type=finding_cfg.type,
             sprint_name=sprint_name,
         )
-    elif issue_type == gci._label_malware:
+    elif finding_cfg.type is odg.findings.FindingType.MALWARE:
         template_variables |= _malware_template_vars(
-            grouped_findings=sorted_grouped_findings,
+            finding_cfg=finding_cfg,
+            finding_groups=finding_groups,
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
-            finding_type=finding_cfg.type,
             sprint_name=sprint_name,
         )
-    elif issue_type == gci._label_sast:
+    elif finding_cfg.type is odg.findings.FindingType.SAST:
         template_variables |= _sast_template_vars(
-            grouped_findings=sorted_grouped_findings,
+            finding_cfg=finding_cfg,
+            finding_groups=finding_groups,
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-    elif issue_type == gci._label_diki:
+    elif finding_cfg.type is odg.findings.FindingType.DIKI:
         template_variables |= _diki_template_vars(
-            grouped_findings=sorted_grouped_findings,
+            finding_groups=finding_groups,
             summary=summary,
         )
 
@@ -956,7 +962,7 @@ def _create_or_update_issue(
     failed_milestones: None | list[github3.issues.milestone.Milestone],
     latest_processing_date: datetime.date,
     is_scanned: bool,
-    artefact_ids_without_scan: set[dso.model.LocalArtefactId],
+    artefacts_without_scan: set[dso.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     extra_title: str=None,
     sprint_name: str=None,
@@ -978,7 +984,7 @@ def _create_or_update_issue(
                     break
 
     if (issues_count := len(issues)) > 1:
-        # it is possible, that multiple _closed_ issues exist for one correlation id
+        # it is possible, that multiple _closed_ issues exist for one issue id
         # if that's the case, re-use the latest issue (greatest id)
         open_issues = tuple(issue for issue in issues if issue.state == 'open')
         if len(open_issues) > 1:
@@ -1002,10 +1008,9 @@ def _create_or_update_issue(
     template_variables = _template_vars(
         finding_cfg=finding_cfg,
         component_descriptor_lookup=component_descriptor_lookup,
-        issue_type=issue_type,
         artefacts=artefacts,
         findings=findings,
-        artefact_ids_without_scan=artefact_ids_without_scan,
+        artefacts_without_scan=artefacts_without_scan,
         latest_processing_date=latest_processing_date,
         delivery_dashboard_url=delivery_dashboard_url,
         sprint_name='Overdue' if is_overdue else sprint_name,
@@ -1055,7 +1060,7 @@ def _create_or_update_or_close_issue_per_finding(
     failed_milestones: None | list[github3.issues.milestone.Milestone],
     latest_processing_date: datetime.date,
     is_scanned: bool,
-    artefact_ids_without_scan: set[dso.model.LocalArtefactId],
+    artefacts_without_scan: set[dso.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     sprint_name: str=None,
     assignees: set[str]=set(),
@@ -1089,7 +1094,7 @@ def _create_or_update_or_close_issue_per_finding(
             failed_milestones=failed_milestones,
             latest_processing_date=latest_processing_date,
             is_scanned=is_scanned,
-            artefact_ids_without_scan=artefact_ids_without_scan,
+            artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
             extra_title=data.key,
             sprint_name=sprint_name,
@@ -1115,16 +1120,16 @@ def create_or_update_or_close_issue(
     issue_type: str,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
-    correlation_id: str,
+    issue_id: str,
     latest_processing_date: datetime.date,
     is_in_bom: bool,
-    artefact_ids_without_scan: set[dso.model.LocalArtefactId],
+    artefacts_without_scan: set[dso.model.ComponentArtefactId],
     delivery_dashboard_url: str,
 ):
-    is_scanned = len(artefact_ids_without_scan) == 0
+    is_scanned = len(artefacts_without_scan) == 0
 
     labels = {
-        correlation_id,
+        issue_id,
     }
 
     known_issues = _all_issues(
@@ -1202,7 +1207,7 @@ def create_or_update_or_close_issue(
             failed_milestones=failed_milestones,
             latest_processing_date=latest_processing_date,
             is_scanned=is_scanned,
-            artefact_ids_without_scan=artefact_ids_without_scan,
+            artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
             assignees=assignees,
@@ -1222,7 +1227,7 @@ def create_or_update_or_close_issue(
         failed_milestones=failed_milestones,
         latest_processing_date=latest_processing_date,
         is_scanned=is_scanned,
-        artefact_ids_without_scan=artefact_ids_without_scan,
+        artefacts_without_scan=artefacts_without_scan,
         delivery_dashboard_url=delivery_dashboard_url,
         sprint_name=sprint_name,
         assignees=assignees,
