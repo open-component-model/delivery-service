@@ -1,5 +1,7 @@
 import dataclasses
+import datetime
 import enum
+import hashlib
 import re
 import typing
 
@@ -181,6 +183,80 @@ class FindingCategorisation:
 
 
 @dataclasses.dataclass
+class GroupAttributes:
+    '''
+    Allows a custom configuration of those attributes, which should be used to group artefacts for a
+    reporting in a shared GitHub issue.
+    '''
+    component_name: bool = False
+    component_version: bool = False
+    artefact_kind: bool = False
+    artefact_name: bool = False
+    artefact_version: bool = False
+    artefact_type: bool = False
+    artefact_extra_id: bool = False
+
+    @staticmethod
+    def default() -> typing.Self:
+        return GroupAttributes(
+            component_name=True,
+            artefact_kind=True,
+            artefact_name=True,
+            artefact_type=True,
+        )
+
+    def group_id_for_artefact(
+        self,
+        artefact: dso.model.ComponentArtefactId,
+    ) -> str:
+        '''
+        Creates a stable representation of the grouping relevant attributes of the `artefact`.
+        '''
+        id = ''
+
+        if self.component_name:
+            id += artefact.component_name
+        if self.component_version:
+            id += artefact.component_version
+        if self.artefact_kind:
+            id += artefact.artefact_kind
+        if self.artefact_name:
+            id += artefact.artefact.artefact_name
+        if self.artefact_version:
+            id += artefact.artefact.artefact_version
+        if self.artefact_type:
+            id += artefact.artefact.artefact_type
+        if self.artefact_extra_id:
+            id += artefact.artefact.normalised_artefact_extra_id
+
+        return id
+
+    def strip_artefact(
+        self,
+        artefact: dso.model.ComponentArtefactId,
+        keep_group_attributes: bool=True,
+    ) -> dso.model.ComponentArtefactId:
+        '''
+        Based on `keep_group_attributes`, either returns an artefact which only contains the
+        attributes which are used for grouping, or the opposite.
+        '''
+        def include_attribute(is_group_attribute: bool) -> bool:
+            return is_group_attribute == keep_group_attributes
+
+        return dso.model.ComponentArtefactId(
+            component_name=artefact.component_name if include_attribute(self.component_name) else None, # noqa: E501
+            component_version=artefact.component_version if include_attribute(self.component_version) else None, # noqa: E501
+            artefact_kind=artefact.artefact_kind if include_attribute(self.artefact_kind) else None,
+            artefact=dso.model.LocalArtefactId(
+                artefact_name=artefact.artefact.artefact_name if include_attribute(self.artefact_name) else None, # noqa: E501
+                artefact_version=artefact.artefact.artefact_version if include_attribute(self.artefact_version) else None, # noqa: E501
+                artefact_type=artefact.artefact.artefact_type if include_attribute(self.artefact_type) else None, # noqa: E501
+                artefact_extra_id=artefact.artefact.artefact_extra_id if include_attribute(self.artefact_extra_id) else dict(), # noqa: E501
+            ),
+        )
+
+
+@dataclasses.dataclass
 class FindingIssues:
     '''
     :param str template:
@@ -193,11 +269,36 @@ class FindingIssues:
     :param bool enable_per_finding:
         If set, GitHub issues will be created per finding for a specific artefact as opposed to a
         single issue with all findings.
+    :param GroupAttributes grouping:
+        Allows a custom configuration of those attributes, which should be used to group artefacts
+        for a reporting in a shared GitHub issue. If not set, it defaults to the initial behaviour
+        which uses `component_name`, `artefact_kind`, `artefact_name` and `artefact_type` for
+        grouping.
     '''
     template: str = '{summary}'
     enable_issues: bool = True
     enable_assignees: bool = True
     enable_per_finding: bool = False
+    grouping: GroupAttributes = dataclasses.field(default_factory=GroupAttributes.default)
+
+    def issue_id(
+        self,
+        artefact: dso.model.ComponentArtefactId,
+        latest_processing_date: datetime.date,
+        version: str='v1',
+    ) -> str:
+        '''
+        The issue-id (fka. correlation-id) is built from the grouping relevant properties of the
+        `artefact` as well as the `latest_processing_date`. It is intended to be used to reference a
+        GitHub issue to distinguish between issues "managed" by the Open-Delivery-Gear vs. those
+        manually "managed". Also, a version prefix is added to be able to differentiate issue-ids in
+        case their calculation changes in the future.
+        '''
+        group_id = self.grouping.group_id_for_artefact(artefact)
+        digest_str = group_id + latest_processing_date.isoformat()
+        digest = hashlib.shake_128(digest_str.encode()).hexdigest(length=23)
+
+        return f'{version}/{digest}'
 
 
 class FindingFilterSemantics(enum.StrEnum):
