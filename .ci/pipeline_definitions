@@ -126,3 +126,16 @@ delivery-service:
                 - setuptools
                 - pip
                 - distribution-package
+            - type: build-step-file
+              mode: tar
+              step_name: build_python_packages
+              step_output_dir: packages
+              path: 'dist/bdba*'
+              prefix: dist/
+              name: bdba
+              purposes:
+                - python
+                - setuptools
+                - pip
+                - distribution-package
+          release_callback: '.ci/bump_dependency_on_release'

@@ -23,7 +23,7 @@ def modules():
 
 def packages():
     return [
-        'bdba',
+        'bdba_extension',
         'issue_replicator',
         'malware',
     ]
