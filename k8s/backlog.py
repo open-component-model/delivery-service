@@ -110,23 +110,8 @@ def iter_existing_backlog_items_for_artefact(
             ),
         )
 
-        if service in (
-            odg.extensions_cfg.Services.BDBA,
-            odg.extensions_cfg.Services.CLAMAV,
-            odg.extensions_cfg.Services.SAST,
-        ):
-            if crd_artefact == artefact:
-                yield backlog_crd
-        elif service is odg.extensions_cfg.Services.ISSUE_REPLICATOR:
-            if (
-                crd_artefact.artefact_kind is artefact.artefact_kind
-                and crd_artefact.component_name == artefact.component_name
-                and crd_artefact.artefact.artefact_name == artefact.artefact.artefact_name
-                and crd_artefact.artefact.artefact_type == artefact.artefact.artefact_type
-            ):
-                yield backlog_crd
-        else:
-            raise NotImplementedError(f'{service=} is not valid for a backlog item')
+        if crd_artefact == artefact:
+            yield backlog_crd
 
 
 def create_backlog_item(

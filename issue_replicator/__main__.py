@@ -1,6 +1,7 @@
 import argparse
 import atexit
 import collections.abc
+import dataclasses
 import datetime
 import logging
 import os
@@ -61,12 +62,10 @@ def handle_sigterm_and_sigint(signum, frame):
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
-    finding_types: list[odg.findings.FindingType],
+    finding_type: odg.findings.FindingType,
+    finding_source: str,
     chunk_size: int=10,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
-    if not artefacts or not finding_types:
-        return
-
     findings: list[dso.model.ArtefactMetadata] = []
     rescorings: list[dso.model.ArtefactMetadata] = []
 
@@ -75,18 +74,19 @@ def _iter_findings_for_artefact(
 
         findings.extend(delivery_client.query_metadata(
             artefacts=chunked_artefacts,
-            type=[dso.model.Datatype.ARTEFACT_SCAN_INFO] + finding_types,
+            type=[dso.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
         ))
 
         rescorings.extend(delivery_client.query_metadata(
             artefacts=chunked_artefacts,
             type=dso.model.Datatype.RESCORING,
-            referenced_type=finding_types,
+            referenced_type=finding_type,
         ))
 
     for finding in findings:
         if finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
-            yield issue_replicator.github.AggregatedFinding(finding)
+            if finding.meta.datasource == finding_source:
+                yield issue_replicator.github.AggregatedFinding(finding)
             continue
 
         filtered_rescorings = rescore.utility.rescorings_for_finding_by_specificity(
@@ -102,21 +102,15 @@ def _iter_findings_for_artefact(
 
 def _iter_findings_with_processing_dates(
     findings: collections.abc.Iterable[issue_replicator.github.AggregatedFinding],
-    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
+    finding_cfg: odg.findings.Finding,
     sprints: collections.abc.Sequence[datetime.date],
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
     sprints = sorted(sprints)
 
     for finding in findings:
-        if (finding_type := finding.finding.meta.type) == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+        if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
             yield finding
             continue
-
-        for finding_cfg in finding_cfgs:
-            if finding_cfg.type == finding_type:
-                break
-        else:
-            raise RuntimeError(f'did not find finding cfg for type "{finding_type}"')
 
         categorisation = finding_cfg.categorisation_by_id(finding.severity)
 
@@ -139,54 +133,88 @@ def _iter_findings_with_processing_dates(
         yield finding
 
 
-def _group_findings_by_cfg_source_and_date(
+def _group_findings_by_date(
     findings: collections.abc.Sequence[issue_replicator.github.AggregatedFinding],
-    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     sprints: collections.abc.Sequence[datetime.date],
 ) -> collections.abc.Generator[
     tuple[
         tuple[issue_replicator.github.AggregatedFinding], # findings
-        odg.findings.Finding,
-        dso.model.Datasource,
         datetime.date, # latest processing date
     ],
     None,
     None,
 ]:
     for sprint in sprints:
-        for finding_cfg in finding_cfgs:
-            datasource = dso.model.Datatype.datatype_to_datasource(finding_cfg.type)
+        filtered_findings = tuple(
+            finding for finding in findings
+            if finding.latest_processing_date == sprint
+        )
 
-            filtered_findings = tuple(
-                finding for finding in findings
-                if (
-                    finding.finding.meta.type == finding_cfg.type
-                    and finding.finding.meta.datasource == datasource
-                    and finding.latest_processing_date == sprint
-                )
-            )
-
-            yield filtered_findings, finding_cfg, datasource, sprint
+        yield filtered_findings, sprint
 
 
-def replicate_issue(
+def _issue_type_label(
+    finding_type: odg.findings.FindingType,
+    finding_source: str,
+) -> str:
+    if (
+        finding_type is odg.findings.FindingType.VULNERABILITY
+        and finding_source == dso.model.Datasource.BDBA
+    ):
+        return gci._label_bdba
+
+    elif (
+        finding_type is odg.findings.FindingType.LICENSE
+        and finding_source == dso.model.Datasource.BDBA
+    ):
+        return gci._label_licenses
+
+    elif (
+        finding_type is odg.findings.FindingType.MALWARE
+        and finding_source == dso.model.Datasource.CLAMAV
+    ):
+        return gci._label_malware
+
+    elif (
+        finding_type is odg.findings.FindingType.SAST
+        and finding_source == dso.model.Datasource.SAST
+    ):
+        return gci._label_sast
+
+    elif (
+        finding_type is odg.findings.FindingType.DIKI
+        and finding_source == dso.model.Datasource.DIKI
+    ):
+        return gci._label_diki
+
+    else:
+        raise ValueError(f'{finding_type=} is not supported for {finding_source=}')
+
+
+def replicate_issue_for_finding_type(
     artefact: dso.model.ComponentArtefactId,
-    issue_replicator_cfg: odg.extensions_cfg.IssueReplicatorConfig,
-    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
+    finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    delivery_dashboard_url: str,
 ):
-    # issues are grouped across multiple versions + extra identities, hence ignoring properties here
-    artefact.component_version = None
-    artefact.artefact.artefact_version = None
-    artefact.artefact.artefact_extra_id = dict()
+    finding_type = finding_cfg.type
+    finding_source = dso.model.Datatype.datatype_to_datasource(finding_type)
+    issue_type_label = _issue_type_label(
+        finding_type=finding_type,
+        finding_source=finding_source,
+    )
 
-    logger.info(f'starting issue replication of {artefact}')
+    logger.info(f'updating issues for {finding_type=} and {finding_source=}')
 
-    mapping = issue_replicator_cfg.mapping(artefact.component_name)
+    artefact_group = finding_cfg.issues.grouping.strip_artefact(
+        artefact=artefact,
+        keep_group_attributes=True,
+    )
 
     compliance_snapshots = delivery_client.query_metadata(
-        artefacts=(artefact,),
+        artefacts=(artefact_group,),
         type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
     )
     logger.info(f'{len(compliance_snapshots)=}')
@@ -197,21 +225,23 @@ def replicate_issue(
     )
     logger.info(f'{len(active_compliance_snapshots)=}')
 
-    correlation_ids_by_latest_processing_date: dict[datetime.date, str] = dict()
+    issue_ids_by_latest_processing_date: dict[datetime.date, str] = dict()
     for compliance_snapshot in compliance_snapshots:
         date = compliance_snapshot.data.latest_processing_date
 
-        if date in correlation_ids_by_latest_processing_date:
+        if date in issue_ids_by_latest_processing_date:
             continue
 
-        correlation_id = compliance_snapshot.data.correlation_id
-        correlation_ids_by_latest_processing_date[date] = correlation_id
+        issue_ids_by_latest_processing_date[date] = finding_cfg.issues.issue_id(
+            artefact=artefact,
+            latest_processing_date=date,
+        )
 
     active_sprints = set()
     for compliance_snapshot in active_compliance_snapshots:
         active_sprints.add(compliance_snapshot.data.latest_processing_date)
 
-    if not (all_sprints := list(correlation_ids_by_latest_processing_date.keys())):
+    if not (all_sprints := list(issue_ids_by_latest_processing_date.keys())):
         logger.warning('did not find any sprints, exiting...')
         return
 
@@ -220,118 +250,96 @@ def replicate_issue(
     })
     logger.info(f'{len(artefacts)=}')
 
-    finding_types = [
-        finding_cfg.type
-        for finding_cfg in finding_cfgs
-        if finding_cfg.issues.enable_issues and any(finding_cfg.matches(a) for a in artefacts)
-    ]
-    logger.info(f'{finding_types=}')
+    if is_in_bom := len(active_compliance_snapshots) > 0 and finding_cfg.matches(artefact):
+        findings = _iter_findings_for_artefact(
+            delivery_client=delivery_client,
+            artefacts=artefacts,
+            finding_type=finding_type,
+            finding_source=finding_source,
+        )
 
-    findings = _iter_findings_for_artefact(
-        delivery_client=delivery_client,
-        artefacts=artefacts,
-        finding_types=finding_types,
-    )
+        findings = tuple(_iter_findings_with_processing_dates(
+            findings=findings,
+            finding_cfg=finding_cfg,
+            sprints=active_sprints,
+        ))
+        logger.info(f'{len(findings)=}')
+    else:
+        # we don't need to query any findings, as all open issues will be closed anyways
+        logger.info('artefact is not in the BoM anymore, will not query any findings')
+        findings = tuple()
 
-    findings = tuple(_iter_findings_with_processing_dates(
+    findings_by_date = _group_findings_by_date(
         findings=findings,
-        finding_cfgs=finding_cfgs,
-        sprints=active_sprints,
-    ))
-    logger.info(f'{len(findings)=}')
-
-    scanned_artefacts_by_datasource = {
-        (
-            finding.finding.meta.datasource,
-            finding.finding.artefact,
-        ) for finding in findings
-        if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO
-    }
-
-    findings_by_cfg_source_and_date = _group_findings_by_cfg_source_and_date(
-        findings=findings,
-        finding_cfgs=finding_cfgs,
         sprints=all_sprints,
     )
-
-    def _issue_type(
-        finding_type: odg.findings.FindingType,
-        finding_source: str,
-    ) -> str:
-        if (
-            finding_type is odg.findings.FindingType.VULNERABILITY
-            and finding_source == dso.model.Datasource.BDBA
-        ):
-            return gci._label_bdba
-
-        elif (
-            finding_type is odg.findings.FindingType.LICENSE
-            and finding_source == dso.model.Datasource.BDBA
-        ):
-            return gci._label_licenses
-
-        elif (
-            finding_type is odg.findings.FindingType.MALWARE
-            and finding_source == dso.model.Datasource.CLAMAV
-        ):
-            return gci._label_malware
-
-        elif (
-            finding_type is odg.findings.FindingType.SAST
-            and finding_source == dso.model.Datasource.SAST
-        ):
-            return gci._label_sast
-
-        elif (
-            finding_type is odg.findings.FindingType.DIKI
-            and finding_source == dso.model.Datasource.DIKI
-        ):
-            return gci._label_diki
-
-        else:
-            raise NotImplementedError(f'{finding_type=} is not supported for {finding_source=}')
-
-    is_in_bom = len(active_compliance_snapshots) > 0
 
     # `artefacts` are retrieved from all active compliance snapshots, whereas `scanned_artefacts`
     # are retrieved from the existing findings. The difference is that `scanned_artefacts` may not
     # contain any component version (i.e. for BDBA findings) because they're deduplicated across
     # multiple component versions. In contrast, all compliance snapshots hold a component version
     # and thus `artefacts` do as well. Now, to determine artefacts which have not been scanned yet,
-    # both sides have to be normalised in that the component version is not considered.
-    all_artefact_ids = {
-        a.artefact for a in artefacts
+    # both sides have to be normalised in that the component version is not considered. Also, the
+    # attributes by which artefacts are grouped are dropped as they are equal anyways.
+    all_artefacts = {
+        finding_cfg.issues.grouping.strip_artefact(
+            artefact=dataclasses.replace(
+                artefact,
+                component_version=None,
+            ),
+            keep_group_attributes=False,
+        ) for artefact in artefacts
     }
+    scanned_artefacts = {
+        finding_cfg.issues.grouping.strip_artefact(
+            artefact=dataclasses.replace(
+                finding.finding.artefact,
+                component_version=None,
+            ),
+            keep_group_attributes=False,
+        ) for finding in findings
+        if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO
+    }
+    artefacts_without_scan = all_artefacts - scanned_artefacts
 
-    issue_replicator.github.wait_for_quota_if_required(gh_api=mapping.github_api)
-    for findings, finding_cfg, finding_source, date in findings_by_cfg_source_and_date:
-        correlation_id = correlation_ids_by_latest_processing_date.get(date)
-
-        issue_type = _issue_type(
-            finding_type=finding_cfg.type,
-            finding_source=finding_source,
-        )
-
-        scanned_artefact_ids = {
-            scanned_artefact.artefact
-            for datasource, scanned_artefact in scanned_artefacts_by_datasource
-            if datasource == finding_source
-        }
-
-        artefact_ids_without_scan = all_artefact_ids - scanned_artefact_ids
+    for findings, date in findings_by_date:
+        issue_id = issue_ids_by_latest_processing_date.get(date)
 
         issue_replicator.github.create_or_update_or_close_issue(
             mapping=mapping,
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_client=delivery_client,
-            issue_type=issue_type,
+            issue_type=issue_type_label,
             artefacts=artefacts,
             findings=findings,
-            correlation_id=correlation_id,
+            issue_id=issue_id,
             latest_processing_date=date,
             is_in_bom=is_in_bom,
-            artefact_ids_without_scan=artefact_ids_without_scan,
+            artefacts_without_scan=artefacts_without_scan,
+            delivery_dashboard_url=delivery_dashboard_url,
+        )
+
+
+def replicate_issue(
+    artefact: dso.model.ComponentArtefactId,
+    issue_replicator_cfg: odg.extensions_cfg.IssueReplicatorConfig,
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_client: delivery.client.DeliveryServiceClient,
+):
+    logger.info(f'starting issue replication of {artefact}')
+
+    mapping = issue_replicator_cfg.mapping(artefact.component_name)
+    issue_replicator.github.wait_for_quota_if_required(gh_api=mapping.github_api)
+
+    for finding_cfg in finding_cfgs:
+        replicate_issue_for_finding_type(
+            artefact=artefact,
+            finding_cfg=finding_cfg,
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_client=delivery_client,
+            mapping=mapping,
             delivery_dashboard_url=issue_replicator_cfg.delivery_dashboard_url,
         )
 
