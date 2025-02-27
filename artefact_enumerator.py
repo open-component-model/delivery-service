@@ -3,7 +3,6 @@ import atexit
 import collections
 import collections.abc
 import datetime
-import hashlib
 import logging
 import os
 
@@ -49,30 +48,6 @@ def sprint_dates(
     return sprint_dates
 
 
-def correlation_id(
-    artefact: dso.model.ComponentArtefactId,
-    latest_processing_date: datetime.date,
-    version: str='v1',
-) -> str:
-    '''
-    the correlation id neither contains the `component_version` nor the
-    `artefact_version` to group compliance snapshots of the same artefact
-    across different versions (e.g. necessary for GitHub tracking issues).
-    Also, a version prefix is added to be able to differentiate correlation
-    ids in case their calculation changed
-    '''
-    digest_str = (
-        artefact.component_name + artefact.artefact_kind +
-        artefact.artefact.artefact_name + artefact.artefact.artefact_type +
-        latest_processing_date.isoformat()
-    )
-    digest = hashlib.shake_128(digest_str.encode('utf-8')).hexdigest(
-        length=23,
-    )
-
-    return f'{version}/{digest}'
-
-
 def create_compliance_snapshot(
     artefact: dso.model.ComponentArtefactId,
     latest_processing_date: datetime.date,
@@ -88,10 +63,6 @@ def create_compliance_snapshot(
 
     data = dso.model.ComplianceSnapshot(
         latest_processing_date=latest_processing_date,
-        correlation_id=correlation_id(
-            artefact=artefact,
-            latest_processing_date=latest_processing_date,
-        ),
         state=[dso.model.ComplianceSnapshotState(
             timestamp=now,
             status=dso.model.ComplianceSnapshotStatuses.ACTIVE,
