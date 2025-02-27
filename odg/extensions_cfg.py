@@ -27,6 +27,7 @@ class Services(enum.StrEnum):
     BDBA = 'bdba'
     CACHE_MANAGER = 'cacheManager'
     CLAMAV = 'clamav'
+    CRYPTO = 'crypto'
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
     ISSUE_REPLICATOR = 'issueReplicator'
     SAST_LINT_CHECK = 'sastLintCheck'
@@ -381,6 +382,106 @@ class ClamAVConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
+class StandardRef:
+    name: str
+    version: str
+
+
+@dataclasses.dataclass
+class CryptoMapping(Mapping):
+    '''
+    :param list[StandardRef] standards:
+        References to the standards (name + version) the discovered cryptographic assets should be
+        validated against.
+    :param list[AssetTypes] included_asset_types:
+        The asset types which should be extracted from the CBOM. If `None` (!= empty list), all
+        available asset types will be reported.
+    :param str aws_secret_name:
+        Name of the AWS secret element to use to retrieve artefacts from S3.
+    '''
+    standards: list[StandardRef]
+    included_asset_types: list[dso.model.AssetTypes] | None
+    aws_secret_name: str | None
+
+
+@dataclasses.dataclass
+class CryptoConfig(BacklogItemMixins):
+    '''
+    :param str delivery_service_url
+    :param list[CryptoMapping] mappings
+    :param int interval:
+        Time after which an artefact must be re-scanned at latest.
+    :param WarningVerbosities on_unsupported:
+        Defines the handling if a backlog item should be processed which contains unsupported
+        properties, e.g. an unsupported access type.
+    '''
+    delivery_service_url: str
+    mappings: list[CryptoMapping]
+    interval: int = 60 * 60 * 24 # 24h
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+
+    def mapping(self, name: str, /) -> CryptoMapping:
+        for mapping in self.mappings:
+            if name.startswith(mapping.prefix):
+                return mapping
+
+        raise ValueError(f'No matching mapping entry found for {name=}')
+
+    def is_supported(
+        self,
+        artefact_kind: dso.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
+        artefact_type: str | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            dso.model.ArtefactKind.RESOURCE,
+        )
+        supported_access_types = (
+            ocm.AccessType.OCI_REGISTRY,
+            ocm.AccessType.LOCAL_BLOB,
+            ocm.AccessType.S3,
+        )
+        supported_artefact_types_by_access_type = {
+            ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
+        }
+
+        is_supported = True
+
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for crypto scans, '
+                    f'{supported_artefact_kinds=}'
+                )
+
+        if access_type and access_type not in supported_access_types:
+            is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{access_type=} is not supported for crypto scans, {supported_access_types=}'
+                )
+
+        if (
+            artefact_type
+            and access_type
+            and (artefact_types := supported_artefact_types_by_access_type.get(access_type))
+        ):
+            if not any(
+                artefact_type.startswith(supported_artefact_type)
+                for supported_artefact_type in artefact_types
+            ):
+                is_supported = False
+                if self.on_unsupported is WarningVerbosities.WARNING:
+                    logger.warning(
+                        f'{artefact_type=} is not supported for crypto scans with {access_type=}, '
+                        f'{supported_artefact_types_by_access_type=}'
+                    )
+
+        return is_supported
+
+
+@dataclasses.dataclass
 class DeliveryDBBackup(ExtensionCfgMixins):
     '''
     :param str delivery_service_url
@@ -547,8 +648,9 @@ class SASTConfig(BacklogItemMixins):
 class ExtensionsConfiguration:
     artefact_enumerator: ArtefactEnumeratorConfig | None
     bdba: BDBAConfig | None
-    clamav: ClamAVConfig | None
     cache_manager: CacheManagerConfig | None
+    clamav: ClamAVConfig | None
+    crypto: CryptoConfig | None
     delivery_db_backup: DeliveryDBBackup | None
     issue_replicator: IssueReplicatorConfig | None
     sast: SASTConfig | None

@@ -26,6 +26,16 @@ clamav:
   mappings:
     - prefix: ''
 
+crypto:
+  enabled: False
+  mappings:
+    - prefix: ''
+      standards:
+        - name: FIPS
+          version: 140-3
+        - name: NCS
+          version: '1.0'
+
 delivery_db_backup:
   enabled: False
   component_name: my-component # <str> must be set

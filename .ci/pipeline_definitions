@@ -106,6 +106,10 @@ delivery-service:
               attribute: sast.image.repository
             - ref: ocm-resource:extensions.tag
               attribute: sast.image.tag
+            - ref: ocm-resource:extensions.repository
+              attribute: crypto.image.repository
+            - ref: ocm-resource:extensions.tag
+              attribute: crypto.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             registry: europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear
