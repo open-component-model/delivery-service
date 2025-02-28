@@ -199,7 +199,7 @@ def sast_finding_public(
             )
         ),
         meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.SAST_LINT_CHECK,
+            datasource=dso.model.Datasource.SAST,
             type=odg.findings.FindingType.SAST,
             creation_date=datetime.datetime.now(),
             last_update=datetime.datetime.now(),

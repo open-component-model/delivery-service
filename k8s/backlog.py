@@ -113,7 +113,7 @@ def iter_existing_backlog_items_for_artefact(
         if service in (
             odg.extensions_cfg.Services.BDBA,
             odg.extensions_cfg.Services.CLAMAV,
-            odg.extensions_cfg.Services.SAST_LINT_CHECK,
+            odg.extensions_cfg.Services.SAST,
         ):
             if crd_artefact == artefact:
                 yield backlog_crd

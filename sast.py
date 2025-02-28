@@ -98,7 +98,7 @@ def create_missing_linter_finding(
     return dso.model.ArtefactMetadata(
         artefact=artefact,
         meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.SAST_LINT_CHECK,
+            datasource=dso.model.Datasource.SAST,
             type=odg.findings.FindingType.SAST,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
@@ -212,7 +212,7 @@ def iter_artefact_metadata(
     yield dso.model.ArtefactMetadata(
         artefact=artefact,
         meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.SAST_LINT_CHECK,
+            datasource=dso.model.Datasource.SAST,
             type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
@@ -289,13 +289,13 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=odg.extensions_cfg.Services.SAST_LINT_CHECK,
+        service=odg.extensions_cfg.Services.SAST,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=odg.extensions_cfg.Services.SAST_LINT_CHECK,
+        service=odg.extensions_cfg.Services.SAST,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
@@ -338,7 +338,7 @@ def main():
         ready_to_terminate = False
 
         backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=odg.extensions_cfg.Services.SAST_LINT_CHECK,
+            service=odg.extensions_cfg.Services.SAST,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
         )

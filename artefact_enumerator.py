@@ -378,7 +378,7 @@ def _process_compliance_snapshots_of_artefact(
             finding_types=(odg.findings.FindingType.SAST,),
             artefact=artefact,
             compliance_snapshots=compliance_snapshots,
-            service=odg.extensions_cfg.Services.SAST_LINT_CHECK,
+            service=odg.extensions_cfg.Services.SAST,
             interval_seconds=extensions_cfg.sast.interval,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
