@@ -171,6 +171,9 @@ class FindingCategorisation:
         if self.allowed_processing_time is not None:
             self.allowed_processing_time = util.convert_to_timedelta(self.allowed_processing_time)
 
+        if isinstance(self.rescoring, RescoringModes):
+            self.rescoring = [self.rescoring]
+
     @property
     def automatic_rescoring(self) -> bool:
         if not self.rescoring:
