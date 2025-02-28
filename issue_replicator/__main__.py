@@ -284,7 +284,7 @@ def replicate_issue(
 
         elif (
             finding_type is odg.findings.FindingType.SAST
-            and finding_source == dso.model.Datasource.SAST_LINT_CHECK
+            and finding_source == dso.model.Datasource.SAST
         ):
             return gci._label_sast
 

@@ -29,7 +29,7 @@ class Services(enum.StrEnum):
     CLAMAV = 'clamav'
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
     ISSUE_REPLICATOR = 'issueReplicator'
-    SAST_LINT_CHECK = 'sastLintCheck'
+    SAST = 'sast'
 
 
 class VersionAliases(enum.StrEnum):
