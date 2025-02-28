@@ -34,6 +34,7 @@ import rescore.utility
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
+k8s.logging.configure_kubernetes_logging()
 
 own_dir = os.path.abspath(os.path.dirname(__file__))
 default_cache_dir = os.path.join(own_dir, '.cache')
