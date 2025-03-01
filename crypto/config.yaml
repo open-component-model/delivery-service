@@ -1,0 +1,448 @@
+libraries:
+  - go.step.sm/crypto
+  - golang.org/x/crypto
+  - libcrypto3
+  - libssl3
+  - rsa
+  - ssl_client
+
+standards:
+  - name: FIPS
+    version: 140-3
+    description: Federal Information Processing Standard
+    references:
+      - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.140-3.pdf
+    countries:
+      - United States
+      - Canada
+    categories:
+      - level1
+      - level2
+      - level3
+      - level4
+
+    libraries:
+      validated_crypto_libraries:
+        - name: libcrypto3
+          versions:
+            - 3.0.0
+            - 3.0.8
+            - 3.0.9
+        - name: libssl3
+          versions:
+            - 3.0.0
+            - 3.0.8
+            - 3.0.9
+
+    primitives:
+      symmetric_algorithms:
+        - name: AES
+          description: Advanced Encryption Standards
+          references:
+            - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197-upd1.pdf
+          properties:
+            - key_length:
+                enum:
+                  - 128
+                  - 192
+                  - 256
+
+      asymmetric_algorithms:
+        - name: RSA
+          properties:
+            - key_length:
+                enum:
+                  - 2048
+                  - 3072
+                  - 4096
+
+        - name: ECDSA
+          description: Elliptic Curve Digital Signature Algorithm
+          properties:
+            - curves:
+                - B-233
+                - B-283
+                - B-409
+                - B-571
+                - K-233
+                - K-283
+                - K-409
+                - K-571
+                - P-224
+                - P-256
+                - P-384
+                - P-521
+
+      hash_functions:
+        - name: SHA1
+        - name: SHA-1
+
+        - name: SHA224
+        - name: SHA-224
+        - name: SHA2-224
+        - name: SHA256
+        - name: SHA-256
+        - name: SHA2-256
+        - name: SHA384
+        - name: SHA-384
+        - name: SHA2-384
+        - name: SHA512
+        - name: SHA-512
+        - name: SHA2-512
+        - name: SHA-512/224
+        - name: SHA2-512/224
+        - name: SHA-512/256
+        - name: SHA2-512/256
+
+        - name: SHA3-224
+        - name: SHA3-256
+        - name: SHA3-384
+        - name: SHA3-512
+        - name: SHAKE128
+          properties:
+            - output_size:
+                min: 256
+        - name: SHAKE256
+          properties:
+            - output_size:
+                min: 512
+
+    schemes:
+      signatures:
+        - name: RSA
+          references:
+            - https://csrc.nist.gov/projects/cryptographic-module-validation-program/sp-800-140-series-supplemental-information/sp800-140c
+            - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf
+            - https://datatracker.ietf.org/doc/html/rfc8017
+          properties:
+            - key_length:
+                min: 2048
+
+        - name: ECDSA
+          description: Elliptical Curve Digital Signature Algorithm
+          references:
+            - https://csrc.nist.gov/projects/cryptographic-module-validation-program/sp-800-140-series-supplemental-information/sp800-140c
+            - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf
+            - https://datatracker.ietf.org/doc/html/rfc8017
+          properties:
+            - key_length:
+                enum:
+                  - 256
+                  - 384
+                  - 512
+
+    public_key_infrastructure:
+      certificates:
+        - name: RSA
+          properties:
+            - kind: root-ca
+              key_length:
+                min: 2048
+            - kind: intermediate-ca
+              key_length:
+                min: 2048
+            - kind: end-user
+              key_length:
+                min: 2048
+
+        - name: ECDSA
+          description: Elliptical Curve Digital Signature Algorithm
+          properties:
+            - kind: root-ca
+              curves:
+                - B-233
+                - B-283
+                - B-409
+                - B-571
+                - K-233
+                - K-283
+                - K-409
+                - K-571
+                - P-224
+                - P-256
+                - P-384
+                - P-521
+            - kind: intermediate-ca
+              curves:
+                - B-233
+                - B-283
+                - B-409
+                - B-571
+                - K-233
+                - K-283
+                - K-409
+                - K-571
+                - P-224
+                - P-256
+                - P-384
+                - P-521
+            - kind: end-user
+              curves:
+                - B-233
+                - B-283
+                - B-409
+                - B-571
+                - K-233
+                - K-283
+                - K-409
+                - K-571
+                - P-224
+                - P-256
+                - P-384
+                - P-521
+
+  - name: NCS
+    version: '1.0'
+    description: National Cryptographic Standards
+    countries:
+      - Saudi Arabia
+    categories:
+      - moderate
+      - advanced
+
+    libraries:
+      validated_crypto_libraries: []
+
+    primitives:
+      symmetric_algorithms:
+        - name: AES
+          description: Advanced Encryption Standards
+          references:
+            - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197-upd1.pdf
+          category: moderate
+          properties:
+            - key_length:
+                enum:
+                  - 128
+                  - 192
+
+        - name: AES
+          description: Advanced Encryption Standards
+          references:
+            - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197-upd1.pdf
+          category: advanced
+          properties:
+            - key_length:
+                enum:
+                  - 256
+
+      asymmetric_algorithms:
+        - name: RSA
+          category: moderate
+          properties:
+            - key_length:
+                min: 3072
+              exponent:
+                min: 65538
+
+        - name: ECDSA
+          description: Elliptic Curve Digital Signature Algorithm
+          category: moderate
+          properties:
+            - curves:
+                - P-256
+                - P-384
+                - brainpoolP256r1
+                - brainpoolP384r1
+                - Curve25519
+
+        - name: ECDSA
+          description: Elliptic Curve Digital Signature Algorithm
+          category: advanced
+          properties:
+            - curves:
+                - P-521
+                - brainpoolP512r1
+                - Curve448
+
+      hash_functions:
+        - name: SHA384
+          category: moderate
+        - name: SHA-384
+          category: moderate
+        - name: SHA2-384
+          category: moderate
+        - name: SHA-512/256
+          category: moderate
+        - name: SHA2-512/256
+          category: moderate
+
+        - name: SHA-3
+          category: moderate
+        - name: SHA3-256
+          category: moderate
+        - name: SHA3-384
+          category: moderate
+        - name: SHAKE128
+          category: moderate
+          properties:
+            - output_size:
+                min: 256
+        - name: SHAKE256
+          category: moderate
+          properties:
+            - output_size:
+                min: 512
+
+        - name: SHA3-512
+          category: advanced
+
+    schemes:
+      signatures:
+        - name: DSA
+          description: Digital Signature Algorithm
+          references:
+            - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf
+          category: moderate
+          properties:
+            - key_length:
+                min: 3072
+
+        - name: ECDSA
+          description: Elliptical Curve Digital Signature Algorithm
+          references:
+            - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf
+          category: moderate
+          properties:
+            - key_length:
+                min: 256
+                max: 384
+
+        - name: ECDSA
+          description: Elliptical Curve Digital Signature Algorithm
+          references:
+            - https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf
+          category: advanced
+          properties:
+            - name: Curve448
+            - key_length:
+                enum:
+                  - 512
+
+        - name: RSA
+          references:
+            - https://datatracker.ietf.org/doc/html/rfc8017
+          category: moderate
+          properties:
+            - name: RSA-PSS
+              key_length:
+                min: 3072
+            - name: RSA-DS2
+              key_length:
+                min: 3072
+
+    public_key_infrastructure:
+      certificates:
+        - name: RSA
+          category: moderate
+          properties:
+            - kind: root-ca
+              key_length:
+                min: 4096
+              validity_years:
+                max: 20
+            - kind: intermediate-ca
+              key_length:
+                min: 3072
+              validity_years:
+                max: 10
+            - kind: end-user
+              key_length:
+                min: 3072
+              validity_years:
+                max: 5
+
+        - name: RSA
+          category: advanced
+          properties:
+            - kind: root-ca
+              key_length:
+                min: 4096
+              validity_years:
+                max: 20
+            - kind: intermediate-ca
+              key_length:
+                min: 3072
+              validity_years:
+                max: 10
+            - kind: end-user
+              key_length:
+                min: 3072
+              validity_years:
+                max: 3
+
+        - name: ECC
+          description: Elliptic Curve Cryptography
+          category: moderate
+          properties:
+            - kind: root-ca
+              curves:
+                - P-384
+                - P-521
+                - Curve448
+                - brainpoolP384r1
+                - brainpoolP512r1
+              validity_years:
+                max: 20
+            - kind: intermediate-ca
+              curves:
+                - P-256
+                - P-384
+                - P-521
+                - Curve448
+                - Curve25519
+                - brainpoolP256r1
+                - brainpoolP384r1
+                - brainpoolP512r1
+              validity_years:
+                max: 10
+            - kind: end-user
+              curves:
+                - P-256
+                - P-384
+                - P-521
+                - Curve448
+                - Curve25519
+                - brainpoolP256r1
+                - brainpoolP384r1
+                - brainpoolP512r1
+              validity_years:
+                max: 5
+
+        - name: ECC
+          description: Elliptic Curve Cryptography
+          category: advanced
+          properties:
+            - kind: root-ca
+              curves:
+                - P-384
+                - P-521
+                - Curve448
+                - brainpoolP384r1
+                - brainpoolP512r1
+              validity_years:
+                max: 20
+            - kind: intermediate-ca
+              curves:
+                - P-256
+                - P-384
+                - P-521
+                - Curve448
+                - Curve25519
+                - brainpoolP256r1
+                - brainpoolP384r1
+                - brainpoolP512r1
+              validity_years:
+                max: 10
+            - kind: end-user
+              curves:
+                - P-256
+                - P-384
+                - P-521
+                - Curve448
+                - Curve25519
+                - brainpoolP256r1
+                - brainpoolP384r1
+                - brainpoolP512r1
+              validity_years:
+                max: 3

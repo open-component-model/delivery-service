@@ -15,13 +15,13 @@ import jsonschema.exceptions
 import jwt
 import yaml
 
-import ci.util
 import delivery.jwt
 
 import consts
 import paths
 import secret_mgmt.oauth_cfg
 import secret_mgmt.signing_cfg
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class GithubRoutes:
         self.api_url = api_url
 
     def _url(self, *parts):
-        return ci.util.urljoin(
+        return util.urljoin(
             self.api_url,
             *parts,
         )
@@ -142,7 +142,7 @@ class OAuthCfgs(aiohttp.web.View):
             github_cfg = secret_factory.github(oauth_cfg.github_secret_name)
             github_host = urllib.parse.urlparse(github_cfg.api_url).hostname.lower()
 
-            redirect_uri = ci.util.urljoin(
+            redirect_uri = util.urljoin(
                 self.request.app[consts.APP_BASE_URL],
                 'auth',
             ) + '?' + urllib.parse.urlencode({

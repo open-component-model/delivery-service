@@ -16,7 +16,6 @@ import cachetools.keys
 import dateutil.parser
 import github3
 
-import ci.util
 import cnudie.iter
 import cnudie.iter_async
 import cnudie.retrieve_async
@@ -378,8 +377,8 @@ def categorize_by_changed_component(
             if not right_access.type is ocm.AccessType.GITHUB:
                 continue
 
-            left_repo_url = ci.util.urlparse(left_access.repoUrl)
-            right_repo_url = ci.util.urlparse(right_access.repoUrl)
+            left_repo_url = util.urlparse(left_access.repoUrl)
+            right_repo_url = util.urlparse(right_access.repoUrl)
 
             if not left_repo_url == right_repo_url:
                 continue # ensure there was no repository-change between component-versions
