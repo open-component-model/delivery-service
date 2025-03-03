@@ -1,6 +1,5 @@
 import collections.abc
 import datetime
-import enum
 import re
 
 import cnudie.iter
@@ -11,13 +10,6 @@ import dso.model
 import consts
 import odg.findings
 import rescore.model
-
-
-class RescoringSpecificity(enum.IntEnum):
-    GLOBAL = 0
-    COMPONENT = 1
-    ARTEFACT = 2
-    SINGLE = 3
 
 
 def _iter_rescorings_for_finding(
@@ -102,7 +94,7 @@ def _iter_rescorings_for_finding(
 
 def _specificity_of_rescoring(
     rescoring: dso.model.ArtefactMetadata,
-) -> RescoringSpecificity:
+) -> odg.findings.RescoringSpecificity:
     '''
     There are four possible scopes for a rescoring. If multiple rescorings match
     one finding, the rescoring with the greatest specificity based on its scope
@@ -114,15 +106,15 @@ def _specificity_of_rescoring(
     Last, the "Single" scope requires all four parameters to be set.
     '''
     if not rescoring.artefact.component_name:
-        return RescoringSpecificity.GLOBAL
+        return odg.findings.RescoringSpecificity.GLOBAL
 
     if not rescoring.artefact.artefact.artefact_name:
-        return RescoringSpecificity.COMPONENT
+        return odg.findings.RescoringSpecificity.COMPONENT
 
     if not rescoring.artefact.artefact.artefact_version:
-        return RescoringSpecificity.ARTEFACT
+        return odg.findings.RescoringSpecificity.ARTEFACT
 
-    return RescoringSpecificity.SINGLE
+    return odg.findings.RescoringSpecificity.SINGLE
 
 
 def rescorings_for_finding_by_specificity(
