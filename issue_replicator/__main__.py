@@ -108,7 +108,7 @@ def _iter_findings_with_processing_dates(
     sprints = sorted(sprints)
 
     for finding in findings:
-        if (finding_type := finding.finding.meta.type) == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+        if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
             yield finding
             continue
 
@@ -118,13 +118,7 @@ def _iter_findings_with_processing_dates(
         else:
             raise RuntimeError(f'did not find finding cfg for type "{finding_type}"')
 
-        for categorisation in finding_cfg.categorisations:
-            if categorisation.id == finding.severity:
-                break
-        else:
-            raise ValueError(
-                f'did not find categorisation with name "{finding.severity}" for {finding_type=}'
-            )
+        categorisation = finding_cfg.categorisation_by_id(finding.severity)
 
         if (allowed_processing_time := categorisation.allowed_processing_time) is None:
             continue # finding does not have to be processed anymore

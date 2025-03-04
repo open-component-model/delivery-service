@@ -316,13 +316,7 @@ async def calculate_summary_entry(
             artefact_metadata_cfg=artefact_metadata_cfg,
         )
 
-        for categorisation in finding_cfg.categorisations:
-            if categorisation.id == severity_name:
-                break
-        else:
-            raise ValueError(
-                f'did not find categorisation with id "{severity_name}" for {finding_cfg.type=}'
-            )
+        categorisation = finding_cfg.categorisation_by_id(severity_name)
 
         if (
             not most_severe_categorisation

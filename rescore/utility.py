@@ -216,13 +216,7 @@ def rescore_finding(
                 operation = operation.order[next_categorisation_idx]
                 break
 
-        if not (rescored_categorisation := finding_cfg.categorisation_by_id(operation)):
-            raise ValueError(
-                f'did not find any categorisation with id "{operation}", this is probably caused '
-                'by a misconfigured rescoring ruleset or misconfigured categorisations'
-            )
-
-        current_categorisation = rescored_categorisation
+        current_categorisation = finding_cfg.categorisation_by_id(operation)
 
     return current_categorisation
 

@@ -287,13 +287,7 @@ async def _iter_rescoring_proposals(
             current_severity = severity
             matching_rule_names = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
 
-        for categorisation in finding_cfg.categorisations:
-            if categorisation.id == current_severity:
-                break
-        else:
-            raise ValueError(
-                f'did not find categorisation with id "{current_severity}" for {finding_cfg.type=}'
-            )
+        categorisation = finding_cfg.categorisation_by_id(current_severity)
 
         sprint = sprint_for_finding(
             discovery_date=am.discovery_date,
