@@ -1,6 +1,5 @@
 import dataclasses
 import enum
-import os
 import re
 import typing
 
@@ -10,12 +9,9 @@ import yaml
 import dso.model
 
 import consts
+import odg.shared_cfg
 import rescore.model as rm
 import util
-
-
-own_dir = os.path.abspath(os.path.dirname(__file__))
-defaults_file_path = os.path.join(own_dir, 'defaults.yaml')
 
 
 class ModelValidationError(ValueError):
@@ -286,6 +282,16 @@ class FindingFilter:
 
 
 @dataclasses.dataclass
+class SharedCfgReference:
+    cfg_name: str
+    ref: (
+        odg.shared_cfg.SharedCfgGitHubReference
+        | odg.shared_cfg.SharedCfgLocalReference
+        | odg.shared_cfg.SharedCfgOCMReference
+    )
+
+
+@dataclasses.dataclass
 class Finding:
     '''
     :param FindingType type
@@ -305,9 +311,9 @@ class Finding:
         Default scope selection to be used for rescoring via the Delivery-Dashboard.
     '''
     type: FindingType
-    categorisations: list[FindingCategorisation] | str
+    categorisations: SharedCfgReference | list[FindingCategorisation]
     filter: list[FindingFilter] | None
-    rescoring_ruleset: dict | str | None
+    rescoring_ruleset: SharedCfgReference | dict | None
     issues: FindingIssues = dataclasses.field(default_factory=FindingIssues)
     default_scope: RescoringSpecificity = dataclasses.field(
         default_factory=lambda: RescoringSpecificity.ARTEFACT
@@ -357,16 +363,24 @@ class Finding:
         )
 
     def __post_init__(self):
-        if isinstance(self.categorisations, str):
+        shared_cfg_lookup = odg.shared_cfg.shared_cfg_lookup()
+
+        if isinstance(self.categorisations, SharedCfgReference):
+            default_cfg = shared_cfg_lookup(self.categorisations.ref)
+
             self.categorisations = default_finding_categorisations(
+                categorisations_raw=default_cfg.get('categorisations', []),
                 finding_type=self.type,
-                name=self.categorisations,
+                name=self.categorisations.cfg_name,
             )
 
-        if isinstance(self.rescoring_ruleset, str):
+        if isinstance(self.rescoring_ruleset, SharedCfgReference):
+            default_cfg = shared_cfg_lookup(self.rescoring_ruleset.ref)
+
             self.rescoring_ruleset = default_rescoring_ruleset(
+                rescoring_rulesets_raw=default_cfg.get('rescoring_rulesets', []),
                 finding_type=self.type,
-                name=self.rescoring_ruleset,
+                name=self.rescoring_ruleset.cfg_name,
             )
 
         if isinstance(self.rescoring_ruleset, dict):
@@ -589,12 +603,10 @@ class Finding:
 
 
 def default_finding_categorisations(
+    categorisations_raw: list[dict],
     finding_type: FindingType,
     name: str,
 ) -> list[FindingCategorisation]:
-    with open(defaults_file_path) as file:
-        categorisations_raw = yaml.safe_load(file).get('categorisations', [])
-
     for categorisation_raw in categorisations_raw:
         if FindingType(categorisation_raw['type']) is finding_type:
             break
@@ -616,12 +628,10 @@ def default_finding_categorisations(
 
 
 def default_rescoring_ruleset(
+    rescoring_rulesets_raw: list[dict],
     finding_type: FindingType,
     name: str,
 ) -> dict:
-    with open(defaults_file_path) as file:
-        rescoring_rulesets_raw = yaml.safe_load(file).get('rescoring_rulesets', [])
-
     for rescoring_ruleset_raw in rescoring_rulesets_raw:
         if FindingType(rescoring_ruleset_raw['type']) is finding_type:
             break

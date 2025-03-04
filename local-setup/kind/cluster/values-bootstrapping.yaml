@@ -39,8 +39,14 @@ extensions_cfg:
 
 findings:
   - type: finding/vulnerability
-    categorisations: gardener
-    rescoring_ruleset: gardener
+    categorisations:
+      cfg_name: gardener
+      ref:
+        path: odg/defaults.yaml
+    rescoring_ruleset:
+      cfg_name: gardener
+      ref:
+        path: odg/defaults.yaml
     issues:
       enable_assignees: False
   - type: finding/license
