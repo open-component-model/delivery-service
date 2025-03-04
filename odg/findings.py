@@ -465,7 +465,10 @@ class Finding:
 
             if (
                 operation.startswith(consts.RESCORING_OPERATOR_SET_TO_PREFIX)
-                and self.categorisation_by_id(operation.removeprefix(consts.RESCORING_OPERATOR_SET_TO_PREFIX)) # noqa: E501
+                and self.categorisation_by_id(
+                    id=operation.removeprefix(consts.RESCORING_OPERATOR_SET_TO_PREFIX),
+                    absent_ok=True,
+                )
             ):
                 return []
 
@@ -474,13 +477,16 @@ class Finding:
         violations = []
 
         for op in operation.order:
-            if not op in operations and not self.categorisation_by_id(op):
+            if (
+                not op in operations
+                and not self.categorisation_by_id(id=op, absent_ok=True)
+            ):
                 violations.append(f'no categorisation matches operator "{op}" in "{operation}"')
 
         return violations
 
     @property
-    def none_categorisation(self) -> FindingCategorisation | None:
+    def none_categorisation(self) -> FindingCategorisation:
         '''
         Returns the category which marks a finding as "not relevant anymore", e.g. if it is assessed
         as a false-positive.
@@ -489,10 +495,24 @@ class Finding:
             if categorisation.value == 0:
                 return categorisation
 
-    def categorisation_by_id(self, id: str) -> FindingCategorisation | None:
+        raise RuntimeError(
+            'did not find any categorisation with value=0, this is probably a bug as initial '
+            'validation should have checked that at least one such categorisation exists'
+        )
+
+    def categorisation_by_id(
+        self,
+        id: str,
+        absent_ok: bool=False,
+    ) -> FindingCategorisation | None:
         for categorisation in self.categorisations:
             if categorisation.id == id:
                 return categorisation
+
+        if absent_ok:
+            return None
+
+        raise ValueError(f'did not find categorisation with {id=} for type "{self.type}"')
 
     def matches(self, artefact: dso.model.ComponentArtefactId) -> bool:
         if not self.filter:
