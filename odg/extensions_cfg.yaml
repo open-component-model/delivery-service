@@ -39,7 +39,3 @@ issue_replicator:
 
 sast:
   enabled: False
-  components:
-    - component_name: ocm.software/ocm-gear
-      ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
-      timerange_days: 365
