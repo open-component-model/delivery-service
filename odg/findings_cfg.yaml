@@ -1,8 +1,14 @@
 - type: finding/vulnerability
   issues:
     enable_assignees: False
-  rescoring_ruleset: gardener
-  categorisations: gardener
+  rescoring_ruleset:
+    cfg_name: gardener
+    ref:
+      path: odg/defaults.yaml
+  categorisations:
+    cfg_name: gardener
+    ref:
+      path: odg/defaults.yaml
 
 - type: finding/license
   issues:
