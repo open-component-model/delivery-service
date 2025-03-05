@@ -108,7 +108,7 @@ def _iter_findings_with_processing_dates(
     sprints = sorted(sprints)
 
     for finding in findings:
-        if (finding_type := finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO):
+        if (finding_type := finding.finding.meta.type) == dso.model.Datatype.ARTEFACT_SCAN_INFO:
             yield finding
             continue
 
