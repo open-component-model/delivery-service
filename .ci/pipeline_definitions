@@ -61,6 +61,13 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+            extension-crypto:
+              image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-crypto
+              dockerfile: Dockerfile.extensions.crypto
+              tag_as_latest: True
+              inputs:
+                steps:
+                  build_python_packages: ~
           helmcharts:
           - name: delivery-service
             dir: charts/delivery-service
@@ -106,6 +113,10 @@ delivery-service:
               attribute: sast.image.repository
             - ref: ocm-resource:extensions.tag
               attribute: sast.image.tag
+            - ref: ocm-resource:extension-crypto.repository
+              attribute: crypto.image.repository
+            - ref: ocm-resource:extension-crypto.tag
+              attribute: crypto.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             registry: europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear

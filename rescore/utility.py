@@ -89,6 +89,12 @@ def _iter_rescorings_for_finding(
         ):
             continue
 
+        if (
+            finding.meta.type == odg.findings.FindingType.CRYPTO
+            and rescoring.data.finding.key != finding.data.key
+        ):
+            continue
+
         yield rescoring
 
 

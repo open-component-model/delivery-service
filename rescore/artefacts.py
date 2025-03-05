@@ -65,6 +65,7 @@ class RescoringProposal:
         | VulnerabilityFinding
         | MalwareFinding
         | dso.model.SastFinding
+        | dso.model.CryptoFinding
     )
     finding_type: str
     severity: str
@@ -472,6 +473,23 @@ async def _iter_rescoring_proposals(
                         'sprint': sprint,
                     },
                 )
+
+        elif finding_cfg.type is odg.findings.FindingType.CRYPTO:
+            yield dacite.from_dict(
+                data_class=RescoringProposal,
+                data={
+                    'finding': dataclasses.asdict(am.data),
+                    'finding_type': finding_cfg.type,
+                    'severity': current_severity,
+                    'matching_rules': matching_rule_names,
+                    'applicable_rescorings': serialised_current_rescorings,
+                    'discovery_date': am.discovery_date.isoformat(),
+                    'sprint': sprint,
+                },
+                config=dacite.Config(
+                    strict=True,
+                ),
+            )
 
         seen_ids.add(am.id)
 

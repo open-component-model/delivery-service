@@ -4,10 +4,10 @@ import aiohttp
 import aiohttp.client_exceptions
 import dateutil.parser
 
-import ci.util
 import delivery.model as dm
 
 import caching
+import util
 
 
 def normalise_os_id(os_id: str) -> str:
@@ -66,7 +66,7 @@ class EolRoutes:
         self._base_url = base_url
 
     def all_products(self):
-        return ci.util.urljoin(
+        return util.urljoin(
             self._base_url,
             'all.json',
         )
@@ -75,7 +75,7 @@ class EolRoutes:
         self,
         product: str,
     ):
-        return ci.util.urljoin(
+        return util.urljoin(
             self._base_url,
             f'{product}.json',
         )
@@ -85,7 +85,7 @@ class EolRoutes:
         cycle: int,
         product: str,
     ):
-        return ci.util.urljoin(
+        return util.urljoin(
             self._base_url,
             product,
             f'{cycle}.json',
