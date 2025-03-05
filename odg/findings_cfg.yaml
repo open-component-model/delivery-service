@@ -104,7 +104,7 @@
 
 - type: finding/crypto
   issues:
-    enable_issues: False
+    enable_assignees: False
   categorisations:
     - id: false-positive
       display_name: False Positive

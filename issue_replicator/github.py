@@ -695,6 +695,64 @@ def _diki_template_vars(
     }
 
 
+def _crypto_template_vars(
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    summary: str,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str,
+    sprint_name: str | None=None,
+) -> dict[str, str]:
+    summary += '# Summary of found crypto issues'
+
+    def iter_findings(
+        aggragated_findings: tuple[AggregatedFinding],
+    ) -> collections.abc.Generator[tuple[str, str, str, str, list[str]], None, None]:
+        for af in sorted(
+            aggragated_findings,
+            key=lambda af: (
+                af.finding.data.standard,
+                af.finding.data.asset.asset_type,
+                af.finding.data.severity,
+                sorted(af.finding.data.asset.names),
+            ),
+        ):
+            crypto_finding: dso.model.CryptoFinding = af.finding.data
+
+            standard = crypto_finding.standard
+            asset_type = crypto_finding.asset.asset_type
+            severity = crypto_finding.severity
+            names = [name for name in crypto_finding.asset.names if name]
+
+            yield standard, asset_type, severity, names
+
+    for finding_group in finding_groups:
+        summary += '\n' + finding_group.summary(
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
+            finding_cfg=finding_cfg,
+            sprint_name=sprint_name,
+        )
+
+        summary += (
+            '\n| Standard | Asset Type | Severity | Names |'
+            '\n| -------- | ---------- | :------: | ----- |'
+        )
+        for standard, asset_type, severity, names in iter_findings(
+            aggragated_findings=finding_group.findings,
+        ):
+            summary += textwrap.dedent(f'''
+                | `{standard}` | `{asset_type}` | `{severity}` | \
+                {', <br/>'.join(f'`{name}`' for name in sorted(names))} | \
+            ''')
+
+        summary += '\n---'
+
+    return {
+        'summary': summary,
+    }
+
+
 def _template_vars(
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
@@ -891,6 +949,15 @@ def _template_vars(
         template_variables |= _diki_template_vars(
             finding_groups=finding_groups,
             summary=summary,
+        )
+    elif finding_cfg.type is odg.findings.FindingType.CRYPTO:
+        template_variables |= _crypto_template_vars(
+            finding_cfg=finding_cfg,
+            finding_groups=finding_groups,
+            summary=summary,
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
+            sprint_name=sprint_name,
         )
 
     return template_variables
