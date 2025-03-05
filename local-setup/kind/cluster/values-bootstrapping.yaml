@@ -123,6 +123,17 @@ ocm_repo_mappings:
   - prefix: ''
     repository: europe-docker.pkg.dev/gardener-project/snapshots
 
+profiles:
+  - name: default
+    finding_types:
+      - finding/vulnerability
+      - finding/license
+      - finding/malware
+      - finding/sast
+    special_component_ids:
+      - f7e84fdb-69fe-4837-b1c2-58cf4e58e5c7
+      - 8ca887cf-0d09-4f28-bc88-727aa3e30a26
+
 secrets:
   # bdba:
   #   local:

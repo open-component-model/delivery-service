@@ -28,14 +28,14 @@ additionalVolumeMounts:
 
 featuresCfg:
   specialComponents:
-    - id: 0
+    - id: f7e84fdb-69fe-4837-b1c2-58cf4e58e5c7
       name: ocm.software/ocm-gear
       displayName: OCM Gear
       type: OCM Gear
       version: greatest
       icon: home
       dependencies: []
-    - id: 1
+    - id: 8ca887cf-0d09-4f28-bc88-727aa3e30a26
       name: ocm.software/ocmcli
       displayName: OCM Cli
       type: OCM Core
