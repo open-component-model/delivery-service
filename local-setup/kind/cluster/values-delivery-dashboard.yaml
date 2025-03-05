@@ -1,5 +1,6 @@
 ingress:
   class: nginx
+  disableTls: True
   hosts:
     - localhost
 
