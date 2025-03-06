@@ -16,6 +16,7 @@ own_dir = os.path.abspath(os.path.dirname(__file__))
 repo_dir = os.path.abspath(os.path.join(own_dir, os.pardir))
 CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
 FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
+BDBA_VERSIONFILE = os.path.join(repo_dir, 'BDBA_DEPENDENCY_VERSION')
 
 
 def parse_component_descriptor():
@@ -51,7 +52,15 @@ def main():
         labels=[],
     )
 
+    bdba_cref = ocm.ComponentReference(
+        name='bdba',
+        componentName='ocm.software/ocm-gear/bdba-client',
+        version=version_from_file(BDBA_VERSIONFILE),
+        labels=[],
+    )
+
     for cref in (
+        bdba_cref,
         cc_utils_cref,
         freshclam_cref,
     ):
