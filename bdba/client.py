@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import cachecontrol
 import collections.abc
 import datetime
 import enum
@@ -11,20 +12,17 @@ import logging
 import time
 import traceback
 import urllib.parse
+import urllib3.util.retry
 
 import dacite
 import dateutil.parser
 import requests
 
-import ci.log
-import http_requests
-
 import bdba.model as bm
-import util
+import bdba.util as bu
 
 
 logger = logging.getLogger(__name__)
-ci.log.configure_default_logging()
 
 
 def kebab_to_snake_case_keys(d: dict[str, dict | list | str | int]) -> dict:
@@ -68,12 +66,12 @@ class BDBAApiRoutes:
         self._rest_url = functools.partial(self._url, 'rest')
 
     def _url(self, *parts):
-        return util.urljoin(self._base_url, *parts)
+        return bu.urljoin(self._base_url, *parts)
 
     def apps(self, group_id=None, custom_attribs={}):
         url = self._api_url('apps')
         if group_id is not None:
-            url = util.urljoin(url, str(group_id))
+            url = bu.urljoin(url, str(group_id))
 
         search_query = ' '.join(['meta:' + str(k) + '=' + str(v) for k,v in custom_attribs.items()])
         if search_query:
@@ -114,6 +112,82 @@ class BDBAApiRoutes:
         return self._rest_url('scans', str(product_id)) + '/'
 
 
+def check_http_code(function):
+    '''
+    a decorator that will check on `requests.Response` instances returned by HTTP requests
+    issued with `requests`. In case the response code indicates an error, a warning is logged
+    and a `requests.HTTPError` is raised.
+
+    @param: the function to wrap; should be `requests.<http-verb>`, e.g. requests.get
+    @raises: `requests.HTTPError` if response's status code indicates an error
+    '''
+    @functools.wraps(function)
+    def http_checker(*args, **kwargs):
+        result = function(*args, **kwargs)
+        if not result.ok:
+            url = kwargs.get('url', None)
+            logger.warning(f'{result.status_code=} - {result.content=}: {url=}')
+        result.raise_for_status()
+        return result
+    return http_checker
+
+
+class LoggingRetry(urllib3.util.retry.Retry):
+    def __init__(
+        self,
+        **kwargs,
+    ):
+        defaults = dict(
+            total=3,
+            connect=3,
+            read=3,
+            status=3,
+            redirect=False,
+            status_forcelist=(429, 500, 502, 503, 504),
+            raise_on_status=False,
+            respect_retry_after_header=True,
+            backoff_factor=1.0,
+        )
+
+        super().__init__(**(defaults | kwargs))
+
+    def increment(self,
+        method=None,
+        url=None,
+        response=None,
+        error=None,
+        _pool=None,
+        _stacktrace=None
+    ):
+        # super().increment will either raise an exception indicating that no retry is to
+        # be performed or return a new, modified instance of this class
+        retry = super().increment(method, url, response, error, _pool, _stacktrace)
+        # Use the Retry history to determine the number of retries.
+        num_retries = len(self.history) if self.history else 0
+        logger.warning(
+            f'{method=} {url=} returned {response=} {error=} {num_retries=} - trying again'
+        )
+        return retry
+
+
+def _mount_default_adapter(
+    session: requests.Session,
+    connection_pool_cache_size=32, # requests-library default
+    max_pool_size=32, # requests-library default
+    retry_cfg: urllib3.util.retry.Retry=LoggingRetry(),
+):
+    http_adapter = cachecontrol.CacheControlAdapter(
+        max_retries=retry_cfg,
+        pool_connections=connection_pool_cache_size,
+        pool_maxsize=max_pool_size,
+    )
+
+    session.mount('http://', http_adapter)
+    session.mount('https://', http_adapter)
+
+    return session
+
+
 class BDBAApi:
     def __init__(
         self,
@@ -125,18 +199,11 @@ class BDBAApi:
         self._token = token
         self._tls_verify = tls_verify
         self._session = requests.Session()
-        http_requests.mount_default_adapter(
+        _mount_default_adapter(
             session=self._session,
         )
 
-    def set_maximum_concurrent_connections(self, maximum_concurrent_connections: int):
-        # mount new adapter with new parameters
-        http_requests.mount_default_adapter(
-            session=self._session,
-            max_pool_size=maximum_concurrent_connections,
-        )
-
-    @http_requests.check_http_code
+    @check_http_code
     def _request(self, method, *args, **kwargs):
         if 'headers' in kwargs:
             headers = kwargs['headers']
@@ -159,23 +226,23 @@ class BDBAApi:
             timeout=timeout,
         )(*args, **kwargs)
 
-    @http_requests.check_http_code
+    @check_http_code
     def _get(self, *args, **kwargs):
         return self._request(self._session.get, *args, **kwargs)
 
-    @http_requests.check_http_code
+    @check_http_code
     def _post(self, *args, **kwargs):
         return self._request(self._session.post, *args, **kwargs)
 
-    @http_requests.check_http_code
+    @check_http_code
     def _put(self, *args, **kwargs):
         return self._request(self._session.put, *args, **kwargs)
 
-    @http_requests.check_http_code
+    @check_http_code
     def _delete(self, *args, **kwargs):
         return self._request(self._session.delete, *args, **kwargs)
 
-    @http_requests.check_http_code
+    @check_http_code
     def _patch(self, *args, **kwargs):
         return self._request(self._session.patch, *args, **kwargs)
 

@@ -8,9 +8,12 @@ import dataclasses
 import datetime
 import logging
 
+import dacite
+
 import ci.log
 import cnudie.iter
 import delivery.client
+import dso.cvss
 import dso.model
 
 import bdba.model as bm
@@ -193,7 +196,10 @@ def iter_artefact_metadata(
                         ),
                         referenced_type=odg.findings.FindingType.VULNERABILITY,
                         severity=vulnerability_cfg.none_categorisation.id,
-                        user=triage.user,
+                        user=dacite.from_dict(
+                            data_class=dso.model.BDBAUser,
+                            data=triage.user,
+                        ),
                         matching_rules=[dso.model.MetaRescoringRules.BDBA_TRIAGE],
                         comment=triage.description,
                     )
@@ -214,7 +220,7 @@ def iter_artefact_metadata(
                     severity=categorisation.id,
                     cve=vulnerability.cve,
                     cvss_v3_score=vulnerability.cve_severity(),
-                    cvss=vulnerability.cvss,
+                    cvss=dso.cvss.CVSSV3.parse(vulnerability.cvss),
                     summary=vulnerability.summary,
                 )
 

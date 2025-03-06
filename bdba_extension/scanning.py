@@ -16,6 +16,7 @@ import bdba.model as bm
 import bdba_extension.assessments
 import bdba_extension.rescore
 import bdba_extension.util
+import bdba_extension.model
 import odg.findings
 
 
@@ -37,7 +38,7 @@ class ResourceGroupProcessor:
         resource_node: cnudie.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_artifact_scans: collections.abc.Iterable[bm.Product],
-    ) -> bm.ScanRequest:
+    ) -> bdba_extension.model.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
         display_name = f'{resource.name}_{resource.version}_{component.name}_{resource.type}'.replace('/', '_') # noqa: E501
@@ -60,7 +61,7 @@ class ResourceGroupProcessor:
         else:
             logger.info(f'{display_name=}: did not find old scan')
 
-        return bm.ScanRequest(
+        return bdba_extension.model.ScanRequest(
             component=component,
             artefact=resource,
             scan_content=content_iterator,
@@ -71,11 +72,11 @@ class ResourceGroupProcessor:
 
     def process_scan_request(
         self,
-        scan_request: bm.ScanRequest,
+        scan_request: bdba_extension.model.ScanRequest,
         processing_mode: bm.ProcessingMode,
     ) -> bm.Result:
         def raise_on_error(exception):
-            raise bm.BdbaScanError(
+            raise bdba_extension.model.BdbaScanError(
                 scan_request=scan_request,
                 component=scan_request.component,
                 artefact=scan_request.artefact,
@@ -192,7 +193,7 @@ class ResourceGroupProcessor:
             )
             scan_result = self.bdba_client.wait_for_scan_result(result.product_id)
             scan_failed = False
-        except bm.BdbaScanError as bse:
+        except bdba_extension.model.BdbaScanError as bse:
             scan_result = bse
             scan_failed = True
             logger.warning(bse.print_stacktrace())
