@@ -1,6 +1,7 @@
 import logging
 
 import cnudie.iter
+import dso.cvss
 import dso.model
 
 import bdba.client
@@ -76,7 +77,7 @@ def rescore(
             matching_rules = ru.matching_rescore_rules(
                 rescoring_rules=vulnerability_cfg.rescoring_ruleset.rules,
                 categorisation=cve_categorisation,
-                cvss=v.cvss,
+                cvss=dso.cvss.CVSSV3.parse(v.cvss),
             )
 
             rescored_categorisation = ru.rescore_finding(
