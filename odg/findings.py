@@ -209,6 +209,8 @@ class FindingIssues:
     :param bool enable_per_finding:
         If set, GitHub issues will be created per finding for a specific artefact as opposed to a
         single issue with all findings.
+    :param list[str] labels:
+        List of labels that should be added to the created GitHub issues.
     :param list[str] attrs_to_group_by:
         Allows a custom configuration of those attributes, which should be used to group artefacts
         for a reporting in a shared GitHub issue. If not set, it defaults to the initial behaviour
@@ -221,6 +223,7 @@ class FindingIssues:
     enable_issues: bool = True
     enable_assignees: bool = True
     enable_per_finding: bool = False
+    labels: list[str] = dataclasses.field(default_factory=list)
     attrs_to_group_by: list[str] = dataclasses.field(default_factory=lambda: [
         'component_name',
         'artefact_kind',

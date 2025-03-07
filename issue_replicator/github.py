@@ -43,6 +43,11 @@ class IssueComments(enum.StrEnum):
     NOT_IN_BOM = 'closing ticket because scanned element is no longer present in BoM'
 
 
+class IssueLabels(enum.StrEnum):
+    OVERDUE = 'overdue'
+    SCAN_PENDING = 'scan-pending'
+
+
 @dataclasses.dataclass
 class AggregatedFinding:
     finding: dso.model.ArtefactMetadata
@@ -136,6 +141,23 @@ def _all_issues(
     number: int=-1, # -1 means all issues
 ):
     return set(repository.issues(state=state, number=number))
+
+
+def filter_issues_for_labels(
+    issues: collections.abc.Iterable[github3.issues.issue.ShortIssue],
+    labels: collections.abc.Iterable[str],
+) -> tuple[github3.issues.ShortIssue]:
+    labels = frozenset(labels)
+
+    def filter_issue(issue: github3.issues.issue.ShortIssue):
+        issue_labels = frozenset(label.name for label in issue.original_labels)
+
+        return issue_labels & labels == labels
+
+    return tuple(
+        issue for issue in issues
+        if filter_issue(issue)
+    )
 
 
 def _issue_assignees(
@@ -916,30 +938,23 @@ def close_issue_if_present(
 @github.retry.retry_and_throttle
 def update_issue(
     issue: github3.issues.issue.ShortIssue,
-    issue_type: str,
     body: str,
     title: str=None,
     labels: set[str]=set(),
     assignees: set[str]=set(),
     milestone: github3.issues.milestone.Milestone=None,
 ):
-    assignees = tuple(assignees) # conversion to tuple required for issue update (JSON serialisation)
-
-    labels = sorted(gci._search_labels(
-        issue_type=issue_type,
-        extra_labels=labels,
-    ))
-
     kwargs = {
         'state': 'open',
-        'labels': labels,
+        'labels': sorted(labels),
     }
 
     if title:
         kwargs['title'] = title
 
     if not issue.assignees and assignees:
-        kwargs['assignees'] = assignees
+        # conversion to tuple required for issue update (JSON serialisation)
+        kwargs['assignees'] = tuple(assignees)
 
     if milestone and (not issue.milestone or issue.state == 'closed'):
         kwargs['milestone'] = milestone.number
@@ -954,7 +969,6 @@ def _create_or_update_issue(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    issue_type: str,
     artefacts: tuple[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
@@ -973,12 +987,8 @@ def _create_or_update_issue(
     def labels_to_preserve(
         issue: github3.issues.issue.ShortIssue,
     ) -> collections.abc.Generator[str, None, None]:
-        ctx_label_regex = {f'{gci._label_prefix_ctx}.*'} # always keep ctx_labels
-
-        preserve_labels_regexes = set(mapping.github_issue_labels_to_preserve) | ctx_label_regex
-
         for label in issue.original_labels:
-            for pattern in preserve_labels_regexes:
+            for pattern in mapping.github_issue_labels_to_preserve:
                 if re.fullmatch(pattern=pattern, string=label.name):
                     yield label.name
                     break
@@ -993,9 +1003,11 @@ def _create_or_update_issue(
         issue = sorted(issues, key=lambda issue: issue.id, reverse=True)[0]
     elif issues_count == 1:
         issue = issues[0]
-        labels = labels | set(labels_to_preserve(issue=issue))
     else:
         issue = None
+
+    if issue:
+        labels = labels | set(labels_to_preserve(issue=issue))
 
     title = _issue_title(
         issue_type=issue_type,
@@ -1019,15 +1031,14 @@ def _create_or_update_issue(
     body = finding_cfg.issues.template.format(**template_variables)
 
     if is_overdue:
-        labels.add(gci._label_overdue)
+        labels.add(IssueLabels.OVERDUE)
 
     if not is_scanned:
-        labels.add(gci._label_scan_pending)
+        labels.add(IssueLabels.SCAN_PENDING)
 
     if not is_scanned or issue:
         return update_issue(
             issue=issue,
-            issue_type=issue_type,
             body=body,
             title=title,
             labels=labels,
@@ -1036,7 +1047,6 @@ def _create_or_update_issue(
         )
 
     return gci._create_issue(
-        issue_type=issue_type,
         repository=mapping.repository,
         body=body,
         title=title,
@@ -1052,9 +1062,9 @@ def _create_or_update_or_close_issue_per_finding(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    issue_type: str,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
+    issue_id: str,
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone,
     failed_milestones: None | list[github3.issues.milestone.Milestone],
@@ -1075,18 +1085,16 @@ def _create_or_update_or_close_issue_per_finding(
             data.key,
         }
 
-        finding_issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
-            known_issues=issues,
-            issue_type=issue_type,
-            extra_labels=finding_labels,
-        ))
+        finding_issues = filter_issues_for_labels(
+            issues=issues,
+            labels=(issue_id, finding_cfg.type, data.key),
+        )
         processed_issues.update(finding_issues)
 
         _create_or_update_issue(
             mapping=mapping,
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
-            issue_type=issue_type,
             artefacts=artefacts,
             findings=(finding,),
             issues=finding_issues,
@@ -1117,7 +1125,6 @@ def create_or_update_or_close_issue(
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-    issue_type: str,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issue_id: str,
@@ -1128,8 +1135,9 @@ def create_or_update_or_close_issue(
 ):
     is_scanned = len(artefacts_without_scan) == 0
 
-    labels = {
+    labels = set(finding_cfg.issues.labels) | {
         issue_id,
+        finding_cfg.type,
     }
 
     known_issues = _all_issues(
@@ -1141,11 +1149,10 @@ def create_or_update_or_close_issue(
         number=mapping.number_included_closed_issues,
     )
 
-    issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
-        known_issues=known_issues,
-        issue_type=issue_type,
-        extra_labels=labels,
-    ))
+    issues = filter_issues_for_labels(
+        issues=known_issues,
+        labels=(issue_id, finding_cfg.type),
+    )
 
     if not is_in_bom:
         for issue in issues:
@@ -1199,9 +1206,9 @@ def create_or_update_or_close_issue(
             mapping=mapping,
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
-            issue_type=issue_type,
             artefacts=artefacts,
             findings=findings,
+            issue_id=issue_id,
             issues=issues,
             milestone=milestone,
             failed_milestones=failed_milestones,
@@ -1219,7 +1226,6 @@ def create_or_update_or_close_issue(
         mapping=mapping,
         finding_cfg=finding_cfg,
         component_descriptor_lookup=component_descriptor_lookup,
-        issue_type=issue_type,
         artefacts=artefacts,
         findings=findings,
         issues=issues,
