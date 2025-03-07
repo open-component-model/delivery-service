@@ -194,22 +194,6 @@ def iter_artefact_metadata(
             if src_ref.identitySelector.get('name') == source_node.source.name
         ]
 
-    if not has_local_linter(resources):
-        yield from iter_sast_artefacts_for_sub_type(
-            sast_finding_config=sast_finding_config,
-            sub_type=dso.model.SastSubType.LOCAL_LINTING,
-            artefact=artefact,
-            creation_timestamp=creation_timestamp,
-        )
-
-    if not find_scan_policy(source_node) is dso.labels.ScanPolicy.SKIP:
-        yield from iter_sast_artefacts_for_sub_type(
-            sast_finding_config=sast_finding_config,
-            sub_type=dso.model.SastSubType.CENTRAL_LINTING,
-            artefact=artefact,
-            creation_timestamp=creation_timestamp,
-        )
-
     yield dso.model.ArtefactMetadata(
         artefact=artefact,
         meta=dso.model.Metadata(
@@ -220,6 +204,26 @@ def iter_artefact_metadata(
         ),
         data={},
         discovery_date=creation_timestamp.date(),
+    )
+
+    if find_scan_policy(source_node) is dso.labels.ScanPolicy.SKIP:
+        logger.info(f'Skip label found for source {source_node.source.name}. '
+                    'No SAST Linting required ...')
+        return
+
+    if not has_local_linter(resources):
+        yield from iter_sast_artefacts_for_sub_type(
+            sast_finding_config=sast_finding_config,
+            sub_type=dso.model.SastSubType.LOCAL_LINTING,
+            artefact=artefact,
+            creation_timestamp=creation_timestamp,
+        )
+
+    yield from iter_sast_artefacts_for_sub_type(
+        sast_finding_config=sast_finding_config,
+        sub_type=dso.model.SastSubType.CENTRAL_LINTING,
+        artefact=artefact,
+        creation_timestamp=creation_timestamp,
     )
 
 
