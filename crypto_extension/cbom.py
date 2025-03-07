@@ -78,11 +78,12 @@ def find_cbom_or_create(
             image_reference=access.imageReference,
         )
 
-        dockerutil.prepare_docker_cfg(
-            image_reference=access.imageReference,
-            username=oci_secret.username,
-            password=oci_secret.password,
-        )
+        if oci_secret:
+            dockerutil.prepare_docker_cfg(
+                image_reference=access.imageReference,
+                username=oci_secret.username,
+                password=oci_secret.password,
+            )
 
         with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
             sbom_path = os.path.join(tmp_dir, 'sbom')
