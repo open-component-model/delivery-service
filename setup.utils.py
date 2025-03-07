@@ -20,7 +20,6 @@ def requirements():
 
 def modules():
     return [
-        'bdba.model',
         'config',
         'consts',
         'crypto_extension.config',

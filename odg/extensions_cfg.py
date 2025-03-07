@@ -14,7 +14,7 @@ import dso.model
 import github.compliance.milestone as gcmi
 import ocm
 
-import bdba.model
+import bdba.model as bm
 import crypto_extension.config
 import lookups
 import odg.shared_cfg
@@ -169,7 +169,7 @@ class BDBAMapping(Mapping):
     group_id: int
     bdba_secret_name: str
     aws_secret_name: str | None
-    processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.RESCAN
+    processing_mode: bm.ProcessingMode = bm.ProcessingMode.RESCAN
 
 
 @dataclasses.dataclass

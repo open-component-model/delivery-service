@@ -14,8 +14,8 @@ import ocm
 import tarutil
 
 import bdba.client
-import bdba.model
-import bdba.scanning
+import bdba.model as bm
+import bdba_extension.scanning
 import ctx_util
 import lookups
 import ocm_util
@@ -33,9 +33,15 @@ def retrieve(
     product_id: str,
     bdba_cfg_name='gardener',
 ):
-    client = bdba.client.client(bdba_cfg_name)
+    secret_factory = ctx_util.secret_factory()
+    bdba_cfg = secret_factory.bdba(bdba_cfg_name)
+    bdba_client = bdba.client.BDBAApi(
+        api_routes=bdba.client.BDBAApiRoutes(base_url=bdba_cfg.api_url),
+        token=bdba_cfg.token,
+        tls_verify=bdba_cfg.tls_verify,
+    )
 
-    scan_result = client.wait_for_scan_result(
+    scan_result = bdba_client.wait_for_scan_result(
         product_id=product_id,
     )
 
@@ -49,7 +55,13 @@ def ls_products(
 ):
     ocm_lookup = lookups.init_component_descriptor_lookup()
 
-    client = bdba.client.client(bdba_cfg_name)
+    secret_factory = ctx_util.secret_factory()
+    bdba_cfg = secret_factory.bdba(bdba_cfg_name)
+    bdba_client = bdba.client.BDBAApi(
+        api_routes=bdba.client.BDBAApiRoutes(base_url=bdba_cfg.api_url),
+        token=bdba_cfg.token,
+        tls_verify=bdba_cfg.tls_verify,
+    )
 
     if not ':' in ocm_component:
         raise ValueError('ocm_component must have form <name>:<version>')
@@ -68,7 +80,7 @@ def ls_products(
             'COMPONENT_VERSION': component.version,
         }
 
-        for app in client.list_apps(group_id=group_id, custom_attribs=metadata):
+        for app in bdba_client.list_apps(group_id=group_id, custom_attribs=metadata):
             print(app.product_id)
 
 
@@ -104,7 +116,7 @@ def scan(
     )
     component_descriptor = lookup(component_id)
 
-    cvss_version = bdba.model.CVSSVersion.V3
+    cvss_version = bm.CVSSVersion.V3
 
     headers = ('BDBA Scan Configuration', '')
     entries = (
@@ -117,11 +129,12 @@ def scan(
 
     logger.info('running BDBA scan for all components')
 
-    bdba_client = bdba.client.client(
-        bdba_cfg=bdba_cfg,
-        group_id=bdba_group_id,
-        url=bdba_api_url,
-        secret_factory=secret_factory,
+    secret_factory = ctx_util.secret_factory()
+    bdba_cfg = secret_factory.bdba(bdba_cfg_name)
+    bdba_client = bdba.client.BDBAApi(
+        api_routes=bdba.client.BDBAApiRoutes(base_url=bdba_cfg.api_url),
+        token=bdba_cfg.token,
+        tls_verify=bdba_cfg.tls_verify,
     )
 
     def iter_resource_scans() -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
@@ -130,12 +143,12 @@ def scan(
             lookup=lookup,
             node_filter=cnudie.iter.Filter.resources,
         ):
-            known_scan_results = bdba.scanning.retrieve_existing_scan_results(
+            known_scan_results = bdba_extension.scanning.retrieve_existing_scan_results(
                 bdba_client=bdba_client,
                 group_id=bdba_group_id,
                 resource_node=resource_node,
             )
-            processor = bdba.scanning.ResourceGroupProcessor(
+            processor = bdba_extension.scanning.ResourceGroupProcessor(
                 bdba_client=bdba_client,
                 group_id=bdba_group_id,
             )
@@ -179,7 +192,7 @@ def scan(
             yield from processor.process(
                 resource_node=resource_node,
                 content_iterator=content_iterator,
-                processing_mode=bdba.model.ProcessingMode.RESCAN,
+                processing_mode=bm.ProcessingMode.RESCAN,
                 known_scan_results=known_scan_results,
             )
 
@@ -260,11 +273,17 @@ def transport_triages(
     to_group_id: int,
     to_product_ids: list[int],
 ):
-    api = bdba.client.client(bdba_cfg_name)
+    secret_factory = ctx_util.secret_factory()
+    bdba_cfg = secret_factory.bdba(bdba_cfg_name)
+    bdba_client = bdba.client.BDBAApi(
+        api_routes=bdba.client.BDBAApiRoutes(base_url=bdba_cfg.api_url),
+        token=bdba_cfg.token,
+        tls_verify=bdba_cfg.tls_verify,
+    )
 
-    scan_result_from = api.scan_result(product_id=from_product_id)
+    scan_result_from = bdba_client.scan_result(product_id=from_product_id)
     scan_results_to = {
-        product_id: api.scan_result(product_id=product_id)
+        product_id: bdba_client.scan_result(product_id=product_id)
         for product_id in to_product_ids
     }
 
@@ -293,7 +312,7 @@ def transport_triages(
             component_name=component.name,
         ):
             logger.info(f'adding triage for {triage.component}:{target_component_version}')
-            api.add_triage(
+            bdba_client.add_triage(
                 triage=triage,
                 product_id=to_product_id,
                 group_id=to_group_id,
