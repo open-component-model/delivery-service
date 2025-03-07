@@ -261,3 +261,16 @@ def convert_to_timedelta(
     seconds = int(time) * seconds_per_unit[unit or default_unit]
 
     return datetime.timedelta(seconds=seconds)
+
+
+def pluralise(
+    word: str,
+    count: int,
+) -> str:
+    if count == 1:
+        return word
+
+    word = re.sub('y$', 'ie', word)
+    word = re.sub('s$', 'se', word)
+
+    return word + 's'
