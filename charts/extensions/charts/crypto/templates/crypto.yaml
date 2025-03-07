@@ -65,11 +65,11 @@ spec:
                   - "60"
           resources:
             requests:
-              memory: 300Mi
-              cpu: 100m
+              memory: 1000Mi
+              cpu: 400m
             limits:
-              memory: 600Mi
-              cpu: 200m
+              memory: 2000Mi
+              cpu: 800m
       volumes:
         - name: aws
           secret:
