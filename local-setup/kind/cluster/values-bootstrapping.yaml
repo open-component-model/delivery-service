@@ -32,14 +32,14 @@ extensions_cfg:
           - name: FIPS
             version: 140-3
             ref:
-              path: crypto_extension/config.yaml
+              path: odg/crypto_defaults.yaml
           - name: NCS
             version: '1.0'
             ref:
-              path: crypto_extension/config.yaml
+              path: odg/crypto_defaults.yaml
         libraries:
           - ref:
-              path: crypto_extension/config.yaml
+              path: odg/crypto_defaults.yaml
   delivery_db_backup:
     enabled: False # disable in default because of missing `component_name` and `ocm_repo_url`
     component_name: ''

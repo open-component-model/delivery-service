@@ -18,17 +18,17 @@ def crypto_mapping() -> odg.extensions_cfg.CryptoMapping:
             odg.extensions_cfg.StandardRef(
                 name='FIPS',
                 version='140-3',
-                ref=odg.shared_cfg.SharedCfgLocalReference(path='crypto_extension/config.yaml'),
+                ref=odg.shared_cfg.SharedCfgLocalReference(path='odg/crypto_defaults.yaml'),
             ),
             odg.extensions_cfg.StandardRef(
                 name='NCS',
                 version='1.0',
-                ref=odg.shared_cfg.SharedCfgLocalReference(path='crypto_extension/config.yaml'),
+                ref=odg.shared_cfg.SharedCfgLocalReference(path='odg/crypto_defaults.yaml'),
             ),
         ],
         libraries=[
             odg.extensions_cfg.LibrariesRef(
-                ref=odg.shared_cfg.SharedCfgLocalReference(path='crypto_extension/config.yaml'),
+                ref=odg.shared_cfg.SharedCfgLocalReference(path='odg/crypto_defaults.yaml'),
             ),
         ],
         included_asset_types=None,
