@@ -46,6 +46,7 @@ def packages():
 
 def package_data():
     return {
+        'crypto_extension': ['*.yaml'],
         'odg': ['*.yaml'],
     }
 
