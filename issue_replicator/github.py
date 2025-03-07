@@ -237,19 +237,6 @@ def _issue_milestone(
     )
 
 
-def _issue_title(
-    issue_type: str,
-    artefact: dso.model.ComponentArtefactId,
-    extra: str,
-) -> str:
-    title = f'[{issue_type}] - {artefact.component_name}:{artefact.artefact.artefact_name}'
-
-    if extra:
-        title += f' - [{extra}]'
-
-    return title
-
-
 def _artefact_to_str(
     artefact: dso.model.ComponentArtefactId,
 ) -> str:
@@ -1045,7 +1032,6 @@ def _create_or_update_issue(
     is_scanned: bool,
     artefacts_without_scan: set[dso.model.ComponentArtefactId],
     delivery_dashboard_url: str,
-    extra_title: str=None,
     sprint_name: str=None,
     assignees: set[str]=set(),
     assignees_statuses: set[str]=set(),
@@ -1076,11 +1062,13 @@ def _create_or_update_issue(
     if issue:
         labels = labels | set(labels_to_preserve(issue=issue))
 
-    title = _issue_title(
-        issue_type=issue_type,
-        artefact=artefacts[0],
-        extra=extra_title,
-    )
+    if findings:
+        title = finding_cfg.issues.issue_title(findings[0].finding)
+    else:
+        # in case there are no findings here, there must already be an open issue which is going to
+        # be updated to "scan-pending", hence it will already have a title which does not have to be
+        # updated
+        title = None
 
     is_overdue = latest_processing_date < datetime.date.today()
 
@@ -1171,7 +1159,6 @@ def _create_or_update_or_close_issue_per_finding(
             is_scanned=is_scanned,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
-            extra_title=data.key,
             sprint_name=sprint_name,
             assignees=assignees,
             assignees_statuses=assignees_statuses,
