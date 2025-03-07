@@ -17,6 +17,9 @@ dependencies:
   - name: clamav
     repository: file://charts/clamav
     condition: clamav.enabled
+  - name: crypto
+    repository: file://charts/crypto
+    condition: crypto.enabled
   - name: delivery-db-backup
     repository: file://charts/delivery-db-backup
     condition: delivery-db-backup.enabled
