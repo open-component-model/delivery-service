@@ -14,6 +14,7 @@ import urllib.parse
 import github3
 import github3.issues.issue
 import github3.issues.milestone
+import github3.repos
 import requests
 
 import cnudie.iter
@@ -21,12 +22,11 @@ import cnudie.retrieve
 import delivery.client
 import delivery.model
 import dso.model
-import github.compliance.issue as gci
 import github.compliance.milestone as gcmi
-import github.compliance.report as gcr
 import github.retry
 import github.user
 import github.util
+import ocm.util
 
 import k8s.util
 import odg.extensions_cfg
@@ -160,6 +160,15 @@ def filter_issues_for_labels(
     )
 
 
+@functools.cache
+def _valid_issue_assignees(
+    repository: github3.repos.Repository,
+) -> set[str]:
+    return set(
+        u.login for u in repository.assignees()
+    )
+
+
 def _issue_assignees(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_client: delivery.client.DeliveryServiceClient,
@@ -199,8 +208,8 @@ def _issue_assignees(
             raise
 
     valid_assignees = set(
-        a.lower()
-        for a in gcr._valid_issue_assignees(
+        assignee.lower()
+        for assignee in _valid_issue_assignees(
             repository=mapping.repository,
         )
     )
@@ -256,7 +265,7 @@ def _artefact_to_str(
 def _artefact_url(
     ocm_node: cnudie.iter.ArtefactNode,
 ) -> str:
-    artefact_url = gcr._artifact_url(
+    artefact_url = ocm.util.artifact_url(
         component=ocm_node.component,
         artifact=ocm_node.artefact,
     )
@@ -821,7 +830,7 @@ def _template_vars(
     )
 
     if artefacts_non_group_properties:
-        summary += f'| {gcr._pluralise('ID', len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n' # noqa: E501
+        summary += f'| {util.pluralise('ID', len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n' # noqa: E501
 
     # lastly, display the artefacts which were not scanned yet
     artefacts_without_scan_str = ''.join(
@@ -830,7 +839,7 @@ def _template_vars(
     )
 
     if sorted_artefacts_without_scan:
-        summary += f'| {gcr._pluralise('Artefact', len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
+        summary += f'| {util.pluralise('Artefact', len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
 
     template_variables = {
         'component_name': component_name,
@@ -856,7 +865,7 @@ def _template_vars(
         return template_variables
 
     summary += (
-        f'The aforementioned {gcr._pluralise('artefact', len(artefacts_non_group_properties))} '
+        f'The aforementioned {util.pluralise('artefact', len(artefacts_non_group_properties))} '
         'yielded findings relevant for future release decisions.\n'
     )
 
@@ -952,6 +961,57 @@ def update_issue(
     )
 
 
+@github.retry.retry_and_throttle
+def create_issue(
+    repository: github3.repos.Repository,
+    body: str,
+    title: str,
+    milestone: github3.issues.milestone.Milestone | None,
+    failed_milestones: list[github3.issues.milestone.Milestone],
+    assignees: set[str],
+    assignees_statuses: set[str],
+    labels: set[str],
+) -> github3.issues.issue.ShortIssue:
+    try:
+        issue = repository.create_issue(
+            title=title,
+            body=body,
+            milestone=milestone.number if milestone else None,
+            labels=sorted(labels),
+            assignees=tuple(assignees),
+        )
+
+        if assignees_statuses:
+            comment_body = textwrap.dedent('''\
+                There have been anomalies during initial ticket assignment, please see details below:
+                | Message Type | Message |
+                | --- | --- |'''
+            )
+            for status in assignees_statuses:
+                comment_body += f'\n|`{status.type}`|`{status.msg}`'
+
+            issue.create_comment(comment_body)
+
+        if failed_milestones:
+            milestone_comment = (
+                'Failed to automatically assign ticket to one of these milestones: '
+                f'{", ".join([milestone.title for milestone in failed_milestones])}. '
+                'Milestones were probably closed before all associated findings were assessed. '
+            )
+            if milestone:
+                milestone_comment += f'Ticket was assigned to {milestone.title} as a fallback.'
+
+            issue.create_comment(milestone_comment)
+
+        return issue
+
+    except github3.exceptions.GitHubError as ghe:
+        logger.warning(f'received error trying to create issue: {ghe=}')
+        logger.warning(f'{ghe.message=} {ghe.code=} {ghe.errors=}')
+        logger.warning(f'{labels=} {assignees=}')
+        raise ghe
+
+
 def _create_or_update_issue(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
@@ -959,8 +1019,8 @@ def _create_or_update_issue(
     artefacts: tuple[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
-    milestone: github3.issues.milestone.Milestone,
-    failed_milestones: None | list[github3.issues.milestone.Milestone],
+    milestone: github3.issues.milestone.Milestone | None,
+    failed_milestones: list[github3.issues.milestone.Milestone],
     latest_processing_date: datetime.date,
     is_scanned: bool,
     artefacts_without_scan: set[dso.model.ComponentArtefactId],
@@ -1034,15 +1094,15 @@ def _create_or_update_issue(
             milestone=milestone,
         )
 
-    return gci._create_issue(
+    return create_issue(
         repository=mapping.repository,
         body=body,
         title=title,
-        extra_labels=labels,
-        assignees=assignees,
-        assignees_statuses=assignees_statuses,
         milestone=milestone,
         failed_milestones=failed_milestones,
+        assignees=assignees,
+        assignees_statuses=assignees_statuses,
+        labels=labels,
     )
 
 
