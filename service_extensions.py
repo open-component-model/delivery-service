@@ -31,7 +31,7 @@ def iter_container_statuses(
         if service_label not in service_filter:
             continue
 
-        if not pod.status:
+        if not pod.status or not pod.status.container_statuses:
             continue
 
         for status in pod.status.container_statuses:
