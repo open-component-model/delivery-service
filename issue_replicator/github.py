@@ -74,7 +74,7 @@ class FindingGroup:
             artefact=self.artefact,
         )
 
-        artefact_non_group_properties = finding_cfg.issues.grouping.strip_artefact(
+        artefact_non_group_properties = finding_cfg.issues.strip_artefact(
             artefact=self.artefact,
             keep_group_attributes=False,
         )
@@ -744,7 +744,7 @@ def _template_vars(
     ''')
 
     # first of all, display the artefact properties which are used for grouping in the summary table
-    artefact_group_properties = finding_cfg.issues.grouping.strip_artefact(
+    artefact_group_properties = finding_cfg.issues.strip_artefact(
         artefact=artefact,
         keep_group_attributes=True,
     )
@@ -800,7 +800,7 @@ def _template_vars(
 
     # secondly, display the combinations of artefact properties which are not part of the group
     artefacts_non_group_properties = [
-        finding_cfg.issues.grouping.strip_artefact(
+        finding_cfg.issues.strip_artefact(
             artefact=finding_group.artefact,
             keep_group_attributes=False,
         ) for finding_group in finding_groups
