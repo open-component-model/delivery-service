@@ -208,7 +208,7 @@ def replicate_issue_for_finding_type(
 
     logger.info(f'updating issues for {finding_type=} and {finding_source=}')
 
-    artefact_group = finding_cfg.issues.grouping.strip_artefact(
+    artefact_group = finding_cfg.issues.strip_artefact(
         artefact=artefact,
         keep_group_attributes=True,
     )
@@ -282,7 +282,7 @@ def replicate_issue_for_finding_type(
     # both sides have to be normalised in that the component version is not considered. Also, the
     # attributes by which artefacts are grouped are dropped as they are equal anyways.
     all_artefacts = {
-        finding_cfg.issues.grouping.strip_artefact(
+        finding_cfg.issues.strip_artefact(
             artefact=dataclasses.replace(
                 artefact,
                 component_version=None,
@@ -291,7 +291,7 @@ def replicate_issue_for_finding_type(
         ) for artefact in artefacts
     }
     scanned_artefacts = {
-        finding_cfg.issues.grouping.strip_artefact(
+        finding_cfg.issues.strip_artefact(
             artefact=dataclasses.replace(
                 finding.finding.artefact,
                 component_version=None,
