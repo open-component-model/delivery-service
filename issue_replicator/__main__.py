@@ -13,7 +13,6 @@ import ci.log
 import cnudie.retrieve
 import delivery.client
 import dso.model
-import github.compliance.issue as gci
 
 import consts
 import ctx_util
@@ -153,44 +152,6 @@ def _group_findings_by_date(
         yield filtered_findings, sprint
 
 
-def _issue_type_label(
-    finding_type: odg.findings.FindingType,
-    finding_source: str,
-) -> str:
-    if (
-        finding_type is odg.findings.FindingType.VULNERABILITY
-        and finding_source == dso.model.Datasource.BDBA
-    ):
-        return gci._label_bdba
-
-    elif (
-        finding_type is odg.findings.FindingType.LICENSE
-        and finding_source == dso.model.Datasource.BDBA
-    ):
-        return gci._label_licenses
-
-    elif (
-        finding_type is odg.findings.FindingType.MALWARE
-        and finding_source == dso.model.Datasource.CLAMAV
-    ):
-        return gci._label_malware
-
-    elif (
-        finding_type is odg.findings.FindingType.SAST
-        and finding_source == dso.model.Datasource.SAST
-    ):
-        return gci._label_sast
-
-    elif (
-        finding_type is odg.findings.FindingType.DIKI
-        and finding_source == dso.model.Datasource.DIKI
-    ):
-        return gci._label_diki
-
-    else:
-        raise ValueError(f'{finding_type=} is not supported for {finding_source=}')
-
-
 def replicate_issue_for_finding_type(
     artefact: dso.model.ComponentArtefactId,
     finding_cfg: odg.findings.Finding,
@@ -201,10 +162,6 @@ def replicate_issue_for_finding_type(
 ):
     finding_type = finding_cfg.type
     finding_source = dso.model.Datatype.datatype_to_datasource(finding_type)
-    issue_type_label = _issue_type_label(
-        finding_type=finding_type,
-        finding_source=finding_source,
-    )
 
     logger.info(f'updating issues for {finding_type=} and {finding_source=}')
 
@@ -310,7 +267,6 @@ def replicate_issue_for_finding_type(
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_client=delivery_client,
-            issue_type=issue_type_label,
             artefacts=artefacts,
             findings=findings,
             issue_id=issue_id,

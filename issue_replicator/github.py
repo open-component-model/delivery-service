@@ -14,6 +14,7 @@ import urllib.parse
 import github3
 import github3.issues.issue
 import github3.issues.milestone
+import github3.repos
 import requests
 
 import cnudie.iter
@@ -21,12 +22,11 @@ import cnudie.retrieve
 import delivery.client
 import delivery.model
 import dso.model
-import github.compliance.issue as gci
 import github.compliance.milestone as gcmi
-import github.compliance.report as gcr
 import github.retry
 import github.user
 import github.util
+import ocm.util
 
 import k8s.util
 import odg.extensions_cfg
@@ -41,6 +41,11 @@ logger = logging.getLogger(__name__)
 class IssueComments(enum.StrEnum):
     NO_FINDINGS = 'closing ticket because there are no longer unassessed findings'
     NOT_IN_BOM = 'closing ticket because scanned element is no longer present in BoM'
+
+
+class IssueLabels(enum.StrEnum):
+    OVERDUE = 'overdue'
+    SCAN_PENDING = 'scan-pending'
 
 
 @dataclasses.dataclass
@@ -138,6 +143,32 @@ def _all_issues(
     return set(repository.issues(state=state, number=number))
 
 
+def filter_issues_for_labels(
+    issues: collections.abc.Iterable[github3.issues.issue.ShortIssue],
+    labels: collections.abc.Iterable[str],
+) -> tuple[github3.issues.ShortIssue]:
+    labels = frozenset(labels)
+
+    def filter_issue(issue: github3.issues.issue.ShortIssue):
+        issue_labels = frozenset(label.name for label in issue.original_labels)
+
+        return issue_labels & labels == labels
+
+    return tuple(
+        issue for issue in issues
+        if filter_issue(issue)
+    )
+
+
+@functools.cache
+def _valid_issue_assignees(
+    repository: github3.repos.Repository,
+) -> set[str]:
+    return set(
+        u.login for u in repository.assignees()
+    )
+
+
 def _issue_assignees(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_client: delivery.client.DeliveryServiceClient,
@@ -177,8 +208,8 @@ def _issue_assignees(
             raise
 
     valid_assignees = set(
-        a.lower()
-        for a in gcr._valid_issue_assignees(
+        assignee.lower()
+        for assignee in _valid_issue_assignees(
             repository=mapping.repository,
         )
     )
@@ -215,19 +246,6 @@ def _issue_milestone(
     )
 
 
-def _issue_title(
-    issue_type: str,
-    artefact: dso.model.ComponentArtefactId,
-    extra: str,
-) -> str:
-    title = f'[{issue_type}] - {artefact.component_name}:{artefact.artefact.artefact_name}'
-
-    if extra:
-        title += f' - [{extra}]'
-
-    return title
-
-
 def _artefact_to_str(
     artefact: dso.model.ComponentArtefactId,
 ) -> str:
@@ -247,7 +265,7 @@ def _artefact_to_str(
 def _artefact_url(
     ocm_node: cnudie.iter.ArtefactNode,
 ) -> str:
-    artefact_url = gcr._artifact_url(
+    artefact_url = ocm.util.artifact_url(
         component=ocm_node.component,
         artifact=ocm_node.artefact,
     )
@@ -812,7 +830,7 @@ def _template_vars(
     )
 
     if artefacts_non_group_properties:
-        summary += f'| {gcr._pluralise('ID', len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n' # noqa: E501
+        summary += f'| {util.pluralise('ID', len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n' # noqa: E501
 
     # lastly, display the artefacts which were not scanned yet
     artefacts_without_scan_str = ''.join(
@@ -821,7 +839,7 @@ def _template_vars(
     )
 
     if sorted_artefacts_without_scan:
-        summary += f'| {gcr._pluralise('Artefact', len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
+        summary += f'| {util.pluralise('Artefact', len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
 
     template_variables = {
         'component_name': component_name,
@@ -847,7 +865,7 @@ def _template_vars(
         return template_variables
 
     summary += (
-        f'The aforementioned {gcr._pluralise('artefact', len(artefacts_non_group_properties))} '
+        f'The aforementioned {util.pluralise('artefact', len(artefacts_non_group_properties))} '
         'yielded findings relevant for future release decisions.\n'
     )
 
@@ -916,30 +934,23 @@ def close_issue_if_present(
 @github.retry.retry_and_throttle
 def update_issue(
     issue: github3.issues.issue.ShortIssue,
-    issue_type: str,
     body: str,
     title: str=None,
     labels: set[str]=set(),
     assignees: set[str]=set(),
     milestone: github3.issues.milestone.Milestone=None,
 ):
-    assignees = tuple(assignees) # conversion to tuple required for issue update (JSON serialisation)
-
-    labels = sorted(gci._search_labels(
-        issue_type=issue_type,
-        extra_labels=labels,
-    ))
-
     kwargs = {
         'state': 'open',
-        'labels': labels,
+        'labels': sorted(labels),
     }
 
     if title:
         kwargs['title'] = title
 
     if not issue.assignees and assignees:
-        kwargs['assignees'] = assignees
+        # conversion to tuple required for issue update (JSON serialisation)
+        kwargs['assignees'] = tuple(assignees)
 
     if milestone and (not issue.milestone or issue.state == 'closed'):
         kwargs['milestone'] = milestone.number
@@ -950,21 +961,70 @@ def update_issue(
     )
 
 
+@github.retry.retry_and_throttle
+def create_issue(
+    repository: github3.repos.Repository,
+    body: str,
+    title: str,
+    milestone: github3.issues.milestone.Milestone | None,
+    failed_milestones: list[github3.issues.milestone.Milestone],
+    assignees: set[str],
+    assignees_statuses: set[str],
+    labels: set[str],
+) -> github3.issues.issue.ShortIssue:
+    try:
+        issue = repository.create_issue(
+            title=title,
+            body=body,
+            milestone=milestone.number if milestone else None,
+            labels=sorted(labels),
+            assignees=tuple(assignees),
+        )
+
+        if assignees_statuses:
+            comment_body = textwrap.dedent('''\
+                There have been anomalies during initial ticket assignment, please see details below:
+                | Message Type | Message |
+                | --- | --- |'''
+            )
+            for status in assignees_statuses:
+                comment_body += f'\n|`{status.type}`|`{status.msg}`'
+
+            issue.create_comment(comment_body)
+
+        if failed_milestones:
+            milestone_comment = (
+                'Failed to automatically assign ticket to one of these milestones: '
+                f'{", ".join([milestone.title for milestone in failed_milestones])}. '
+                'Milestones were probably closed before all associated findings were assessed. '
+            )
+            if milestone:
+                milestone_comment += f'Ticket was assigned to {milestone.title} as a fallback.'
+
+            issue.create_comment(milestone_comment)
+
+        return issue
+
+    except github3.exceptions.GitHubError as ghe:
+        logger.warning(f'received error trying to create issue: {ghe=}')
+        logger.warning(f'{ghe.message=} {ghe.code=} {ghe.errors=}')
+        logger.warning(f'{labels=} {assignees=}')
+        raise ghe
+
+
 def _create_or_update_issue(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    issue_type: str,
     artefacts: tuple[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
-    milestone: github3.issues.milestone.Milestone,
-    failed_milestones: None | list[github3.issues.milestone.Milestone],
+    milestone: github3.issues.milestone.Milestone | None,
+    failed_milestones: list[github3.issues.milestone.Milestone],
     latest_processing_date: datetime.date,
     is_scanned: bool,
     artefacts_without_scan: set[dso.model.ComponentArtefactId],
     delivery_dashboard_url: str,
-    extra_title: str=None,
     sprint_name: str=None,
     assignees: set[str]=set(),
     assignees_statuses: set[str]=set(),
@@ -973,12 +1033,8 @@ def _create_or_update_issue(
     def labels_to_preserve(
         issue: github3.issues.issue.ShortIssue,
     ) -> collections.abc.Generator[str, None, None]:
-        ctx_label_regex = {f'{gci._label_prefix_ctx}.*'} # always keep ctx_labels
-
-        preserve_labels_regexes = set(mapping.github_issue_labels_to_preserve) | ctx_label_regex
-
         for label in issue.original_labels:
-            for pattern in preserve_labels_regexes:
+            for pattern in mapping.github_issue_labels_to_preserve:
                 if re.fullmatch(pattern=pattern, string=label.name):
                     yield label.name
                     break
@@ -993,15 +1049,19 @@ def _create_or_update_issue(
         issue = sorted(issues, key=lambda issue: issue.id, reverse=True)[0]
     elif issues_count == 1:
         issue = issues[0]
-        labels = labels | set(labels_to_preserve(issue=issue))
     else:
         issue = None
 
-    title = _issue_title(
-        issue_type=issue_type,
-        artefact=artefacts[0],
-        extra=extra_title,
-    )
+    if issue:
+        labels = labels | set(labels_to_preserve(issue=issue))
+
+    if findings:
+        title = finding_cfg.issues.issue_title(findings[0].finding)
+    else:
+        # in case there are no findings here, there must already be an open issue which is going to
+        # be updated to "scan-pending", hence it will already have a title which does not have to be
+        # updated
+        title = None
 
     is_overdue = latest_processing_date < datetime.date.today()
 
@@ -1019,15 +1079,14 @@ def _create_or_update_issue(
     body = finding_cfg.issues.template.format(**template_variables)
 
     if is_overdue:
-        labels.add(gci._label_overdue)
+        labels.add(IssueLabels.OVERDUE)
 
     if not is_scanned:
-        labels.add(gci._label_scan_pending)
+        labels.add(IssueLabels.SCAN_PENDING)
 
     if not is_scanned or issue:
         return update_issue(
             issue=issue,
-            issue_type=issue_type,
             body=body,
             title=title,
             labels=labels,
@@ -1035,16 +1094,15 @@ def _create_or_update_issue(
             milestone=milestone,
         )
 
-    return gci._create_issue(
-        issue_type=issue_type,
+    return create_issue(
         repository=mapping.repository,
         body=body,
         title=title,
-        extra_labels=labels,
-        assignees=assignees,
-        assignees_statuses=assignees_statuses,
         milestone=milestone,
         failed_milestones=failed_milestones,
+        assignees=assignees,
+        assignees_statuses=assignees_statuses,
+        labels=labels,
     )
 
 
@@ -1052,9 +1110,9 @@ def _create_or_update_or_close_issue_per_finding(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    issue_type: str,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
+    issue_id: str,
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone,
     failed_milestones: None | list[github3.issues.milestone.Milestone],
@@ -1075,18 +1133,16 @@ def _create_or_update_or_close_issue_per_finding(
             data.key,
         }
 
-        finding_issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
-            known_issues=issues,
-            issue_type=issue_type,
-            extra_labels=finding_labels,
-        ))
+        finding_issues = filter_issues_for_labels(
+            issues=issues,
+            labels=(issue_id, data.key),
+        )
         processed_issues.update(finding_issues)
 
         _create_or_update_issue(
             mapping=mapping,
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
-            issue_type=issue_type,
             artefacts=artefacts,
             findings=(finding,),
             issues=finding_issues,
@@ -1096,7 +1152,6 @@ def _create_or_update_or_close_issue_per_finding(
             is_scanned=is_scanned,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
-            extra_title=data.key,
             sprint_name=sprint_name,
             assignees=assignees,
             assignees_statuses=assignees_statuses,
@@ -1117,7 +1172,6 @@ def create_or_update_or_close_issue(
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-    issue_type: str,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issue_id: str,
@@ -1128,7 +1182,7 @@ def create_or_update_or_close_issue(
 ):
     is_scanned = len(artefacts_without_scan) == 0
 
-    labels = {
+    labels = set(finding_cfg.issues.labels) | {
         issue_id,
     }
 
@@ -1141,11 +1195,10 @@ def create_or_update_or_close_issue(
         number=mapping.number_included_closed_issues,
     )
 
-    issues: tuple[github3.issues.issue.ShortIssue] = tuple(gci.enumerate_issues(
-        known_issues=known_issues,
-        issue_type=issue_type,
-        extra_labels=labels,
-    ))
+    issues = filter_issues_for_labels(
+        issues=known_issues,
+        labels=(issue_id,),
+    )
 
     if not is_in_bom:
         for issue in issues:
@@ -1199,9 +1252,9 @@ def create_or_update_or_close_issue(
             mapping=mapping,
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
-            issue_type=issue_type,
             artefacts=artefacts,
             findings=findings,
+            issue_id=issue_id,
             issues=issues,
             milestone=milestone,
             failed_milestones=failed_milestones,
@@ -1219,7 +1272,6 @@ def create_or_update_or_close_issue(
         mapping=mapping,
         finding_cfg=finding_cfg,
         component_descriptor_lookup=component_descriptor_lookup,
-        issue_type=issue_type,
         artefacts=artefacts,
         findings=findings,
         issues=issues,
