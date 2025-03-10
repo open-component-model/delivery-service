@@ -86,6 +86,7 @@
     - semantics: include
       artefact_kind: runtime
   issues:
+    title_template: '[{meta.type}] - {artefact.component_name}:{artefact.artefact.artefact_name} - {data.key}'
     enable_assignees: False
     enable_per_finding: True
   categorisations:

@@ -1,6 +1,5 @@
 aiohttp-swagger
 awesomeversion
-cachetools
 dataclasses-json
 htmllistparse
 jsonschema

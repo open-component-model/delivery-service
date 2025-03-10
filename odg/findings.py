@@ -202,6 +202,10 @@ class FindingIssues:
     :param str template:
         Template to use for the created GitHub issues. See `issue_replicator.github` for available
         substitues.
+    :param str title_template:
+        Template to use for the title of the created GitHub issues. Available substituates are
+        `artefact`, `meta` and `data` (derived from the respective finding of type
+        `dso.model.ArtefactMetadata`).
     :param bool enable_issues:
         If disabled, no GitHub issues will be created/updated for the specified finding type.
     :param bool enable_assignees:
@@ -209,6 +213,8 @@ class FindingIssues:
     :param bool enable_per_finding:
         If set, GitHub issues will be created per finding for a specific artefact as opposed to a
         single issue with all findings.
+    :param list[str] labels:
+        List of labels that should be added to the created GitHub issues.
     :param list[str] attrs_to_group_by:
         Allows a custom configuration of those attributes, which should be used to group artefacts
         for a reporting in a shared GitHub issue. If not set, it defaults to the initial behaviour
@@ -218,9 +224,11 @@ class FindingIssues:
         concatenated in the order they were specified to create a stable issue id.
     '''
     template: str = '{summary}'
+    title_template: str = '[{meta.type}] - {artefact.component_name}:{artefact.artefact.artefact_name}' # noqa: E501
     enable_issues: bool = True
     enable_assignees: bool = True
     enable_per_finding: bool = False
+    labels: list[str] = dataclasses.field(default_factory=list)
     attrs_to_group_by: list[str] = dataclasses.field(default_factory=lambda: [
         'component_name',
         'artefact_kind',
@@ -270,6 +278,16 @@ class FindingIssues:
         digest = hashlib.shake_128(digest_str.encode()).hexdigest(length=23)
 
         return f'{version}/{digest}'
+
+    def issue_title(
+        self,
+        finding: dso.model.ArtefactMetadata,
+    ) -> str:
+        return self.title_template.format(
+            artefact=finding.artefact,
+            meta=finding.meta,
+            data=finding.data,
+        )
 
     def strip_artefact(
         self,
