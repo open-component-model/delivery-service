@@ -27,6 +27,7 @@ async def _sqlalchemy_sessionmaker(
         echo=False,
         future=True,
         pool_pre_ping=True,
+        pool_size=0,
     )
 
     async with engine.begin() as conn:
