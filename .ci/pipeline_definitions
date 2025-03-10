@@ -40,6 +40,15 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+              resource_labels:
+              - name: 'gardener.cloud/cve-categorisation'
+                value:
+                  network_exposure: 'public'
+                  authentication_enforced: true
+                  user_interaction: 'end-user'
+                  confidentiality_requirement: 'high'
+                  integrity_requirement: 'high'
+                  availability_requirement: 'high'
             extensions:
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extensions
               dockerfile: Dockerfile.extensions
@@ -47,6 +56,15 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+              resource_labels: &odg-extension-resource-labels
+              - name: 'gardener.cloud/cve-categorisation'
+                value:
+                  network_exposure: 'protected'
+                  authentication_enforced: true
+                  user_interaction: 'gardener-operator'
+                  confidentiality_requirement: 'high'
+                  integrity_requirement: 'high'
+                  availability_requirement: 'low'
             extension-cache-manager:
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-cache-manager
               dockerfile: Dockerfile.extensions.cache-manager
@@ -54,6 +72,8 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+              resource_labels:
+                *odg-extension-resource-labels
             extension-clamav:
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-clamav
               dockerfile: Dockerfile.extensions.clamav
@@ -61,6 +81,8 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+              resource_labels:
+                *odg-extension-resource-labels
             extension-crypto:
               image: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/extension-crypto
               dockerfile: Dockerfile.extensions.crypto
@@ -68,6 +90,8 @@ delivery-service:
               inputs:
                 steps:
                   build_python_packages: ~
+              resource_labels:
+                *odg-extension-resource-labels
           helmcharts:
           - name: delivery-service
             dir: charts/delivery-service
