@@ -187,6 +187,12 @@ def _issue_type_label(
     ):
         return gci._label_diki
 
+    elif (
+        finding_type is odg.findings.FindingType.CRYPTO
+        and finding_source == dso.model.Datasource.CRYPTO
+    ):
+        return gci._label_crypto
+
     else:
         raise ValueError(f'{finding_type=} is not supported for {finding_source=}')
 
