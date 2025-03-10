@@ -164,6 +164,7 @@ def _calculate_backlog_item_priority(
     compliance_snapshots: list[dso.model.ArtefactMetadata],
     interval: int,
     now: datetime.datetime=datetime.datetime.now(),
+    status: int | None=None,
 ) -> k8s.backlog.BacklogPriorities:
     '''
     - interval has passed -> priority LOW
@@ -177,7 +178,7 @@ def _calculate_backlog_item_priority(
             service=service,
         )
 
-        if not current_state:
+        if not current_state or (status and status != current_state.status):
             priority = max(priority, k8s.backlog.BacklogPriorities.HIGH)
             # the priority won't change anymore in this loop -> early exit
             break
@@ -198,25 +199,28 @@ def _create_backlog_item(
     service: odg.extensions_cfg.Services,
     interval_seconds: int,
     now: datetime.datetime=datetime.datetime.now(),
+    status: int | None=None,
 ) -> tuple[list[dso.model.ArtefactMetadata], bool]:
     priority = _calculate_backlog_item_priority(
         service=service,
         compliance_snapshots=compliance_snapshots,
         interval=interval_seconds,
         now=now,
+        status=status,
     )
 
     if not priority:
         # no need to create a backlog item for this artefact
         return compliance_snapshots, False
 
-    # there is a need to create a new backlog item, thus update issue replicator state for
-    # every compliance snapshot of this artefact so that the configured replication interval
-    # can be acknowledged correctly; otherwise, the replication might happen to often because
-    # the state of some compliance snapshots for the artefact might not have changed
+    # there is a need to create a new backlog item, thus update the state for every compliance
+    # snapshot of this artefact so that the configured interval can be acknowledged correctly;
+    # otherwise, the trigger might happen to often because the state of some compliance snapshots
+    # for the artefact might not have changed
     for compliance_snapshot in compliance_snapshots:
         compliance_snapshot.data.state.append(dso.model.ComplianceSnapshotState(
             timestamp=now,
+            status=status,
             service=service,
         ))
         compliance_snapshot.data.purge_old_states(
@@ -346,6 +350,12 @@ def _process_compliance_snapshots_of_artefact(
         extensions_cfg.issue_replicator
         and extensions_cfg.issue_replicator.enabled
     ):
+        # if the number of executed scans has changed, trigger an issue update
+        scan_count = len(delivery_client.query_metadata(
+            artefacts=(artefact,),
+            type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+        ))
+
         compliance_snapshots, snapshots_have_changed = _create_backlog_item(
             namespace=namespace,
             kubernetes_api=kubernetes_api,
@@ -354,6 +364,7 @@ def _process_compliance_snapshots_of_artefact(
             service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
             interval_seconds=extensions_cfg.issue_replicator.interval,
             now=now,
+            status=scan_count,
         )
         metadata_update_required |= snapshots_have_changed
 
