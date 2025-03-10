@@ -1,9 +1,57 @@
 libraries:
+  - bcrypt
+  - crypto-policies
+  - cryptography
+  - github.com/ProtonMail/go-crypto
+  - github.com/cespare/xxhash
+  - github.com/cespare/xxhash/v2
+  - github.com/cloudflare/cfssl
+  - github.com/dvsekhvalnov/jose2go
+  - github.com/go-jose/go-jose
+  - github.com/go-jose/go-jose/v3
+  - github.com/go-jose/go-jose/v4
+  - github.com/lestrrat-go/jwx
+  - github.com/mbland/hmacauth
+  - github.com/minio/highwayhash
+  - github.com/minio/md5-simd
+  - github.com/minio/sha256-simd
+  - github.com/mitchellh/hashstructure
+  - github.com/mitchellh/hashstructure/v2
+  - github.com/multiformats/go-multihash
+  - github.com/secure-systems-lab/go-securesystemslib
+  - github.com/segmentio/fasthash
+  - github.com/sigstore/cosign/v2
+  - github.com/sigstore/fulcio
+  - github.com/sigstore/sigstore
+  - github.com/sigstore/sigstore/pkg/signature/kms/aws
+  - github.com/sigstore/sigstore/pkg/signature/kms/azure
+  - github.com/sigstore/sigstore/pkg/signature/kms/gcp
+  - github.com/sigstore/sigstore/pkg/signature/kms/hashivault
+  - github.com/tjfoc/gmsm
+  - github.com/xdg-go/pbkdf2
+  - github.com/xdg-go/scram
+  - github.com/youmark/pkcs8
+  - github.com/zmap/zcrypto
   - go.step.sm/crypto
   - golang.org/x/crypto
+  - gopkg.in/go-jose/go-jose.v2
+  - gopkg.in/square/go-jose.v2
+  - libcrypt1
+  - libcrypto1.1
   - libcrypto3
+  - libcurl-openssl4
+  - libk5crypto3
+  - libssl1.1
   - libssl3
+  - libxxhash
+  - lukechampine.com/blake3
+  - openssl
+  - openssl-dev
+  - openssl-libs
+  - pycryptodome
+  - pyjwt
   - rsa
+  - software.sslmate.com/src/go-pkcs12
   - ssl_client
 
 standards:
@@ -23,16 +71,27 @@ standards:
 
     libraries:
       validated_crypto_libraries:
+        - name: go.step.sm/crypto
+          versions: []
+        - name: golang.org/x/crypto
+          versions: []
         - name: libcrypto3
-          versions:
+          versions: &validated_openssl_versions
             - 3.0.0
             - 3.0.8
             - 3.0.9
         - name: libssl3
           versions:
-            - 3.0.0
-            - 3.0.8
-            - 3.0.9
+            *validated_openssl_versions
+        - name: openssl
+          versions:
+            *validated_openssl_versions
+        - name: openssl-dev
+          versions:
+            *validated_openssl_versions
+        - name: openssl-libs
+          versions:
+            *validated_openssl_versions
 
     primitives:
       symmetric_algorithms:
