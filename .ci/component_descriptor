@@ -34,7 +34,7 @@ def version_from_file(
     return version
 
 
-def main():
+def delivery_service_component_descriptor():
     component_descriptor = parse_component_descriptor()
     component = component_descriptor.component
 
@@ -66,13 +66,25 @@ def main():
     ):
         component.componentReferences.append(cref)
 
+    return component_descriptor
+
+
+if __name__ == '__main__':
+
+    component_name = os.environ['COMPONENT_NAME']
+
+    if component_name == 'ocm.software/ocm-gear/delivery-service':
+        component_descriptor = delivery_service_component_descriptor
+
+    elif component_name == 'ocm.software/ocm-gear/bdba-client':
+        component_descriptor = parse_component_descriptor()
+
+    else:
+        raise ValueError(f'Unknown component name: {component_name}')
+
     with open(component_descriptor_path, 'w') as f:
         yaml.dump(
             data=dataclasses.asdict(component_descriptor),
             Dumper=ocm.EnumValueYamlDumper,
             stream=f,
         )
-
-
-if __name__ == '__main__':
-    main()
