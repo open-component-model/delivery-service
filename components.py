@@ -1351,6 +1351,7 @@ class ComplianceSummary(aiohttp.web.View):
                 component_descriptor_lookup=component_descriptor_lookup,
                 eol_client=eol_client,
                 artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
+                ocm_repo=ocm_repo,
                 shortcut_cache=shortcut_cache,
             ) for component in components
         ]

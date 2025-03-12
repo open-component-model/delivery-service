@@ -10,6 +10,7 @@ import awesomeversion
 import dacite
 import sqlalchemy.ext.asyncio as sqlasync
 
+import cnudie.retrieve
 import cnudie.retrieve_async
 import dso.model
 import ocm
@@ -423,6 +424,7 @@ async def artefact_datatype_summary(
         'component_descriptor_lookup',
         'eol_client',
         'artefact_metadata_cfg',
+        'ocm_repo',
     ),
 )
 async def component_datatype_summaries(
@@ -434,9 +436,16 @@ async def component_datatype_summaries(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     eol_client: eol.EolClient,
     artefact_metadata_cfg: ArtefactMetadataCfg,
+    ocm_repo: ocm.OciOcmRepository | None=None,
     shortcut_cache: bool=False,
 ) -> list[tuple[dso.model.ComponentArtefactId, ComplianceSummaryEntry]]:
-    component = (await component_descriptor_lookup(component)).component
+    if ocm_repo:
+        component = (await component_descriptor_lookup(
+            component,
+            ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+        )).component
+    else:
+        component = (await component_descriptor_lookup(component)).component
 
     if not dso.model.Datasource.has_scan_info(datasource):
         # TODO remove this conditional branch once all datasources emit scan info objects
@@ -544,6 +553,7 @@ async def component_compliance_summary(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     eol_client: eol.EolClient,
     artefact_metadata_cfg_by_type: dict[str, ArtefactMetadataCfg],
+    ocm_repo: ocm.OciOcmRepository | None=None,
     shortcut_cache: bool=False,
 ) -> ComponentComplianceSummary:
     component_entries = []
@@ -559,6 +569,7 @@ async def component_compliance_summary(
             component_descriptor_lookup=component_descriptor_lookup,
             eol_client=eol_client,
             artefact_metadata_cfg=artefact_metadata_cfg_by_type.get(finding_cfg.type),
+            ocm_repo=ocm_repo,
             shortcut_cache=shortcut_cache,
         )
 
