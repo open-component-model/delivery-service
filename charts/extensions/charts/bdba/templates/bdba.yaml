@@ -29,7 +29,7 @@ spec:
           command:
             - python3
             - -m
-            - bdba
+            - bdba_extension
           env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
