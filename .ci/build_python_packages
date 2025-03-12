@@ -8,7 +8,7 @@ mkdir "${out_dir}"
 
 ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
 cc_utils_version="$(cat "${repo_dir}/CC_UTILS_VERSION")"
-bdba_version="$(cat "${repo_root}/BDBA_DEPENDENCY_VERSION")"
+bdba_version="$(cat "${repo_dir}/BDBA_DEPENDENCY_VERSION")"
 
 apk add --no-cache xz
 
