@@ -3,7 +3,7 @@ bdba==0.2.0
 boto3
 cachetools
 dacite
-gardener-cicd-libs==1.2606.0
+gardener-cicd-libs==1.2607.0
 github3.py
 kubernetes
 requests
