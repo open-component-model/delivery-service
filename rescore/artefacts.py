@@ -9,6 +9,7 @@ import logging
 
 import aiohttp.web
 import dacite
+import jsonpath_ng
 import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 
@@ -494,97 +495,58 @@ async def _iter_rescoring_proposals(
         seen_ids.add(am.id)
 
 
-def iter_matching_artefacts(
-    compliance_snapshots: tuple[dso.model.ArtefactMetadata],
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:
-    '''
-    Some rescorings don't have any component name or artefact name set because their scope may be
-    across different names. However, backlog items for the issue replicator need to have both of
-    them set. Therefore, this functions uses given compliance snapshots to find all artefacts which
-    match the scope of the rescorings. These artefacts can then be used further to create appropiate
-    backlog items.
-    '''
-    seen_rescored_artefacts = set()
-    seen_artefacts = set()
-
-    for rescoring in rescorings:
-        artefact = rescoring.artefact
-        artefact_key = (
-            f'{artefact.component_name}:{artefact.artefact_kind}'
-            f'{artefact.artefact.artefact_name}:{artefact.artefact.artefact_type}'
-        )
-        if artefact_key in seen_rescored_artefacts:
-            continue
-        seen_rescored_artefacts.add(artefact_key)
-
-        if artefact.component_name and artefact.artefact.artefact_name:
-            # all required props for backlog item present
-            # no need to search for matching artefacts in compliance snapshots
-            yield artefact
-            continue
-
-        for compliance_snapshot in compliance_snapshots:
-            a = compliance_snapshot.artefact
-
-            if (
-                artefact.component_name
-                and artefact.component_name != a.component_name
-            ):
-                continue
-
-            if artefact.artefact_kind != a.artefact_kind:
-                continue
-
-            if (
-                artefact.artefact.artefact_name
-                and artefact.artefact.artefact_name != a.artefact.artefact_name
-            ):
-                continue
-
-            if artefact.artefact.artefact_type != a.artefact.artefact_type:
-                continue
-
-            a_key = (
-                f'{a.component_name}:{a.artefact_kind}:'
-                f'{a.artefact.artefact_name}:{a.artefact.artefact_type}'
-            )
-            if a_key in seen_artefacts:
-                continue
-            seen_artefacts.add(a_key)
-
-            yield a
-
-
 async def create_backlog_items_for_rescored_artefacts(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    db_session: sqlasync.session.AsyncSession,
-    rescorings: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
 ):
-    db_statement = sa.select(dm.ArtefactMetaData).where(
-        dm.ArtefactMetaData.type == dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
-    )
-    db_stream = await db_session.stream(db_statement)
+    '''
+    Determines those artefacts from `rescorings`, which still contain all attributes which are
+    relevant for grouping in the GitHub issues, and creates respective issue replicator backlog
+    items for those. If some of these properties are not set (e.g. because the rescoring scope is
+    too generous), those artefact will be skipped and their GitHub issues will have to be updated
+    with the next usual issue update (based on the configured issue replicator interval).
+    '''
+    artefact_groups = set()
 
-    compliance_snapshots = [
-        du.db_artefact_metadata_row_to_dso(row)
-        async for partition in db_stream.partitions(size=50)
-        for row in partition
-    ]
-    await db_session.close()
+    for rescoring in rescorings:
+        finding_type = odg.findings.FindingType(rescoring.data.referenced_type)
 
-    active_compliance_snapshots = tuple(
-        cs for cs in compliance_snapshots
-        if cs.data.current_state().status == dso.model.ComplianceSnapshotStatuses.ACTIVE
-    )
+        for finding_cfg in finding_cfgs:
+            if finding_type is finding_cfg.type:
+                break
+        else:
+            raise ValueError(f'did not find finding-cfg for {finding_type=}')
 
-    artefacts = iter_matching_artefacts(
-        compliance_snapshots=active_compliance_snapshots,
-        rescorings=rescorings,
-    )
+        if not finding_cfg.issues.enable_issues:
+            # no need to create a BLI if issues are disabled anyways for this finding type
+            continue
 
-    for artefact in artefacts:
+        artefact_raw = dataclasses.asdict(rescoring.artefact)
+
+        required_attr_not_set = False
+        for attr_ref in finding_cfg.issues.attrs_to_group_by:
+            attr_path = jsonpath_ng.parse(attr_ref)
+
+            if (
+                not (prop := attr_path.find(artefact_raw))
+                or prop is None
+            ):
+                required_attr_not_set = True
+                break
+
+        if required_attr_not_set:
+            # if any grouping relevant attribute is not set, we are unable to create a corresponding
+            # BLI which contains the minimum required attributes
+            continue
+
+        artefact_groups.add(finding_cfg.issues.strip_artefact(
+            artefact=rescoring.artefact,
+            keep_group_attributes=True,
+        ))
+
+    for artefact in artefact_groups:
         k8s.backlog.create_backlog_item(
             service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
             namespace=namespace,
@@ -672,8 +634,8 @@ class Rescore(aiohttp.web.View):
             asyncio.create_task(create_backlog_items_for_rescored_artefacts(
                 namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                 kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-                db_session=db_session,
                 rescorings=rescorings,
+                finding_cfgs=self.request.app[consts.APP_FINDING_CFGS],
             ))
 
         return aiohttp.web.Response(
@@ -872,8 +834,8 @@ class Rescore(aiohttp.web.View):
             asyncio.create_task(create_backlog_items_for_rescored_artefacts(
                 namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                 kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-                db_session=db_session,
                 rescorings=rescorings,
+                finding_cfgs=self.request.app[consts.APP_FINDING_CFGS],
             ))
 
         return aiohttp.web.Response(

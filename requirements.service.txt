@@ -3,6 +3,7 @@ awesomeversion
 bdba==0.2.0
 dataclasses-json
 htmllistparse
+jsonpath-ng
 jsonschema
 prometheus_client
 psycopg[binary]
