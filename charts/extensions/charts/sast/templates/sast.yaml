@@ -64,10 +64,10 @@ spec:
           resources:
             requests:
               memory: 100Mi
-              cpu: 100m
+              cpu: 250m
             limits:
               memory: 300Mi
-              cpu: 200m
+              cpu: 500m
       volumes:
         - name: github
           secret:
