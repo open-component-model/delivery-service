@@ -1,3 +1,4 @@
+import asyncio
 import collections.abc
 import dataclasses
 import datetime
@@ -335,6 +336,22 @@ async def mark_for_deletion(
     return False
 
 
+async def mark_for_deletion_task(
+    db_session: sqlasync.session.AsyncSession,
+    id: str,
+    delete_after: datetime.datetime | None=None,
+    defer_db_commit: bool=False,
+):
+    await mark_for_deletion(
+        db_session=db_session,
+        id=id,
+        delete_after=delete_after,
+        defer_db_commit=defer_db_commit,
+    )
+
+    await db_session.close()
+
+
 async def mark_function_cache_for_deletion(
     encoding_format: dcm.EncodingFormat | str,
     function: collections.abc.Callable | str,
@@ -436,11 +453,11 @@ class DeliveryDBCache(aiohttp.web.View):
             )
             id = descriptor.id
 
-        await mark_for_deletion(
+        asyncio.create_task(mark_for_deletion_task(
             db_session=db_session,
             id=id,
             delete_after=delete_after,
-        )
+        ))
 
         return aiohttp.web.Response(
             status=http.HTTPStatus.NO_CONTENT,
