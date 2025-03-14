@@ -2,6 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: delivery-service
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
   {{- if default dict (.Values.autoscaler).annotations }}
   annotations:
   {{- range $annotation, $value := .Values.autoscaler.annotations }}

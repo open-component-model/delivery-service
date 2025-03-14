@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backlog-controller
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -26,7 +27,7 @@ spec:
             - name: EXTENSIONS_CFG_PATH
               value: /extensions_cfg/extensions_cfg
             - name: K8S_TARGET_NAMESPACE
-              value: {{ .Release.Namespace }}
+              value: {{ .Values.target_namespace | default .Release.Namespace }}
           volumeMounts:
             - name: kubernetes
               mountPath: /secrets/kubernetes

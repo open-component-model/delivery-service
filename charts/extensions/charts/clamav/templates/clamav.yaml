@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
   name: clamav
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   replicas: 0 # will be scaled automatically by backlog-controller
   selector:
@@ -36,7 +37,7 @@ spec:
             - name: OCM_REPO_MAPPINGS_PATH
               value: /ocm_repo_mappings/ocm_repo_mappings
             - name: K8S_TARGET_NAMESPACE
-              value: {{ .Release.Namespace }}
+              value: {{ .Values.target_namespace | default .Release.Namespace }}
           volumeMounts:
             - name: aws
               mountPath: /secrets/aws

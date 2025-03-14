@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: delivery-db-backup
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   schedule: {{ default "0 0 * * *" .Values.schedule | quote }} # schedule contains asterisks, quote to avoid yaml parser errors
   concurrencyPolicy: Forbid
@@ -28,7 +29,7 @@ spec:
             - name: EXTENSIONS_CFG_PATH
               value: /extensions_cfg/extensions_cfg
             - name: K8S_TARGET_NAMESPACE
-              value: {{ .Release.Namespace }}
+              value: {{ .Values.target_namespace | default .Release.Namespace }}
             volumeMounts:
             - name: delivery-db
               mountPath: /secrets/delivery-db
