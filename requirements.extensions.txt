@@ -1,1 +1,2 @@
+bdba==0.2.0
 cyclonedx-python-lib

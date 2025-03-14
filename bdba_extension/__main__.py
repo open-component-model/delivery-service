@@ -16,6 +16,7 @@ import ocm
 import tarutil
 
 import bdba.client
+import bdba.model
 import bdba_extension.scanning
 import consts
 import ctx_util
@@ -209,7 +210,7 @@ def scan(
         resource_node=resource_node,
         content_iterator=content_iterator,
         known_scan_results=known_scan_results,
-        processing_mode=mapping.processing_mode,
+        processing_mode=bdba.model.ProcessingMode(mapping.processing_mode),
         delivery_client=delivery_client,
         vulnerability_cfg=vulnerability_cfg,
         license_cfg=license_cfg,

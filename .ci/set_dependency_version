@@ -9,7 +9,9 @@ repo_dir = os.path.abspath(os.environ['MAIN_REPO_DIR'])
 CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
 FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
 BDBA_VERSIONFILE = os.path.join(repo_dir, 'BDBA_DEPENDENCY_VERSION')
-REQUIREMENTS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
+REQUIREMENTS_EXTENSIONS_FILE = os.path.join(repo_dir, 'requirements.extensions.txt')
+REQUIREMENTS_SERVICE_FILE = os.path.join(repo_dir, 'requirements.service.txt')
+REQUIREMENTS_UTILS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
 EXTENSIONS_CHART_DIR = os.path.join(repo_dir, 'charts', 'extensions')
 
 dependency_name = os.environ['DEPENDENCY_NAME']
@@ -51,7 +53,7 @@ def main():
         package_name = 'gardener-cicd-libs'
 
         write_component_version_to_file(CC_UTILS_VERSIONFILE)
-        write_package_version_to_requirements_file(package_name, REQUIREMENTS_FILE)
+        write_package_version_to_requirements_file(package_name, REQUIREMENTS_UTILS_FILE)
 
     elif dependency_name == 'ocm.software/ocm-gear/bdba-client':
         python_distribution_package_name = 'bdba'
@@ -59,7 +61,11 @@ def main():
         write_component_version_to_file(BDBA_VERSIONFILE)
         write_package_version_to_requirements_file(
             package_name=python_distribution_package_name,
-            file_path=REQUIREMENTS_FILE,
+            file_path=REQUIREMENTS_EXTENSIONS_FILE,
+        )
+        write_package_version_to_requirements_file(
+            package_name=python_distribution_package_name,
+            file_path=REQUIREMENTS_SERVICE_FILE,
         )
 
     elif dependency_name == 'ocm.software/ocm-gear/freshclam':

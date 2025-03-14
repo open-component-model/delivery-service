@@ -1,5 +1,6 @@
 aiohttp-swagger
 awesomeversion
+bdba==0.2.0
 dataclasses-json
 htmllistparse
 jsonschema
