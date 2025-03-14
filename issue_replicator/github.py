@@ -665,8 +665,30 @@ def _diki_template_vars(
 
         finging_rule = finding.finding.data
         finding_str = '\n'
-        finding_str += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
-        finding_str += f' rule with ID {finging_rule.rule_id} - {finging_rule.severity}\n'
+        if finging_rule.ruleset_name is None or finging_rule.rule_name is None :
+            finding_str += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
+            finding_str += f' rule with ID {finging_rule.rule_id} - {finging_rule.severity}\n'
+        else:
+            finding_str += '# Failed rule summary\n'
+            finding_str += '|    |    |\n'
+            finding_str += '| -- | -- |\n'
+            finding_str += f'| Ruleset ID | {finging_rule.ruleset_id} |\n'
+            finding_str += f'| Ruleset Name | {finging_rule.ruleset_name} |\n'
+            finding_str += f'| Ruleset Version | {finging_rule.ruleset_version} |\n'
+            finding_str += f'| Rule ID | {finging_rule.rule_id} |\n'
+            finding_str += f'| Rule Name | {finging_rule.rule_name} |\n'
+            
+            rule_link=""
+            match finging_rule.ruleset_id:
+                case "disa-kubernetes-stig":
+                    rule_link=f'https://www.stigviewer.com/stig/kubernetes/2024-08-22/finding/V-{finging_rule.rule_id}'
+                case "security-hardened-shoot-cluster":
+                    rule_link=f'https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finging_rule.rule_id}'
+                case "security-hardened-k8s":
+                    rule_link=f'https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-k8s/ruleset.md#{finging_rule.rule_id}'
+                
+            if len(rule_link) > 0:
+                finding_str += f'| Rule Description | [link]({rule_link}) |\n'
         finding_str += '\n'
         finding_str += '### Failed checks:\n'
 
