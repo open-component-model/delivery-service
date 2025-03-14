@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: features-cfg
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 type: Opaque
 stringData:
   features_cfg: |

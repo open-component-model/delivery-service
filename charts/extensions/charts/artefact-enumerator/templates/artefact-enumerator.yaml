@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: artefact-enumerator
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   schedule: {{ default "*/5 * * * *" .Values.schedule | quote }} # schedule may contain asterisks, quote to avoid yaml parser errors
   concurrencyPolicy: Forbid
@@ -32,7 +33,7 @@ spec:
             - name: OCM_REPO_MAPPINGS_PATH
               value: /ocm_repo_mappings/ocm_repo_mappings
             - name: K8S_TARGET_NAMESPACE
-              value: {{ .Release.Namespace }}
+              value: {{ .Values.target_namespace | default .Release.Namespace }}
             volumeMounts:
             - name: github
               mountPath: /secrets/github

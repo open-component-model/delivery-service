@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: freshclam
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   replicas: 1
   selector:
