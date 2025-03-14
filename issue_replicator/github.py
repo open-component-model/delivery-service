@@ -665,7 +665,7 @@ def _diki_template_vars(
 
         finging_rule = finding.finding.data
         finding_str = '\n'
-        if finging_rule.ruleset_name is None or finging_rule.rule_name is None :
+        if finging_rule.ruleset_name is None or finging_rule.rule_name is None:
             finding_str += f'# Failed {finging_rule.ruleset_id}:{finging_rule.ruleset_version}'
             finding_str += f' rule with ID {finging_rule.rule_id} - {finging_rule.severity}\n'
         else:
@@ -678,14 +678,14 @@ def _diki_template_vars(
             finding_str += f'| Rule ID | {finging_rule.rule_id} |\n'
             finding_str += f'| Rule Name | {finging_rule.rule_name} |\n'
 
-            rule_desc=""
+            rule_desc = ""
             match finging_rule.ruleset_id:
                 case "disa-kubernetes-stig":
-                    rule_desc=f'[DISA STIG viewer - {finging_rule.rule_id}](https://www.stigviewer.com/stig/kubernetes/2024-08-22/finding/V-{finging_rule.rule_id})'
+                    rule_desc = f'[DISA STIG viewer - {finging_rule.rule_id}](https://www.stigviewer.com/stig/kubernetes/2024-08-22/finding/V-{finging_rule.rule_id})'  # noqa: E501
                 case "security-hardened-shoot-cluster":
-                    rule_desc=f'[Security Hardened Shoot Cluster Guide - {finging_rule.rule_id}](https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finging_rule.rule_id})'
+                    rule_desc = f'[Security Hardened Shoot Cluster Guide - {finging_rule.rule_id}](https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finging_rule.rule_id})' # noqa: E501
                 case "security-hardened-k8s":
-                    rule_desc=f'[Security Hardened Kubernetes Cluster Guide - {finging_rule.rule_id}](https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-k8s/ruleset.md#{finging_rule.rule_id})'
+                    rule_desc = f'[Security Hardened Kubernetes Cluster Guide - {finging_rule.rule_id}](https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-k8s/ruleset.md#{finging_rule.rule_id})' # noqa: E501
 
             if len(rule_desc) > 0:
                 finding_str += f'| Rule Description | {rule_desc} |\n'
