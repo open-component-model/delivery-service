@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: delivery-service
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   selector:
     matchLabels:
@@ -63,7 +64,7 @@ spec:
           - name: PROFILES_PATH
             value: /profiles/profiles
           - name: K8S_TARGET_NAMESPACE
-            value: {{ .Release.Namespace }}
+            value: {{ .Values.target_namespace | default .Release.Namespace }}
           {{- if default dict .Values.envVars }}
           {{- range $key, $value := .Values.envVars }}
           - name: {{ $key }}

@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: freshclam
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
   labels:
     app: freshclam
 spec:

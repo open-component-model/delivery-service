@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: cache-manager
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   schedule: {{ default "*/10 * * * *" .Values.schedule | quote }} # schedule contains asterisks, quote to avoid yaml parser errors
   concurrencyPolicy: Forbid
@@ -38,7 +39,7 @@ spec:
             - name: OCM_REPO_MAPPINGS_PATH
               value: /ocm_repo_mappings/ocm_repo_mappings
             - name: K8S_TARGET_NAMESPACE
-              value: {{ .Release.Namespace }}
+              value: {{ .Values.target_namespace | default .Release.Namespace }}
             volumeMounts:
             - name: delivery-db
               mountPath: /secrets/delivery-db
