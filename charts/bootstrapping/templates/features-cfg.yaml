@@ -1,3 +1,4 @@
+{{- if $featuresCfg := .Values.featuresCfg }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -5,4 +6,5 @@ metadata:
 type: Opaque
 stringData:
   features_cfg: |
-    {{ toYaml .Values.featuresCfg | nindent 4 }}
+    {{- toYaml $featuresCfg | nindent 4 }}
+{{- end }}
