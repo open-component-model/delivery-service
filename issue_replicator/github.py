@@ -673,6 +673,7 @@ def _diki_template_vars(
         finding_str += f'| Ruleset Version | {finding_rule.ruleset_version} |\n'
         finding_str += f'| Rule ID | {finding_rule.rule_id} |\n'
         finding_str += f'| Rule Name | {finding_rule.rule_name} |\n'
+        finding_str += f'| Severity | {finding_rule.severity} |\n'
 
         rule_desc = ""
         match finding_rule.ruleset_id:
