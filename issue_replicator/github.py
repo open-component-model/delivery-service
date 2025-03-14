@@ -677,18 +677,18 @@ def _diki_template_vars(
             finding_str += f'| Ruleset Version | {finging_rule.ruleset_version} |\n'
             finding_str += f'| Rule ID | {finging_rule.rule_id} |\n'
             finding_str += f'| Rule Name | {finging_rule.rule_name} |\n'
-            
-            rule_link=""
+
+            rule_desc=""
             match finging_rule.ruleset_id:
                 case "disa-kubernetes-stig":
-                    rule_link=f'https://www.stigviewer.com/stig/kubernetes/2024-08-22/finding/V-{finging_rule.rule_id}'
+                    rule_desc=f'[DISA STIG viewer - {finging_rule.rule_id}](https://www.stigviewer.com/stig/kubernetes/2024-08-22/finding/V-{finging_rule.rule_id})'
                 case "security-hardened-shoot-cluster":
-                    rule_link=f'https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finging_rule.rule_id}'
+                    rule_desc=f'[Security Hardened Shoot Cluster Guide - {finging_rule.rule_id}](https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finging_rule.rule_id})'
                 case "security-hardened-k8s":
-                    rule_link=f'https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-k8s/ruleset.md#{finging_rule.rule_id}'
-                
-            if len(rule_link) > 0:
-                finding_str += f'| Rule Description | [link]({rule_link}) |\n'
+                    rule_desc=f'[Security Hardened Kubernetes Cluster Guide - {finging_rule.rule_id}](https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-k8s/ruleset.md#{finging_rule.rule_id})'
+
+            if len(rule_desc) > 0:
+                finding_str += f'| Rule Description | {rule_desc} |\n'
         finding_str += '\n'
         finding_str += '### Failed checks:\n'
 
