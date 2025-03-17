@@ -1,6 +1,7 @@
 import aiohttp.typedefs
 import aiohttp.web
 import sqlalchemy
+import sqlalchemy.exc
 
 import consts
 import deliverydb
@@ -37,6 +38,9 @@ async def db_session_middleware(
 
         try:
             response = await handler(request)
+        except sqlalchemy.exc.TimeoutError:
+            # 503 error can be reacted upon by a load balancer to forward req to next pod
+            raise aiohttp.web.HTTPServiceUnavailable
         except Exception:
             raise
         finally:
