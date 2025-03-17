@@ -28,6 +28,12 @@ async def db_session_middleware(
         handler: aiohttp.typedefs.Handler,
     ) -> aiohttp.web.StreamResponse:
         request[consts.REQUEST_DB_SESSION] = await deliverydb.sqlalchemy_session(db_url)
+        request[consts.REQUEST_DB_SESSION_LOW_PRIO] = await deliverydb.sqlalchemy_session(
+            db_url=db_url,
+            pool_size=2,
+            max_overflow=1,
+            pool_timeout=300,
+        )
 
         try:
             response = await handler(request)
@@ -36,6 +42,8 @@ async def db_session_middleware(
         finally:
             if db_session := request.get(consts.REQUEST_DB_SESSION):
                 await db_session.close()
+            if db_session_low_prio := request.get(consts.REQUEST_DB_SESSION_LOW_PRIO):
+                await db_session_low_prio.close()
 
         return response
 

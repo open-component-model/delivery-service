@@ -30,7 +30,10 @@ APP_UPR_REGEX_CALLBACK = 'upr_regex_callback'
 APP_VERSION_FILTER_CALLBACK = 'version_filter_callback'
 APP_VERSION_LOOKUP = 'version_lookup'
 
+# `db_session` is intended to be used for tasks which have to be finished in a timely manner
 REQUEST_DB_SESSION = 'db_session'
+# `db_session_low_prio` has a small connection pool with a long timeout for low prio tasks
+REQUEST_DB_SESSION_LOW_PRIO = 'db_session_low_prio'
 REQUEST_GITHUB_USER = 'github_user'
 
 BACKLOG_ITEM_SLEEP_INTERVAL_SECONDS = 60
