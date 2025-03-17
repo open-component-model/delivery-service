@@ -6,6 +6,7 @@ import re
 import time
 
 import kubernetes.client as kc
+import kubernetes.client.models.v1_deployment
 import kubernetes.client.rest
 import kubernetes.config
 import yaml
@@ -107,7 +108,7 @@ def label_is_true(label: str):
     return is_true
 
 
-def scale_replica_set(
+def scale_replicas(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: KubernetesApi,
@@ -119,18 +120,19 @@ def scale_replica_set(
         name_parts=(service,),
         generate_num_suffix=False,
     )
-    replica_set = kubernetes_api.apps_kubernetes_api.read_namespaced_replica_set(
+    deployment = kubernetes_api.apps_kubernetes_api.read_namespaced_deployment(
         namespace=namespace,
         name=name,
     )
+    deployment: kubernetes.client.models.v1_deployment.V1Deployment
 
-    current_replicas = replica_set.spec.replicas
+    current_replicas = deployment.spec.replicas
 
     if current_replicas == desired_replicas:
         # nothing to do here
         return
 
-    replica_set.spec.replicas = desired_replicas
+    deployment.spec.replicas = desired_replicas
 
     logger.info(
         f'attempting to scale replica set {name} in {namespace=} '
@@ -140,10 +142,10 @@ def scale_replica_set(
     try:
         # use "replace" instead of "patch" here to allow running in a conflict
         # -> "patch" silently ignores conflicts and overrides the resource anyways
-        kubernetes_api.apps_kubernetes_api.replace_namespaced_replica_set(
+        kubernetes_api.apps_kubernetes_api.replace_namespaced_deployment(
             namespace=namespace,
             name=name,
-            body=replica_set,
+            body=deployment,
         )
     except kubernetes.client.rest.ApiException as e:
         if e.status != http.HTTPStatus.CONFLICT or retry_count >= max_retries:
@@ -156,7 +158,7 @@ def scale_replica_set(
             f'again in {retry_interval} sec...'
         )
         time.sleep(retry_interval)
-        return scale_replica_set(
+        return scale_replicas(
             service=service,
             namespace=namespace,
             kubernetes_api=kubernetes_api,

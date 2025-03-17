@@ -101,7 +101,7 @@ def on_backlog_change(
     items_per_replica = backlog_controller_cfg.backlog_items_per_replica
     desired_replicas = min(math.ceil(len(backlog_crds) / items_per_replica), max_replicas)
 
-    k8s.util.scale_replica_set(
+    k8s.util.scale_replicas(
         service=service,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
