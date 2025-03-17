@@ -17,6 +17,7 @@ rules:
       - replicasets
       - ingresses
       - runtimeartefacts
+      - deployments
     verbs:
       - create
       - get
