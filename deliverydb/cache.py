@@ -420,7 +420,7 @@ class DeliveryDBCache(aiohttp.web.View):
           "204":
             description: Successful operation.
         '''
-        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        db_session_low_prio = self.request[consts.REQUEST_DB_SESSION_LOW_PRIO]
         params = self.request.rel_url.query
 
         now = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -454,7 +454,7 @@ class DeliveryDBCache(aiohttp.web.View):
             id = descriptor.id
 
         asyncio.create_task(mark_for_deletion_task(
-            db_session=db_session,
+            db_session=db_session_low_prio,
             id=id,
             delete_after=delete_after,
         ))
