@@ -153,7 +153,7 @@ def scale_replicas(
 
         retry_interval = (retry_count + 1) * 10
         logger.warning(
-            f'scaling replica set {name} in {namespace=} from {current_replicas} to '
+            f'scaling replicas of deployment {name} in {namespace=} from {current_replicas} to '
             f'{desired_replicas} resulted  in a conflict, will try to scale replica set '
             f'again in {retry_interval} sec...'
         )
