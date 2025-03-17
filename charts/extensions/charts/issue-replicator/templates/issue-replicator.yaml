@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   name: issuereplicator
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
