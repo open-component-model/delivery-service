@@ -29,3 +29,6 @@ dependencies:
   - name: sast
     repository: file://charts/sast
     condition: sast.enabled
+  - name: os-id
+    repository: file://charts/os-id
+    condition: os-id.enabled
