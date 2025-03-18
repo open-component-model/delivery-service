@@ -28,7 +28,10 @@ async def db_session_middleware(
         request: aiohttp.web.Request,
         handler: aiohttp.typedefs.Handler,
     ) -> aiohttp.web.StreamResponse:
-        request[consts.REQUEST_DB_SESSION] = await deliverydb.sqlalchemy_session(db_url)
+        request[consts.REQUEST_DB_SESSION] = await deliverydb.sqlalchemy_session(
+            db_url=db_url,
+            pool_timeout=5,
+        )
         request[consts.REQUEST_DB_SESSION_LOW_PRIO] = await deliverydb.sqlalchemy_session(
             db_url=db_url,
             pool_size=2,
