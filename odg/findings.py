@@ -75,6 +75,7 @@ class FindingType(enum.StrEnum):
     DIKI = 'finding/diki'
     LICENSE = 'finding/license'
     MALWARE = 'finding/malware'
+    OS_ID = 'finding/os_id'
     OS_IDS = 'os_ids'
     SAST = 'finding/sast'
     VULNERABILITY = 'finding/vulnerability'
@@ -84,6 +85,15 @@ class FindingType(enum.StrEnum):
 class MinMaxRange:
     min: float
     max: float
+
+
+@dataclasses.dataclass
+class OsIdFindingSelector:
+    '''
+    :param list[str] status:
+        List of regexes to determine matching os_id findings based on their status.
+    '''
+    status: list[str]
 
 
 @dataclasses.dataclass
@@ -175,6 +185,7 @@ class FindingCategorisation:
         | MalwareFindingSelector
         | SASTFindingSelector
         | VulnerabilityFindingSelector
+        | OsIdFindingSelector
         | None
     )
 
@@ -509,6 +520,8 @@ class Finding:
 
     def _validate(self):
         match self.type:
+            case FindingType.OS_ID:
+                self._validate_os_id()
             case FindingType.CRYPTO:
                 self._validate_crypto()
             case FindingType.DIKI:
@@ -523,6 +536,17 @@ class Finding:
                 self._validate_vulnerabilty()
             case _:
                 pass
+
+    def _validate_os_id(self):
+        violations = self._validate_categorisations(
+            expected_selector=OsIdFindingSelector
+        )
+
+        if not violations:
+            return
+        e = ModelValidationError('os_id finding model violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
 
     def _validate_crypto(self):
         violations = self._validate_categorisations(
@@ -810,3 +834,8 @@ def categorise_finding(
                 and finding_property <= selector.cve_score_range.max
             ):
                 return categorisation
+
+        elif isinstance(selector, OsIdFindingSelector):
+            for status in selector.status:
+                if re.fullmatch(status, finding_property, re.IGNORECASE):
+                    return categorisation
