@@ -361,7 +361,7 @@ def iter_crypto_assets(
     )
 
     crypto_assets_raw = list(filter_crypto_assets(
-        components=cbom.get('components', []),
+        components=cbom.get('components') or [],
         known_crypto_libraries=crypto_libraries,
         included_asset_types=included_asset_types,
     ))
