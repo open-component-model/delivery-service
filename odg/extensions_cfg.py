@@ -32,6 +32,7 @@ class Services(enum.StrEnum):
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
     ISSUE_REPLICATOR = 'issueReplicator'
     SAST = 'sast'
+    OS_ID = 'osId'
 
 
 class VersionAliases(enum.StrEnum):
@@ -721,6 +722,37 @@ class SASTConfig(BacklogItemMixins):
         return True
 
 
+class OsId(BacklogItemMixins):
+    '''
+    :param str delivery_service_url
+    :param int interval:
+        Time after which an artefact must be re-scanned at latest.
+    :param WarningVerbosities on_unsupported
+        Defines the handling if a backlog item should be processed which contains unsupported
+        properties, e.g. an unsupported access type.
+    '''
+    delivery_service_url: str
+    interval: int = 60 * 60 * 24 # 24h
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+
+    def is_supported(
+        self,
+        artefact_kind: dso.model.ArtefactKind | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            dso.model.ArtefactKind.RESOURCE,
+        )
+
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for OS_ID scans, {supported_artefact_kinds=}'
+                )
+            return False
+
+        return True
+
+
 @dataclasses.dataclass
 class ExtensionsConfiguration:
     artefact_enumerator: ArtefactEnumeratorConfig | None
@@ -731,6 +763,7 @@ class ExtensionsConfiguration:
     delivery_db_backup: DeliveryDBBackup | None
     issue_replicator: IssueReplicatorConfig | None
     sast: SASTConfig | None
+    os_id: OsId | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod
