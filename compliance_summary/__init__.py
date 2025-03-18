@@ -145,7 +145,7 @@ class OsStatusMapping(SeverityMappingBase):
         if empty_os_id(os_id):
             return severity_for_os_status(OsStatus.EMPTY_OS_ID)
 
-        release_infos = await osinfo.os_release_infos(
+        release_infos = osinfo.os_release_infos(
             os_id=eol.normalise_os_id(os_id.ID),
             eol_client=eol_client,
         )
