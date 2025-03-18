@@ -1,6 +1,6 @@
 FROM golang:alpine AS cbomkit-theia-builder
 
-ARG CBOMKIT_THEIA_VERSION=0.9.0
+ARG CBOMKIT_THEIA_VERSION=1.0.1
 
 RUN apk add --no-cache git \
 && git clone --branch ${CBOMKIT_THEIA_VERSION} https://github.com/IBM/cbomkit-theia.git /cbomkit-theia \
