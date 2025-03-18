@@ -40,6 +40,7 @@ def packages():
         'k8s',
         'odg',
         'secret_mgmt',
+        'osinfo',
     ]
 
 

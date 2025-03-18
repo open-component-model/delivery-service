@@ -35,6 +35,7 @@ def packages():
         'crypto_extension',
         'issue_replicator',
         'malware',
+        'os_id_extension',
     ]
 
 

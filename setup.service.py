@@ -46,7 +46,6 @@ def packages():
         'deliverydb',
         'features',
         'middleware',
-        'osinfo',
         'rescore',
         'responsibles',
         'schema',
