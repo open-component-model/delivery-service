@@ -37,7 +37,6 @@ def create_cbom(
         cbom_cmd = [
             'cbomkit-theia',
             'image',
-            'get',
             image,
         ]
     else:
