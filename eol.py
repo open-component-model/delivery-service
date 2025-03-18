@@ -1,12 +1,10 @@
 import datetime
 
-import aiohttp
-import aiohttp.client_exceptions
+import requests
 import dateutil.parser
 
-import delivery.model as dm
-
 import caching
+import os_id_extension.model as osidmodel
 import util
 
 
@@ -25,7 +23,7 @@ def normalise_os_id(os_id: str) -> str:
 
 def os_release_info_from_release_cycle(
     release_cycle: dict,
-) -> dm.OsReleaseInfo:
+) -> osidmodel.OsReleaseInfo:
     def eol_date() -> bool | datetime.datetime | None:
         eol_date = release_cycle.get('extendedSupport')
         if eol_date is None:
@@ -49,7 +47,7 @@ def os_release_info_from_release_cycle(
         else:
             return None
 
-    return dm.OsReleaseInfo(
+    return osidmodel.OsReleaseInfo(
         name=release_cycle['cycle'],
         # not provided for all products
         greatest_version=release_cycle.get('latest'),
@@ -101,16 +99,15 @@ class EolClient:
         routes: EolRoutes = EolRoutes(),
     ):
         self._routes = routes
-        self.session = aiohttp.ClientSession()
 
-    @caching.async_cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=1)) # 24h
-    async def all_products(self) -> list[str]:
-        async with self.session.get(url=self._routes.all_products()) as res:
-            res.raise_for_status()
-            return await res.json()
+    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=1)) # 24h
+    def all_products(self) -> list[str]:
+        res = requests.get(self._routes.all_products())
+        res.raise_for_status()
+        return res.json()
 
-    @caching.async_cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200)) # 24h
-    async def cycles(
+    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200)) # 24h
+    def cycles(
         self,
         product: str,
         absent_ok: bool = False,
@@ -119,22 +116,19 @@ class EolClient:
         Returns release_cycles as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
         '''
-        async with self.session.get(url=self._routes.cycles(product)) as res:
-            try:
-                res.raise_for_status()
-            except aiohttp.client_exceptions.ClientResponseError as e:
-                if not absent_ok:
-                    raise
-
-                if e.status == 404:
-                    return None
-
+        res = requests.get(self._routes.cycles(product))
+        try:
+            res.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            if not absent_ok:
                 raise
+            if e.response.status_code == 404:
+                return None
+            raise
+        return res.json()
 
-            return await res.json()
-
-    @caching.async_cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200)) # 24h
-    async def cycle(
+    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200)) # 24h
+    def cycle(
         self,
         product: str,
         cycle: str,
@@ -144,16 +138,13 @@ class EolClient:
         Returns single release_cycle as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
         '''
-        async with self.session.get(url=self._routes.cycle(cycle, product)) as res:
-            try:
-                res.raise_for_status()
-            except aiohttp.client_exceptions.ClientResponseError as e:
-                if not absent_ok:
-                    raise
-
-                if e.status == 404:
-                    return None
-
+        res = requests.get(self._routes.cycle(cycle, product))
+        try:
+            res.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            if not absent_ok:
                 raise
-
-            return await res.json()
+            if e.response.status_code == 404:
+                return None
+            raise
+        return res.json()
