@@ -6,7 +6,6 @@ import enum
 import functools
 import logging
 
-import awesomeversion
 import dacite
 import sqlalchemy.ext.asyncio as sqlasync
 
@@ -14,15 +13,11 @@ import cnudie.retrieve
 import cnudie.retrieve_async
 import dso.model
 import ocm
-import unixutil.model as um
 
-import delivery.model
-import delivery.util as du
 import deliverydb.cache
 import deliverydb.util
 import eol
 import odg.findings
-import osinfo
 import rescore.utility
 
 
@@ -91,94 +86,6 @@ class CodecheckSeverityNamesMapping(SeverityMappingBase):
 
 
 @dataclasses.dataclass(frozen=True)
-class OsStatusMapping(SeverityMappingBase):
-    status: list[str]
-
-    async def match(
-        self,
-        finding: dso.model.ArtefactMetadata,
-        **kwargs,
-    ) -> str | None:
-
-        eol_client = kwargs['eol_client']
-
-        class OsStatus(enum.Enum):
-            '''
-            values used to map severity, see `compliance_summary/artefact_metadata_cfg.yaml`
-            '''
-            NO_BRANCH_INFO = 'noBranchInfo'
-            NO_RELEASE_INFO = 'noReleaseInfo'
-            UNABLE_TO_COMPARE_VERSION = 'unableToCompareVersion'
-            IS_EOL = 'isEol'
-            UPDATE_AVAILABLE_FOR_BRANCH = 'updateAvailableForBranch'
-            GREATEST_BRANCH_VERSION = 'greatestBranchVersion'
-            EMPTY_OS_ID = 'emptyOsId'
-
-        def empty_os_id(
-            os_id: um.OperatingSystemId,
-        ) -> bool:
-            if not any([
-                field
-                for field in os_id.__dict__.values()
-            ]):
-                return True
-            return False
-
-        def determine_status(release_infos: list[delivery.model.OsReleaseInfo]) -> OsStatus:
-            branch_info = du.find_branch_info(
-                os_id=os_id,
-                os_infos=release_infos,
-            )
-
-            if not branch_info:
-                return OsStatus.NO_BRANCH_INFO
-
-            is_eol = du.branch_reached_eol(
-                os_id=os_id,
-                os_infos=release_infos,
-            )
-
-            try:
-                update_avilable = du.update_available(
-                    os_id=os_id,
-                    os_infos=release_infos,
-                )
-            except awesomeversion.exceptions.AwesomeVersionCompareException:
-                return OsStatus.UNABLE_TO_COMPARE_VERSION
-
-            if is_eol:
-                return OsStatus.IS_EOL
-
-            if update_avilable:
-                return OsStatus.UPDATE_AVAILABLE_FOR_BRANCH
-
-            return OsStatus.GREATEST_BRANCH_VERSION
-
-        def severity_for_os_status(os_status: OsStatus) -> str | None:
-            severity_name = self.severityName
-            for mapping_status in self.status:
-                if mapping_status == os_status.value:
-                    return severity_name
-            return None
-
-        os_id = finding.data.os_info
-
-        if empty_os_id(os_id):
-            return severity_for_os_status(OsStatus.EMPTY_OS_ID)
-
-        release_infos = await osinfo.os_release_infos(
-            os_id=eol.normalise_os_id(os_id.ID),
-            eol_client=eol_client,
-        )
-
-        if not release_infos:
-            logger.debug(f'did not find release-info for {os_id=}')
-            return severity_for_os_status(OsStatus.NO_RELEASE_INFO)
-
-        return severity_for_os_status(determine_status(release_infos))
-
-
-@dataclasses.dataclass(frozen=True)
 class ArtefactMetadataCfg:
     '''
     Represents configuration for a single ArtefactMetadataType.
@@ -187,7 +94,7 @@ class ArtefactMetadataCfg:
     Each evaluated ArtefactMetadataType has its own Mapping dataclass.
     '''
     type: str
-    severityMappings: list[OsStatusMapping | CodecheckSeverityNamesMapping] | None
+    severityMappings: list[CodecheckSeverityNamesMapping] | None
     categories: list[str] = dataclasses.field(default_factory=list)
 
     async def match(

@@ -67,6 +67,7 @@ class RescoringProposal:
         | MalwareFinding
         | dso.model.SastFinding
         | dso.model.CryptoFinding
+        | dso.model.OsIDFinding
     )
     finding_type: str
     severity: str
@@ -480,6 +481,25 @@ async def _iter_rescoring_proposals(
                 data_class=RescoringProposal,
                 data={
                     'finding': dataclasses.asdict(am.data),
+                    'finding_type': finding_cfg.type,
+                    'severity': current_severity,
+                    'matching_rules': matching_rule_names,
+                    'applicable_rescorings': serialised_current_rescorings,
+                    'discovery_date': am.discovery_date.isoformat(),
+                    'sprint': sprint,
+                },
+                config=dacite.Config(
+                    strict=True,
+                ),
+            )
+        elif finding_cfg.type is odg.findings.FindingType.OS_ID:
+            yield dacite.from_dict(
+                data_class=RescoringProposal,
+                data={
+                    'finding': {
+                        'severity': severity,
+                        'os_id': am.data.os_id,
+                    },
                     'finding_type': finding_cfg.type,
                     'severity': current_severity,
                     'matching_rules': matching_rule_names,

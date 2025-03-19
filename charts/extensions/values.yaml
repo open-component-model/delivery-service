@@ -55,3 +55,9 @@ sast:
   image: # image property will be set during release
     repository: ~
     tag: ~
+
+os-id:
+  enabled: false
+  image: # image property will be set during release
+    repository: ~
+    tag: ~
