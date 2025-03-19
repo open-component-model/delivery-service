@@ -102,11 +102,8 @@ class SecretFactory:
 
             for delivery_db_cfg in delivery_db_cfgs:
                 secrets_dict['delivery-db'][delivery_db_cfg._name] = secret_mgmt.delivery_db.DeliveryDB( # noqa: E501
-                    hostname=delivery_db_cfg.hostname(),
-                    port=delivery_db_cfg.port(),
                     username=delivery_db_cfg.credentials().username(),
                     password=delivery_db_cfg.credentials().password(),
-                    db_type=delivery_db_cfg.db_type(),
                 )
 
         if github_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='github')):
