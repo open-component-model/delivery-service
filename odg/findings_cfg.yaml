@@ -139,20 +139,6 @@
         ratings:
           - not-compliant
 
-- type: codechecks/aggregated
-  issues:
-    enable_issues: False
-  categorisations:
-    - id: CLEAN
-      display_name: CLEAN
-      value: 0
-    - id: LOW
-      display_name: LOW
-      value: 1
-    - id: HIGH
-      display_name: HIGH
-      value: 4
-
 - type: os_ids
   issues:
     enable_issues: False

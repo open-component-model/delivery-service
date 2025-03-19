@@ -70,7 +70,6 @@ class RescoringSpecificity(enum.Enum):
 
 
 class FindingType(enum.StrEnum):
-    CHECKMARX = 'codechecks/aggregated'
     CRYPTO = 'finding/crypto'
     DIKI = 'finding/diki'
     LICENSE = 'finding/license'

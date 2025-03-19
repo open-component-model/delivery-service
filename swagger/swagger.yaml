@@ -147,7 +147,6 @@ definitions:
       - artefact-enumerator
       - bdba
       - cc-utils
-      - checkmarx
       - clamav
       - diki
       - sast
@@ -161,7 +160,6 @@ definitions:
       - finding/malware
       - finding/diki
       - finding/sast
-      - codechecks/aggregated
       - os_ids
       - rescorings
       - compliance/snapshots
