@@ -29,6 +29,7 @@ import odg.extensions_cfg
 import odg.findings
 import paths
 import secret_mgmt
+import secret_mgmt.delivery_db
 import secret_mgmt.oauth_cfg
 import secret_mgmt.signing_cfg
 import util
@@ -888,29 +889,6 @@ async def init_features(
         ))
     feature_cfgs.append(feature_authentication)
 
-    delivery_db_feature_state = FeatureStates.UNAVAILABLE
-    if (db_url := parsed_arguments.delivery_db_url):
-        delivery_db_feature_state = FeatureStates.AVAILABLE
-    else:
-        try:
-            delivery_db_cfgs = secret_factory.delivery_db()
-            if len(delivery_db_cfgs) != 1:
-                raise ValueError(
-                    f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}'
-                )
-            db_url = delivery_db_cfgs[0].url
-            delivery_db_feature_state = FeatureStates.AVAILABLE
-        except secret_mgmt.SecretTypeNotFound:
-            logger.warning('Delivery database config not found')
-
-    if delivery_db_feature_state is FeatureStates.AVAILABLE:
-        middlewares.append(await middleware.db_session.db_session_middleware(
-            db_url=db_url,
-            verify_db_session=False,
-        ))
-
-    feature_cfgs.append(FeatureDeliveryDB(delivery_db_feature_state, db_url=db_url))
-
     cluster_access_feature = FeatureClusterAccess(FeatureStates.UNAVAILABLE)
     if not (k8s_cfg_name := parsed_arguments.k8s_cfg_name):
         k8s_cfg_name = os.environ.get('K8S_CFG_NAME')
@@ -932,6 +910,40 @@ async def init_features(
         )
 
     feature_cfgs.append(cluster_access_feature)
+
+    delivery_db_feature_state = FeatureStates.UNAVAILABLE
+    if (db_url := parsed_arguments.delivery_db_url):
+        delivery_db_feature_state = FeatureStates.AVAILABLE
+    else:
+
+        if cluster_access_feature.state is FeatureStates.AVAILABLE:
+            try:
+                delivery_db_cfgs = secret_factory.delivery_db()
+                if len(delivery_db_cfgs) != 1:
+                    raise ValueError(
+                        f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}' # noqa: E501
+                    )
+
+                delivery_db_cfg: secret_mgmt.delivery_db.DeliveryDB = delivery_db_cfgs[0]
+                db_url = delivery_db_cfg.connection_url(
+                    namespace=cluster_access_feature.get_namespace(),
+                )
+                delivery_db_feature_state = FeatureStates.AVAILABLE
+            except secret_mgmt.SecretTypeNotFound:
+                logger.warning('Delivery database config not found')
+
+        else:
+            logger.warning(
+                'required cluster-access for delivery-db feature missing, will be disabled'
+            )
+
+    if delivery_db_feature_state is FeatureStates.AVAILABLE:
+        middlewares.append(await middleware.db_session.db_session_middleware(
+            db_url=db_url,
+            verify_db_session=False,
+        ))
+
+    feature_cfgs.append(FeatureDeliveryDB(delivery_db_feature_state, db_url=db_url))
 
     event_handler = CfgFileChangeEventHandler()
     watch_for_file_changes(event_handler, paths.features_cfg_path())
