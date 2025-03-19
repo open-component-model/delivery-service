@@ -1,18 +1,4 @@
 artefactMetadataCfg:
-- type: codechecks/aggregated
-  categories:
-  - compliance
-  severityMappings:
-  - severityName: HIGH
-    codecheckSeverityNames:
-    - high
-    - medium
-  - severityName: LOW
-    codecheckSeverityNames:
-    - low
-  - severityName: CLEAN
-    codecheckSeverityNames:
-    - info
 - type: os_ids
   categories:
   - compliance

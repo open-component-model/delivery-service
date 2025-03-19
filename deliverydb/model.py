@@ -44,7 +44,7 @@ class ArtefactMetaData(Base):
     meta = sa.Column(sa.JSON, default=dict)
     data = sa.Column(sa.JSON, default=dict)
     data_key = sa.Column(sa.CHAR(length=40))
-    datasource = sa.Column(sa.String(length=64)) # bdba, checkmarx
+    datasource = sa.Column(sa.String(length=64)) # bdba, clamav, ...
 
     referenced_type = sa.Column(sa.String(length=64)) # type of finding a rescoring applies to
 

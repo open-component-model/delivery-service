@@ -70,27 +70,6 @@ class SeverityMappingBase:
 
 
 @dataclasses.dataclass(frozen=True)
-class CodecheckSeverityNamesMapping(SeverityMappingBase):
-    codecheckSeverityNames: list[str]
-
-    async def match(
-        self,
-        finding: dso.model.ArtefactMetadata,
-        **kwargs,
-    ) -> ComplianceEntryCategorisation | str | None:
-        findings = dataclasses.asdict(finding.data.findings)
-
-        if not any(findings.values()):
-            return ComplianceEntryCategorisation.CLEAN
-
-        for risk_severity_name in self.codecheckSeverityNames:
-            if findings[risk_severity_name]:
-                return self.severityName
-
-        return None
-
-
-@dataclasses.dataclass(frozen=True)
 class OsStatusMapping(SeverityMappingBase):
     status: list[str]
 
@@ -187,7 +166,7 @@ class ArtefactMetadataCfg:
     Each evaluated ArtefactMetadataType has its own Mapping dataclass.
     '''
     type: str
-    severityMappings: list[OsStatusMapping | CodecheckSeverityNamesMapping] | None
+    severityMappings: list[OsStatusMapping] | None
     categories: list[str] = dataclasses.field(default_factory=list)
 
     async def match(
