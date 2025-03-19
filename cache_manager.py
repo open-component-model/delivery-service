@@ -356,7 +356,9 @@ async def main():
         raise ValueError(
             f'There must be exactly one delivery-db secret, found {len(delivery_db_secrets)}'
         )
-    db_url = delivery_db_secrets[0].url
+    db_url = delivery_db_secrets[0].connection_url(
+        namespace=namespace,
+    )
 
     oci_client = lookups.semver_sanitising_oci_client_async(secret_factory)
     eol_client = eol.EolClient()

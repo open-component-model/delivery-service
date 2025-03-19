@@ -42,26 +42,19 @@ BACKUP_BLOB_MEDIA_TYPE = 'application/data+tar'
 
 def create_local_backup(
     outfile: str,
-    delivery_db_cfg: secret_mgmt.delivery_db.DeliveryDB,
+    connection_url: str,
     additional_args: list[str] = [],
 ):
     outfile_path = os.path.abspath(outfile)
-    os.environ['PGPASSWORD'] = delivery_db_cfg.password
 
     pg_dump_argv = [
         'pg_dump',
-        '--host',
-        delivery_db_cfg.hostname,
-        '--port',
-        str(delivery_db_cfg.port),
-        '--username',
-        delivery_db_cfg.username,
+        connection_url,
         '--file',
         outfile_path,
         '--format',
         'tar',
         '--verbose',
-        'postgres',
     ] + additional_args
 
     logger.info(f'{pg_dump_argv=}')
@@ -376,7 +369,7 @@ def main():
     else:
         create_local_backup(
             outfile=outfile,
-            delivery_db_cfg=delivery_db_cfg,
+            connection_url=delivery_db_cfg.connection_url(namespace=namespace),
             additional_args=additional_args,
         )
 
