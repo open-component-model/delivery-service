@@ -367,6 +367,25 @@ async def artefact_datatype_summary(
         )
     ]
 
+    rescorings_for_artefact = [
+        rescoring for rescoring in rescorings
+        if (
+            rescoring.artefact.artefact_kind is artefact.artefact_kind
+            and rescoring.artefact.artefact.artefact_type == artefact.artefact.artefact_type
+            and (
+                not rescoring.artefact.artefact.artefact_name
+                or rescoring.artefact.artefact.artefact_name == artefact.artefact.artefact_name
+            ) and (
+                not rescoring.artefact.artefact.artefact_version
+                or rescoring.artefact.artefact.artefact_version == artefact.artefact.artefact_version
+            ) and (
+                not rescoring.artefact.artefact.normalised_artefact_extra_id
+                or rescoring.artefact.artefact.normalised_artefact_extra_id
+                    == artefact.artefact.normalised_artefact_extra_id
+            )
+        )
+    ]
+
     if not dso.model.Datasource.has_scan_info(datasource):
         # TODO remove this conditional branch once all datasources emit scan info objects
         scan_exists = bool(findings_for_artefact)
@@ -387,7 +406,7 @@ async def artefact_datatype_summary(
         datasource=datasource,
         scan_exists=scan_exists,
         findings=findings_for_artefact,
-        rescorings=rescorings,
+        rescorings=rescorings_for_artefact,
         eol_client=eol_client,
         artefact_metadata_cfg=artefact_metadata_cfg,
     )
