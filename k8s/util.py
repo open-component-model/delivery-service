@@ -38,6 +38,7 @@ class KubernetesApi:
 def kubernetes_api(
     kubernetes_cfg: secret_mgmt.kubernetes.Kubernetes | dict | None=None,
     kubeconfig_path: str | None=None,
+    kubernetes_client_cfg: kubernetes.client.Configuration | None=None,
 ) -> KubernetesApi:
     if kubernetes_cfg:
         if isinstance(kubernetes_cfg, secret_mgmt.kubernetes.Kubernetes):
@@ -46,6 +47,8 @@ def kubernetes_api(
     elif kubeconfig_path:
         kubeconfig = yaml.safe_load(open(kubeconfig_path))
         api_client = kubernetes.config.new_client_from_config_dict(kubeconfig)
+    elif kubernetes_client_cfg:
+        api_client = kc.ApiClient(configuration=kubernetes_client_cfg)
     else:
         kubernetes.config.load_incluster_config()
         api_client = kc.ApiClient()
