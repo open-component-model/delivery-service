@@ -491,7 +491,6 @@ async def component_datatype_summaries(
             rescorings = []
 
     summaries = []
-    matches_artefact = False
     for artefact in component.resources + component.sources:
         artefact = dso.model.component_artefact_id_from_ocm(
             component=component,
@@ -500,8 +499,6 @@ async def component_datatype_summaries(
 
         if not finding_cfg.matches(artefact):
             continue
-
-        matches_artefact = True
 
         artefact_summary = await artefact_datatype_summary(
             artefact=artefact,
@@ -519,7 +516,7 @@ async def component_datatype_summaries(
             artefact_summary,
         ))
 
-    if not matches_artefact:
+    if not summaries:
         return summaries
 
     # only if findings are reported for at least one artefact, show also on component level
