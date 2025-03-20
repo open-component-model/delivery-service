@@ -455,7 +455,6 @@ async def component_datatype_summaries(
             datasource=datasource,
             db_session=db_session,
         )
-        scan_exists = bool(findings)
 
         # the remaining datasources do not support rescorings so retrieval of the same
         # can be safely skipped in this case
@@ -469,7 +468,7 @@ async def component_datatype_summaries(
             db_session=db_session,
         )
 
-        if scan_exists := bool(artefact_scan_infos):
+        if artefact_scan_infos:
             findings = await deliverydb.util.findings_for_component(
                 component=component,
                 finding_type=finding_type,
@@ -519,16 +518,14 @@ async def component_datatype_summaries(
     if not summaries:
         return summaries
 
-    # only if findings are reported for at least one artefact, show also on component level
-    component_summary = await compliance_summary_entry(
-        finding_cfg=finding_cfg,
-        datasource=datasource,
-        scan_exists=scan_exists,
-        findings=findings,
-        rescorings=rescorings,
-        eol_client=eol_client,
-        artefact_metadata_cfg=artefact_metadata_cfg,
-    )
+    component_summary = None
+    for _, artefact_summary in summaries:
+        if (
+            not component_summary
+            or artefact_summary.value > component_summary.value
+        ):
+            component_summary = artefact_summary
+
     summaries.insert(0, (
         dso.model.ComponentArtefactId(
             component_name=component.name,
