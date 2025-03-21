@@ -1,10 +1,6 @@
-import datetime
-
 import requests
-import dateutil.parser
 
 import caching
-import os_id_extension.model as osidmodel
 import util
 
 
@@ -19,41 +15,6 @@ def normalise_os_id(os_id: str) -> str:
         return 'amazon-linux'
 
     return os_id
-
-
-def os_release_info_from_release_cycle(
-    release_cycle: dict,
-) -> osidmodel.OsReleaseInfo:
-    def eol_date() -> bool | datetime.datetime | None:
-        eol_date = release_cycle.get('extendedSupport')
-        if eol_date is None:
-            eol_date = release_cycle.get('eol')
-
-        # unfortunately, eol-api yields inconsistent values for `eol` attribute (bool vs timestamp)
-        if isinstance(eol_date, bool):
-            return eol_date
-        elif isinstance(eol_date, str):
-            return dateutil.parser.isoparse(eol_date)
-        else:
-            return None
-
-    def reached_eol(
-        eol_date: datetime.datetime | bool=eol_date(),
-    ) -> bool | None:
-        if isinstance(eol_date, bool):
-            return eol_date
-        elif isinstance(eol_date, datetime.datetime):
-            return eol_date < datetime.datetime.today()
-        else:
-            return None
-
-    return osidmodel.OsReleaseInfo(
-        name=release_cycle['cycle'],
-        # not provided for all products
-        greatest_version=release_cycle.get('latest'),
-        eol_date=eol_date(),
-        reached_eol=reached_eol(),
-    )
 
 
 class EolRoutes:
