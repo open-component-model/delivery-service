@@ -26,20 +26,21 @@ fi
 # retrieve packages from cc-utils from OCM (prefer over publishing via PYPI)
 for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
   echo "downloading ${resource}:${cc_utils_version}"
-  ocm download resources \
-    "OCIRegistry::${ocm_repo}//github.com/gardener/cc-utils:${cc_utils_version}" \
-    "${resource}" \
-    -O - | tar xJ -C"${out_dir}"
+  python -m ocm download resource \
+    --ocm-repository "${ocm_repo}" \
+    --component "github.com/gardener/cc-utils:${cc_utils_version}" \
+    --name "${resource}" \
+    | tar xJ -C"${out_dir}"
 done
 
-resource=bdba
 echo "downloading ${resource}:${bdba_version}"
-ocm download resources \
-  "OCIRegistry::${ocm_repo}//ocm.software/ocm-gear/bdba-client:${bdba_version}" \
-  "${resource}" \
-  -O - | tar xJ -C"${out_dir}"
+python -m ocm download resource \
+  --ocm-repository "${ocm_repo}" \
+  --component "ocm.software/ocm-gear/bdba-client:${bdba_version}" \
+  --name bdba \
+  | tar xJ -C"${out_dir}"
 
-cd $repo_dir
+cd "${repo_dir}"
 
 # install build-only dependencies (no need to include in image)
 pip3 install --upgrade pip wheel setuptools semver

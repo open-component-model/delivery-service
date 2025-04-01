@@ -1,0 +1,273 @@
+name: Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+        description:
+          mode as expected by `cc-util/.github/actions/params` action.
+          either of
+          - snapshot
+          - release
+      version-prerelease:
+        required: true
+        type: string
+        description: |
+          the prerelease-version to set for effective version (passed to version-action)
+
+          helpful values:
+          - empty string: finalise
+          - ${commit_digest} -> head-commit's digest
+          - ${epoch} -> unix-expoch in seconds
+      version-commit-message:
+        required: false
+        type: string
+        default: "build ${version}"
+    outputs:
+      base-component-descriptor:
+        value: ${{ jobs.base-component-descriptor.outputs.component-descriptor }}
+
+jobs:
+  params:
+    uses: gardener/cc-utils/.github/workflows/params.yaml@master
+    with:
+      mode: ${{ inputs.mode }}
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit-objects: ${{ steps.version.outputs.commit-objects }}
+      commit-digest: ${{ steps.version.output.commit-digest }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: gardener/cc-utils/.github/actions/version@master
+      id: version
+      with:
+        commit-message: ${{ inputs.version-commit-message }}
+        prerelease: ${{ inputs.version-prerelease }}
+
+  base-component-descriptor:
+    needs:
+      - version
+      - params
+    uses: gardener/cc-utils/.github/workflows/base-component-descriptor.yaml@master
+    with:
+      version: ${{ needs.version.outputs.version }}
+      ocm-repo: ${{ needs.params.outputs.ocm-repository }}
+      commit-digest: ${{ needs.version.outputs.version-commit-digest }}
+      labels: |
+        name: cloud.gardener.cnudie/responsibles
+        value:
+          - type: githubTeam
+            teamname: open-component-model/odg-maintainers
+            github_hostname: github.com
+
+  packages:
+    runs-on: ubuntu-latest
+    needs:
+      - version
+    steps:
+      - name: install setuptools
+        run: |
+          pip3 install --root-user-action ignore \
+            setuptools
+      - uses: actions/checkout@v4
+      - uses: gardener/cc-utils/.github/actions/install-gardener-gha-libs@master
+      - name: create distribution packages
+        run: |
+          export out_dir=dist
+          .ci/build_python_packages
+
+          tar czf distribution-packages.tar.gz dist
+      - name: upload python-packages as artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-packages
+          path: distribution-packages.tar.gz
+
+  oci-images:
+    name: Build OCI-Images
+    needs:
+      - version
+      - packages # needed indirectly (python-packages artefact)
+      - params
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
+    strategy:
+      matrix:
+        args:
+          - name: delivery-service
+            dockerfile: Dockerfile.service
+            oci-repository: odg/delivery-service
+            build-ctx-artefact: distribution-packages
+            untar-build-ctx-artefact: distribution-packages.tar.gz
+            ocm-labels:
+              name: gardener.cloud/cve-categorisation
+              value:
+                network_exposure: public
+                authentication_enforced: true
+                user_interaction: end-user
+                confidentiality_requirement: high
+                integrity_requirement: high
+                availability_requirement: high
+          - name: extensions
+            dockerfile: Dockerfile.extensions
+            oci-repository: odg/extensions
+            build-ctx-artefact: distribution-packages
+            untar-build-ctx-artefact: distribution-packages.tar.gz
+            ocm-labels:
+              name: gardener.cloud/cve-categorisation
+              value:
+                network_exposure: protected
+                authentication_enforced: true
+                user_interaction: gardener-operator
+                confidentiality_requirement: high
+                integrity_requirement: high
+                availability_requirement: low
+          - name: extension-cache-manager
+            dockerfile: Dockerfile.extensions.cache-manager
+            oci-repository: odg/extension-cache-manager
+            build-ctx-artefact: distribution-packages
+            untar-build-ctx-artefact: distribution-packages.tar.gz
+            ocm-labels:
+              name: gardener.cloud/cve-categorisation
+              value:
+                network_exposure: protected
+                authentication_enforced: true
+                user_interaction: gardener-operator
+                confidentiality_requirement: high
+                integrity_requirement: high
+                availability_requirement: low
+          - name: extension-clamav
+            dockerfile: Dockerfile.extensions.clamav
+            oci-repository: odg/extension-clamav
+            build-ctx-artefact: distribution-packages
+            untar-build-ctx-artefact: distribution-packages.tar.gz
+            ocm-labels:
+              name: gardener.cloud/cve-categorisation
+              value:
+                network_exposure: protected
+                authentication_enforced: true
+                user_interaction: gardener-operator
+                confidentiality_requirement: high
+                integrity_requirement: high
+                availability_requirement: low
+          - name: extension-crypto
+            dockerfile: Dockerfile.extensions.crypto
+            oci-repository: odg/extension-crypto
+            build-ctx-artefact: distribution-packages
+            untar-build-ctx-artefact: distribution-packages.tar.gz
+            ocm-labels:
+              name: gardener.cloud/cve-categorisation
+              value:
+                network_exposure: protected
+                authentication_enforced: true
+                user_interaction: gardener-operator
+                confidentiality_requirement: high
+                integrity_requirement: high
+                availability_requirement: low
+
+    with:
+      name: ${{ matrix.args.name }}
+      version: ${{ needs.version.outputs.version }}
+      oci-registry: ${{ needs.params.outputs.oci-registry }}
+      oci-repository: ${{ matrix.args.oci-repository }}
+      oci-platforms: 'linux/amd64'
+      dockerfile: ${{ matrix.args.dockerfile }}
+      build-ctx-artefact: ${{ matrix.args.build-ctx-artefact }}
+      untar-build-ctx-artefact: ${{ matrix.args.untar-build-ctx-artefact }}
+      ctx: oci-images
+      ocm-labels: ${{ toJSON(matrix.args.ocm-labels) }}
+
+  helmcharts:
+    name: Build Helmcharts
+    needs:
+      - params
+      - base-component-descriptor
+      - oci-images
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        args:
+          - name: delivery-service
+            dir: charts/delivery-service
+            repository: charts/odg
+            mappings:
+              - ref: ocm-resource:delivery-service.repository
+                attribute: image.tag
+              - ref: ocm-resource:delivery-service.tag
+                attribute: image.tag
+
+          - name: extensions
+            dir: charts/extensions
+            repository: charts/odg
+            mappings:
+              - ref: ocm-resource:extensions.repository
+                attribute: artefact-enumerator.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: artefact-enumerator.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: backlog-controller.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: backlog-controller.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: bdba.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: bdba.image.tag
+              - ref: ocm-resource:extension-clamav.repository
+                attribute: clamav.image.repository
+              - ref: ocm-resource:extension-clamav.tag
+                attribute: clamav.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: issue-replicator.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: issue-replicator.image.tag
+              - ref: ocm-resource:extension-cache-manager.repository
+                attribute: cache-manager.image.repository
+              - ref: ocm-resource:extension-cache-manager.tag
+                attribute: cache-manager.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: delivery-db-backup.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: delivery-db-backup.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: sast.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: sast.image.tag
+              - ref: ocm-resource:extension-crypto.repository
+                attribute: crypto.image.repository
+              - ref: ocm-resource:extension-crypto.tag
+                attribute: crypto.image.tag
+
+          - name: bootstrapping
+            dir: charts/bootstrapping
+            repository: charts/odg
+            mappings: []
+
+    steps:
+      - name: fetch-ocm-fragments
+        id: fetch-ocm
+        uses: gardener/cc-utils/.github/actions/merge-ocm-fragments@master
+        with:
+          component-descriptor: ${{ needs.base-component-descriptor.outputs.component-descriptor }}
+          ctx: oci-images
+      - uses: actions/checkout@v4
+      - name: build-helmchart
+        uses: gardener/cc-utils/.github/actions/helmchart@master
+        with:
+          name: ${{ matrix.args.name }}
+          dir: ${{ matrix.args.dir }}
+          oci-registry: ${{ needs.params.outputs.oci-registry }}
+          oci-repository: ${{ matrix.args.repository }}
+          component-descriptor: ${{ steps.fetch-ocm.outputs.component-descriptor }}
+          mappings: ${{ toJSON(matrix.args.mappings) }}
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
