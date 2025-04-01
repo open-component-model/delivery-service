@@ -3,14 +3,25 @@
 set -eu
 
 repo_dir="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
-out_dir="$(readlink -f "${repo_dir}/../${PACKAGES_PATH:-}/dist")"
-mkdir "${out_dir}"
+
+if [ -z "${out_dir:-}" ]; then
+  if [ -n "${PACKAGES_PATH:-}" ]; then
+    # concourse case
+    out_dir="$(readlink -f "${repo_dir}/../${PACKAGES_PATH:-}/dist")"
+  else
+    # local case
+    out_dir="${repo_dir}/dist}"
+  fi
+fi
+mkdir -p "${out_dir}"
 
 ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
 cc_utils_version="$(cat "${repo_dir}/CC_UTILS_VERSION")"
 bdba_version="$(cat "${repo_dir}/BDBA_DEPENDENCY_VERSION")"
 
-apk add --no-cache xz
+if ! which xz &>/dev/null; then
+  apk add --no-cache xz
+fi
 
 # retrieve packages from cc-utils from OCM (prefer over publishing via PYPI)
 for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
