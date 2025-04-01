@@ -369,7 +369,10 @@ def main():
     else:
         create_local_backup(
             outfile=outfile,
-            connection_url=delivery_db_cfg.connection_url(namespace=namespace),
+            connection_url=delivery_db_cfg.connection_url(
+                namespace=namespace,
+                schema='postgres',
+            ),
             additional_args=additional_args,
         )
 
