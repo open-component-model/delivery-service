@@ -1,0 +1,49 @@
+name: Release (ODG)
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yaml
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    with:
+      mode: release
+      version-prerelease: ''
+      version-commit-message: "release ${version}"
+
+  release-to-github-and-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    needs:
+      - build
+    steps:
+      - name: component-descriptor
+        id: component-descriptor
+        uses: gardener/cc-utils/.github/actions/merge-ocm-fragments@master
+        with:
+          component-descriptor: ${{ needs.build.outputs.base-component-descriptor }}
+          output: /tmp/ocm
+      - name: release-notes
+        id: release-notes
+        uses: gardener/cc-utils/.github/actions/release-notes@master
+        with:
+          component-descriptor: ${{ steps.component-descriptor.outputs.component-descriptor }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+      - uses: gardener/cc-utils/.actions/release@master
+        with:
+          component-descriptor: ${{ steps.component-descriptor.outputs.component-descriptor }}
+          component-descriptor-blobs-dir: /tmp/ocm/blobs.d
+          release-commit-objects: ${{ needs.build.outputs.version-commit-objects }}
+          release-commit-digest: ${{ needs.build.output.version-commit-digest }}
+          release-commit-target: branch
+          next-version: bump-minor
+          next-version-commit-message: "next version: ${version}"
+          release-notes: ${{ steps.release-notes.outputs.release-notes }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
