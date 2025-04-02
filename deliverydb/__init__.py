@@ -21,7 +21,6 @@ async def _sqlalchemy_sessionmaker(
     pool_timeout: int=30,
 ) -> sqlasync.async_sessionmaker[sqlasync.session.AsyncSession]:
     # don't use regular caching here to prevent issues with coroutines as return type
-    global sessionmakers
     if sessionmaker := sessionmakers.get((pool_size, max_overflow, pool_timeout)):
         return sessionmaker
 
