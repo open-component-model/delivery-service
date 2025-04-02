@@ -40,7 +40,7 @@ wants_to_terminate = False
 
 
 def handle_sigterm_and_sigint(signum, frame):
-    global ready_to_terminate, wants_to_terminate
+    global wants_to_terminate
 
     sig = signal.Signals(signum)
     if sig not in (signal.SIGTERM, signal.SIGINT):
@@ -407,7 +407,7 @@ def main():
         delivery_client=delivery_client,
     )
 
-    global ready_to_terminate, wants_to_terminate
+    global ready_to_terminate
     while not wants_to_terminate:
         ready_to_terminate = False
 

@@ -47,7 +47,7 @@ wants_to_terminate = False
 
 
 def handle_termination_signal(*args):
-    global ready_to_terminate, wants_to_terminate
+    global wants_to_terminate
 
     # also terminate if > 1 termination signals were received
     if ready_to_terminate or wants_to_terminate:
@@ -355,7 +355,7 @@ def main():
         oci_client=oci_client,
     )
 
-    global ready_to_terminate, wants_to_terminate
+    global ready_to_terminate
     while not wants_to_terminate:
         ready_to_terminate = False
 
