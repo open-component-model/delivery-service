@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: os-id
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  replicas: 0 # will be scaled automatically by backlog-controller
+  selector:
+    matchLabels:
+      app: os-id
+      delivery-gear.gardener.cloud/service: os-id
+  template:
+    metadata:
+      labels:
+        app: os-id
+        delivery-gear.gardener.cloud/service: os-id
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: os-id
+      terminationGracePeriodSeconds: 300 # 5 min
+      containers:
+        - name: os-id
+          image: {{ include "image" .Values.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - os_id_extension
+          env:
+            - name: SECRET_FACTORY_PATH
+              value: /secrets
+            - name: EXTENSIONS_CFG_PATH
+              value: /extensions_cfg/extensions_cfg
+            - name: FINDINGS_CFG_PATH
+              value: /findings_cfg/findings_cfg
+            - name: OCM_REPO_MAPPINGS_PATH
+              value: /ocm_repo_mappings/ocm_repo_mappings
+            - name: K8S_TARGET_NAMESPACE
+              value: {{ .Values.target_namespace | default .Release.Namespace }}
+          volumeMounts:
+            - name: kubernetes
+              mountPath: /secrets/kubernetes
+            - name: oci-registry
+              mountPath: /secrets/oci-registry
+            - name: extensions-cfg
+              mountPath: /extensions_cfg
+            - name: findings-cfg
+              mountPath: /findings_cfg
+            - name: ocm-repo-mappings
+              mountPath: /ocm_repo_mappings
+              readOnly: true
+          lifecycle:
+            preStop: # hook ensures that just created pods have at least enough time alive to add a termination signal handler
+              exec:
+                command:
+                  - sleep
+                  - "60"
+          resources:
+            requests:
+              memory: 100Mi
+              cpu: 100m
+            limits:
+              memory: 300Mi
+              cpu: 200m
+      volumes:
+        - name: kubernetes
+          secret:
+            secretName: secret-factory-kubernetes
+            optional: true # might use incluster config
+        - name: oci-registry
+          secret:
+            secretName: secret-factory-oci-registry
+        - name: extensions-cfg
+          configMap:
+            name: extensions-cfg
+        - name: findings-cfg
+          configMap:
+            name: findings-cfg
+        - name: ocm-repo-mappings
+          configMap:
+            name: ocm-repo-mappings

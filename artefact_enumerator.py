@@ -386,6 +386,24 @@ def _process_compliance_snapshots_of_artefact(
         )
         metadata_update_required |= snapshots_have_changed
 
+    if (
+        extensions_cfg.os_id
+        and extensions_cfg.os_id.enabled
+        and extensions_cfg.os_id.is_supported(artefact_kind=artefact.artefact_kind)
+    ):
+        compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
+            finding_cfgs=finding_cfgs,
+            finding_types=(odg.findings.FindingType.OS_ID,),
+            artefact=artefact,
+            compliance_snapshots=compliance_snapshots,
+            service=odg.extensions_cfg.Services.OS_ID,
+            interval_seconds=extensions_cfg.os_id.interval,
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+            now=now,
+        )
+        metadata_update_required |= snapshots_have_changed
+
     if not metadata_update_required:
         logger.info(
             f'{len(compliance_snapshots)} compliance snapshots did not change, '

@@ -407,7 +407,6 @@ async def main():
     finally:
         await db_session.close()
         await oci_client.session.close()
-        await eol_client.session.close()
 
 
 if __name__ == '__main__':

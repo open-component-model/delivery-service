@@ -17,7 +17,7 @@ ci.log.configure_default_logging(stdout_level=logging.ERROR)
 
 @pytest.fixture()
 def eol_client():
-    async def cycles(
+    def cycles(
         product: str,
         absent_ok: bool = False,
     ):

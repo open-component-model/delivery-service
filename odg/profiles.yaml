@@ -7,5 +7,6 @@
     - finding/diki
     - finding/crypto
     - os_ids
+    - finding/os_id
   special_component_ids:
     - 03e237b4-434e-4e1c-b786-5ceb6cc76c1c

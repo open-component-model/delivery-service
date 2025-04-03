@@ -6,9 +6,9 @@ import dacite
 import dateutil.parser
 import yaml
 
-import delivery.model as dm
 import version
 
+import osinfo.model
 import util
 
 
@@ -42,13 +42,13 @@ class AlpineReleaseBranch:
 
         return greatest
 
-    def release_info(self) -> dm.OsReleaseInfo:
+    def release_info(self) -> osinfo.model.OsReleaseInfo:
         if greatest_release := self.greatest_release():
             greatest_version = greatest_release.version
         else:
             greatest_version = None
 
-        return dm.OsReleaseInfo(
+        return osinfo.model.OsReleaseInfo(
             name=self.rel_branch,
             greatest_version=greatest_version,
             eol_date=self.eol_date,
@@ -111,7 +111,7 @@ class Client:
         self._cached_releases: AlpineReleases = None
         self._cached_releases_timestamp: datetime.datetime = None
 
-    async def release_infos(self) -> list[dm.OsReleaseInfo]:
+    async def release_infos(self) -> list[osinfo.model.OsReleaseInfo]:
         return [r.release_info() for r in await self.releases().release_branches]
 
     async def releases(self) -> AlpineReleases:
