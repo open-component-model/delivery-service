@@ -54,6 +54,7 @@ jobs:
       - params
     uses: gardener/cc-utils/.github/workflows/base-component-descriptor.yaml@master
     with:
+      component-name: ocm.software/ocm-gear/delivery-service # todo: rename -> ODG
       version: ${{ needs.version.outputs.version }}
       ocm-repo: ${{ needs.params.outputs.ocm-repository }}
       commit-digest: ${{ needs.version.outputs.version-commit-digest }}
