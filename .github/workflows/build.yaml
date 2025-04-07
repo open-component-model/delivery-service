@@ -46,7 +46,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       commit-objects: ${{ steps.version.outputs.commit-objects }}
-      commit-digest: ${{ steps.version.output.commit-digest }}
+      commit-digest: ${{ steps.version.outputs.commit-digest }}
     steps:
     - uses: actions/checkout@v4
     - uses: gardener/cc-utils/.github/actions/version@master
