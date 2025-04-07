@@ -41,7 +41,7 @@ jobs:
           component-descriptor: ${{ steps.component-descriptor.outputs.component-descriptor }}
           component-descriptor-blobs-dir: /tmp/ocm/blobs.d
           release-commit-objects: ${{ needs.build.outputs.version-commit-objects }}
-          release-commit-digest: ${{ needs.build.output.version-commit-digest }}
+          release-commit-digest: ${{ needs.build.outputs.version-commit-digest }}
           release-commit-target: branch
           next-version: bump-minor
           next-version-commit-message: "next version: ${version}"
