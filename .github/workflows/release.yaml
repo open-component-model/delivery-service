@@ -36,7 +36,7 @@ jobs:
           component-descriptor: ${{ steps.component-descriptor.outputs.component-descriptor }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
-      - uses: gardener/cc-utils/.actions/release@master
+      - uses: gardener/cc-utils/.github/actions/release@master
         with:
           component-descriptor: ${{ steps.component-descriptor.outputs.component-descriptor }}
           component-descriptor-blobs-dir: /tmp/ocm/blobs.d
