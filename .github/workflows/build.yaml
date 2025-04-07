@@ -29,6 +29,13 @@ on:
       base-component-descriptor:
         value: ${{ jobs.base-component-descriptor.outputs.component-descriptor }}
 
+      version-commit-objects:
+        description: commit-objects (for importing commit changing to effective version)
+        value: ${{ jobs.version.outputs.commit-objects }}
+      version-commit-digest:
+        description: commit-digest for version-commit
+        value: ${{ jobs.version.outputs.commit-digest }}
+
 jobs:
   params:
     uses: gardener/cc-utils/.github/workflows/params.yaml@master
