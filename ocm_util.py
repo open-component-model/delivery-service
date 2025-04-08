@@ -1,3 +1,4 @@
+import collections.abc
 import logging
 
 import cnudie.iter
@@ -8,6 +9,7 @@ import oci.model
 import ocm
 
 import odg.model
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -59,7 +61,7 @@ def local_blob_access_as_blob_descriptor(
     )
 
 
-async def find_artefact_node(
+async def find_artefact_node_async(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     artefact: odg.model.ComponentArtefactId,
     absent_ok: bool=False,
@@ -114,3 +116,63 @@ async def find_artefact_node(
 
     if not absent_ok:
         raise ValueError(f'could not find OCM node for {artefact=}')
+
+
+def to_absolute_oci_access(
+    access: ocm.OciAccess | ocm.RelativeOciAccess,
+    ocm_repo: ocm.OciOcmRepository=None,
+) -> ocm.OciAccess:
+    if access.type is ocm.AccessType.OCI_REGISTRY:
+        return access
+
+    if access.type is ocm.AccessType.RELATIVE_OCI_REFERENCE:
+        base_url = util.urlparse(ocm_repo.baseUrl)
+        return ocm.OciAccess(
+            imageReference=util.urljoin(base_url, access.reference),
+        )
+
+    raise ValueError(f'{access.type=} is not supported for conversion to absolute oci access')
+
+
+def find_artefact_node(
+    artefact_nodes: collections.abc.Sequence[cnudie.iter.ArtefactNode],
+    artefact_name: str=None,
+    artefact_version: str=None,
+    artefact_type: str=None,
+    artefact_extra_id: dict=None,
+    absent_ok: bool=False,
+) -> cnudie.iter.ArtefactNode | None:
+    for artefact_node in artefact_nodes:
+
+        if (
+            artefact_name is not None
+            and artefact_node.artefact.name != artefact_name
+        ):
+            continue
+
+        if (
+            artefact_version is not None
+            and artefact_node.artefact.version != artefact_version
+        ):
+            continue
+
+        if (
+            artefact_type is not None
+            and artefact_node.artefact.type != artefact_type
+        ):
+            continue
+
+        if (
+            artefact_extra_id is not None
+            and odg.model.normalise_artefact_extra_id(artefact_node.artefact.extraIdentity) != odg.model.normalise_artefact_extra_id(artefact_extra_id) # noqa: E501
+        ):
+            continue
+
+        return artefact_node
+
+    else:
+        if absent_ok:
+            return None
+
+        raise ValueError(f'no ocm node found for {artefact_name=} {artefact_version=} \
+                         {artefact_type=} {artefact_extra_id=}')

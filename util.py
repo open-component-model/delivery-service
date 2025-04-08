@@ -274,3 +274,48 @@ def pluralise(
     word = re.sub('s$', 'se', word)
 
     return word + 's'
+
+
+def merge_dicts(base: dict, *other: dict, list_semantics='merge'):
+    '''
+    merges copies of the given dict instances and returns the merge result.
+    The arguments remain unmodified. However, it must be possible to copy them
+    using `copy.deepcopy`.
+
+    Merging is done using the `deepmerge` module. In case of merge conflicts, values from
+    `other` overwrite values from `base`.
+
+    By default, different from the original implementation, a merge will be applied to
+    lists. This results in deduplication retaining element order. The elements from `other` are
+    appended to those from `base`.
+    '''
+
+    if base is None:
+        raise ValueError('base must not be None')
+
+    if other is None:
+        raise ValueError('other must not be None')
+
+    from deepmerge import Merger
+
+    if list_semantics == 'merge':
+        # monkey-patch merge-strategy for lists
+        list_merge_strategy = Merger.PROVIDED_TYPE_STRATEGIES[list]
+        list_merge_strategy.strategy_merge = lambda c, p, base, other: \
+            list(base) + [e for e in other if e not in base]
+
+        strategy_cfg = [(list, ['merge']), (dict, ['merge'])]
+        merger = Merger(strategy_cfg, ['override'], ['override'])
+    elif list_semantics is None:
+        strategy_cfg = [(dict, ['merge'])]
+        merger = Merger(strategy_cfg, ['override'], ['override'])
+    else:
+        raise NotImplementedError
+
+    from copy import deepcopy
+
+    return functools.reduce(
+        lambda b, o: merger.merge(b, deepcopy(o)),
+        [base, *other],
+        {},
+    )
