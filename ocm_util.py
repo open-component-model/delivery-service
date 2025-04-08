@@ -1,6 +1,8 @@
 import collections.abc
 import logging
+import urllib.parse
 
+import ci.util
 import cnudie.iter
 import cnudie.retrieve_async
 import dso.model
@@ -64,7 +66,7 @@ def iter_local_blob_content(
     )
 
 
-async def find_artefact_node(
+async def find_artefact_node_async(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     artefact: dso.model.ComponentArtefactId,
     absent_ok: bool=False,
@@ -119,3 +121,67 @@ async def find_artefact_node(
 
     if not absent_ok:
         raise ValueError(f'could not find OCM node for {artefact=}')
+
+
+def to_absolute_oci_access(
+    access: ocm.OciAccess | ocm.RelativeOciAccess,
+    ocm_repo: ocm.OciOcmRepository=None,
+) -> ocm.OciAccess:
+    if access.type is ocm.AccessType.OCI_REGISTRY:
+        return access
+
+    if access.type is ocm.AccessType.RELATIVE_OCI_REFERENCE:
+        if not '://' in ocm_repo.baseUrl:
+            base_url = urllib.parse.urlparse(f'x://{ocm_repo.baseUrl}').netloc
+        else:
+            base_url = urllib.parse.urlparse(ocm_repo.baseUrl).netloc
+
+        return ocm.OciAccess(
+            imageReference=ci.util.urljoin(base_url, access.reference),
+        )
+
+    raise ValueError(f'{access.type=} is not supported for conversion to absolute oci access')
+
+
+def find_artefact_node(
+    artefact_node_sequence: collections.abc.Sequence[cnudie.iter.ArtefactNode],
+    artefact_name: str=None,
+    artefact_version: str=None,
+    artefact_type: str=None,
+    artefact_extra_id: dict=None,
+    absent_ok: bool=False,
+) -> cnudie.iter.ArtefactNode | None:
+    for artefact_node in artefact_node_sequence:
+
+        if (
+            artefact_name is not None
+            and artefact_node.artefact.name != artefact_name
+        ):
+            continue
+
+        if (
+            artefact_version is not None
+            and artefact_node.artefact.version != artefact_version
+        ):
+            continue
+
+        if (
+            artefact_type is not None
+            and artefact_node.artefact.type != artefact_type
+        ):
+            continue
+
+        if (
+            artefact_extra_id is not None
+            and artefact_node.artefact.extraIdentity != artefact_extra_id
+        ):
+            continue
+
+        return artefact_node
+
+    else:
+        if absent_ok:
+            return None
+
+        raise ValueError(f'no ocm node found for {artefact_name=} {artefact_version=} \
+                         {artefact_type=}')

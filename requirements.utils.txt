@@ -2,6 +2,7 @@ aiohttp
 boto3
 cachetools
 dacite
+deepmerge
 gardener-cicd-libs==1.2636.0
 github3.py
 kubernetes
