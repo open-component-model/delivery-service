@@ -3,6 +3,7 @@ boto3
 cachetools
 dacite
 gardener-cicd-libs==1.2638.0
+deepmerge
 github3.py
 kubernetes
 requests

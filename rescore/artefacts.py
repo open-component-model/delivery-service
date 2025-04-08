@@ -758,7 +758,7 @@ class Rescore(aiohttp.web.View):
         )
 
         if odg.model.Datatype.VULNERABILITY_FINDING in type_filter:
-            artefact_node = await ocm_util.find_artefact_node(
+            artefact_node = await ocm_util.find_artefact_node_async(
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
                 artefact=artefact,
                 absent_ok=True,
