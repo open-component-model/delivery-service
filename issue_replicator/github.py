@@ -680,10 +680,27 @@ def _diki_template_vars(
             case "disa-kubernetes-stig":
                 rule_desc = f'[DISA STIG viewer - {finding_rule.rule_id}](https://www.stigviewer.com/stig/kubernetes/2024-08-22/finding/V-{finding_rule.rule_id})'  # noqa: E501
             case "security-hardened-shoot-cluster":
-                rule_desc = f'[Security Hardened Shoot Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finding_rule.rule_id})' # noqa: E501
-            case "security-hardened-k8s":
-                rule_desc = f'[Security Hardened Kubernetes Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/main/docs/rulesets/security-hardened-k8s/ruleset.md#{finding_rule.rule_id})' # noqa: E501
+                diki_version = ""
 
+                match finding_rule.ruleset_version:
+                    case "v0.1.0":
+                        diki_version = "v0.14.0"
+                    case "v0.2.0":
+                        diki_version = "v0.15.0"
+                    case _:
+                        diki_version = "main"
+
+                rule_desc = f'[Security Hardened Shoot Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finding_rule.rule_id})' # noqa: E501
+            case "security-hardened-k8s":
+                diki_version = ""
+
+                match finding_rule.ruleset_version:
+                    case "v0.1.0":
+                        diki_version = "v0.15.0"
+                    case _:
+                        diki_version = "main"
+
+                rule_desc = f'[Security Hardened Kubernetes Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-k8s/ruleset.md#{finding_rule.rule_id})' # noqa: E501
         if len(rule_desc) > 0:
             finding_str += f'| Rule Description | {rule_desc} |\n'
         finding_str += '\n'
