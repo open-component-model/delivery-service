@@ -71,6 +71,7 @@ jobs:
           - type: githubTeam
             teamname: open-component-model/odg-maintainers
             github_hostname: github.com
+      component-references-file: '.ocm/component-references.yaml'
 
   packages:
     runs-on: ubuntu-latest
