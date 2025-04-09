@@ -1,3 +1,9 @@
 - componentName: github.com/gardener/cc-utils
   version: 1.2617.0
   name: cc-utils
+- componentName: ocm.software/ocm-gear/bdba-client
+  version: 0.2.0
+  name: bdba
+- componentName: ocm.software/ocm-gear/freshclam
+  version: 1.9.0
+  name: freshclam
