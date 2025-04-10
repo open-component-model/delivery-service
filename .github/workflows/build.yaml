@@ -112,9 +112,8 @@ jobs:
           pkg_dir="$(readlink -f dist)"
 
           ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
-          repo_dir="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
-          cc_utils_version="$(cat "${repo_dir}/CC_UTILS_VERSION")"
-          bdba_version="$(cat "${repo_dir}/BDBA_DEPENDENCY_VERSION")"
+          cc_utils_version="$(cat "CC_UTILS_VERSION")"
+          bdba_version="$(cat "BDBA_DEPENDENCY_VERSION")"
 
           for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
             echo "downloading ${resource}:${cc_utils_version}"
