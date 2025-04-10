@@ -2,7 +2,7 @@
   version: 1.2619.0
   name: cc-utils
 - componentName: ocm.software/ocm-gear/bdba-client
-  version: 0.3.0
+  version: 0.4.0
   name: bdba
 - componentName: ocm.software/ocm-gear/freshclam
   version: 1.9.0
