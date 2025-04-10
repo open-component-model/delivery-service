@@ -307,7 +307,7 @@ jobs:
             repository: charts/odg
             mappings:
               - ref: ocm-resource:delivery-service.repository
-                attribute: image.tag
+                attribute: image.repository
               - ref: ocm-resource:delivery-service.tag
                 attribute: image.tag
 
