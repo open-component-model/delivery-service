@@ -106,6 +106,9 @@ class BDBAApiRoutes:
     def version_override(self):
         return self._api_url('versionoverride/')
 
+    def api_key(self):
+        return self._api_url('key/')
+
     # ---- "rest" routes (undocumented API)
 
     def scans(self, product_id: int):
@@ -572,3 +575,17 @@ class BDBAApi:
         )
 
         return response.content
+
+    def api_key(self) -> dict:
+        return self._get(url=self._routes.api_key())
+
+    def create_key(
+        self,
+        validity_seconds: int,
+        timeout: int=60,
+    ) -> dict:
+        return self._post(
+            url=self._routes.api_key(),
+            json={'validity': validity_seconds},
+            timeout=timeout,
+        )
