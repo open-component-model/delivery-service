@@ -48,7 +48,7 @@ sast:
     repository: null
     tag: null
 os-id:
-  enabld: false
+  enabled: false
   image:
     repository: null
     tag: null
