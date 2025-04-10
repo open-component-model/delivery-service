@@ -351,6 +351,10 @@ jobs:
                 attribute: crypto.image.repository
               - ref: ocm-resource:extension-crypto.tag
                 attribute: crypto.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: os-id.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: os-id.image.tag
 
           - name: bootstrapping
             dir: charts/bootstrapping
