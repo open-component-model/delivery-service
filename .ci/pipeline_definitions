@@ -182,6 +182,12 @@ bdba:
             prefix: ''
           - repository: europe-docker.pkg.dev/gardener-project/snapshots
             prefix: ''
+          component_labels:
+            - name: cloud.gardener.cnudie/responsibles
+              value:
+                - type: githubTeam
+                  teamname: open-component-model/odg-maintainers
+                  github_hostname: github.com
 
         version:
           preprocess: finalize
