@@ -47,7 +47,10 @@ def package_data():
 
 setuptools.setup(
     name='ocm-gear-extensions',
-    version=setup.finalize_version(),
+    version=os.environ.get(
+        'ODG_EXTENSIONS_PACKAGE_VERSION',
+        setup.finalize_version(),
+    ),
     py_modules=modules(),
     packages=packages(),
     package_data=package_data(),

@@ -52,7 +52,10 @@ def package_data():
 
 setuptools.setup(
     name='delivery-gear-utils',
-    version=setup.finalize_version(),
+    version=os.environ.get(
+        'ODG_UTILS_PACKAGE_VERSION',
+        setup.finalize_version(),
+    ),
     py_modules=modules(),
     packages=packages(),
     package_data=package_data(),

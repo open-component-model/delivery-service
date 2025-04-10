@@ -54,6 +54,16 @@ jobs:
       with:
         commit-message: ${{ inputs.version-commit-message }}
         prerelease: ${{ inputs.version-prerelease }}
+    - name: version-setuptools
+      id: version-setuptools
+      run: |
+        set -eu
+        version=${{ steps.version.outputs.version }}
+        if [[ "${version}" == *-* ]]; then
+          # version was non-final - add suffix compliant w/ pep-440
+          version="${version%%-*}-dev0"
+        fi
+        echo "setuptools-version=${version}" >> ${GITHUB_OUTPUT}
 
   base-component-descriptor:
     needs:
@@ -86,10 +96,95 @@ jobs:
       - uses: gardener/cc-utils/.github/actions/install-gardener-gha-libs@master
       - name: create distribution packages
         run: |
-          export out_dir=dist
-          .ci/build_python_packages
+          set -eu
 
+          version=${{ needs.version.outputs.setuptools-version }}
+          echo "version: ${version}"
+
+          # pass finalised version to setups
+          export ODG_SERVICE_PACKAGE_VERSION=${version}
+          export ODG_EXTENSIONS_PACKAGE_VERSION=${version}
+          export ODG_UTILS_PACKAGE_VERSION=${version}
+
+          pkg_dir=dist
+          mkdir -p ${pkg_dir}
+          pkg_dir="$(readlink -f dist)"
+
+          ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
+          repo_dir="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
+          cc_utils_version="$(cat "${repo_dir}/CC_UTILS_VERSION")"
+          bdba_version="$(cat "${repo_dir}/BDBA_DEPENDENCY_VERSION")"
+
+          for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
+            echo "downloading ${resource}:${cc_utils_version}"
+            python -m ocm download resource \
+              --ocm-repository "${ocm_repo}" \
+              --component "github.com/gardener/cc-utils:${cc_utils_version}" \
+              --name "${resource}" \
+              | tar xJ -C"${pkg_dir}"
+          done
+
+          python -m ocm download resource \
+            --ocm-repository "${ocm_repo}" \
+            --component "ocm.software/ocm-gear/bdba-client:${bdba_version}" \
+            --name bdba \
+            | tar xJ -C"${pkg_dir}"
+
+          for path in \
+            setup.utils.py \
+            setup.service.py \
+            setup.extensions.py \
+          ; do
+          echo "building distribution package from ${path}"
+          python3 ${path} \
+              bdist_wheel \
+              --dist-dir ${pkg_dir}
+          rm -rf build
+          done
+
+          echo "Built packages"
+          ls "${pkg_dir}"
+
+          blobs_dir="${pkg_dir}/blobs.d"
+          mkdir ${blobs_dir}
+          resources_file=resources.yaml
+
+          for package in \
+            delivery-gear-utils \
+            ocm-gear-extensions \
+            ocm-gear-service \
+            ; do
+            path="$(echo $package | tr - _)-*"
+            prefix=dist
+            access_type='localBlob'
+            outf="${pkg_dir}/${package}.tar.gz"
+            tar cJf ${outf} -C ${pkg_dir} $(cd ${pkg_dir}; ls ${path})
+            mimetype=$(file -i ${outf} | cut -d: -f2 | cut -d' ' -f2-)
+            leng=$(stat -c"%s" ${outf})
+            digest="$(sha256sum ${outf} | cut -d' ' -f1)"
+            echo "\
+          - name: ${package}
+            version: ${version}
+            type: ${mimetype}
+            relation: local
+            access:
+              type: localBlob
+              localReference: sha256:${digest}
+              size: ${leng}
+              mediaType: ${mimetype}" \
+            >> ${resources_file}
+            mv ${outf} ${blobs_dir}/${digest}
+          done
+
+          cp "${resources_file}" dist/ocm_resources.yaml
+          echo "ocm_resources=dist/ocm_resources.yaml" >> "${GITHUB_OUTPUT}"
+          find "${pkg_dir}"
           tar czf distribution-packages.tar.gz dist
+      - name: export-ocm-fragments
+        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        with:
+          ocm-resources-file: dist/ocm_resources.yaml
+          blobs-directory: dist/blobs.d
       - name: upload python-packages as artefact
         uses: actions/upload-artifact@v4
         with:
