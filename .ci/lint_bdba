@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -eu
+
+# usage: $1: <src-dir>
+
+src_dir="${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}"
+bdba_module="${src_dir}/bdba"
+
+if [ -n "${CC_ROOT_DIR:-}" ]; then
+    # running in pipeline
+    pip3 install --no-cache --upgrade \
+        -r "${src_dir}/requirements.bdba.txt"
+fi
+
+error=0
+
+export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
+
+(
+    pushd "${src_dir}"
+    echo "using pylama cfg at ${src_dir}/pylama.ini"
+    set -x
+
+    echo 'running pylama for bdba module (errors only)'
+    if pylama -iW,R,C  -lpylint --options "${src_dir}/pylama.ini" "${bdba_module}"; then
+        echo 'pylama succeeded'
+    else
+        ((error|=1))
+    fi
+
+    echo 'running flake8 for bdba module'
+    if ".ci/lint-flake8" "${bdba_module}"; then
+        echo 'pyflake8 succeeded'
+    else
+        ((error|=1))
+    fi
+
+    if [ $error -eq 0 ]; then
+        exit 0
+    elif [ $error -gt 0 ]; then
+        exit 1
+    fi
+    popd
+)
+
+if ! which bandit &>/dev/null; then
+    pip3 install bandit &>/dev/null
+fi
+
+echo 'running bandit (sast-linter) for bdba module'
+bandit --recursive "${bdba_module}"
+
+exit $?
