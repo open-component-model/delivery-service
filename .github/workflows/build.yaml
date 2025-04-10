@@ -45,6 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      setuptools-version: ${{ steps.version-setuptools.outputs.setuptools-version }}
       commit-objects: ${{ steps.version.outputs.commit-objects }}
       commit-digest: ${{ steps.version.outputs.commit-digest }}
     steps:
