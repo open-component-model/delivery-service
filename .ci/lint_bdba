@@ -4,7 +4,6 @@ set -eu
 # usage: $1: <src-dir>
 
 src_dir="${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}"
-bdba_module="${src_dir}/bdba"
 
 if [ -n "${CC_ROOT_DIR:-}" ]; then
     # running in pipeline
@@ -22,14 +21,14 @@ export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
     set -x
 
     echo 'running pylama for bdba module (errors only)'
-    if pylama -iW,R,C  -lpylint --options "${src_dir}/pylama.ini" "${bdba_module}"; then
+    if pylama -iW,R,C  -lpylint --options "${src_dir}/pylama.ini" bdba; then
         echo 'pylama succeeded'
     else
         ((error|=1))
     fi
 
     echo 'running flake8 for bdba module'
-    if ".ci/lint-flake8" "${bdba_module}"; then
+    if ".ci/lint-flake8" bdba; then
         echo 'pyflake8 succeeded'
     else
         ((error|=1))
@@ -48,6 +47,6 @@ if ! which bandit &>/dev/null; then
 fi
 
 echo 'running bandit (sast-linter) for bdba module'
-bandit --recursive "${bdba_module}"
+bandit --recursive "${src_dir}/bdba"
 
 exit $?
