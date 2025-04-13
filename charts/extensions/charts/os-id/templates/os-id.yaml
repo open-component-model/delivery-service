@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: os-id
+  name: osid
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   replicas: 0 # will be scaled automatically by backlog-controller
   selector:
     matchLabels:
       app: os-id
-      delivery-gear.gardener.cloud/service: os-id
+      delivery-gear.gardener.cloud/service: osId
   template:
     metadata:
       labels:
         app: os-id
-        delivery-gear.gardener.cloud/service: os-id
+        delivery-gear.gardener.cloud/service: osId
     spec:
       topologySpreadConstraints:
         - maxSkew: 1
