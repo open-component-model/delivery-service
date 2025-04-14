@@ -722,6 +722,7 @@ class SASTConfig(BacklogItemMixins):
         return True
 
 
+@dataclasses.dataclass
 class OsId(BacklogItemMixins):
     '''
     :param str delivery_service_url
