@@ -43,6 +43,8 @@ spec:
             - name: K8S_TARGET_NAMESPACE
               value: {{ .Values.target_namespace | default .Release.Namespace }}
           volumeMounts:
+            - name: github
+              mountPath: /secrets/github
             - name: kubernetes
               mountPath: /secrets/kubernetes
             - name: oci-registry
@@ -68,6 +70,9 @@ spec:
               memory: 300Mi
               cpu: 200m
       volumes:
+        - name: github
+          secret:
+            secretName: secret-factory-github
         - name: kubernetes
           secret:
             secretName: secret-factory-kubernetes
