@@ -161,7 +161,7 @@ class OsInfoRoutes(aiohttp.web.View):
         '''
         os_id = self.request.match_info.get('os_id')
 
-        release_infos = await os_release_infos(
+        release_infos = os_release_infos(
             os_id=eol.normalise_os_id(os_id),
             eol_client=self.request.app[consts.APP_EOL_CLIENT],
         )
