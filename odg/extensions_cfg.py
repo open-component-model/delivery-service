@@ -32,7 +32,7 @@ class Services(enum.StrEnum):
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
     ISSUE_REPLICATOR = 'issueReplicator'
     SAST = 'sast'
-    OS_ID = 'osId'
+    OSID = 'osid'
 
 
 class VersionAliases(enum.StrEnum):
@@ -764,7 +764,7 @@ class ExtensionsConfiguration:
     delivery_db_backup: DeliveryDBBackup | None
     issue_replicator: IssueReplicatorConfig | None
     sast: SASTConfig | None
-    os_id: OsId | None
+    osid: OsId | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod

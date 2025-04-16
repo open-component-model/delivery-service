@@ -96,7 +96,7 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            finding.meta.type == odg.findings.FindingType.OS_ID
+            finding.meta.type == odg.findings.FindingType.OSID
             and rescoring.data.finding.key != finding.data.key
         ):
             continue

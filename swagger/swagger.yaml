@@ -160,6 +160,7 @@ definitions:
       - finding/malware
       - finding/diki
       - finding/sast
+      - finding/osid
       - os_ids
       - rescorings
       - compliance/snapshots

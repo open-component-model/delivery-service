@@ -36,8 +36,8 @@ import odg.extensions_cfg
 import odg.findings
 import osinfo
 import osinfo.model
-import os_id_extension.scan as osidscan
-import os_id_extension.util as osidutil
+import osid_extension.scan as osidscan
+import osid_extension.util as osidutil
 import paths
 
 
@@ -83,27 +83,27 @@ def is_one_patch_behind(
 
 
 def determine_os_status(
-    os_id: um.OperatingSystemId,
+    osid: um.OperatingSystemId,
     eol_client: eol.EolClient,
 ) -> tuple[dso.model.OsStatus, str | None, datetime.datetime | None]:
     '''
-    determines the os status based on the given os_id and release infos
+    determines the os status based on the given osid and release infos
 
     returns the os status, the greatest version and the eol date
     '''
     # checks if os id is empty
-    if not any(dataclasses.asdict(os_id).values()):
+    if not any(dataclasses.asdict(osid).values()):
         return dso.model.OsStatus.EMPTY_OS_ID, None, None
 
     release_infos = osinfo.os_release_infos(
-        os_id=eol.normalise_os_id(os_id.ID),
+        os_id=eol.normalise_os_id(osid.ID),
         eol_client=eol_client,
     )
     if not release_infos:
         return dso.model.OsStatus.NO_RELEASE_INFO, None, None
 
     branch_info = osidutil.find_branch_info(
-        os_id=os_id,
+        osid=osid,
         os_infos=release_infos,
     )
 
@@ -114,14 +114,14 @@ def determine_os_status(
     eol_date = branch_info.eol_date
 
     if osidutil.branch_reached_eol(
-        os_id=os_id,
+        osid=osid,
         os_infos=release_infos,
     ):
         return dso.model.OsStatus.BRANCH_REACHED_EOL, greatest_version, eol_date
 
     try:
         update_available = osidutil.update_available(
-            os_id=os_id,
+            osid=osid,
             os_infos=release_infos,
         )
     except awesomeversion.exceptions.AwesomeVersionCompareException:
@@ -130,14 +130,14 @@ def determine_os_status(
     if not update_available:
         return dso.model.OsStatus.UP_TO_DATE, greatest_version, eol_date
 
-    current_version = os_id.VERSION_ID
+    current_version = osid.VERSION_ID
     if is_one_patch_behind(current_version, greatest_version):
         return dso.model.OsStatus.AT_MOST_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
     else:
         return dso.model.OsStatus.MORE_THAN_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
 
 
-def determine_os_id(
+def determine_osid(
     artefact: dso.model.ComponentArtefactId,
     oci_client: oci.client.Client,
     lookup: cnudie.retrieve.ComponentDescriptorLookupById,
@@ -158,13 +158,13 @@ def determine_os_id(
     if resource.access.type != ocm.AccessType.OCI_REGISTRY:
         return
 
-    return base_image_os_id(
+    return base_image_osid(
         oci_client=oci_client,
         resource=resource,
     )
 
 
-def base_image_os_id(
+def base_image_osid(
     oci_client: oci.client.Client,
     resource: ocm.Resource,
 ) -> um.OperatingSystemId:
@@ -201,8 +201,8 @@ def base_image_os_id(
 
 def create_artefact_metadata(
     artefact: dso.model.ComponentArtefactId,
-    os_id_finding_config: odg.findings.Finding,
-    os_id: um.OperatingSystemId | None,
+    osid_finding_config: odg.findings.Finding,
+    osid: um.OperatingSystemId | None,
     eol_client: eol.EolClient,
     time_now: datetime.datetime | None = None,
 ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
@@ -212,7 +212,7 @@ def create_artefact_metadata(
     yield dso.model.ArtefactMetadata(
         artefact=artefact,
         meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.OS_ID,
+            datasource=dso.model.Datasource.OSID,
             type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
             creation_date=time_now,
             last_update=time_now,
@@ -221,19 +221,19 @@ def create_artefact_metadata(
         discovery_date=time_now.date(),
     )
 
-    if not os_id:
-        logger.info('No os_id found, uploading artefact-scan-info only')
+    if not osid:
+        logger.info('No osid found, uploading artefact-scan-info only')
         return
 
-    logger.info(f'Processing {os_id=}')
+    logger.info(f'Processing {osid=}')
     os_status, greatest_version, eol_date = determine_os_status(
-        os_id=os_id,
+        osid=osid,
         eol_client=eol_client,
     )
     logger.info(f'Determined {os_status=}')
 
     categorisation = odg.findings.categorise_finding(
-        finding_cfg=os_id_finding_config,
+        finding_cfg=osid_finding_config,
         finding_property=os_status,
     )
     severity = categorisation.id if categorisation else None
@@ -242,12 +242,12 @@ def create_artefact_metadata(
     yield dso.model.ArtefactMetadata(
         artefact=artefact,
         meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.OS_ID,
-            type=dso.model.Datatype.OS_ID,
+            datasource=dso.model.Datasource.OSID,
+            type=dso.model.Datatype.OSID,
             creation_date=time_now,
             last_update=time_now,
         ),
-        data=os_id,
+        data=osid,
         discovery_date=time_now.date(),
     )
 
@@ -257,14 +257,14 @@ def create_artefact_metadata(
     yield dso.model.ArtefactMetadata(
         artefact=artefact,
         meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.OS_ID,
-            type=odg.findings.FindingType.OS_ID,
+            datasource=dso.model.Datasource.OSID,
+            type=odg.findings.FindingType.OSID,
             creation_date=time_now,
             last_update=time_now,
         ),
         data=dso.model.OsIdFinding(
             severity=severity,
-            os_id=os_id,
+            osid=osid,
             os_status=os_status,
             greatest_version=greatest_version,
             eol_date=eol_date,
@@ -340,13 +340,13 @@ def main():
         )
 
     k8s.logging.init_logging_thread(
-        service=odg.extensions_cfg.Services.OS_ID,
+        service=odg.extensions_cfg.Services.OSID,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
     atexit.register(
         k8s.logging.log_to_crd,
-        service=odg.extensions_cfg.Services.OS_ID,
+        service=odg.extensions_cfg.Services.OSID,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
     )
@@ -355,22 +355,22 @@ def main():
         extension_cfg_path = paths.extensions_cfg_path()
 
     extension_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extension_cfg_path)
-    os_id_config = extension_cfg.os_id
+    osid_config = extension_cfg.osid
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
         findings_cfg_path = paths.findings_cfg_path()
 
-    os_id_finding_config = odg.findings.Finding.from_file(
+    osid_finding_config = odg.findings.Finding.from_file(
         path=findings_cfg_path,
-        finding_type=odg.findings.FindingType.OS_ID,
+        finding_type=odg.findings.FindingType.OSID,
     )
 
-    if not os_id_finding_config:
-        logger.info('OS_ID findings are disabled, exiting...')
+    if not osid_finding_config:
+        logger.info('OSID findings are disabled, exiting...')
         return
 
     if not delivery_service_url:
-        delivery_service_url = os_id_config.delivery_service_url
+        delivery_service_url = osid_config.delivery_service_url
 
     delivery_client = delivery.client.DeliveryServiceClient(
         routes=delivery.client.DeliveryServiceRoutes(
@@ -395,7 +395,7 @@ def main():
         ready_to_terminate = False
 
         backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=odg.extensions_cfg.Services.OS_ID,
+            service=odg.extensions_cfg.Services.OSID,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
         )
@@ -412,21 +412,21 @@ def main():
             backlog_item=backlog_crd.get('spec'),
         )
 
-        os_id = determine_os_id(
+        osid = determine_osid(
             artefact=backlog_item.artefact,
             oci_client=oci_client,
             lookup=component_descriptor_lookup,
         )
 
         logger.info(f'uploading os-info for {backlog_item.artefact}')
-        os_id_metadata = create_artefact_metadata(
+        osid_metadata = create_artefact_metadata(
             artefact=backlog_item.artefact,
-            os_id=os_id,
-            os_id_finding_config=os_id_finding_config,
+            osid=osid,
+            osid_finding_config=osid_finding_config,
             eol_client=eol_client,
         )
 
-        delivery_client.update_metadata(data=os_id_metadata)
+        delivery_client.update_metadata(data=osid_metadata)
 
         k8s.util.delete_custom_resource(
             crd=k8s.model.BacklogItemCrd,

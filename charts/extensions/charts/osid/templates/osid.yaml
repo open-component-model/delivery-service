@@ -7,12 +7,12 @@ spec:
   replicas: 0 # will be scaled automatically by backlog-controller
   selector:
     matchLabels:
-      app: os-id
+      app: osid
       delivery-gear.gardener.cloud/service: osId
   template:
     metadata:
       labels:
-        app: os-id
+        app: osid
         delivery-gear.gardener.cloud/service: osId
     spec:
       topologySpreadConstraints:
@@ -21,16 +21,16 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: os-id
+              app: osid
       terminationGracePeriodSeconds: 300 # 5 min
       containers:
-        - name: os-id
+        - name: osid
           image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
           command:
             - python3
             - -m
-            - os_id_extension
+            - osid_extension
           env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
