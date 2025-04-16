@@ -492,7 +492,7 @@ async def _iter_rescoring_proposals(
                     strict=True,
                 ),
             )
-        elif finding_cfg.type is odg.findings.FindingType.OS_ID:
+        elif finding_cfg.type is odg.findings.FindingType.OSID:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
                 data={

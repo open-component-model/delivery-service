@@ -74,7 +74,7 @@ class FindingType(enum.StrEnum):
     DIKI = 'finding/diki'
     LICENSE = 'finding/license'
     MALWARE = 'finding/malware'
-    OS_ID = 'finding/os_id'
+    OSID = 'finding/osid'
     OS_IDS = 'os_ids'
     SAST = 'finding/sast'
     VULNERABILITY = 'finding/vulnerability'
@@ -90,7 +90,7 @@ class MinMaxRange:
 class OsIdFindingSelector:
     '''
     :param list[str] status:
-        List of regexes to determine matching os_id findings based on their status.
+        List of regexes to determine matching osid findings based on their status.
     '''
     status: list[str]
 
@@ -519,8 +519,8 @@ class Finding:
 
     def _validate(self):
         match self.type:
-            case FindingType.OS_ID:
-                self._validate_os_id()
+            case FindingType.OSID:
+                self._validate_osid()
             case FindingType.CRYPTO:
                 self._validate_crypto()
             case FindingType.DIKI:
@@ -536,14 +536,14 @@ class Finding:
             case _:
                 pass
 
-    def _validate_os_id(self):
+    def _validate_osid(self):
         violations = self._validate_categorisations(
             expected_selector=OsIdFindingSelector,
         )
 
         if not violations:
             return
-        e = ModelValidationError('os_id finding model violations found:')
+        e = ModelValidationError('osid finding model violations found:')
         e.add_note('\n'.join(violations))
         raise e
 

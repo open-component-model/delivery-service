@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 def find_branch_info(
-    os_id: um.OperatingSystemId,
+    osid: um.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
 ) -> osinfo.model.OsReleaseInfo | None:
-    os_version = os_id.VERSION_ID
+    os_version = osid.VERSION_ID
 
     def version_candidates():
         yield os_version
@@ -38,18 +38,18 @@ def find_branch_info(
             if os_info.name == candidate:
                 return os_info
 
-    logger.warning(f'did not find branch-info for {os_id=}')
+    logger.warning(f'did not find branch-info for {osid=}')
 
 
 def branch_reached_eol(
-    os_id: um.OperatingSystemId,
+    osid: um.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
 ) -> bool:
-    if not os_id.ID:
+    if not osid.ID:
         return False
 
     branch_info = find_branch_info(
-        os_id=os_id,
+        osid=osid,
         os_infos=os_infos,
     )
 
@@ -57,15 +57,15 @@ def branch_reached_eol(
 
 
 def update_available(
-    os_id: um.OperatingSystemId,
+    osid: um.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
     ignore_if_patchlevel_is_next_to_greatest=False,
 ) -> bool:
-    if not os_id.ID:
+    if not osid.ID:
         return False
 
     branch_info = find_branch_info(
-        os_id=os_id,
+        osid=osid,
         os_infos=os_infos,
     )
     if not branch_info:
@@ -74,7 +74,7 @@ def update_available(
     if not branch_info.greatest_version:
         return False
 
-    version = awesomeversion.AwesomeVersion(os_id.VERSION_ID.replace('_', '-'))
+    version = awesomeversion.AwesomeVersion(osid.VERSION_ID.replace('_', '-'))
     greatest_version = awesomeversion.AwesomeVersion(branch_info.greatest_version.replace('_', '-'))
 
     greater_version_available = greatest_version > version
