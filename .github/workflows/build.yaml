@@ -191,6 +191,88 @@ jobs:
           name: distribution-packages
           path: distribution-packages.tar.gz
 
+  lint:
+    runs-on: ubuntu-latest
+    needs:
+      - packages
+    container:
+      image: alpine
+    steps:
+    - uses: actions/checkout@v4
+    - name: Retrieve Distribution Packages
+      uses: actions/download-artifact@v4
+      with:
+        name: distribution-packages
+    - name: lint
+      run: |
+        echo "install dependencies for python-packages"
+
+        if ! apk add --no-cache $(cat apk-packages) >/tmp/apk.log; then
+          echo "error while trying to install apk-packages:"
+          cat /tmp/apk.log
+          exit 1
+        fi
+
+        tar xf distribution-packages.tar.gz -C /tmp
+
+        echo "installing linters"
+        if ! pip3 install --pre --upgrade --break-system-packages \
+          --find-links /tmp/dist \
+          -r requirements.extensions.txt \
+          -r requirements.service.txt \
+          -r requirements.utils.txt \
+          flake8 \
+          pylama \
+          pylint \
+            > /tmp/pip3-install.log; then
+          echo "error while trying to install packages:"
+          cat /tmp/pip3-install.log
+        fi
+
+        echo "running linters"
+        .ci/lint
+
+  unittests:
+    runs-on: ubuntu-latest
+    needs:
+      - packages
+    container:
+      image: alpine
+    steps:
+    - uses: actions/checkout@v4
+    - name: Retrieve Distribution Packages
+      uses: actions/download-artifact@v4
+      with:
+        name: distribution-packages
+    - name: run-tests
+      run: |
+        echo "install dependencies for python-packages"
+
+        if ! apk add --no-cache $(cat apk-packages) >/tmp/apk.log; then
+          echo "error while trying to install apk-packages:"
+          cat /tmp/apk.log
+          exit 1
+        fi
+
+        tar xf distribution-packages.tar.gz -C /tmp
+
+        echo "installing packages"
+        if ! pip3 install --pre --upgrade --break-system-packages \
+          --find-links /tmp/dist \
+          -r requirements.extensions.txt \
+          -r requirements.service.txt \
+          -r requirements.utils.txt \
+          pytest \
+          pytest-asyncio \
+            > /tmp/pip3-install.log; then
+          echo "error while trying to install packages:"
+          cat /tmp/pip3-install.log
+        fi
+
+        echo "running tests"
+        .ci/smoke-test
+        .ci/test
+
   oci-images:
     name: Build OCI-Images
     needs:

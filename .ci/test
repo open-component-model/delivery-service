@@ -9,16 +9,6 @@ if ! which pytest &>/dev/null; then
   exit 1
 fi
 
-if [ -n "${CC_ROOT_DIR:-}" ]; then
-  running_in_pipeline=true
-else
-  running_in_pipeline=false
-fi
-
-if ${running_in_pipeline}; then
-  "${repo_root}/.ci/install-dependencies"
-fi
-
 if PYTHONPATH="${repo_root}:${PYTHONPATH:-}" pytest "${repo_root}" "${@}"; then
   echo 'Unittest executions succeeded'
   exit 0
