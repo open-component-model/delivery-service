@@ -39,6 +39,9 @@ def secret_factory() -> secret_mgmt.SecretFactory:
 
     # fallback: use cfg factory and convert it to secret factory structure
     # this is handy for local development where the cfg-factory is available
-    return secret_mgmt.SecretFactory.from_cfg_factory(
-        cfg_factory=ci.util.ctx().cfg_factory(),
-    )
+    try:
+        return secret_mgmt.SecretFactory.from_cfg_factory(
+            cfg_factory=ci.util.ctx().cfg_factory(),
+        )
+    except ValueError:
+        return secret_mgmt.SecretFactory(secrets_dict={}) # no secrets found
