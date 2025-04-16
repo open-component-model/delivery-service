@@ -1,0 +1,9 @@
+bash
+gcc
+libc-dev
+libffi-dev
+python3
+python3-dev
+py3-numpy
+py3-scipy
+py3-pip
