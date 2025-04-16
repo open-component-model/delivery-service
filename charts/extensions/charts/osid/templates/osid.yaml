@@ -8,12 +8,12 @@ spec:
   selector:
     matchLabels:
       app: osid
-      delivery-gear.gardener.cloud/service: osId
+      delivery-gear.gardener.cloud/service: osid
   template:
     metadata:
       labels:
         app: osid
-        delivery-gear.gardener.cloud/service: osId
+        delivery-gear.gardener.cloud/service: osid
     spec:
       topologySpreadConstraints:
         - maxSkew: 1
