@@ -11,7 +11,6 @@ import tarfile
 import time
 
 import awesomeversion.exceptions
-import semver
 
 import ci.log
 import cnudie.retrieve
@@ -22,7 +21,6 @@ import oci.model
 import ocm
 import tarutil
 import unixutil.model as um
-import version
 
 import consts
 import ctx_util
@@ -63,23 +61,6 @@ def handle_termination_signal(*args):
     # after this period, the scan will be terminated anyways by k8s means
     logger.info('termination signal received, will try to finish current scan and then exit')
     wants_to_terminate = True
-
-
-def is_one_patch_behind(
-    current_version: str,
-    greatest_version: str,
-) -> bool:
-    current_version: semver.VersionInfo = version.parse_to_semver(current_version)
-    greatest_version: semver.VersionInfo = version.parse_to_semver(greatest_version)
-
-    if (
-        current_version.major != greatest_version.major
-        or current_version.minor != greatest_version.minor
-    ):
-        return False
-
-    patchlevel_diff = greatest_version.patch - current_version.patch
-    return patchlevel_diff <= 1
 
 
 def determine_os_status(
@@ -130,11 +111,15 @@ def determine_os_status(
     if not update_available:
         return dso.model.OsStatus.UP_TO_DATE, greatest_version, eol_date
 
-    current_version = osid.VERSION_ID
-    if is_one_patch_behind(current_version, greatest_version):
-        return dso.model.OsStatus.AT_MOST_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
-    else:
+    more_than_one_patchlevel_behind = osidutil.update_available(
+        osid=osid,
+        os_infos=release_infos,
+        ignore_if_patchlevel_is_next_to_greatest=True,
+    )
+    if more_than_one_patchlevel_behind:
         return dso.model.OsStatus.MORE_THAN_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
+    # otherwise, it's exaclty one patch behind
+    return dso.model.OsStatus.AT_MOST_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
 
 
 def determine_osid(
