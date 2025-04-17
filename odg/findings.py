@@ -78,6 +78,7 @@ class FindingType(enum.StrEnum):
     OS_IDS = 'os_ids'
     SAST = 'finding/sast'
     VULNERABILITY = 'finding/vulnerability'
+    FALCO = 'finding/falco'
 
 
 @dataclasses.dataclass
