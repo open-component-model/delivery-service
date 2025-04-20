@@ -791,6 +791,54 @@ def _crypto_template_vars(
     }
 
 
+def _osid_template_vars(
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    summary: str,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str,
+    sprint_name: str | None=None,
+) -> dict[str, str]:
+    summary += '# Summary of found Issues related to Operating-System versioning policies'
+
+    def iter_findings(
+        aggregated_findings: tuple[AggregatedFinding],
+    ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
+        for af in aggregated_findings:
+            osid_finding: dso.model.OsIdFinding = af.finding.data
+            os_name = osid_finding.osid.NAME
+            greatest_version = osid_finding.greatest_version
+            detected_version = osid_finding.osid.VERSION_ID
+            issue_text = osid_finding.status_description
+
+            yield os_name, detected_version, greatest_version, issue_text
+
+    for finding_group in finding_groups:
+        summary += '\n' + finding_group.summary(
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
+            finding_cfg=finding_cfg,
+            sprint_name=sprint_name,
+        )
+
+        summary += (
+            '\n| OS Name | Detected Version | Greatest Version | Issue Text |'
+            '\n| --- | --- | --- | --- |'
+        )
+        for os_name, detected_version, greatest_version, issue_text in iter_findings(
+            aggregated_findings=finding_group.findings
+        ):
+            summary += (
+                f'\n| {os_name} | {detected_version} | {greatest_version} | {issue_text} |'
+            )
+
+        summary += '\n---'
+
+    return {
+        'summary': summary,
+    }
+
+
 def _template_vars(
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
@@ -990,6 +1038,15 @@ def _template_vars(
         )
     elif finding_cfg.type is odg.findings.FindingType.CRYPTO:
         template_variables |= _crypto_template_vars(
+            finding_cfg=finding_cfg,
+            finding_groups=finding_groups,
+            summary=summary,
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
+            sprint_name=sprint_name,
+        )
+    elif finding_cfg.type is odg.findings.FindingType.OSID:
+        template_variables |= _osid_template_vars(
             finding_cfg=finding_cfg,
             finding_groups=finding_groups,
             summary=summary,
