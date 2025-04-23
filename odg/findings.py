@@ -206,6 +206,62 @@ class FindingCategorisation:
 
         return self.rescoring is RescoringModes.AUTOMATIC
 
+    @property
+    def allowed_processing_time_raw(self) -> str | None:
+        '''
+        Parses the allowed processing time into a string together with its unit in case it was
+        implicitly converted into a `timedelta` object during `__post_init__`. The returned value
+        may be used to be persisted in an `ArtefactMetadata` object.
+        '''
+        if (
+            isinstance(self.allowed_processing_time, MetaAllowedProcessingTimes)
+            or self.allowed_processing_time is None
+        ):
+            return self.allowed_processing_time
+
+        return f'{int(self.allowed_processing_time.total_seconds())}s'
+
+    def due_date(
+        self,
+        discovery_date: datetime.date,
+    ) -> datetime.date | None:
+        if not self.allowed_processing_time:
+            return None
+
+        return discovery_date + self.allowed_processing_time
+
+    def effective_due_date(
+        self,
+        finding: dso.model.ArtefactMetadata,
+        rescoring: dso.model.ArtefactMetadata | None,
+    ) -> datetime.date | None:
+        '''
+        Returns the effective due date for the referenced finding. If any related rescoring exist,
+        the date will be derived from this rescoring, otherwise it will be derived from the original
+        finding.
+
+        In case of a rescoring, a due date which is explicitly set will take precedence over those
+        calculated ad-hoc and an `allowed_processing_time` stored in the finding/rescoring will take
+        precedence over the one configured in the currently active categorisation-cfg (be backwards
+        compatible for rescorings/findings without due dates).
+
+        If `None` is returned, the finding is categorised as "resolved" and does not have to be
+        processed anymore.
+        '''
+        if rescoring:
+            if due_date := rescoring.data.due_date:
+                return due_date
+
+            if allowed_processing_time := rescoring.data.allowed_processing_time:
+                return finding.discovery_date + util.convert_to_timedelta(allowed_processing_time)
+
+            return self.due_date(finding.discovery_date)
+
+        if allowed_processing_time := finding.allowed_processing_time:
+            return finding.discovery_date + util.convert_to_timedelta(allowed_processing_time)
+
+        return self.due_date(finding.discovery_date)
+
 
 @dataclasses.dataclass
 class FindingIssues:
