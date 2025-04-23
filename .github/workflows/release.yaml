@@ -28,7 +28,7 @@ jobs:
         uses: gardener/cc-utils/.github/actions/merge-ocm-fragments@master
         with:
           component-descriptor: ${{ needs.build.outputs.base-component-descriptor }}
-          output: /tmp/ocm
+          outdir: /tmp/ocm
       - name: release-notes
         id: release-notes
         uses: gardener/cc-utils/.github/actions/release-notes@master
