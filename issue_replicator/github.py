@@ -53,7 +53,7 @@ class IssueLabels(enum.StrEnum):
 class AggregatedFinding:
     finding: dso.model.ArtefactMetadata
     rescorings: list[dso.model.ArtefactMetadata] = dataclasses.field(default_factory=list)
-    latest_processing_date: datetime.date | None = None
+    due_date: datetime.date | None = None
 
     @property
     def severity(self) -> str:
@@ -233,11 +233,11 @@ def _issue_assignees(
 def _issue_milestone(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_client: delivery.client.DeliveryServiceClient,
-    latest_processing_date: datetime.date,
+    due_date: datetime.date,
 ) -> tuple[github3.issues.milestone.Milestone | None, list[github3.issues.milestone.Milestone]]:
     sprints = gcmi.target_sprints(
         delivery_svc_client=delivery_client,
-        latest_processing_date=latest_processing_date,
+        due_date=due_date,
     )
 
     return gcmi.find_or_create_sprint_milestone(
@@ -844,7 +844,7 @@ def _template_vars(
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     artefacts_without_scan: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings: collections.abc.Sequence[AggregatedFinding],
-    latest_processing_date: datetime.date,
+    due_date: datetime.date,
     delivery_dashboard_url: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     sprint_name: str | None=None,
@@ -909,7 +909,7 @@ def _template_vars(
         id_str = '<br>'.join(sorted(f'{k}: {v}' for k, v in artefact_extra_id.items()))
         summary += f'| Artefact-Extra-Id | <pre>{id_str}</pre> |\n'
 
-    summary += f'| Latest Processing Date | {latest_processing_date} |\n'
+    summary += f'| Due Date | {due_date} |\n'
 
     # assign the findings to the artefact of the group they belong to
     finding_groups: list[FindingGroup] = []
@@ -1165,7 +1165,7 @@ def _create_or_update_issue(
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone | None,
     failed_milestones: list[github3.issues.milestone.Milestone],
-    latest_processing_date: datetime.date,
+    due_date: datetime.date,
     is_scanned: bool,
     artefacts_without_scan: set[dso.model.ComponentArtefactId],
     delivery_dashboard_url: str,
@@ -1207,7 +1207,7 @@ def _create_or_update_issue(
         # updated
         title = None
 
-    is_overdue = latest_processing_date < datetime.date.today()
+    is_overdue = due_date < datetime.date.today()
 
     template_variables = _template_vars(
         finding_cfg=finding_cfg,
@@ -1215,7 +1215,7 @@ def _create_or_update_issue(
         artefacts=artefacts,
         findings=findings,
         artefacts_without_scan=artefacts_without_scan,
-        latest_processing_date=latest_processing_date,
+        due_date=due_date,
         delivery_dashboard_url=delivery_dashboard_url,
         sprint_name='Overdue' if is_overdue else sprint_name,
     )
@@ -1260,7 +1260,7 @@ def _create_or_update_or_close_issue_per_finding(
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone,
     failed_milestones: None | list[github3.issues.milestone.Milestone],
-    latest_processing_date: datetime.date,
+    due_date: datetime.date,
     is_scanned: bool,
     artefacts_without_scan: set[dso.model.ComponentArtefactId],
     delivery_dashboard_url: str,
@@ -1292,7 +1292,7 @@ def _create_or_update_or_close_issue_per_finding(
             issues=finding_issues,
             milestone=milestone,
             failed_milestones=failed_milestones,
-            latest_processing_date=latest_processing_date,
+            due_date=due_date,
             is_scanned=is_scanned,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
@@ -1319,7 +1319,7 @@ def create_or_update_or_close_issue(
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issue_id: str,
-    latest_processing_date: datetime.date,
+    due_date: datetime.date,
     is_in_bom: bool,
     artefacts_without_scan: set[dso.model.ComponentArtefactId],
     delivery_dashboard_url: str,
@@ -1384,7 +1384,7 @@ def create_or_update_or_close_issue(
     milestone, failed_milestones = _issue_milestone(
         mapping=mapping,
         delivery_client=delivery_client,
-        latest_processing_date=latest_processing_date,
+        due_date=due_date,
     )
 
     if milestone:
@@ -1403,7 +1403,7 @@ def create_or_update_or_close_issue(
             issues=issues,
             milestone=milestone,
             failed_milestones=failed_milestones,
-            latest_processing_date=latest_processing_date,
+            due_date=due_date,
             is_scanned=is_scanned,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
@@ -1422,7 +1422,7 @@ def create_or_update_or_close_issue(
         issues=issues,
         milestone=milestone,
         failed_milestones=failed_milestones,
-        latest_processing_date=latest_processing_date,
+        due_date=due_date,
         is_scanned=is_scanned,
         artefacts_without_scan=artefacts_without_scan,
         delivery_dashboard_url=delivery_dashboard_url,

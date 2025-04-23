@@ -274,18 +274,18 @@ class FindingIssues:
     def issue_id(
         self,
         artefact: dso.model.ComponentArtefactId,
-        latest_processing_date: datetime.date,
+        due_date: datetime.date,
         version: str='v1',
     ) -> str:
         '''
         The issue-id (fka. correlation-id) is built from the grouping relevant properties of the
-        `artefact` as well as the `latest_processing_date`. It is intended to be used to reference a
-        GitHub issue to distinguish between issues "managed" by the Open-Delivery-Gear vs. those
-        manually "managed". Also, a version prefix is added to be able to differentiate issue-ids in
-        case their calculation changes in the future.
+        `artefact` as well as the `due_date`. It is intended to be used to reference a GitHub issue
+        to distinguish between issues "managed" by the Open-Delivery-Gear vs. those manually
+        "managed". Also, a version prefix is added to be able to differentiate issue-ids in case
+        their calculation changes in the future.
         '''
         group_id = self.group_id_for_artefact(artefact)
-        digest_str = group_id + latest_processing_date.isoformat()
+        digest_str = group_id + due_date.isoformat()
         digest = hashlib.shake_128(digest_str.encode()).hexdigest(length=23)
 
         return f'{version}/{digest}'

@@ -116,23 +116,23 @@ def _iter_findings_with_processing_dates(
         if (allowed_processing_time := categorisation.allowed_processing_time) is None:
             continue # finding does not have to be processed anymore
 
-        latest_processing_date = finding.finding.discovery_date + allowed_processing_time
+        due_date = finding.finding.discovery_date + allowed_processing_time
 
         for sprint in sprints:
-            if sprint >= latest_processing_date:
-                finding.latest_processing_date = sprint
+            if sprint >= due_date:
+                finding.due_date = sprint
                 break
         else:
             logger.warning(
                 f'could not determine target sprint for {finding=}, will use earliest sprint'
             )
             # we checked that at least one sprint exists earlier
-            finding.latest_processing_date = sprints[0]
+            finding.due_date = sprints[0]
 
         yield finding
 
 
-def _group_findings_by_date(
+def _group_findings_by_due_date(
     findings: collections.abc.Sequence[issue_replicator.github.AggregatedFinding],
     sprints: collections.abc.Sequence[datetime.date],
 ) -> collections.abc.Generator[
@@ -146,7 +146,7 @@ def _group_findings_by_date(
     for sprint in sprints:
         filtered_findings = tuple(
             finding for finding in findings
-            if finding.latest_processing_date == sprint
+            if finding.due_date == sprint
         )
 
         yield filtered_findings, sprint
@@ -182,23 +182,23 @@ def replicate_issue_for_finding_type(
     )
     logger.info(f'{len(active_compliance_snapshots)=}')
 
-    issue_ids_by_latest_processing_date: dict[datetime.date, str] = dict()
+    issue_ids_by_due_date: dict[datetime.date, str] = dict()
     for compliance_snapshot in compliance_snapshots:
-        date = compliance_snapshot.data.latest_processing_date
+        due_date = compliance_snapshot.data.due_date
 
-        if date in issue_ids_by_latest_processing_date:
+        if due_date in issue_ids_by_due_date:
             continue
 
-        issue_ids_by_latest_processing_date[date] = finding_cfg.issues.issue_id(
+        issue_ids_by_due_date[due_date] = finding_cfg.issues.issue_id(
             artefact=artefact,
-            latest_processing_date=date,
+            due_date=due_date,
         )
 
     active_sprints = set()
     for compliance_snapshot in active_compliance_snapshots:
-        active_sprints.add(compliance_snapshot.data.latest_processing_date)
+        active_sprints.add(compliance_snapshot.data.due_date)
 
-    if not (all_sprints := list(issue_ids_by_latest_processing_date.keys())):
+    if not (all_sprints := list(issue_ids_by_due_date.keys())):
         logger.warning('did not find any sprints, exiting...')
         return
 
@@ -226,7 +226,7 @@ def replicate_issue_for_finding_type(
         logger.info('artefact is not in the BoM anymore, will not query any findings')
         findings = tuple()
 
-    findings_by_date = _group_findings_by_date(
+    findings_by_due_date = _group_findings_by_due_date(
         findings=findings,
         sprints=all_sprints,
     )
@@ -259,8 +259,8 @@ def replicate_issue_for_finding_type(
     }
     artefacts_without_scan = all_artefacts - scanned_artefacts
 
-    for findings, date in findings_by_date:
-        issue_id = issue_ids_by_latest_processing_date.get(date)
+    for findings, due_date in findings_by_due_date:
+        issue_id = issue_ids_by_due_date.get(due_date)
 
         issue_replicator.github.create_or_update_or_close_issue(
             mapping=mapping,
@@ -270,7 +270,7 @@ def replicate_issue_for_finding_type(
             artefacts=artefacts,
             findings=findings,
             issue_id=issue_id,
-            latest_processing_date=date,
+            due_date=due_date,
             is_in_bom=is_in_bom,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,

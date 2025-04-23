@@ -50,7 +50,7 @@ def sprint_dates(
 
 def create_compliance_snapshot(
     artefact: dso.model.ComponentArtefactId,
-    latest_processing_date: datetime.date,
+    due_date: datetime.date,
     now: datetime.datetime=datetime.datetime.now(),
     today: datetime.date=datetime.date.today(),
 ) -> dso.model.ArtefactMetadata:
@@ -62,7 +62,7 @@ def create_compliance_snapshot(
     )
 
     data = dso.model.ComplianceSnapshot(
-        latest_processing_date=latest_processing_date,
+        due_date=due_date,
         state=[dso.model.ComplianceSnapshotState(
             timestamp=now,
             status=dso.model.ComplianceSnapshotStatuses.ACTIVE,
@@ -128,14 +128,14 @@ def _create_and_update_compliance_snapshots_of_artefact(
     for sprint_date in sprints:
         if any(
             compliance_snapshot for compliance_snapshot in compliance_snapshots
-            if compliance_snapshot.data.latest_processing_date == sprint_date
+            if compliance_snapshot.data.due_date == sprint_date
         ):
             # compliance snapshot already exists for this artefact for this sprint
             continue
 
         compliance_snapshots.append(create_compliance_snapshot(
             artefact=artefact,
-            latest_processing_date=sprint_date,
+            due_date=sprint_date,
             now=now,
             today=today,
         ))
