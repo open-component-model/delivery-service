@@ -255,6 +255,7 @@ def create_artefact_metadata(
             eol_date=eol_date,
         ),
         discovery_date=time_now.date(),
+        allowed_processing_time=categorisation.allowed_processing_time_raw,
     )
 
 

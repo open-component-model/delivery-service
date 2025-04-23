@@ -110,6 +110,7 @@ def create_missing_linter_finding(
             sub_type=sub_type,
         ),
         discovery_date=creation_timestamp.date(),
+        allowed_processing_time=categorisation.allowed_processing_time_raw,
     )
 
 
@@ -145,7 +146,7 @@ def iter_sast_artefacts_for_sub_type(
         categorisation=categorisation,
         user=dso.model.User(
             username='sast-extension-auto-rescoring',
-            type='sast-extension-user'
+            type='sast-extension-user',
         ),
         creation_timestamp=creation_timestamp,
     )
