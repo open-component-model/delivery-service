@@ -58,6 +58,7 @@ def as_artefact_metadata(
     artefact: dso.model.ComponentArtefactId,
     crypto_assets: collections.abc.Iterable[dso.model.CryptoAsset],
     findings: collections.abc.Iterable[dso.model.CryptoFinding],
+    crypto_finding_cfg: odg.findings.Finding,
 ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
     today = datetime.date.today()
     now = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -97,11 +98,14 @@ def as_artefact_metadata(
     )
 
     for finding in findings:
+        categorisation = crypto_finding_cfg.categorisation_by_id(finding.severity)
+
         yield dso.model.ArtefactMetadata(
             artefact=artefact,
             meta=meta,
             data=finding,
             discovery_date=today,
+            allowed_processing_time=categorisation.allowed_processing_time_raw,
         )
 
 
@@ -176,6 +180,7 @@ def scan(
         artefact=artefact,
         crypto_assets=crypto_assets,
         findings=findings,
+        crypto_finding_cfg=crypto_finding_cfg,
     ))
 
     existing_artefact_metadata = (

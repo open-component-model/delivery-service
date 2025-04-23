@@ -158,6 +158,7 @@ def iter_artefact_metadata(
                     meta=meta,
                     data=license_finding,
                     discovery_date=discovery_date,
+                    allowed_processing_time=categorisation.allowed_processing_time_raw,
                 )
 
                 findings.append(artefact_metadata)
@@ -229,6 +230,7 @@ def iter_artefact_metadata(
                     meta=meta,
                     data=vulnerability_finding,
                     discovery_date=discovery_date,
+                    allowed_processing_time=categorisation.allowed_processing_time_raw,
                 )
 
                 findings.append(artefact_metadata)
