@@ -141,6 +141,10 @@ class VulnerabilityFindingSelector:
     cve_score_range: MinMaxRange
 
 
+class MetaAllowedProcessingTimes(enum.StrEnum):
+    INPUT = 'input'
+
+
 class RescoringModes(enum.StrEnum):
     MANUAL = 'manual'
     AUTOMATIC = 'automatic'
@@ -177,7 +181,7 @@ class FindingCategorisation:
     id: str
     display_name: str
     value: int
-    allowed_processing_time: str | int | None
+    allowed_processing_time: MetaAllowedProcessingTimes | str | int | None
     rescoring: RescoringModes | list[RescoringModes] | None
     selector: (
         CryptoFindingSelector
@@ -190,7 +194,10 @@ class FindingCategorisation:
     )
 
     def __post_init__(self):
-        if self.allowed_processing_time is not None:
+        if (
+            not isinstance(self.allowed_processing_time, MetaAllowedProcessingTimes)
+            and self.allowed_processing_time is not None
+        ):
             self.allowed_processing_time = util.convert_to_timedelta(self.allowed_processing_time)
 
         if isinstance(self.rescoring, RescoringModes):
