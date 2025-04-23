@@ -678,7 +678,7 @@ def _diki_template_vars(
         rule_desc = ""
         match finding_rule.ruleset_id:
             case "disa-kubernetes-stig":
-                rule_desc = f'[DISA STIG viewer - {finding_rule.rule_id}](https://www.stigviewer.com/stig/kubernetes/2024-08-22/finding/V-{finding_rule.rule_id})'  # noqa: E501
+                rule_desc = f'[DISA STIG viewer - {finding_rule.rule_id}](https://stigviewer.com/stigs/kubernetes/2024-08-22/finding/V-{finding_rule.rule_id})'  # noqa: E501
             case "security-hardened-shoot-cluster":
                 diki_version_for_ruleset_version = {
                     'v0.1.0': 'v0.14.0',
