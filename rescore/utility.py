@@ -288,6 +288,7 @@ def rescoring_for_sast_finding(
             severity=rescored_categorisation.id,
             user=user,
             matching_rules=[rule.name for rule in matching_rules],
-            comment='Automatically rescored based on rules.',
+            comment='Automatically rescored due_date on rules.',
+            allowed_processing_time=rescored_categorisation.allowed_processing_time_raw,
         ),
     )
