@@ -74,6 +74,7 @@ class RescoringProposal:
     matching_rules: list[str]
     applicable_rescorings: tuple[dict, ...] # "..." for dacite.from_dict
     discovery_date: str
+    due_date: str | None
     sprint: yp.Sprint | None
 
 
@@ -200,29 +201,23 @@ def filesystem_paths_for_finding(
 
 
 def sprint_for_finding(
-    discovery_date: datetime.date,
-    allowed_processing_time: datetime.timedelta | None,
+    due_date: datetime.date | None,
     sprints: list[yp.Sprint],
 ) -> yp.Sprint | None:
     '''
-    Returns the sprint with the closest future end date compared to the calculated latest processing
-    date based on the provided `discovery_date` and `allowed_processing_time`. In case the
-    `allowed_processing_time` is `None` (!= `0`) (this might be the case if a finding already
+    Returns the sprint with the closest future end date compared to the provided
+    `due_date`. In case the `due_date` is `None` (this might be the case if a finding already
     belongs to a category which is to be interpreted as "assessed") or no such sprint can be found,
     `None` is returned instead.
     '''
-    if allowed_processing_time is None or not sprints:
+    if not due_date or not sprints:
         return None
 
-    date = discovery_date + allowed_processing_time
-
     for sprint in sorted(sprints, key=lambda sprint: sprint.end_date):
-        if sprint.end_date.date() > date:
+        if sprint.end_date.date() > due_date:
             return sprint
 
-    logger.warning(
-        f'could not determine target sprint for {discovery_date=} with {allowed_processing_time=}'
-    )
+    logger.warning(f'could not determine target sprint for {due_date=}')
     return None
 
 
@@ -283,20 +278,27 @@ async def _iter_rescoring_proposals(
         severity = am.data.severity
 
         if current_rescorings:
-            rescoring = current_rescorings[0].data
-            current_severity = rescoring.severity
-            matching_rule_names = rescoring.matching_rules
+            rescoring = current_rescorings[0]
+            current_severity = rescoring.data.severity
+            matching_rule_names = rescoring.data.matching_rules
         else:
+            rescoring = None
             current_severity = severity
             matching_rule_names = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
 
         categorisation = finding_cfg.categorisation_by_id(current_severity)
+        due_date = categorisation.effective_due_date(
+            finding=am,
+            rescoring=rescoring,
+        )
 
         sprint = sprint_for_finding(
-            discovery_date=am.discovery_date,
-            allowed_processing_time=categorisation.allowed_processing_time,
+            due_date=due_date,
             sprints=sprints,
         )
+
+        if due_date:
+            due_date = due_date.isoformat()
 
         # patch in `id` because it is required in order to be able to delete rescorings
         serialised_current_rescorings = tuple(
@@ -323,6 +325,7 @@ async def _iter_rescoring_proposals(
                     'matching_rules': matching_rule_names,
                     'applicable_rescorings': serialised_current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
+                    'due_date': due_date,
                     'sprint': sprint,
                 },
             )
@@ -341,6 +344,7 @@ async def _iter_rescoring_proposals(
                     'matching_rules': matching_rule_names,
                     'applicable_rescorings': serialised_current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
+                    'due_date': due_date,
                     'sprint': sprint,
                 },
             )
@@ -430,6 +434,7 @@ async def _iter_rescoring_proposals(
                         'matching_rules': matching_rule_names,
                         'applicable_rescorings': serialised_current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
+                        'due_date': due_date,
                         'sprint': sprint,
                     },
                 )
@@ -472,6 +477,7 @@ async def _iter_rescoring_proposals(
                         'matching_rules': matching_rule_names,
                         'applicable_rescorings': serialised_current_rescorings,
                         'discovery_date': am.discovery_date.isoformat(),
+                        'due_date': due_date,
                         'sprint': sprint,
                     },
                 )
@@ -486,6 +492,7 @@ async def _iter_rescoring_proposals(
                     'matching_rules': matching_rule_names,
                     'applicable_rescorings': serialised_current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
+                    'due_date': due_date,
                     'sprint': sprint,
                 },
                 config=dacite.Config(
@@ -502,6 +509,7 @@ async def _iter_rescoring_proposals(
                     'matching_rules': matching_rule_names,
                     'applicable_rescorings': serialised_current_rescorings,
                     'discovery_date': am.discovery_date.isoformat(),
+                    'due_date': due_date,
                     'sprint': sprint,
                 },
             )
