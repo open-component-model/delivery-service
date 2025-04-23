@@ -113,21 +113,19 @@ def _iter_findings_with_processing_dates(
 
         categorisation = finding_cfg.categorisation_by_id(finding.severity)
 
-        if (allowed_processing_time := categorisation.allowed_processing_time) is None:
+        if not (due_date := categorisation.effective_due_date(
+            finding=finding.finding,
+            rescoring=finding.rescorings[0] if finding.rescorings else None,
+        )):
             continue # finding does not have to be processed anymore
-
-        due_date = finding.finding.discovery_date + allowed_processing_time
 
         for sprint in sprints:
             if sprint >= due_date:
                 finding.due_date = sprint
                 break
         else:
-            logger.warning(
-                f'could not determine target sprint for {finding=}, will use earliest sprint'
-            )
-            # we checked that at least one sprint exists earlier
-            finding.due_date = sprints[0]
+            logger.warning(f'could not determine target sprint for {finding=})')
+            continue
 
         yield finding
 
