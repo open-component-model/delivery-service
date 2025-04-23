@@ -58,6 +58,7 @@ def to_db_artefact_metadata(
         referenced_type=referenced_type,
         creation_date=meta.creation_date,
         discovery_date=artefact_metadata.discovery_date,
+        allowed_processing_time=artefact_metadata.allowed_processing_time,
     )
 
 
@@ -83,6 +84,7 @@ def db_artefact_metadata_to_dict(
             if artefact_metadata.discovery_date
             else None
         ),
+        'allowed_processing_time': artefact_metadata.allowed_processing_time,
     }
 
 
