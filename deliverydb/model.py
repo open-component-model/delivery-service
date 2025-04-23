@@ -49,6 +49,7 @@ class ArtefactMetaData(Base):
     referenced_type = sa.Column(sa.String(length=64)) # type of finding a rescoring applies to
 
     discovery_date = sa.Column(sa.Date)
+    allowed_processing_time = sa.Column(sa.String(length=16))
 
 
 sa.Index(
