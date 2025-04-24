@@ -12,8 +12,6 @@ jobs:
       id-token: write
     with:
       mode: snapshot
-      version-prerelease: "${commit_digest}"
-      version-commit-message: "build ${version}"
 
   post-build:
     runs-on: ubuntu-latest

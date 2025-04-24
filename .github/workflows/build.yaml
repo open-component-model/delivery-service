@@ -7,24 +7,10 @@ on:
         required: true
         type: string
         description:
-          mode as expected by `cc-util/.github/actions/params` action.
+          mode as expected by `cc-util/.github/workflows/prepare`
           either of
           - snapshot
           - release
-      version-prerelease:
-        required: true
-        type: string
-        description: |
-          the prerelease-version to set for effective version (passed to version-action)
-
-          helpful values:
-          - empty string: finalise
-          - ${commit_digest} -> head-commit's digest
-          - ${epoch} -> unix-expoch in seconds
-      version-commit-message:
-        required: false
-        type: string
-        default: "build ${version}"
     outputs:
       base-component-descriptor:
         value: ${{ jobs.base-component-descriptor.outputs.component-descriptor }}
@@ -37,29 +23,24 @@ on:
         value: ${{ jobs.version.outputs.commit-digest }}
 
 jobs:
-  params:
-    uses: gardener/cc-utils/.github/workflows/params.yaml@master
+  prepare:
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
     with:
       mode: ${{ inputs.mode }}
-  version:
+
+  setuptools-version:
     runs-on: ubuntu-latest
+    permissions: {}
+    needs:
+      - prepare
     outputs:
-      version: ${{ steps.version.outputs.version }}
       setuptools-version: ${{ steps.version-setuptools.outputs.setuptools-version }}
-      commit-objects: ${{ steps.version.outputs.commit-objects }}
-      commit-digest: ${{ steps.version.outputs.commit-digest }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: gardener/cc-utils/.github/actions/version@master
-      id: version
-      with:
-        commit-message: ${{ inputs.version-commit-message }}
-        prerelease: ${{ inputs.version-prerelease }}
     - name: version-setuptools
       id: version-setuptools
       run: |
         set -eu
-        version=${{ steps.version.outputs.version }}
+        version=${{ needs.prepare.outputs.version }}
         if [[ "${version}" == *-* ]]; then
           # version was non-final - add suffix compliant w/ pep-440
           version="${version%%-*}-dev0"
@@ -68,14 +49,13 @@ jobs:
 
   base-component-descriptor:
     needs:
-      - version
-      - params
+      - prepare
     uses: gardener/cc-utils/.github/workflows/base-component-descriptor.yaml@master
     with:
       component-name: ocm.software/ocm-gear/delivery-service # todo: rename -> ODG
-      version: ${{ needs.version.outputs.version }}
-      ocm-repo: ${{ needs.params.outputs.ocm-repository }}
-      commit-digest: ${{ needs.version.outputs.version-commit-digest }}
+      version: ${{ needs.prepare.outputs.version }}
+      ocm-repo: ${{ needs.prepare.outputs.ocm-repository }}
+      commit-digest: ${{ needs.prepare.outputs.version-commit-digest }}
       labels: |
         name: cloud.gardener.cnudie/responsibles
         value:
@@ -87,7 +67,8 @@ jobs:
   packages:
     runs-on: ubuntu-latest
     needs:
-      - version
+      - setuptools-version
+      - prepare
     steps:
       - name: install setuptools
         run: |
@@ -99,7 +80,7 @@ jobs:
         run: |
           set -eu
 
-          version=${{ needs.version.outputs.setuptools-version }}
+          version=${{ needs.setuptools-version.outputs.setuptools-version }}
           echo "version: ${version}"
 
           # pass finalised version to setups
@@ -164,7 +145,7 @@ jobs:
             digest="$(sha256sum ${outf} | cut -d' ' -f1)"
             echo "\
           - name: ${package}
-            version: ${version}
+            version: ${{ needs.prepare.outputs.version }}
             type: ${mimetype}
             relation: local
             access:
@@ -276,9 +257,8 @@ jobs:
   oci-images:
     name: Build OCI-Images
     needs:
-      - version
       - packages # needed indirectly (python-packages artefact)
-      - params
+      - prepare
     permissions:
       contents: read
       packages: write
@@ -360,8 +340,8 @@ jobs:
 
     with:
       name: ${{ matrix.args.name }}
-      version: ${{ needs.version.outputs.version }}
-      oci-registry: ${{ needs.params.outputs.oci-registry }}
+      version: ${{ needs.prepare.outputs.version }}
+      oci-registry: ${{ needs.prepare.outputs.oci-registry }}
       oci-repository: ${{ matrix.args.oci-repository }}
       oci-platforms: 'linux/amd64'
       dockerfile: ${{ matrix.args.dockerfile }}
@@ -373,7 +353,7 @@ jobs:
   helmcharts:
     name: Build Helmcharts
     needs:
-      - params
+      - prepare
       - base-component-descriptor
       - oci-images
     permissions:
@@ -456,7 +436,7 @@ jobs:
         with:
           name: ${{ matrix.args.name }}
           dir: ${{ matrix.args.dir }}
-          oci-registry: ${{ needs.params.outputs.oci-registry }}
+          oci-registry: ${{ needs.prepare.outputs.oci-registry }}
           oci-repository: ${{ matrix.args.repository }}
           component-descriptor: ${{ steps.fetch-ocm.outputs.component-descriptor }}
           mappings: ${{ toJSON(matrix.args.mappings) }}
