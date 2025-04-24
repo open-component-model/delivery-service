@@ -17,10 +17,10 @@ on:
 
       version-commit-objects:
         description: commit-objects (for importing commit changing to effective version)
-        value: ${{ jobs.version.outputs.commit-objects }}
+        value: ${{ jobs.prepare.outputs.version-commit-objects }}
       version-commit-digest:
         description: commit-digest for version-commit
-        value: ${{ jobs.version.outputs.commit-digest }}
+        value: ${{ jobs.prepare.outputs.version-commit-digest }}
 
 jobs:
   prepare:
