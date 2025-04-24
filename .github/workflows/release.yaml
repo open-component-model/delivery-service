@@ -11,8 +11,6 @@ jobs:
       id-token: write
     with:
       mode: release
-      version-prerelease: ''
-      version-commit-message: "release ${version}"
 
   release-to-github-and-bump:
     runs-on: ubuntu-latest
