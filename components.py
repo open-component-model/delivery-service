@@ -2,7 +2,6 @@ import collections.abc
 import dataclasses
 import datetime
 import dataclasses_json
-import enum
 import http
 import io
 import logging
@@ -11,9 +10,7 @@ import tarfile
 
 import aiohttp.web
 import dacite.exceptions
-import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
-import sqlalchemy.orm.query as sq
 import yaml
 
 import cnudie.iter
@@ -32,12 +29,9 @@ import compliance_summary as cs
 import config
 import consts
 import deliverydb.cache
-import deliverydb.model as dm
-import deliverydb.util
 import features
 import lookups
 import responsibles
-import responsibles.github_statistics
 import responsibles.labels
 import util
 import yp
@@ -1290,9 +1284,7 @@ class ComplianceSummary(aiohttp.web.View):
                       $ref: '#/definitions/ComplianceSummary'
         '''
         params = self.request.rel_url.query
-        artefact_metadata_cfg_by_type = self.request.app[consts.APP_ARTEFACT_METADATA_CFG]
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
-        eol_client = self.request.app[consts.APP_EOL_CLIENT]
         invalid_semver_ok = self.request.app[consts.APP_INVALID_SEMVER_OK]
         version_filter_callback = self.request.app[consts.APP_VERSION_FILTER_CALLBACK]
         version_lookup = self.request.app[consts.APP_VERSION_LOOKUP]
@@ -1349,8 +1341,6 @@ class ComplianceSummary(aiohttp.web.View):
                 finding_cfgs=finding_cfgs,
                 db_session=db_session,
                 component_descriptor_lookup=component_descriptor_lookup,
-                eol_client=eol_client,
-                artefact_metadata_cfg_by_type=artefact_metadata_cfg_by_type,
                 ocm_repo=ocm_repo,
                 shortcut_cache=shortcut_cache,
             ) for component in components

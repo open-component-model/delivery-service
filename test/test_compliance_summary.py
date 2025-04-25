@@ -1,10 +1,8 @@
 import logging
 import pytest
-import unittest.mock
 
 import ci.log
 import dso.model
-import unixutil.model
 
 import compliance_summary as cs
 import odg.findings
@@ -13,75 +11,6 @@ import paths
 
 # surpress warnings due to unknown os-id
 ci.log.configure_default_logging(stdout_level=logging.ERROR)
-
-
-@pytest.fixture()
-def eol_client():
-    def cycles(
-        product: str,
-        absent_ok: bool = False,
-    ):
-        return [
-            {
-                'cycle': '9.99',
-                'latest': '9.99.9',
-                'eol': '9999-12-30',
-            },
-            {
-                'cycle': '3.11',
-                'latest': '3.11.13',
-                'eol': '2021-11-01',
-            },
-        ]
-
-    api_mock = unittest.mock.Mock()
-    api_mock.cycles = cycles
-
-    return api_mock
-
-
-@pytest.fixture()
-def artefact_metadata_cfg_by_type():
-    cfg_raw = {
-        'artefactMetadataCfg': [
-            {
-                'type': 'os_ids',
-                'categories': [
-                    'compliance',
-                ],
-                'severityMappings': [
-                    {
-                        'severityName': 'CRITICAL',
-                        'status': [
-                            'isEol',
-                        ],
-                    },
-                    {
-                        'severityName': 'MEDIUM',
-                        'status': [
-                            'updateAvailableForBranch',
-                        ],
-                    },
-                    {
-                        'severityName': 'UNKNOWN',
-                        'status': [
-                            'emptyOsId',
-                            'noBranchInfo',
-                            'unableToCompareVersion',
-                        ],
-                    },
-                    {
-                        'severityName': 'CLEAN',
-                        'status': [
-                            'greatestBranchVersion',
-                        ],
-                    },
-                ]
-            },
-        ]
-    }
-
-    return cs.artefact_metadata_cfg_by_type(artefact_metadata_cfg=cfg_raw)
 
 
 @pytest.fixture
@@ -216,106 +145,6 @@ async def test_malware(component_artefact_id):
         rescorings=[],
         eol_client=None,
     )).categorisation == 'BLOCKER'
-
-
-@pytest.mark.asyncio
-async def test_os_id(
-    eol_client,
-    artefact_metadata_cfg_by_type,
-    component_artefact_id,
-):
-    type = odg.findings.FindingType.OS_IDS
-    meta = dso.model.Metadata(
-        datasource=None,
-        type=type,
-    )
-
-    finding_cfg = odg.findings.Finding.from_file(
-        path=paths.findings_cfg_path(),
-        finding_type=type,
-    )
-
-    assert (await cs.calculate_summary_entry(
-        finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
-            artefact=component_artefact_id,
-            meta=meta,
-            data=dso.model.OsID(
-                os_info=unixutil.model.OperatingSystemId(),
-            ),
-        )],
-        rescorings=[],
-        artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
-        eol_client=eol_client,
-    )).categorisation == 'UNKNOWN'
-
-    assert (await cs.calculate_summary_entry(
-        finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
-            artefact=component_artefact_id,
-            meta=meta,
-            data=dso.model.OsID(
-                os_info=unixutil.model.OperatingSystemId(
-                    VERSION_ID='9.99.1',
-                    ID='fooOs',
-                ),
-            ),
-        )],
-        rescorings=[],
-        artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
-        eol_client=eol_client,
-    )).categorisation == 'MEDIUM'
-
-    assert (await cs.calculate_summary_entry(
-        finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
-            artefact=component_artefact_id,
-            meta=meta,
-            data=dso.model.OsID(
-                os_info=unixutil.model.OperatingSystemId(
-                    VERSION_ID='9.99.9',
-                    ID='fooOs',
-                ),
-            ),
-        )],
-        rescorings=[],
-        artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
-        eol_client=eol_client,
-    )).categorisation is cs.ComplianceEntryCategorisation.CLEAN
-
-    assert (await cs.calculate_summary_entry(
-        finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
-            artefact=component_artefact_id,
-            meta=meta,
-            data=dso.model.OsID(
-                os_info=unixutil.model.OperatingSystemId(
-                    VERSION_ID='3.11.5',
-                    ID='fooOs',
-                ),
-            ),
-        )],
-        rescorings=[],
-        artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
-        eol_client=eol_client,
-    )).categorisation == 'CRITICAL'
-
-    assert (await cs.calculate_summary_entry(
-        finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
-            artefact=component_artefact_id,
-            meta=meta,
-            data=dso.model.OsID(
-                os_info=unixutil.model.OperatingSystemId(
-                    VERSION_ID='bar--foo',
-                    ID='fooOs',
-                ),
-            ),
-        )],
-        rescorings=[],
-        artefact_metadata_cfg=artefact_metadata_cfg_by_type[type],
-        eol_client=eol_client,
-    )).categorisation == 'UNKNOWN'
 
 
 @pytest.mark.asyncio

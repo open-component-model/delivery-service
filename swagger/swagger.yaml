@@ -161,7 +161,6 @@ definitions:
       - finding/diki
       - finding/sast
       - finding/osid
-      - os_ids
       - rescorings
       - compliance/snapshots
       - meta/artefact_scan_info
