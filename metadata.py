@@ -533,6 +533,17 @@ def reuse_discovery_date_if_possible(
             # resource-/ruleset-version, so we must re-use its discovery date
             return old_metadata.discovery_date
 
+    elif new_metadata.type == odg.findings.FindingType.OSID:
+        if (
+            new_metadata.data.get('osid').get('VERSION_ID')
+                == old_metadata.data.get('osid').get('VERSION_ID')
+            and new_metadata.data.get('osid').get('NAME')
+                == old_metadata.data.get('osid').get('NAME')
+        ):
+            # found the same finding in existing entry, independent of the version_ID and NAME
+            # so we must re-use its discovery date
+            return old_metadata.discovery_date
+
     else:
         raise ValueError(
             f're-usage of discovery dates is configured for "{new_metadata.type}" but there is no '
