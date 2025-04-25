@@ -3,7 +3,9 @@ import dataclasses
 import functools
 import logging
 
+import aiohttp.web
 import github3
+import github3.exceptions
 
 import github.codeowners
 import ocm
@@ -283,15 +285,20 @@ def user_identifiers_from_responsible(
 
             team = github.codeowners.Team(responsible.teamname)
 
-            for username in github.codeowners.resolve_team_members(
-                team=team,
-                github_api=github_api,
-                absent_ok=False,
-            ):
-                yield responsibles.user_model.GithubUser(
-                    source='ComponentDescriptor',
-                    username=username,
-                    github_hostname=gh_hostname,
+            try:
+                for username in github.codeowners.resolve_team_members(
+                    team=team,
+                    github_api=github_api,
+                    absent_ok=False,
+                ):
+                    yield responsibles.user_model.GithubUser(
+                        source='ComponentDescriptor',
+                        username=username,
+                        github_hostname=gh_hostname,
+                    )
+            except github3.exceptions.NotFoundError:
+                raise aiohttp.web.HTTPNotFound(
+                    text=f'Did not find GitHub team {responsible.teamname}',
                 )
 
         case responsibles.labels.CodeownersResponsible():
