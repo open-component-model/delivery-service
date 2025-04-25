@@ -7,7 +7,6 @@ globally available.
 APP_ADDRESSBOOK_ENTRIES = 'addressbook_entries'
 APP_ADDRESSBOOK_GITHUB_MAPPINGS = 'addressbook_github_mappings'
 APP_ADDRESSBOOK_SOURCE = 'addressbook_source'
-APP_ARTEFACT_METADATA_CFG = 'artefact_metadata_cfg'
 APP_BASE_URL = 'base_url'
 APP_COMPONENT_DESCRIPTOR_LOOKUP = 'component_descriptor_lookup'
 APP_COMPONENT_WITH_TESTS_CALLBACK = 'component_with_tests_callback'

@@ -1,5 +1,4 @@
 import collections.abc
-import dataclasses
 import datetime
 import http
 
@@ -11,7 +10,6 @@ import sqlalchemy.ext.asyncio as sqlasync
 import dso.model
 import ocm
 
-import compliance_summary as cs
 import consts
 import deliverydb.cache as dc
 import deliverydb.model as dm
@@ -84,9 +82,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
               items:
                 $ref: '#/definitions/ArtefactMetadata'
         '''
-        artefact_metadata_cfg_by_type = self.request.app[consts.APP_ARTEFACT_METADATA_CFG]
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
-        eol_client = self.request.app[consts.APP_EOL_CLIENT]
         params = self.request.rel_url.query
 
         body = await self.request.json()
@@ -204,23 +200,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
 
                 return finding_dict
 
-            cfg = artefact_metadata_cfg_by_type.get(finding.meta.type)
-
-            if not cfg:
-                return result_dict(finding)
-
-            severity = await cs.severity_for_finding(
-                finding=finding,
-                artefact_metadata_cfg=cfg,
-                eol_client=eol_client,
-            )
-            if not severity:
-                return result_dict(finding)
-
-            return result_dict(
-                finding=finding,
-                meta=dict(**dataclasses.asdict(finding.meta), severity=severity),
-            )
+            return result_dict(finding)
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
         db_stream = await db_session.stream(db_statement)

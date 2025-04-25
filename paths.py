@@ -23,9 +23,6 @@ test_resources_gardener_org_members = os.path.join(
     'test/resources/gardener_org_members.yaml',
 )
 
-_compliance_summary_path = os.path.join(_own_dir, 'compliance_summary')
-artefact_metadata_cfg = os.path.join(_compliance_summary_path, 'artefact_metadata_cfg.yaml')
-
 _features_path = os.path.join(_own_dir, 'features')
 
 swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')

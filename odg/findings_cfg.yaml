@@ -139,23 +139,6 @@
         ratings:
           - not-compliant
 
-- type: os_ids
-  issues:
-    enable_issues: False
-  categorisations:
-    - id: UNKNOWN
-      display_name: UNKNOWN
-      value: -1
-    - id: CLEAN
-      display_name: CLEAN
-      value: 0
-    - id: MEDIUM
-      display_name: MEDIUM
-      value: 2
-    - id: CRITICAL
-      display_name: CRITICAL
-      value: 8
-
 - type: finding/inventory
   filter:
     - semantics: include

@@ -13,7 +13,6 @@ import ci.log
 
 import artefacts
 import compliance_tests
-import compliance_summary as cs
 import components
 import consts
 import ctx_util
@@ -36,7 +35,6 @@ import secret_mgmt
 import service_extensions
 import special_component
 import sprint
-import util
 
 
 ci.log.configure_default_logging(print_thread_id=True)
@@ -140,10 +138,6 @@ def add_app_context_vars(
         addressbook_github_mappings = []
         addressbook_source = None
 
-    artefact_metadata_cfg_by_type = cs.artefact_metadata_cfg_by_type(
-        artefact_metadata_cfg=util.parse_yaml_file(paths.artefact_metadata_cfg),
-    )
-
     component_with_tests_callback = features.get_feature(
         features.FeatureTests,
     ).get_component_with_tests
@@ -193,7 +187,6 @@ def add_app_context_vars(
     app[consts.APP_ADDRESSBOOK_ENTRIES] = addressbook_entries
     app[consts.APP_ADDRESSBOOK_GITHUB_MAPPINGS] = addressbook_github_mappings
     app[consts.APP_ADDRESSBOOK_SOURCE] = addressbook_source
-    app[consts.APP_ARTEFACT_METADATA_CFG] = artefact_metadata_cfg_by_type
     app[consts.APP_BASE_URL] = base_url
     app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP] = component_descriptor_lookup
     app[consts.APP_COMPONENT_WITH_TESTS_CALLBACK] = component_with_tests_callback

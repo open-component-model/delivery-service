@@ -75,7 +75,6 @@ class FindingType(enum.StrEnum):
     LICENSE = 'finding/license'
     MALWARE = 'finding/malware'
     OSID = 'finding/osid'
-    OS_IDS = 'os_ids'
     SAST = 'finding/sast'
     VULNERABILITY = 'finding/vulnerability'
     FALCO = 'finding/falco'
