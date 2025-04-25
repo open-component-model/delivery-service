@@ -13,7 +13,7 @@ on:
           - release
     outputs:
       base-component-descriptor:
-        value: ${{ jobs.base-component-descriptor.outputs.component-descriptor }}
+        value: ${{ jobs.prepare.outputs.component-descriptor }}
 
       version-commit-objects:
         description: commit-objects (for importing commit changing to effective version)
@@ -46,23 +46,6 @@ jobs:
           version="${version%%-*}-dev0"
         fi
         echo "setuptools-version=${version}" >> ${GITHUB_OUTPUT}
-
-  base-component-descriptor:
-    needs:
-      - prepare
-    uses: gardener/cc-utils/.github/workflows/base-component-descriptor.yaml@master
-    with:
-      component-name: ocm.software/ocm-gear/delivery-service # todo: rename -> ODG
-      version: ${{ needs.prepare.outputs.version }}
-      ocm-repo: ${{ needs.prepare.outputs.ocm-repository }}
-      commit-digest: ${{ needs.prepare.outputs.version-commit-digest }}
-      labels: |
-        name: cloud.gardener.cnudie/responsibles
-        value:
-          - type: githubTeam
-            teamname: open-component-model/odg-maintainers
-            github_hostname: github.com
-      component-references-file: '.ocm/component-references.yaml'
 
   packages:
     runs-on: ubuntu-latest
@@ -354,7 +337,6 @@ jobs:
     name: Build Helmcharts
     needs:
       - prepare
-      - base-component-descriptor
       - oci-images
     permissions:
       contents: read
@@ -428,7 +410,7 @@ jobs:
         id: fetch-ocm
         uses: gardener/cc-utils/.github/actions/merge-ocm-fragments@master
         with:
-          component-descriptor: ${{ needs.base-component-descriptor.outputs.component-descriptor }}
+          component-descriptor: ${{ needs.prepare.outputs.component-descriptor }}
           ctx: oci-images
       - uses: actions/checkout@v4
       - name: build-helmchart
