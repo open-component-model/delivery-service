@@ -286,11 +286,6 @@ def add_routes(
     )
 
     app.router.add_view(
-        path='/components/metadata',
-        handler=components.ComponentMetadata,
-    )
-
-    app.router.add_view(
         path='/delivery/sprint-infos',
         handler=sprint.SprintInfos,
     )
