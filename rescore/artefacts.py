@@ -553,7 +553,7 @@ async def create_backlog_items_for_rescored_artefacts(
 
             if (
                 not (prop := attr_path.find(artefact_raw))
-                or prop is None
+                or prop[0].value is None
             ):
                 required_attr_not_set = True
                 break
