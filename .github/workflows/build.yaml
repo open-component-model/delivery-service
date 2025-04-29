@@ -11,16 +11,6 @@ on:
           either of
           - snapshot
           - release
-    outputs:
-      base-component-descriptor:
-        value: ${{ jobs.prepare.outputs.component-descriptor }}
-
-      version-commit-objects:
-        description: commit-objects (for importing commit changing to effective version)
-        value: ${{ jobs.prepare.outputs.version-commit-objects }}
-      version-commit-digest:
-        description: commit-digest for version-commit
-        value: ${{ jobs.prepare.outputs.version-commit-digest }}
 
 jobs:
   prepare:
