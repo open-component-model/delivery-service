@@ -332,7 +332,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    runs-on: ubuntu-latest
+    uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@master
     strategy:
       matrix:
         args:
@@ -394,22 +394,9 @@ jobs:
             dir: charts/bootstrapping
             repository: charts/odg
             mappings: []
-
-    steps:
-      - name: fetch-ocm-fragments
-        id: fetch-ocm
-        uses: gardener/cc-utils/.github/actions/merge-ocm-fragments@master
-        with:
-          component-descriptor: ${{ needs.prepare.outputs.component-descriptor }}
-          ctx: oci-images
-      - uses: actions/checkout@v4
-      - name: build-helmchart
-        uses: gardener/cc-utils/.github/actions/helmchart@master
-        with:
-          name: ${{ matrix.args.name }}
-          dir: ${{ matrix.args.dir }}
-          oci-registry: ${{ needs.prepare.outputs.oci-registry }}
-          oci-repository: ${{ matrix.args.repository }}
-          component-descriptor: ${{ steps.fetch-ocm.outputs.component-descriptor }}
-          mappings: ${{ toJSON(matrix.args.mappings) }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
+    with:
+      name: ${{ matrix.args.name }}
+      dir: ${{ matrix.args.dir }}
+      oci-registry: ${{ needs.prepare.outputs.oci-registry }}
+      oci-repository: ${{ matrix.args.repository }}
+      mappings: ${{ toJSON(matrix.args.mappings) }}
