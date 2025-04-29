@@ -185,6 +185,7 @@ jobs:
           -r requirements.extensions.txt \
           -r requirements.service.txt \
           -r requirements.utils.txt \
+          bandit \
           flake8 \
           pylama \
           pylint \
@@ -194,7 +195,36 @@ jobs:
         fi
 
         echo "running linters"
-        .ci/lint
+        blobs_dir=blobs.d
+        mkdir $blobs_dir
+        bandit_logfile=bandit.log
+        bandit_evidence="${blobs_dir}/bandit.tar.gz"
+
+        bandit_extra_args="-f txt -o ${bandit_logfile}" \
+          .ci/lint
+
+        # pass bandit.log + used cfg (pyproject.toml) as evidence
+        tar czf $bandit_evidence $bandit_logfile pyproject.toml
+
+    - uses: gardener/cc-utils//.github/actions/export-ocm-fragments
+      with:
+        ocm-resources: |
+          name: sast-linting-evidence
+          relation: local
+          access:
+            type: localBlob
+            localReference: bandit.tar.gz
+          labels:
+            - name: gardener.cloud/purposes
+              value:
+                - lint
+                - sast
+                - pybandit
+            - name: gardener.cloud/comment
+              value: |
+                we use bandit (linter) for SAST-Scans.
+                See: https://bandit.readthedocs.io/en/latest/
+        blobs-directory: blobs.d
 
   unittests:
     runs-on: ubuntu-latest

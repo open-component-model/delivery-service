@@ -5,24 +5,35 @@ set -eu
 
 src_dir="${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}"
 
-echo 'Running flake8 for all python modules..'
 error=0
 
 export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
 
-echo 'running pylama for all modules (errors only)'
 (
     pushd "${src_dir}"
     echo "using pylama cfg at ${src_dir}/pylama.ini"
     set -x
+
+    echo 'running pylama for all modules (errors only)'
     if pylama -iW,R,C  -lpylint --options "${src_dir}/pylama.ini" "${src_dir}"; then
         echo 'pylama succeeded'
     else
         ((error|=1))
     fi
 
+    echo 'running flake8 for all python modules'
     if ".ci/lint-flake8"; then
         echo 'pyflake8 succeeded'
+    else
+        ((error|=1))
+    fi
+
+    echo 'running bandit (sast-linter) for all modules'
+    if bandit \
+        --configfile "${src_dir}/pyproject.toml" \
+        --recursive \
+        "${src_dir}" ${bandit_extra_args:-}; then
+        echo "bandit succeeded"
     else
         ((error|=1))
     fi

@@ -1,0 +1,13 @@
+[tool.bandit]
+exclude_dirs = ['test']
+skips = [
+  'B104', # we intendedly bind to `0.0.0.0` in productive environments only
+  'B105', # we do not hardcode passwords
+  'B202', # false-positive: we do pass a filter to tar.extractall
+  'B301', # we do not use pickle for untrusted inputs
+  'B311', # we know when not to use pseudo-random number generators
+  'B403', # we do not use pickle for untrusted inputs
+  'B404', # we know how to call subprocesses
+  'B413', # false-positive: we do not use pyCrypto, but pycryptodome
+  'B603', # we know how to call subprocesses
+]
