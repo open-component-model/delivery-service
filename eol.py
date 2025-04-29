@@ -63,7 +63,10 @@ class EolClient:
 
     @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=1)) # 24h
     def all_products(self) -> list[str]:
-        res = requests.get(self._routes.all_products())
+        res = requests.get(
+            self._routes.all_products(),
+            timeout=(4, 31),
+        )
         res.raise_for_status()
         return res.json()
 
@@ -77,7 +80,10 @@ class EolClient:
         Returns release_cycles as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
         '''
-        res = requests.get(self._routes.cycles(product))
+        res = requests.get(
+            self._routes.cycles(product),
+            timeout=(4, 31),
+        )
         try:
             res.raise_for_status()
         except requests.exceptions.HTTPError as e:
@@ -99,7 +105,10 @@ class EolClient:
         Returns single release_cycle as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
         '''
-        res = requests.get(self._routes.cycle(cycle, product))
+        res = requests.get(
+            self._routes.cycle(cycle, product),
+            timeout=(4, 31),
+        )
         try:
             res.raise_for_status()
         except requests.exceptions.HTTPError as e:
