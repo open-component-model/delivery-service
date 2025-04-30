@@ -150,7 +150,7 @@ jobs:
     needs:
       - packages
     container:
-      image: alpine
+      image: python:3.12-alpine
     steps:
     - uses: actions/checkout@v4
     - name: Retrieve Distribution Packages
