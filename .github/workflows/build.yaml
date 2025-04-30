@@ -429,4 +429,4 @@ jobs:
       dir: ${{ matrix.args.dir }}
       oci-registry: ${{ needs.prepare.outputs.oci-registry }}
       oci-repository: ${{ matrix.args.repository }}
-      mappings: ${{ toJSON(matrix.args.mappings) }}
+      ocm-mappings: ${{ toJSON(matrix.args.mappings) }}
