@@ -2,6 +2,7 @@ bash
 gcc
 libc-dev
 libffi-dev
+libmagic
 python3
 python3-dev
 py3-numpy
