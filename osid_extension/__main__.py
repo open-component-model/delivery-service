@@ -94,6 +94,9 @@ def determine_os_status(
     greatest_version = branch_info.greatest_version
     eol_date = branch_info.eol_date
 
+    if osid.is_distroless:
+        return dso.model.OsStatus.DISTROLESS, greatest_version, eol_date
+
     if osidutil.branch_reached_eol(
         osid=osid,
         os_infos=release_infos,
