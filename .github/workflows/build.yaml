@@ -196,7 +196,7 @@ jobs:
         # pass bandit.log + used cfg (pyproject.toml) as evidence
         tar czf $bandit_evidence $bandit_logfile pyproject.toml
 
-    - uses: gardener/cc-utils//.github/actions/export-ocm-fragments
+    - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
       with:
         ocm-resources: |
           name: sast-linting-evidence
