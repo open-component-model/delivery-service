@@ -175,6 +175,8 @@ jobs:
           -r requirements.extensions.txt \
           -r requirements.service.txt \
           -r requirements.utils.txt \
+          numpy \
+          scipy \
           bandit \
           flake8 \
           pylama \
