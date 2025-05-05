@@ -12,12 +12,10 @@ import textwrap
 import time
 import urllib.parse
 
-import cachetools
 import github3
 import github3.issues.issue
 import github3.issues.milestone
 import github3.repos
-import requests
 
 import cnudie.iter
 import cnudie.retrieve
@@ -26,8 +24,6 @@ import delivery.model
 import github.compliance.milestone as gcmi
 import github.limits
 import github.retry
-import github.user
-import github.util
 import ocm.util
 
 import k8s.util
@@ -161,75 +157,6 @@ def filter_issues_for_labels(
         issue for issue in issues
         if filter_issue(issue)
     )
-
-
-@cachetools.cached(cachetools.TTLCache(maxsize=4096, ttl=60 * 60))
-def _valid_issue_assignees(
-    repository: github3.repos.Repository,
-) -> set[str]:
-    return set(
-        u.login for u in repository.assignees()
-    )
-
-
-def _issue_assignees(
-    mapping: odg.extensions_cfg.IssueReplicatorMapping,
-    delivery_client: delivery.client.DeliveryServiceClient,
-    artefact: dso.model.ComponentArtefactId,
-) -> tuple[set[str], set[delivery.model.Status]]:
-    assignees: set[str] = set()
-    statuses: set[delivery.model.Status] = set()
-
-    try:
-        responsibles, statuses = delivery_client.component_responsibles(
-            name=artefact.component_name,
-            version=artefact.component_version,
-            artifact=artefact.artefact.artefact_name,
-        )
-        statuses = set(statuses)
-
-        gh_users = delivery.client.github_users_from_responsibles(
-            responsibles=responsibles,
-            github_url=mapping.repository.html_url,
-        )
-
-        assignees = set(
-            gh_user.username.lower()
-            for gh_user in gh_users
-            if github.user.is_user_active(
-                username=gh_user.username,
-                github=mapping.github_api,
-            )
-        )
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            logger.warning(
-                f'delivery service returned 404 for {artefact.component_name=}, '
-                f'{artefact.component_version=}, {artefact.artefact.artefact_name=}'
-            )
-        else:
-            raise
-
-    valid_assignees = set(
-        assignee.lower()
-        for assignee in _valid_issue_assignees(
-            repository=mapping.repository,
-        )
-    )
-
-    if invalid_assignees := (assignees - valid_assignees):
-        logger.warning(
-            f'unable to assign {invalid_assignees} to issues in repository '
-            f'{mapping.repository.html_url}. Please make sure the users have the necessary '
-            'permissions to see issues in the repository.'
-        )
-        assignees -= invalid_assignees
-        logger.info(
-            f'removed invalid assignees {invalid_assignees} from target assignees for '
-            f'issue. Remaining assignees: {assignees}'
-        )
-
-    return assignees, statuses
 
 
 def _issue_milestone(
@@ -1150,7 +1077,7 @@ def create_issue(
     milestone: github3.issues.milestone.Milestone | None,
     failed_milestones: list[github3.issues.milestone.Milestone],
     assignees: set[str],
-    assignees_statuses: set[str],
+    assignees_statuses: set[delivery.model.Status] | None,
     labels: set[str],
 ) -> github3.issues.issue.ShortIssue:
     try:
@@ -1208,7 +1135,7 @@ def _create_or_update_issue(
     delivery_dashboard_url: str,
     sprint_name: str=None,
     assignees: set[str]=set(),
-    assignees_statuses: set[str]=set(),
+    assignees_statuses: set[delivery.model.Status] | None=None,
     labels: set[str]=set(),
 ):
     def labels_to_preserve(
@@ -1303,7 +1230,7 @@ def _create_or_update_or_close_issue_per_finding(
     delivery_dashboard_url: str,
     sprint_name: str=None,
     assignees: set[str]=set(),
-    assignees_statuses: set[str]=set(),
+    assignees_statuses: set[delivery.model.Status] | None=None,
     labels: set[str]=set(),
 ):
     processed_issues = set()
@@ -1371,6 +1298,8 @@ def create_or_update_or_close_issue(
     is_in_bom: bool,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
+    assignees: set[str],
+    assignees_statuses: set[delivery.model.Status] | None,
 ):
     is_scanned = len(artefacts_without_scan) == 0
 
@@ -1418,16 +1347,6 @@ def create_or_update_or_close_issue(
         else:
             # not scanned yet but no open issue found either -> nothing to do
             return
-
-    if finding_cfg.issues.enable_assignees:
-        assignees, assignees_statuses = _issue_assignees(
-            mapping=mapping,
-            delivery_client=delivery_client,
-            artefact=artefacts[0],
-        )
-    else:
-        assignees = set()
-        assignees_statuses = set()
 
     milestone, failed_milestones = _issue_milestone(
         mapping=mapping,

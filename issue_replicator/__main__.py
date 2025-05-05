@@ -9,9 +9,14 @@ import signal
 import sys
 import time
 
+import cachetools
+import github3.repos
+
 import ci.log
 import cnudie.retrieve
 import delivery.client
+import delivery.model
+import github.user
 
 import consts
 import ctx_util
@@ -26,6 +31,7 @@ import odg.findings
 import odg.model
 import paths
 import rescore.utility
+import util
 
 
 logger = logging.getLogger(__name__)
@@ -156,6 +162,104 @@ def _group_findings_by_due_date(
         yield filtered_findings, sprint
 
 
+def _responsibles_from_overwrites(
+    artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
+) -> list[dict] | None:
+    '''
+    If at least one of the specified `artefact_metadata` entries contains responsible overwrites
+    (responsibles != `None`), a list of these responsibles is returned. Otherwise, `None` is
+    returned.
+    '''
+    responsibles: list[dict] | None = None
+
+    for artefact_metadatum in artefact_metadata:
+        # explicitly check for `None` here as an empty list is allowed to overwrite responsibles
+        if (current_responsibles := artefact_metadatum.meta.responsibles) is None:
+            continue
+
+        if responsibles is None:
+            responsibles = []
+
+        responsibles += [
+            util.dict_serialisation(responsible.identifiers)
+            for responsible in current_responsibles
+        ]
+
+    return responsibles
+
+
+def _responsibles(
+    artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
+    artefact: odg.model.ComponentArtefactId | None,
+    delivery_client: delivery.client.DeliveryServiceClient,
+) -> tuple[list[dict] | None, list[delivery.model.Status] | None]:
+    '''
+    If responsibles can be retrieved via overwrites, a list of these responsibles is returned.
+    Otherwise, responsibles are resolved via the delivery-service api together with their statuses.
+    '''
+    current_responsibles = _responsibles_from_overwrites(
+        artefact_metadata=artefact_metadata,
+    )
+
+    if (
+        current_responsibles is not None
+        or not artefact
+    ):
+        return current_responsibles, None
+
+    return delivery_client.component_responsibles(
+        name=artefact.component_name,
+        version=artefact.component_version,
+        artifact=artefact.artefact.artefact_name,
+        absent_ok=True,
+    )
+
+
+@cachetools.cached(cachetools.TTLCache(maxsize=4096, ttl=60 * 60))
+def _valid_issue_assignees(
+    repository: github3.repos.Repository,
+) -> set[str]:
+    return set(assignee.login.lower() for assignee in repository.assignees())
+
+
+def _github_assignees(
+    responsibles: collections.abc.Iterable[dict] | None,
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+) -> set[str]:
+    if not responsibles:
+        return set()
+
+    gh_usernames = delivery.client.github_usernames_from_responsibles(
+        responsibles=responsibles,
+        github_url=mapping.repository.html_url,
+    )
+
+    assignees = set(
+        gh_username.lower()
+        for gh_username in gh_usernames
+        if github.user.is_user_active(
+            username=gh_username,
+            github=mapping.github_api,
+        )
+    )
+
+    valid_assignees = _valid_issue_assignees(mapping.repository)
+
+    if invalid_assignees := (assignees - valid_assignees):
+        logger.warning(
+            f'unable to assign {invalid_assignees} to issues in repository '
+            f'{mapping.repository.html_url}. Please make sure the users have the necessary '
+            'permissions to see issues in the repository.'
+        )
+        assignees -= invalid_assignees
+        logger.info(
+            f'removed invalid assignees {invalid_assignees} from target assignees for '
+            f'issue. Remaining assignees: {assignees}'
+        )
+
+    return assignees
+
+
 def replicate_issue_for_finding_type(
     artefact: odg.model.ComponentArtefactId,
     finding_cfg: odg.findings.Finding,
@@ -266,6 +370,29 @@ def replicate_issue_for_finding_type(
     }
     artefacts_without_scan = all_artefacts - scanned_artefacts
 
+    if (
+        finding_cfg.issues.enable_assignees
+        and is_in_bom
+        and len(artefacts_without_scan) == 0
+    ):
+        # only lookup responsibles in artefact scan info objects for now
+        artefact_scan_infos = [
+            finding.finding for finding in findings
+            if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO
+        ]
+        responsibles, statuses = _responsibles(
+            artefact_metadata=artefact_scan_infos,
+            artefact=artefacts[0] if artefacts else None,
+            delivery_client=delivery_client,
+        )
+        github_assignees = _github_assignees(
+            responsibles=responsibles,
+            mapping=mapping,
+        )
+    else:
+        github_assignees = set()
+        statuses = None
+
     for findings, due_date in findings_by_due_date:
         issue_id = issue_ids_by_due_date.get(due_date)
 
@@ -281,6 +408,8 @@ def replicate_issue_for_finding_type(
             is_in_bom=is_in_bom,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
+            assignees=github_assignees,
+            assignees_statuses=statuses,
         )
 
 
