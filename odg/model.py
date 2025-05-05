@@ -19,6 +19,57 @@ def _as_key(
     return separator.join(absent_indicator if arg is None else arg for arg in args)
 
 
+class UserTypes(enum.StrEnum):
+    EMAIL_ADDRESS = 'emailAddress'
+    GITHUB_USER = 'githubUser'
+    META_ORIGIN = 'metaOrigin'
+    PERSONAL_NAME = 'personalName'
+
+
+@dataclasses.dataclass
+class UserIdentifierBase:
+    source: str
+    type: UserTypes
+
+
+@dataclasses.dataclass(kw_only=True)
+class EmailAddress(UserIdentifierBase):
+    email: str
+    type: UserTypes = UserTypes.EMAIL_ADDRESS
+
+
+@dataclasses.dataclass(kw_only=True)
+class GithubUser(UserIdentifierBase):
+    username: str
+    github_hostname: str
+    type: UserTypes = UserTypes.GITHUB_USER
+
+
+@dataclasses.dataclass(kw_only=True)
+class MetaOrigin(UserIdentifierBase):
+    '''
+    Meta origin objects declare the origin of the assignment of a user-identity to a component or
+    resource.
+    '''
+    origin_type: str
+    type: UserTypes = UserTypes.META_ORIGIN
+
+
+@dataclasses.dataclass(kw_only=True)
+class PersonalName(UserIdentifierBase):
+    first_name: str
+    last_name: str
+    type: UserTypes = UserTypes.PERSONAL_NAME
+
+
+@dataclasses.dataclass
+class UserIdentity:
+    '''
+    Collection of identities that refer to the same user
+    '''
+    identifiers: list[EmailAddress | GithubUser | MetaOrigin | PersonalName | UserIdentifierBase]
+
+
 class SastStatus(enum.StrEnum):
     NO_LINTER = 'no-linter'
 
