@@ -4,8 +4,8 @@ import pytest
 
 import github.codeowners
 
+import odg.model
 import responsibles
-import responsibles.user_model
 
 
 @pytest.fixture()
@@ -45,9 +45,9 @@ def gh_api():
 
 @pytest.fixture()
 def meta_origin():
-    return responsibles.user_model.MetaOrigin(
+    return odg.model.MetaOrigin(
         source='https://github.foo.bar/org/repo',
-        originType='github-codeowners-file',
+        origin_type='github-codeowners-file',
         type='metaOrigin',
     )
 
@@ -63,7 +63,7 @@ def user_identities(
     codeowners: str,
     gh_api,
     repo,
-) -> tuple[responsibles.user_model.UserIdentity]:
+) -> list[odg.model.UserIdentity]:
     codeowners_gen = (
         github.codeowners.parse_codeowner_entry(
             entry=entry,
@@ -77,7 +77,7 @@ def user_identities(
         gh_api=gh_api,
     )
 
-    return tuple(responsibles.user_identities_from_codeowners(
+    return list(responsibles.user_identities_from_codeowners(
         flattend_codeowners=flattend_codeowners,
         gh_api=gh_api,
         repo=repo,
@@ -93,25 +93,25 @@ def test_username(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    assert identities.__len__() == 1
-    assert identities[0] == responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    assert len(identities) == 1
+    assert identities[0] == odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/thelegend27',
                 username='thelegend27',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/thelegend27',
                 email='thelegend27@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/thelegend27',
-                firstName='The Legend',
-                lastName='27',
+                first_name='The Legend',
+                last_name='27',
             ),
             meta_origin,
-        )
+        ],
     )
 
 
@@ -124,15 +124,15 @@ def test_email(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    assert identities.__len__() == 1
-    assert identities[0] == responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.EmailAddress(
+    assert len(identities) == 1
+    assert identities[0] == odg.model.UserIdentity(
+        identifiers=[
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/org/repo',
                 email='thelegend27@mail.foo',
             ),
             meta_origin,
-        )
+        ],
     )
 
 
@@ -146,34 +146,34 @@ def test_username_and_email(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    assert identities.__len__() == 2
-    assert identities[0] == responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    assert len(identities) == 2
+    assert identities[0] == odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/thelegend27',
                 username='thelegend27',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/thelegend27',
                 email='thelegend27@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/thelegend27',
-                firstName='The Legend',
-                lastName='27',
+                first_name='The Legend',
+                last_name='27',
             ),
             meta_origin,
-        )
+        ],
     )
-    assert identities[1] == responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.EmailAddress(
+    assert identities[1] == odg.model.UserIdentity(
+        identifiers=[
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/org/repo',
                 email='foo.bar@mail.foo',
             ),
             meta_origin,
-        )
+        ],
     )
 
 
@@ -187,25 +187,25 @@ def test_username_and_email_same_user(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    assert identities.__len__() == 1
-    assert identities[0] == responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    assert len(identities) == 1
+    assert identities[0] == odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/thelegend27',
                 username='thelegend27',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/thelegend27',
                 email='thelegend27@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/thelegend27',
-                firstName='The Legend',
-                lastName='27',
+                first_name='The Legend',
+                last_name='27',
             ),
             meta_origin,
-        )
+        ],
     )
 
 
@@ -218,24 +218,24 @@ def test_teamname(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    assert responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    assert odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/thelegend27',
                 username='thelegend27',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/thelegend27',
                 email='thelegend27@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/thelegend27',
-                firstName='The Legend',
-                lastName='27',
+                first_name='The Legend',
+                last_name='27',
             ),
             meta_origin,
-        )
+        ],
     ) in identities
 
 
@@ -249,43 +249,43 @@ def test_teamname_and_user(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    assert responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    assert odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/thelegend27',
                 username='thelegend27',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/thelegend27',
                 email='thelegend27@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/thelegend27',
-                firstName='The Legend',
-                lastName='27',
+                first_name='The Legend',
+                last_name='27',
             ),
             meta_origin,
-        )
+        ],
     ) in identities
-    assert responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    assert odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/darthvader',
                 username='darthvader',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/darthvader',
                 email='darthvader@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/darthvader',
-                firstName='Darth',
-                lastName='Vader',
+                first_name='Darth',
+                last_name='Vader',
             ),
             meta_origin,
-        )
+        ],
     ) in identities
 
 
@@ -300,24 +300,24 @@ def test_teamname_and_user_and_email_from_team(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    target = responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    target = odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/thelegend27',
                 username='thelegend27',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/thelegend27',
                 email='thelegend27@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/thelegend27',
-                firstName='The Legend',
-                lastName='27',
+                first_name='The Legend',
+                last_name='27',
             ),
             meta_origin,
-        )
+        ],
     )
 
     assert identities.count(target) == 1
@@ -333,24 +333,24 @@ def test_teamname_and_user_from_team(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    target = responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    target = odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/thelegend27',
                 username='thelegend27',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/thelegend27',
                 email='thelegend27@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/thelegend27',
-                firstName='The Legend',
-                lastName='27',
+                first_name='The Legend',
+                last_name='27',
             ),
             meta_origin,
-        )
+        ],
     )
     assert identities.count(target) == 1
 
@@ -364,22 +364,22 @@ def test_subteam(gh_api, repo, meta_origin):
         gh_api=gh_api,
         repo=repo,
     )
-    assert responsibles.user_model.UserIdentity(
-        identifiers=(
-            responsibles.user_model.GithubUser(
+    assert odg.model.UserIdentity(
+        identifiers=[
+            odg.model.GithubUser(
                 source='https://github.foo.bar/thelegend27',
                 username='thelegend27',
                 github_hostname='github.foo.bar',
             ),
-            responsibles.user_model.EmailAddress(
+            odg.model.EmailAddress(
                 source='https://github.foo.bar/thelegend27',
                 email='thelegend27@mail.foo',
             ),
-            responsibles.user_model.PersonalName(
+            odg.model.PersonalName(
                 source='https://github.foo.bar/thelegend27',
-                firstName='The Legend',
-                lastName='27',
+                first_name='The Legend',
+                last_name='27',
             ),
             meta_origin,
-        )
+        ],
     ) in identities

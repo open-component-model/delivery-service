@@ -7,17 +7,12 @@ import urllib.parse
 
 import cachetools
 import github3
-import github3.exceptions
 import github3.orgs
-import github3.repos
-import github3.repos.commit
 import github3.repos.repo
-import github3.repos.stats
-import github3.users
 
 import ctx_util
+import odg.model
 import paths
-import responsibles.user_model
 import responsibles
 import secret_mgmt.github
 import util
@@ -387,11 +382,10 @@ def user_identifiers_for_responsible(
     username: str,
     repo_url: str,
     gh_api: github3.GitHub,
-) -> collections.abc.Generator[responsibles.user_model.UserIdentifierBase, None, None]:
-
+) -> collections.abc.Generator[odg.model.UserIdentifierBase, None, None]:
     github_hostname = util.normalise_url_to_second_and_tld(repo_url)
 
-    yield responsibles.user_model.GithubUser(
+    yield odg.model.GithubUser(
         source=repo_url,
         username=username,
         github_hostname=github_hostname,
@@ -434,7 +428,7 @@ def repo_contributor_statistics(
 def user_identities(
     repo_url: str,
     heuristic_parameters: ResponsiblesDetectionHeuristicsParameters,
-) -> tuple[responsibles.user_model.UserIdentity]:
+) -> tuple[odg.model.UserIdentity, ...]:
     gh_api = secret_mgmt.github.github_api(
         secret_factory=ctx_util.secret_factory(),
         repo_url=repo_url,
@@ -444,9 +438,9 @@ def user_identities(
         repo_url=repo_url,
     )
 
-    meta_origin = responsibles.user_model.MetaOrigin(
+    meta_origin = odg.model.MetaOrigin(
         source=repo.html_url,
-        originType='github-statistics-heuristic',
+        origin_type='github-statistics-heuristic',
     )
 
     negative_list = _negative_list()
@@ -497,16 +491,13 @@ def user_identities(
         if not is_suspended(responsible)
     )
 
-    return tuple((
-        responsibles.user_model.UserIdentity(
-            identifiers=tuple(
-                identifier
-                for identifier in user_identifiers_for_responsible(
-                    username=responsible,
-                    repo_url=repo_url,
-                    gh_api=gh_api,
-                )
-            ) + (meta_origin,)
+    return tuple(
+        odg.model.UserIdentity(
+            identifiers=list(user_identifiers_for_responsible(
+                username=responsible,
+                repo_url=repo_url,
+                gh_api=gh_api,
+            )) + [meta_origin],
         )
         for responsible in determined_responsibles
-    ))
+    )

@@ -37,7 +37,6 @@ import deliverydb.util
 import features
 import lookups
 import responsibles
-import responsibles.github_statistics
 import responsibles.labels
 import util
 import yp
