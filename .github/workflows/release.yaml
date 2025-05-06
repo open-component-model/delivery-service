@@ -11,6 +11,7 @@ jobs:
       id-token: write
     with:
       mode: release
+      next-version: bump-minor
 
   release-to-github-and-bump:
     uses: gardener/cc-utils/.github/workflows/release.yaml@master

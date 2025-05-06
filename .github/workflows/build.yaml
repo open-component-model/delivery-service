@@ -11,12 +11,22 @@ on:
           either of
           - snapshot
           - release
-
+      next-version:
+        required: false
+        default: bump-minor
+        type: string
+        description: |
+          How the next version (from bump-commit) should be calculated. Will be passed to `version`
+          action. (some) allowed values are:
+            - bump-major
+            - bump-minor
+            - bump-patch
 jobs:
   prepare:
     uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
     with:
       mode: ${{ inputs.mode }}
+      next-version: ${{ inputs.next-version }}
 
   setuptools-version:
     runs-on: ubuntu-latest
