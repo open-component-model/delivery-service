@@ -11,7 +11,7 @@ jobs:
       id-token: write
     with:
       mode: release
-      next-version: bump-minor
+      next-version: bump-patch
 
   release-to-github-and-bump:
     uses: gardener/cc-utils/.github/workflows/release.yaml@master
@@ -25,4 +25,4 @@ jobs:
       github-app-secret-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
     with:
       release-commit-target: branch
-      next-version: bump-minor
+      next-version: bump-patch
