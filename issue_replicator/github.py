@@ -23,7 +23,6 @@ import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import delivery.model
-import dso.model
 import github.compliance.milestone as gcmi
 import github.limits
 import github.retry
@@ -34,6 +33,7 @@ import ocm.util
 import k8s.util
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import rescore.utility
 import util
 
@@ -53,8 +53,8 @@ class IssueLabels(enum.StrEnum):
 
 @dataclasses.dataclass
 class AggregatedFinding:
-    finding: dso.model.ArtefactMetadata
-    rescorings: list[dso.model.ArtefactMetadata] = dataclasses.field(default_factory=list)
+    finding: odg.model.ArtefactMetadata
+    rescorings: list[odg.model.ArtefactMetadata] = dataclasses.field(default_factory=list)
     due_date: datetime.date | None = None
 
     @property
@@ -67,7 +67,7 @@ class AggregatedFinding:
 
 @dataclasses.dataclass
 class FindingGroup:
-    artefact: dso.model.ComponentArtefactId
+    artefact: odg.model.ComponentArtefactId
     findings: tuple[AggregatedFinding]
 
     def summary(
@@ -250,7 +250,7 @@ def _issue_milestone(
 
 
 def _artefact_to_str(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
 ) -> str:
     id_str = '<br>'.join(
         f'{k}: {v}'
@@ -278,7 +278,7 @@ def _artefact_url(
 
 def _delivery_dashboard_url(
     base_url: str,
-    component_artefact_id: dso.model.ComponentArtefactId,
+    component_artefact_id: odg.model.ComponentArtefactId,
     finding_type: odg.findings.FindingType,
     sprint_name: str=None,
 ):
@@ -456,7 +456,7 @@ def _malware_template_vars(
         aggregated_findings: tuple[AggregatedFinding],
     ) -> collections.abc.Generator[tuple[str, str, str], None, None]:
         for af in aggregated_findings:
-            finding_details: dso.model.MalwareFindingDetails = af.finding.data.finding
+            finding_details: odg.model.MalwareFindingDetails = af.finding.data.finding
             yield finding_details.malware, finding_details.filename, finding_details.content_digest
 
     for finding_group in finding_groups:
@@ -495,14 +495,14 @@ def _sast_template_vars(
         aggragated_findings: tuple[AggregatedFinding],
     ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
         for af in aggragated_findings:
-            sast_finding: dso.model.SastFinding = af.finding.data
+            sast_finding: odg.model.SastFinding = af.finding.data
             sast_status = sast_finding.sast_status
             sub_type = sast_finding.sub_type
             severity = sast_finding.severity
 
-            if sub_type is dso.model.SastSubType.LOCAL_LINTING:
+            if sub_type is odg.model.SastSubType.LOCAL_LINTING:
                 issue_text = 'No evidence about SAST-linting was found.'
-            elif sub_type is dso.model.SastSubType.CENTRAL_LINTING:
+            elif sub_type is odg.model.SastSubType.CENTRAL_LINTING:
                 issue_text = 'No central linting found.'
             else:
                 issue_text = 'Unknown SAST issue subtype.'
@@ -768,7 +768,7 @@ def _crypto_template_vars(
                 sorted(af.finding.data.asset.names),
             ),
         ):
-            crypto_finding: dso.model.CryptoFinding = af.finding.data
+            crypto_finding: odg.model.CryptoFinding = af.finding.data
 
             standard = crypto_finding.standard
             asset_type = crypto_finding.asset.asset_type
@@ -818,7 +818,7 @@ def _osid_template_vars(
         aggregated_findings: tuple[AggregatedFinding],
     ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
         for af in aggregated_findings:
-            osid_finding: dso.model.OsIdFinding = af.finding.data
+            osid_finding: odg.model.OsIdFinding = af.finding.data
             os_name = osid_finding.osid.NAME
             greatest_version = osid_finding.greatest_version
             detected_version = osid_finding.osid.VERSION_ID
@@ -873,8 +873,8 @@ def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -
 
 def _template_vars(
     finding_cfg: odg.findings.Finding,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
-    artefacts_without_scan: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
+    artefacts_without_scan: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: collections.abc.Sequence[AggregatedFinding],
     due_date: datetime.date,
     delivery_dashboard_url: str,
@@ -1197,14 +1197,14 @@ def _create_or_update_issue(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    artefacts: tuple[dso.model.ComponentArtefactId],
+    artefacts: tuple[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone | None,
     failed_milestones: list[github3.issues.milestone.Milestone],
     due_date: datetime.date,
     is_scanned: bool,
-    artefacts_without_scan: set[dso.model.ComponentArtefactId],
+    artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     sprint_name: str=None,
     assignees: set[str]=set(),
@@ -1291,7 +1291,7 @@ def _create_or_update_or_close_issue_per_finding(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issue_id: str,
     issues: tuple[github3.issues.issue.ShortIssue],
@@ -1299,7 +1299,7 @@ def _create_or_update_or_close_issue_per_finding(
     failed_milestones: None | list[github3.issues.milestone.Milestone],
     due_date: datetime.date,
     is_scanned: bool,
-    artefacts_without_scan: set[dso.model.ComponentArtefactId],
+    artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     sprint_name: str=None,
     assignees: set[str]=set(),
@@ -1364,12 +1364,12 @@ def create_or_update_or_close_issue(
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issue_id: str,
     due_date: datetime.date,
     is_in_bom: bool,
-    artefacts_without_scan: set[dso.model.ComponentArtefactId],
+    artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
 ):
     is_scanned = len(artefacts_without_scan) == 0

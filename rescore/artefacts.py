@@ -13,9 +13,6 @@ import jsonpath_ng
 import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 
-import dso.cvss
-import dso.model
-
 import consts
 import features
 import deliverydb.model as dm
@@ -24,8 +21,10 @@ import k8s.backlog
 import k8s.util
 import middleware.auth
 import ocm_util
+import odg.cvss
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import rescore.utility
 import util
 import yp
@@ -35,15 +34,15 @@ logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass(frozen=True)
-class LicenseFinding(dso.model.Finding):
+class LicenseFinding(odg.model.Finding):
     package_name: str
     package_versions: tuple[str, ...] # "..." for dacite.from_dict
-    license: dso.model.License
-    filesystem_paths: list[dso.model.FilesystemPath]
+    license: odg.model.License
+    filesystem_paths: list[odg.model.FilesystemPath]
 
 
 @dataclasses.dataclass(frozen=True)
-class VulnerabilityFinding(dso.model.Finding):
+class VulnerabilityFinding(odg.model.Finding):
     package_name: str
     package_versions: tuple[str, ...] # "..." for dacite.from_dict
     cve: str
@@ -51,12 +50,12 @@ class VulnerabilityFinding(dso.model.Finding):
     cvss: str
     summary: str | None
     urls: list[str]
-    filesystem_paths: list[dso.model.FilesystemPath]
+    filesystem_paths: list[odg.model.FilesystemPath]
 
 
 @dataclasses.dataclass(frozen=True)
-class MalwareFinding(dso.model.Finding):
-    finding: dso.model.MalwareFindingDetails
+class MalwareFinding(odg.model.Finding):
+    finding: odg.model.MalwareFindingDetails
 
 
 @dataclasses.dataclass(frozen=True)
@@ -65,9 +64,9 @@ class RescoringProposal:
         LicenseFinding
         | VulnerabilityFinding
         | MalwareFinding
-        | dso.model.SastFinding
-        | dso.model.CryptoFinding
-        | dso.model.OsIdFinding
+        | odg.model.SastFinding
+        | odg.model.CryptoFinding
+        | odg.model.OsIdFinding
     )
     finding_type: str
     severity: str
@@ -80,9 +79,9 @@ class RescoringProposal:
 
 async def _find_artefact_metadata(
     db_session: sqlasync.session.AsyncSession,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     type_filter: list[str]=[],
-) -> list[dso.model.ArtefactMetadata]:
+) -> list[odg.model.ArtefactMetadata]:
     db_statement = sa.select(dm.ArtefactMetaData).where(
         sa.and_(
             dm.ArtefactMetaData.component_name == artefact.component_name,
@@ -96,7 +95,7 @@ async def _find_artefact_metadata(
             dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
             dm.ArtefactMetaData.artefact_extra_id_normalised
                 == artefact.artefact.normalised_artefact_extra_id,
-            dm.ArtefactMetaData.type != dso.model.Datatype.RESCORING,
+            dm.ArtefactMetaData.type != odg.model.Datatype.RESCORING,
             sa.or_(
                 not type_filter,
                 dm.ArtefactMetaData.type.in_(type_filter),
@@ -115,12 +114,12 @@ async def _find_artefact_metadata(
 
 async def _find_rescorings(
     db_session: sqlasync.session.AsyncSession,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     type_filter: list[str]=[],
-) -> list[dso.model.ArtefactMetadata]:
+) -> list[odg.model.ArtefactMetadata]:
     db_statement = sa.select(dm.ArtefactMetaData).where(
         sa.and_(
-            dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
+            dm.ArtefactMetaData.type == odg.model.Datatype.RESCORING,
             sa.or_(
                 # regular `not` or `is None` not working with sqlalchemy
                 dm.ArtefactMetaData.component_name == sa.null(),
@@ -163,10 +162,10 @@ async def _find_rescorings(
 
 
 def filesystem_paths_for_finding(
-    artefact_metadata: tuple[dso.model.ArtefactMetadata],
-    finding: dso.model.ArtefactMetadata,
+    artefact_metadata: tuple[odg.model.ArtefactMetadata],
+    finding: odg.model.ArtefactMetadata,
     package_versions: tuple[str]=(),
-) -> list[dso.model.FilesystemPath]:
+) -> list[odg.model.FilesystemPath]:
     if not package_versions:
         # only show filesystem paths for package versions which actually have findings;
         # in case no package versions are supplied, BDBA was not able to detect a version
@@ -176,7 +175,7 @@ def filesystem_paths_for_finding(
     matching_structure_info = tuple(
         matching_info for matching_info in artefact_metadata
         if (
-            matching_info.meta.type == dso.model.Datatype.STRUCTURE_INFO
+            matching_info.meta.type == odg.model.Datatype.STRUCTURE_INFO
             and matching_info.data.package_name == finding.data.package_name
             and matching_info.data.package_version in package_versions
             and matching_info.artefact.component_name == finding.artefact.component_name
@@ -222,10 +221,10 @@ def sprint_for_finding(
 
 
 def _package_versions_and_filesystem_paths(
-    artefact_metadata_across_package_version: tuple[dso.model.ArtefactMetadata],
-    artefact_metadata: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    finding: dso.model.ArtefactMetadata,
-) -> tuple[tuple[str], list[dso.model.FilesystemPath]]:
+    artefact_metadata_across_package_version: tuple[odg.model.ArtefactMetadata],
+    artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
+    finding: odg.model.ArtefactMetadata,
+) -> tuple[tuple[str], list[odg.model.FilesystemPath]]:
     package_versions = tuple(
         matching_am.data.package_version
         for matching_am in artefact_metadata_across_package_version
@@ -242,10 +241,10 @@ def _package_versions_and_filesystem_paths(
 
 
 async def _iter_rescoring_proposals(
-    artefact_metadata: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
+    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
-    cve_categorisation: dso.cvss.CveCategorisation | None,
+    cve_categorisation: odg.cvss.CveCategorisation | None,
     sprints: list[yp.Sprint]=[],
 ) -> collections.abc.AsyncGenerator[RescoringProposal, None, None]:
     '''
@@ -258,7 +257,7 @@ async def _iter_rescoring_proposals(
 
     for am in artefact_metadata:
         if (
-            am.meta.type == dso.model.Datatype.STRUCTURE_INFO
+            am.meta.type == odg.model.Datatype.STRUCTURE_INFO
             or am.id in seen_ids
         ):
             continue
@@ -284,7 +283,7 @@ async def _iter_rescoring_proposals(
         else:
             rescoring = None
             current_severity = severity
-            matching_rule_names = [dso.model.MetaRescoringRules.ORIGINAL_SEVERITY]
+            matching_rule_names = [odg.model.MetaRescoringRules.ORIGINAL_SEVERITY]
 
         categorisation = finding_cfg.categorisation_by_id(current_severity)
         due_date = categorisation.effective_due_date(
@@ -375,7 +374,7 @@ async def _iter_rescoring_proposals(
 
             if finding_cfg.type is odg.findings.FindingType.VULNERABILITY:
                 cve = am.data.cve
-                cvss = dso.cvss.CVSSV3.from_dict(cvss=am.data.cvss)
+                cvss = odg.cvss.CVSSV3.from_dict(cvss=am.data.cvss)
                 cvss_v3_score = am.data.cvss_v3_score
 
                 am_across_package_versions = tuple(
@@ -520,7 +519,7 @@ async def _iter_rescoring_proposals(
 async def create_backlog_items_for_rescored_artefacts(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
 ):
     '''
@@ -614,15 +613,15 @@ class Rescore(aiohttp.web.View):
 
         def iter_rescorings(
             rescorings_raw: list[dict],
-        ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+        ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
             for rescoring_raw in rescorings_raw:
                 rescoring_raw['data']['user'] = dataclasses.asdict(user)
 
-                rescoring = dso.model.ArtefactMetadata.from_dict(rescoring_raw)
+                rescoring = odg.model.ArtefactMetadata.from_dict(rescoring_raw)
 
-                if not rescoring.meta.type == dso.model.Datatype.RESCORING:
+                if not rescoring.meta.type == odg.model.Datatype.RESCORING:
                     raise aiohttp.web.HTTPBadRequest(
-                        reason=f'Rescoring must be of type {dso.model.Datatype.RESCORING}',
+                        reason=f'Rescoring must be of type {odg.model.Datatype.RESCORING}',
                         text=f'{rescoring.meta.type=}',
                     )
 
@@ -722,7 +721,7 @@ class Rescore(aiohttp.web.View):
 
         component_name = util.param(params, 'componentName', required=True)
         component_version = util.param(params, 'componentVersion', required=True)
-        artefact_kind = dso.model.ArtefactKind(util.param(params, 'artefactKind', required=True))
+        artefact_kind = odg.model.ArtefactKind(util.param(params, 'artefactKind', required=True))
         artefact_name = util.param(params, 'artefactName', required=True)
         artefact_version = util.param(params, 'artefactVersion', required=True)
         artefact_type = util.param(params, 'artefactType', required=True)
@@ -744,13 +743,13 @@ class Rescore(aiohttp.web.View):
             odg.findings.FindingType.LICENSE in type_filter
             or odg.findings.FindingType.VULNERABILITY in type_filter
         ):
-            type_filter.append(dso.model.Datatype.STRUCTURE_INFO)
+            type_filter.append(odg.model.Datatype.STRUCTURE_INFO)
 
-        artefact = dso.model.ComponentArtefactId(
+        artefact = odg.model.ComponentArtefactId(
             component_name=component_name,
             component_version=component_version,
             artefact_kind=artefact_kind,
-            artefact=dso.model.LocalArtefactId(
+            artefact=odg.model.LocalArtefactId(
                 artefact_name=artefact_name,
                 artefact_version=artefact_version,
                 artefact_type=artefact_type,

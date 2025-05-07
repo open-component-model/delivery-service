@@ -3,8 +3,7 @@ import tarfile
 
 import dacite
 
-import dso.model
-
+import odg.model
 import version
 
 
@@ -62,7 +61,7 @@ def _parse_debian_version(
 
 def determine_osinfo(
     tarfh: tarfile.TarFile
-) -> dso.model.OperatingSystemId | None:
+) -> odg.model.OperatingSystemId | None:
     '''
     tries to determine the operating system identification, roughly as specified by
         https://www.freedesktop.org/software/systemd/man/os-release.html
@@ -133,6 +132,6 @@ def determine_osinfo(
         return None
 
     return dacite.from_dict(
-        data_class=dso.model.OperatingSystemId,
+        data_class=odg.model.OperatingSystemId,
         data=os_info,
     )

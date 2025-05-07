@@ -2,8 +2,9 @@ import collections.abc
 import dataclasses
 import traceback
 
-import dso.labels
 import ocm
+
+import odg.labels
 
 
 @dataclasses.dataclass
@@ -26,11 +27,11 @@ class ScanRequest:
         # hardcode skip-info to be determined by artefact
         artefact = self.artefact
 
-        if not (label := artefact.find_label(name=dso.labels.BinaryIdScanLabel.name)):
+        if not (label := artefact.find_label(name=odg.labels.BinaryIdScanLabel.name)):
             return False
 
-        label: dso.labels.BinaryIdScanLabel = dso.labels.deserialise_label(label=label)
-        return label.value.policy is dso.labels.ScanPolicy.SKIP
+        label: odg.labels.BinaryIdScanLabel = odg.labels.deserialise_label(label=label)
+        return label.value.policy is odg.labels.ScanPolicy.SKIP
 
     def __str__(self):
         return (

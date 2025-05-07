@@ -2,10 +2,9 @@ import datetime
 
 import pytest
 
-import dso.model
-
 import consts
 import odg.findings
+import odg.model
 import rescore.model
 import rescore.utility
 
@@ -174,7 +173,7 @@ def test_deserialise_with_extra_attributes(
 def sast_categorisation(
     sast_finding_cfg: odg.findings.Finding,
 ) -> odg.findings.FindingCategorisation | None:
-    sub_type = dso.model.SastSubType.CENTRAL_LINTING
+    sub_type = odg.model.SastSubType.CENTRAL_LINTING
 
     return odg.findings.categorise_finding(
         finding_cfg=sast_finding_cfg,
@@ -185,35 +184,35 @@ def sast_categorisation(
 @pytest.fixture
 def sast_finding_public(
     sast_categorisation: odg.findings.FindingCategorisation,
-) -> dso.model.ArtefactMetadata | None:
+) -> odg.model.ArtefactMetadata | None:
     if not sast_categorisation:
         return None
 
-    return dso.model.ArtefactMetadata(
-        artefact=dso.model.ComponentArtefactId(
+    return odg.model.ArtefactMetadata(
+        artefact=odg.model.ComponentArtefactId(
             component_name='github.com/public-component',
             component_version='1.0.0',
-            artefact=dso.model.LocalArtefactId(
+            artefact=odg.model.LocalArtefactId(
                 artefact_name=None,
                 artefact_type=None,
             )
         ),
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.SAST,
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.SAST,
             type=odg.findings.FindingType.SAST,
             creation_date=datetime.datetime.now(),
             last_update=datetime.datetime.now(),
         ),
-        data=dso.model.SastFinding(
-            sub_type=dso.model.SastSubType.CENTRAL_LINTING,
-            sast_status=dso.model.SastStatus.NO_LINTER,
+        data=odg.model.SastFinding(
+            sub_type=odg.model.SastSubType.CENTRAL_LINTING,
+            sast_status=odg.model.SastStatus.NO_LINTER,
             severity=sast_categorisation.id,
         )
     )
 
 
 def test_generate_sast_rescorings(
-    sast_finding_public: dso.model.ArtefactMetadata,
+    sast_finding_public: odg.model.ArtefactMetadata,
     sast_finding_cfg: odg.findings.Finding,
     sast_categorisation: odg.findings.FindingCategorisation,
 ):
@@ -221,13 +220,13 @@ def test_generate_sast_rescorings(
         finding=sast_finding_public,
         sast_finding_cfg=sast_finding_cfg,
         categorisation=sast_categorisation,
-        user=dso.model.User(
+        user=odg.model.User(
             username="test_user",
         ),
         creation_timestamp=datetime.datetime.now(),
     )
 
-    assert isinstance(rescoring.data, dso.model.CustomRescoring)
+    assert isinstance(rescoring.data, odg.model.CustomRescoring)
     assert rescoring.data.matching_rules == [
         'central-linting-is-optional-for-external-components'
     ]

@@ -9,16 +9,16 @@ import sqlalchemy.sql.elements as sqle
 import cnudie.iter
 import cnudie.iter_async
 import cnudie.retrieve_async
-import dso.model
 import oci.model
 import ocm
 
 import deliverydb.model as dm
+import odg.model
 import util
 
 
 def to_db_artefact_metadata(
-    artefact_metadata: dso.model.ArtefactMetadata,
+    artefact_metadata: odg.model.ArtefactMetadata,
 ) -> dm.ArtefactMetaData:
     artefact_ref = artefact_metadata.artefact
     artefact = artefact_ref.artefact
@@ -90,14 +90,14 @@ def db_artefact_metadata_to_dict(
 
 def db_artefact_metadata_row_to_dso(
     artefact_metadata_row: sa.Row[dm.ArtefactMetaData],
-) -> dso.model.ArtefactMetadata:
+) -> odg.model.ArtefactMetadata:
     artefact_metadata = artefact_metadata_row[0]
 
     artefact_metadata_dict = db_artefact_metadata_to_dict(
         artefact_metadata=artefact_metadata,
     )
 
-    return dso.model.ArtefactMetadata.from_dict(
+    return odg.model.ArtefactMetadata.from_dict(
         raw=artefact_metadata_dict,
     )
 
@@ -122,7 +122,7 @@ class ArtefactMetadataFilters:
             return True
 
         return sa.and_(
-            dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
+            dm.ArtefactMetaData.type == odg.model.Datatype.RESCORING,
             dm.ArtefactMetaData.referenced_type.in_(type_filter),
         )
 
@@ -203,7 +203,7 @@ class ArtefactMetadataQueries:
                         dm.ArtefactMetaData.artefact_extra_id_normalised == '',
                     ),
                     dm.ArtefactMetaData.artefact_extra_id_normalised
-                        == dso.model.normalise_artefact_extra_id(
+                        == odg.model.normalise_artefact_extra_id(
                         artefact_extra_id=artefact.extraIdentity,
                     ),
                 ),
@@ -268,7 +268,7 @@ async def findings_for_component(
     datasource: str,
     db_session: sqlasync.session.AsyncSession,
     chunk_size: int=50,
-) -> list[dso.model.ArtefactMetadata]:
+) -> list[odg.model.ArtefactMetadata]:
     query = await db_session.stream(sa.select(dm.ArtefactMetaData).where(
         dm.ArtefactMetaData.component_name == component.name,
         sa.or_(
@@ -298,7 +298,7 @@ async def rescorings_for_component(
     finding_type: str,
     db_session: sqlasync.session.AsyncSession,
     chunk_size: int=50,
-) -> list[dso.model.ArtefactMetadata]:
+) -> list[odg.model.ArtefactMetadata]:
     rescorings_query = await db_session.stream(sa.select(dm.ArtefactMetaData).where(
         sa.or_(
             dm.ArtefactMetaData.component_name == None,
@@ -308,7 +308,7 @@ async def rescorings_for_component(
             dm.ArtefactMetaData.component_version == None,
             dm.ArtefactMetaData.component_version == component.version,
         ),
-        dm.ArtefactMetaData.type == dso.model.Datatype.RESCORING,
+        dm.ArtefactMetaData.type == odg.model.Datatype.RESCORING,
         dm.ArtefactMetaData.referenced_type == finding_type,
     ))
 

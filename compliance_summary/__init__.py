@@ -10,12 +10,12 @@ import sqlalchemy.ext.asyncio as sqlasync
 
 import cnudie.retrieve
 import cnudie.retrieve_async
-import dso.model
 import ocm
 
 import deliverydb.cache
 import deliverydb.util
 import odg.findings
+import odg.model
 import rescore.utility
 
 
@@ -40,8 +40,8 @@ def categorisation_to_summary_categorisation(
 
 
 def rescored_severity_if_any(
-    finding: dso.model.ArtefactMetadata,
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    finding: odg.model.ArtefactMetadata,
+    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
 ) -> str | None:
     rescorings_for_finding = rescore.utility.rescorings_for_finding_by_specificity(
         finding=finding,
@@ -76,7 +76,7 @@ class ComplianceSummaryEntry:
     :param ComplianceScanStatus scanStatus
     '''
     type: odg.findings.FindingType
-    source: dso.model.Datasource
+    source: odg.model.Datasource
     categorisation: ComplianceEntryCategorisation | str
     value: int
     scanStatus: ComplianceScanStatus
@@ -84,7 +84,7 @@ class ComplianceSummaryEntry:
 
 @dataclasses.dataclass
 class ArtefactComplianceSummary:
-    artefact: dso.model.ComponentArtefactId
+    artefact: odg.model.ComponentArtefactId
     entries: list[ComplianceSummaryEntry]
 
 
@@ -96,8 +96,8 @@ class ComponentComplianceSummary:
 
 
 async def severity_for_finding(
-    finding: dso.model.ArtefactMetadata,
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata]=tuple(),
+    finding: odg.model.ArtefactMetadata,
+    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata]=tuple(),
 ) -> ComplianceEntryCategorisation | str | None:
     '''
     Severity for known `ArtefactMetadata`.
@@ -117,8 +117,8 @@ async def severity_for_finding(
 
 async def calculate_summary_entry(
     finding_cfg: odg.findings.Finding,
-    findings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
+    findings: collections.abc.Iterable[odg.model.ArtefactMetadata],
+    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
 ) -> ComplianceSummaryEntry:
     '''
     returns most severe (highest semantic value) `ComplianceSummaryEntry`
@@ -153,8 +153,8 @@ async def compliance_summary_entry(
     finding_cfg: odg.findings.Finding,
     datasource: str,
     scan_exists: bool,
-    findings: collections.abc.Sequence[dso.model.ArtefactMetadata],
-    rescorings: collections.abc.Sequence[dso.model.ArtefactMetadata],
+    findings: collections.abc.Sequence[odg.model.ArtefactMetadata],
+    rescorings: collections.abc.Sequence[odg.model.ArtefactMetadata],
 ) -> ComplianceSummaryEntry:
     if not scan_exists:
         return ComplianceSummaryEntry(
@@ -182,12 +182,12 @@ async def compliance_summary_entry(
 
 
 async def artefact_datatype_summary(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     finding_cfg: odg.findings.Finding,
     datasource: str,
-    artefact_scan_infos: collections.abc.Sequence[dso.model.ArtefactMetadata],
-    findings: collections.abc.Sequence[dso.model.ArtefactMetadata],
-    rescorings: collections.abc.Sequence[dso.model.ArtefactMetadata],
+    artefact_scan_infos: collections.abc.Sequence[odg.model.ArtefactMetadata],
+    findings: collections.abc.Sequence[odg.model.ArtefactMetadata],
+    rescorings: collections.abc.Sequence[odg.model.ArtefactMetadata],
 ) -> ComplianceSummaryEntry:
     findings_for_artefact = [
         finding for finding in findings
@@ -255,7 +255,7 @@ async def component_datatype_summaries(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OciOcmRepository | None=None,
     shortcut_cache: bool=False,
-) -> list[tuple[dso.model.ComponentArtefactId, ComplianceSummaryEntry]]:
+) -> list[tuple[odg.model.ComponentArtefactId, ComplianceSummaryEntry]]:
     if ocm_repo:
         component = (await component_descriptor_lookup(
             component,
@@ -266,7 +266,7 @@ async def component_datatype_summaries(
 
     artefact_scan_infos = await deliverydb.util.findings_for_component(
         component=component,
-        finding_type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+        finding_type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
         datasource=datasource,
         db_session=db_session,
     )
@@ -294,7 +294,7 @@ async def component_datatype_summaries(
 
     summaries = []
     for artefact in component.resources + component.sources:
-        artefact = dso.model.component_artefact_id_from_ocm(
+        artefact = odg.model.component_artefact_id_from_ocm(
             component=component,
             artefact=artefact,
         )
@@ -328,7 +328,7 @@ async def component_datatype_summaries(
             component_summary = artefact_summary
 
     summaries.insert(0, (
-        dso.model.ComponentArtefactId(
+        odg.model.ComponentArtefactId(
             component_name=component.name,
             component_version=component.version,
             artefact=None,
@@ -355,7 +355,7 @@ async def component_compliance_summary(
             component=component,
             finding_cfg=finding_cfg,
             finding_type=finding_cfg.type,
-            datasource=dso.model.Datatype.datatype_to_datasource(finding_cfg.type),
+            datasource=odg.model.Datatype.datatype_to_datasource(finding_cfg.type),
             db_session=db_session,
             component_descriptor_lookup=component_descriptor_lookup,
             ocm_repo=ocm_repo,

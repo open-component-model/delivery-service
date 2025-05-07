@@ -3,19 +3,19 @@ import datetime
 import re
 
 import cnudie.iter
-import dso.cvss
-import dso.labels
-import dso.model
 
 import consts
+import odg.cvss
 import odg.findings
+import odg.labels
+import odg.model
 import rescore.model
 
 
 def _iter_rescorings_for_finding(
-    finding: dso.model.ArtefactMetadata,
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+    finding: odg.model.ArtefactMetadata,
+    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
+) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     for rescoring in rescorings:
         if rescoring.data.referenced_type != finding.meta.type:
             continue
@@ -105,7 +105,7 @@ def _iter_rescorings_for_finding(
 
 
 def _specificity_of_rescoring(
-    rescoring: dso.model.ArtefactMetadata,
+    rescoring: odg.model.ArtefactMetadata,
 ) -> odg.findings.RescoringSpecificity:
     '''
     There are four possible scopes for a rescoring. If multiple rescorings match
@@ -130,9 +130,9 @@ def _specificity_of_rescoring(
 
 
 def rescorings_for_finding_by_specificity(
-    finding: dso.model.ArtefactMetadata,
-    rescorings: collections.abc.Iterable[dso.model.ArtefactMetadata],
-) -> tuple[dso.model.ArtefactMetadata]:
+    finding: odg.model.ArtefactMetadata,
+    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
+) -> tuple[odg.model.ArtefactMetadata]:
     '''
     Returns all rescorings of `rescorings` which match the given `finding`. If multiple
     rescorings match the finding, they are ordered based on their specificity (greatest
@@ -155,20 +155,20 @@ def rescorings_for_finding_by_specificity(
 
 def find_cve_categorisation(
     artefact_node: cnudie.iter.Node | cnudie.iter.ArtefactNode,
-) -> dso.cvss.CveCategorisation | None:
-    label_name = dso.labels.CveCategorisationLabel.name
+) -> odg.cvss.CveCategorisation | None:
+    label_name = odg.labels.CveCategorisationLabel.name
 
     if not (categorisation_label := artefact_node.artefact.find_label(label_name)):
         if not (categorisation_label := artefact_node.component.find_label(label_name)):
             return None
 
-    return dso.labels.deserialise_label(categorisation_label).value
+    return odg.labels.deserialise_label(categorisation_label).value
 
 
 def matching_rescore_rules(
     rescoring_rules: collections.abc.Iterable[rescore.model.CveRescoringRule],
-    categorisation: dso.cvss.CveCategorisation,
-    cvss: dso.cvss.CVSSV3 | dict,
+    categorisation: odg.cvss.CveCategorisation,
+    cvss: odg.cvss.CVSSV3 | dict,
 ) -> collections.abc.Generator[rescore.model.CveRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
         if not rescoring_rule.matches_categorisation(categorisation):
@@ -227,7 +227,7 @@ def rescore_finding(
 
 def iter_matching_sast_rescoring_rules(
     rescoring_rules: collections.abc.Iterable[rescore.model.SastRescoringRule],
-    finding: dso.model.ArtefactMetadata,
+    finding: odg.model.ArtefactMetadata,
 ) -> collections.abc.Generator[rescore.model.SastRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
         if any(
@@ -238,12 +238,12 @@ def iter_matching_sast_rescoring_rules(
 
 
 def rescoring_for_sast_finding(
-    finding: dso.model.ArtefactMetadata,
+    finding: odg.model.ArtefactMetadata,
     sast_finding_cfg: odg.findings.Finding,
     categorisation: odg.findings.FindingCategorisation,
-    user: dso.model.User,
+    user: odg.model.User,
     creation_timestamp: datetime.datetime
-) -> dso.model.ArtefactMetadata | None:
+) -> odg.model.ArtefactMetadata | None:
     if (
         not categorisation
         or not categorisation.automatic_rescoring
@@ -271,16 +271,16 @@ def rescoring_for_sast_finding(
     if rescored_categorisation.id == categorisation.id:
         return None # categorisation did not change -> no need to create a rescoring
 
-    return dso.model.ArtefactMetadata(
+    return odg.model.ArtefactMetadata(
         artefact=finding.artefact,
-        meta=dso.model.Metadata(
+        meta=odg.model.Metadata(
             datasource=finding.meta.datasource,
-            type=dso.model.Datatype.RESCORING,
+            type=odg.model.Datatype.RESCORING,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
         ),
-        data=dso.model.CustomRescoring(
-            finding=dso.model.RescoreSastFinding(
+        data=odg.model.CustomRescoring(
+            finding=odg.model.RescoreSastFinding(
                 sast_status=finding.data.sast_status,
                 sub_type=finding.data.sub_type,
             ),
