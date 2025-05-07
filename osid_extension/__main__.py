@@ -13,7 +13,6 @@ import time
 import awesomeversion.exceptions
 
 import ci.log
-import cnudie.retrieve
 import delivery.client
 import dso.model
 import oci.client
@@ -33,7 +32,6 @@ import lookups
 import odg.extensions_cfg
 import odg.findings
 import osinfo
-import osinfo.model
 import osid_extension.scan as osidscan
 import osid_extension.util as osidutil
 import paths
@@ -126,16 +124,9 @@ def determine_os_status(
 
 
 def determine_osid(
-    artefact: dso.model.ComponentArtefactId,
+    resource: ocm.Resource,
     oci_client: oci.client.Client,
-    lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> um.OperatingSystemId | None:
-
-    resource_node = k8s.util.get_ocm_node(
-        component_descriptor_lookup=lookup,
-        artefact=artefact,
-    )
-    resource = resource_node.resource
 
     if resource.type != ocm.ArtefactType.OCI_IMAGE:
         return
@@ -192,6 +183,7 @@ def create_artefact_metadata(
     osid_finding_config: odg.findings.Finding,
     osid: um.OperatingSystemId | None,
     eol_client: eol.EolClient,
+    relation: ocm.ResourceRelation,
     time_now: datetime.datetime | None = None,
 ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
     if not time_now:
@@ -240,6 +232,15 @@ def create_artefact_metadata(
     )
 
     if not severity:
+        return
+
+    if (
+        relation is ocm.ResourceRelation.EXTERNAL
+        and os_status is not dso.model.OsStatus.BRANCH_REACHED_EOL
+    ):
+        logger.info(
+            f'skipping osid finding for external non-EOL artefact {artefact}'
+        )
         return
 
     yield dso.model.ArtefactMetadata(
@@ -401,10 +402,14 @@ def main():
             backlog_item=backlog_crd.get('spec'),
         )
 
-        osid = determine_osid(
+        resource = k8s.util.get_ocm_node(
+            component_descriptor_lookup=component_descriptor_lookup,
             artefact=backlog_item.artefact,
+        ).resource
+
+        osid = determine_osid(
+            resource=resource,
             oci_client=oci_client,
-            lookup=component_descriptor_lookup,
         )
 
         logger.info(f'uploading os-info for {backlog_item.artefact}')
@@ -413,6 +418,7 @@ def main():
             osid=osid,
             osid_finding_config=osid_finding_config,
             eol_client=eol_client,
+            relation=resource.relation,
         )
 
         delivery_client.update_metadata(data=osid_metadata)
