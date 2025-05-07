@@ -1,7 +1,7 @@
 name: ocm.software/ocm-gear/delivery-service
 componentReferences:
   - componentName: github.com/gardener/cc-utils
-    version: 1.2631.0
+    version: 1.2633.0
     name: cc-utils
   - componentName: ocm.software/ocm-gear/bdba-client
     version: 0.4.0
