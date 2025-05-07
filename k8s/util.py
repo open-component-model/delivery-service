@@ -14,11 +14,11 @@ import yaml
 
 import cnudie.iter
 import cnudie.retrieve
-import dso.model
 import ocm
 
 import k8s.model
 import odg.extensions_cfg
+import odg.model
 import secret_mgmt.kubernetes
 
 
@@ -182,9 +182,9 @@ def scale_replicas(
 
 def get_ocm_node(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
 ) -> cnudie.iter.ResourceNode | cnudie.iter.SourceNode | None:
-    if not dso.model.is_ocm_artefact(artefact.artefact_kind):
+    if not odg.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
     component: ocm.Component = component_descriptor_lookup(ocm.ComponentIdentity(
@@ -192,9 +192,9 @@ def get_ocm_node(
         version=artefact.component_version,
     )).component
 
-    if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+    if artefact.artefact_kind is odg.model.ArtefactKind.RESOURCE:
         artefacts = component.resources
-    elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+    elif artefact.artefact_kind is odg.model.ArtefactKind.SOURCE:
         artefacts = component.sources
     else:
         raise RuntimeError('this line should never be reached')
@@ -207,18 +207,18 @@ def get_ocm_node(
         if a.type != artefact.artefact.artefact_type:
             continue
         if (
-            dso.model.normalise_artefact_extra_id(a.extraIdentity)
+            odg.model.normalise_artefact_extra_id(a.extraIdentity)
             != artefact.artefact.normalised_artefact_extra_id
         ):
             continue
 
         # found artefact of backlog item in component's artefacts
-        if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+        if artefact.artefact_kind is odg.model.ArtefactKind.RESOURCE:
             return cnudie.iter.ResourceNode(
                 path=(cnudie.iter.NodePathEntry(component),),
                 resource=a,
             )
-        elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+        elif artefact.artefact_kind is odg.model.ArtefactKind.SOURCE:
             return cnudie.iter.SourceNode(
                 path=(cnudie.iter.NodePathEntry(component),),
                 source=a,

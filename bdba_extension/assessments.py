@@ -1,14 +1,14 @@
 import collections.abc
 
-import dso.labels
-
 import bdba.client
 import bdba.model as bm
+
+import odg.labels
 
 
 def upload_version_hints(
     scan_result: bm.AnalysisResult,
-    hints: collections.abc.Iterable[dso.labels.PackageVersionHint],
+    hints: collections.abc.Iterable[odg.labels.PackageVersionHint],
     bdba_client: bdba.client.BDBAApi,
 ) -> bm.AnalysisResult:
     for component in scan_result.components:

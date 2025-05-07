@@ -11,7 +11,6 @@ import time
 import ci.log
 import cnudie.retrieve
 import delivery.client
-import dso.model
 import oci.client
 
 import consts
@@ -26,6 +25,7 @@ import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import paths
 import secret_mgmt
 
@@ -55,43 +55,43 @@ def handle_termination_signal(*args):
 
 
 def as_artefact_metadata(
-    artefact: dso.model.ComponentArtefactId,
-    crypto_assets: collections.abc.Iterable[dso.model.CryptoAsset],
-    findings: collections.abc.Iterable[dso.model.CryptoFinding],
+    artefact: odg.model.ComponentArtefactId,
+    crypto_assets: collections.abc.Iterable[odg.model.CryptoAsset],
+    findings: collections.abc.Iterable[odg.model.CryptoFinding],
     crypto_finding_cfg: odg.findings.Finding,
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     today = datetime.date.today()
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
-    meta = dso.model.Metadata(
-        datasource=dso.model.Datasource.CRYPTO,
-        type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+    meta = odg.model.Metadata(
+        datasource=odg.model.Datasource.CRYPTO,
+        type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
         creation_date=now,
         last_update=now,
     )
 
-    yield dso.model.ArtefactMetadata(
+    yield odg.model.ArtefactMetadata(
         artefact=artefact,
         meta=meta,
         data={},
     )
 
-    meta = dso.model.Metadata(
-        datasource=dso.model.Datasource.CRYPTO,
-        type=dso.model.Datatype.CRYPTO_ASSET,
+    meta = odg.model.Metadata(
+        datasource=odg.model.Datasource.CRYPTO,
+        type=odg.model.Datatype.CRYPTO_ASSET,
         creation_date=now,
         last_update=now,
     )
 
     for crypto_asset in crypto_assets:
-        yield dso.model.ArtefactMetadata(
+        yield odg.model.ArtefactMetadata(
             artefact=artefact,
             meta=meta,
             data=crypto_asset,
         )
 
-    meta = dso.model.Metadata(
-        datasource=dso.model.Datasource.CRYPTO,
+    meta = odg.model.Metadata(
+        datasource=odg.model.Datasource.CRYPTO,
         type=odg.findings.FindingType.CRYPTO,
         creation_date=now,
         last_update=now,
@@ -100,7 +100,7 @@ def as_artefact_metadata(
     for finding in findings:
         categorisation = crypto_finding_cfg.categorisation_by_id(finding.severity)
 
-        yield dso.model.ArtefactMetadata(
+        yield odg.model.ArtefactMetadata(
             artefact=artefact,
             meta=meta,
             data=finding,
@@ -110,7 +110,7 @@ def as_artefact_metadata(
 
 
 def scan(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     crypto_cfg: odg.extensions_cfg.CryptoConfig,
     crypto_finding_cfg: odg.findings.Finding | None,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
@@ -188,10 +188,10 @@ def scan(
         for existing_artefact_metadatum in delivery_client.query_metadata(
             artefacts=(artefact,),
             type=(
-                dso.model.Datatype.CRYPTO_ASSET,
+                odg.model.Datatype.CRYPTO_ASSET,
                 odg.findings.FindingType.CRYPTO,
             ),
-        ) if existing_artefact_metadatum.meta.datasource == dso.model.Datasource.CRYPTO
+        ) if existing_artefact_metadatum.meta.datasource == odg.model.Datasource.CRYPTO
     )
 
     stale_artefact_metadata = []
@@ -266,7 +266,7 @@ def main():
     '''
     Note: Currently (as of 2024-12-05), CycloneDX Python lib's model class is not feature complete,
     hence deserialisation does not work. Instead, an own model class will be used which only supports
-    properties which are required by this extension (see dso.model.CryptoAsset).
+    properties which are required by this extension (see odg.model.CryptoAsset).
     '''
     signal.signal(signal.SIGTERM, handle_termination_signal)
     signal.signal(signal.SIGINT, handle_termination_signal)

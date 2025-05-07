@@ -5,14 +5,13 @@ import logging
 import aiohttp.web
 import dacite
 
-import dso.model
-
 import consts
 import features
 import k8s.backlog
 import k8s.model
 import k8s.runtime_artefacts
 import k8s.util
+import odg.model
 import util
 
 
@@ -347,10 +346,10 @@ class BacklogItems(aiohttp.web.View):
 
         for artefact_raw in (await self.request.json()).get('artefacts'):
             artefact = dacite.from_dict(
-                data_class=dso.model.ComponentArtefactId,
+                data_class=odg.model.ComponentArtefactId,
                 data=artefact_raw,
                 config=dacite.Config(
-                    cast=[dso.model.ArtefactKind],
+                    cast=[odg.model.ArtefactKind],
                 ),
             )
 
@@ -513,10 +512,10 @@ class RuntimeArtefacts(aiohttp.web.View):
 
         for runtime_artefact_raw in (await self.request.json()).get('artefacts'):
             runtime_artefact = dacite.from_dict(
-                data_class=dso.model.ComponentArtefactId,
+                data_class=odg.model.ComponentArtefactId,
                 data=runtime_artefact_raw,
                 config=dacite.Config(
-                    cast=[dso.model.ArtefactKind],
+                    cast=[odg.model.ArtefactKind],
                 ),
             )
 

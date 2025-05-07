@@ -1,12 +1,12 @@
 import logging
 
 import cnudie.iter
-import dso.cvss
-import dso.model
 
 import bdba.client
 import bdba.model as bm
+import odg.cvss
 import odg.findings
+import odg.model
 import rescore.utility as ru
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def rescore(
     if not (cve_categorisation := ru.find_cve_categorisation(scanned_element)):
         return False
 
-    artefact = dso.model.component_artefact_id_from_ocm(
+    artefact = odg.model.component_artefact_id_from_ocm(
         component=scanned_element.component,
         artefact=scanned_element.resource,
     )
@@ -77,7 +77,7 @@ def rescore(
             matching_rules = ru.matching_rescore_rules(
                 rescoring_rules=vulnerability_cfg.rescoring_ruleset.rules,
                 categorisation=cve_categorisation,
-                cvss=dso.cvss.CVSSV3.parse(v.cvss),
+                cvss=odg.cvss.CVSSV3.parse(v.cvss),
             )
 
             rescored_categorisation = ru.rescore_finding(

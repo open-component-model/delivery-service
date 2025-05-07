@@ -1,11 +1,10 @@
 import pytest
 
-import dso.model
-
 import crypto_extension.model
 import crypto_extension.validate
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import odg.shared_cfg
 import paths
 
@@ -146,27 +145,27 @@ def test_crypto_validation(
 
     assert len([
         crypto_asset for crypto_asset in crypto_assets
-        if crypto_asset.asset_type is dso.model.CryptoAssetTypes.LIBRARY
+        if crypto_asset.asset_type is odg.model.CryptoAssetTypes.LIBRARY
     ]) == 1
 
     assert len([
         crypto_asset for crypto_asset in crypto_assets
-        if crypto_asset.asset_type is dso.model.CryptoAssetTypes.ALGORITHM
+        if crypto_asset.asset_type is odg.model.CryptoAssetTypes.ALGORITHM
     ]) == 2
 
     assert len([
         crypto_asset for crypto_asset in crypto_assets
-        if crypto_asset.asset_type is dso.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL
+        if crypto_asset.asset_type is odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL
     ]) == 1
 
     assert len([
         crypto_asset for crypto_asset in crypto_assets
-        if crypto_asset.asset_type is dso.model.CryptoAssetTypes.CERTIFICATE
+        if crypto_asset.asset_type is odg.model.CryptoAssetTypes.CERTIFICATE
     ]) == 1
 
     assert len([
         crypto_asset for crypto_asset in crypto_assets
-        if crypto_asset.asset_type is dso.model.CryptoAssetTypes.PROTOCOL
+        if crypto_asset.asset_type is odg.model.CryptoAssetTypes.PROTOCOL
     ]) == 0
 
     findings = list(crypto_extension.validate.iter_findings_for_standards(

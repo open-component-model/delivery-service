@@ -13,11 +13,11 @@ import dacite
 import ci.log
 import cnudie.iter
 import delivery.client
-import dso.cvss
-import dso.model
 
 import bdba.model as bm
+import odg.cvss
 import odg.findings
+import odg.model
 
 
 logger = logging.getLogger(__name__)
@@ -28,9 +28,9 @@ def iter_existing_findings(
     delivery_client: delivery.client.DeliveryServiceClient,
     resource_node: cnudie.iter.ResourceNode,
     finding_type: str | tuple[str],
-    datasource: str=dso.model.Datasource.BDBA,
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
-    artefact = dso.model.component_artefact_id_from_ocm(
+    datasource: str=odg.model.Datasource.BDBA,
+) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
+    artefact = odg.model.component_artefact_id_from_ocm(
         component=resource_node.component_id,
         artefact=resource_node.resource,
     )
@@ -52,12 +52,12 @@ def iter_artefact_metadata(
     delivery_client: delivery.client.DeliveryServiceClient=None,
     vulnerability_cfg: odg.findings.Finding | None=None,
     license_cfg: odg.findings.Finding | None=None,
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     discovery_date = datetime.date.today()
-    datasource = dso.model.Datasource.BDBA
+    datasource = odg.model.Datasource.BDBA
 
-    artefact_ref = dso.model.component_artefact_id_from_ocm(
+    artefact_ref = odg.model.component_artefact_id_from_ocm(
         component=scanned_element.component,
         artefact=scanned_element.resource,
     )
@@ -81,7 +81,7 @@ def iter_artefact_metadata(
         ),
     )
 
-    yield dso.model.artefact_scan_info(
+    yield odg.model.artefact_scan_info(
         artefact_node=scanned_element,
         datasource=datasource,
         data={
@@ -89,7 +89,7 @@ def iter_artefact_metadata(
         },
     )
 
-    findings: list[dso.model.ArtefactMetadata] = []
+    findings: list[odg.model.ArtefactMetadata] = []
     for package in scan_result.components:
         package_name = package.name
         package_version = package.version
@@ -97,18 +97,18 @@ def iter_artefact_metadata(
         filesystem_paths = list(iter_filesystem_paths(component=package))
 
         licenses = list({
-            dso.model.License(
+            odg.model.License(
                 name=license.name,
             ) for license in package.iter_licenses
         })
 
-        meta = dso.model.Metadata(
+        meta = odg.model.Metadata(
             datasource=datasource,
-            type=dso.model.Datatype.STRUCTURE_INFO,
+            type=odg.model.Datatype.STRUCTURE_INFO,
             creation_date=now,
         )
 
-        structure_info = dso.model.StructureInfo(
+        structure_info = odg.model.StructureInfo(
             package_name=package_name,
             package_version=package_version,
             base_url=scan_result.base_url,
@@ -119,7 +119,7 @@ def iter_artefact_metadata(
             filesystem_paths=filesystem_paths,
         )
 
-        yield dso.model.ArtefactMetadata(
+        yield odg.model.ArtefactMetadata(
             artefact=finding_artefact_ref,
             meta=meta,
             data=structure_info,
@@ -127,7 +127,7 @@ def iter_artefact_metadata(
         )
 
         if license_cfg and license_cfg.matches(artefact_ref):
-            meta = dso.model.Metadata(
+            meta = odg.model.Metadata(
                 datasource=datasource,
                 type=odg.findings.FindingType.LICENSE,
                 creation_date=now,
@@ -142,7 +142,7 @@ def iter_artefact_metadata(
                 if not categorisation:
                     continue
 
-                license_finding = dso.model.LicenseFinding(
+                license_finding = odg.model.LicenseFinding(
                     package_name=package_name,
                     package_version=package_version,
                     base_url=scan_result.base_url,
@@ -153,7 +153,7 @@ def iter_artefact_metadata(
                     license=license,
                 )
 
-                artefact_metadata = dso.model.ArtefactMetadata(
+                artefact_metadata = odg.model.ArtefactMetadata(
                     artefact=finding_artefact_ref,
                     meta=meta,
                     data=license_finding,
@@ -165,7 +165,7 @@ def iter_artefact_metadata(
                 yield artefact_metadata
 
         if vulnerability_cfg and vulnerability_cfg.matches(artefact_ref):
-            meta = dso.model.Metadata(
+            meta = odg.model.Metadata(
                 datasource=datasource,
                 type=odg.findings.FindingType.VULNERABILITY,
                 creation_date=now,
@@ -184,34 +184,34 @@ def iter_artefact_metadata(
                     continue
 
                 for triage in vulnerability.triages:
-                    meta_rescoring = dso.model.Metadata(
+                    meta_rescoring = odg.model.Metadata(
                         datasource=datasource,
-                        type=dso.model.Datatype.RESCORING,
+                        type=odg.model.Datatype.RESCORING,
                         creation_date=triage.modified.astimezone(datetime.UTC),
                     )
 
-                    vulnerability_rescoring = dso.model.CustomRescoring(
-                        finding=dso.model.RescoringVulnerabilityFinding(
+                    vulnerability_rescoring = odg.model.CustomRescoring(
+                        finding=odg.model.RescoringVulnerabilityFinding(
                             package_name=package_name,
                             cve=vulnerability.cve,
                         ),
                         referenced_type=odg.findings.FindingType.VULNERABILITY,
                         severity=vulnerability_cfg.none_categorisation.id,
                         user=dacite.from_dict(
-                            data_class=dso.model.BDBAUser,
+                            data_class=odg.model.BDBAUser,
                             data=triage.user,
                         ),
-                        matching_rules=[dso.model.MetaRescoringRules.BDBA_TRIAGE],
+                        matching_rules=[odg.model.MetaRescoringRules.BDBA_TRIAGE],
                         comment=triage.description,
                     )
 
-                    yield dso.model.ArtefactMetadata(
+                    yield odg.model.ArtefactMetadata(
                         artefact=rescoring_artefact_ref,
                         meta=meta_rescoring,
                         data=vulnerability_rescoring,
                     )
 
-                vulnerability_finding = dso.model.VulnerabilityFinding(
+                vulnerability_finding = odg.model.VulnerabilityFinding(
                     package_name=package_name,
                     package_version=package_version,
                     base_url=scan_result.base_url,
@@ -221,11 +221,11 @@ def iter_artefact_metadata(
                     severity=categorisation.id,
                     cve=vulnerability.cve,
                     cvss_v3_score=vulnerability.cve_severity(),
-                    cvss=dso.cvss.CVSSV3.parse(vulnerability.cvss),
+                    cvss=odg.cvss.CVSSV3.parse(vulnerability.cvss),
                     summary=vulnerability.summary,
                 )
 
-                artefact_metadata = dso.model.ArtefactMetadata(
+                artefact_metadata = odg.model.ArtefactMetadata(
                     artefact=finding_artefact_ref,
                     meta=meta,
                     data=vulnerability_finding,
@@ -269,10 +269,10 @@ def iter_artefact_metadata(
 def iter_filesystem_paths(
     component: bm.Component,
     file_type: str | None=None,
-) -> collections.abc.Generator[dso.model.FilesystemPath, None, None]:
+) -> collections.abc.Generator[odg.model.FilesystemPath, None, None]:
     for ext_obj in component.extended_objects:
         path = [
-            dso.model.FilesystemPathEntry(
+            odg.model.FilesystemPathEntry(
                 path=path,
                 type=type,
             ) for path_infos in ext_obj.extended_fullpath
@@ -282,7 +282,7 @@ def iter_filesystem_paths(
             )
         ]
 
-        yield dso.model.FilesystemPath(
+        yield odg.model.FilesystemPath(
             path=path,
             digest=ext_obj.sha1,
         )

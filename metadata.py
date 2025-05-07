@@ -8,7 +8,6 @@ import dacite
 import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 
-import dso.model
 import ocm
 
 import compliance_summary as cs
@@ -20,6 +19,7 @@ import deliverydb_cache.model as dcm
 import features
 import middleware.cors
 import odg.findings
+import odg.model
 import util
 
 
@@ -52,9 +52,8 @@ class ArtefactMetadataQuery(aiohttp.web.View):
           required: false
           description:
             The metadata types to retrieve. Can be given multiple times. If no type is
-            given, all relevant metadata will be returned. Check
-            https://github.com/gardener/cc-utils/blob/master/dso/model.py `Datatype` model class for
-            a list of possible values.
+            given, all relevant metadata will be returned. Check odg/model.py `Datatype` model class
+            for a list of possible values.
         - in: query
           name: referenced_type
           schema:
@@ -63,9 +62,8 @@ class ArtefactMetadataQuery(aiohttp.web.View):
           description:
             The referenced types to retrieve (only applicable for metadata of type
             `rescorings`). Can be given multiple times. If no referenced type is given, all relevant
-            metadata will be returned. Check
-            https://github.com/gardener/cc-utils/blob/master/dso/model.py `Datatype` model class for
-            a list of possible values.
+            metadata will be returned. Check odg/model.py `Datatype` model class for a list of
+            possible values.
         - in: body
           name: body
           required: false
@@ -97,19 +95,19 @@ class ArtefactMetadataQuery(aiohttp.web.View):
 
         artefact_refs = [
             dacite.from_dict(
-                data_class=dso.model.ComponentArtefactId,
+                data_class=odg.model.ComponentArtefactId,
                 data=entry,
                 config=dacite.Config(
-                    cast=[dso.model.ArtefactKind],
+                    cast=[odg.model.ArtefactKind],
                 ),
             ) for entry in entries
         ]
 
-        async def artefact_queries(artefact_ref: dso.model.ComponentArtefactId):
+        async def artefact_queries(artefact_ref: odg.model.ComponentArtefactId):
             # when filtering for metadata of type `rescorings`, entries without a component
             # name or version should also be considered a "match" (caused by different rescoring
             # scopes)
-            none_ok = not type_filter or dso.model.Datatype.RESCORING in type_filter
+            none_ok = not type_filter or odg.model.Datatype.RESCORING in type_filter
 
             async for query in du.ArtefactMetadataQueries.component_queries(
                 components=[ocm.ComponentIdentity(
@@ -163,7 +161,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                     dm.ArtefactMetaData.artefact_extra_id_normalised == artefact_extra_id,
                 )
 
-        async def artefact_refs_queries(artefact_refs: list[dso.model.ComponentArtefactId]):
+        async def artefact_refs_queries(artefact_refs: list[odg.model.ComponentArtefactId]):
             for artefact_ref in artefact_refs:
                 yield sa.and_(*[
                     query async for query
@@ -191,10 +189,10 @@ class ArtefactMetadataQuery(aiohttp.web.View):
             )
 
         async def serialise_and_enrich_finding(
-            finding: dso.model.ArtefactMetadata,
+            finding: odg.model.ArtefactMetadata,
         ) -> dict:
             def result_dict(
-                finding: dso.model.ArtefactMetadata,
+                finding: odg.model.ArtefactMetadata,
                 meta: dict=None,
             ) -> dict:
                 finding_dict = util.dict_serialisation(finding)
@@ -292,7 +290,7 @@ class ArtefactMetadata(aiohttp.web.View):
             return aiohttp.web.Response()
 
         artefact_metadata = [
-            dso.model.ArtefactMetadata.from_dict(_fill_default_values(entry))
+            odg.model.ArtefactMetadata.from_dict(_fill_default_values(entry))
             for entry in entries
         ]
 
@@ -305,7 +303,7 @@ class ArtefactMetadata(aiohttp.web.View):
 
         artefacts = artefacts.values()
 
-        def artefact_queries(artefacts: collections.abc.Iterable[dso.model.ArtefactMetadata]):
+        def artefact_queries(artefacts: collections.abc.Iterable[odg.model.ArtefactMetadata]):
             for artefact in artefacts:
                 yield du.ArtefactMetadataFilters.by_name_and_type(
                     artefact_metadata=dm.ArtefactMetaData(
@@ -475,7 +473,7 @@ class ArtefactMetadata(aiohttp.web.View):
                 entry = _fill_default_values(entry)
 
                 artefact_metadata = du.to_db_artefact_metadata(
-                    artefact_metadata=dso.model.ArtefactMetadata.from_dict(entry),
+                    artefact_metadata=odg.model.ArtefactMetadata.from_dict(entry),
                 )
 
                 await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
@@ -582,11 +580,11 @@ async def _mark_compliance_summary_cache_for_deletion(
         version=artefact_metadata.component_version,
     )
 
-    if artefact_metadata.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+    if artefact_metadata.type == odg.model.Datatype.ARTEFACT_SCAN_INFO:
         # If the artefact scan info changes, the compliance summary for all datatypes related to
         # this datasource has to be updated, because it may has changed from
         # UNKNOWN -> CLEAN/FINDINGS
-        datatypes = dso.model.Datasource.datasource_to_datatypes(artefact_metadata.datasource)
+        datatypes = odg.model.Datasource.datasource_to_datatypes(artefact_metadata.datasource)
     else:
         datatypes = (artefact_metadata.type,)
 
