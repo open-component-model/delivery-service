@@ -680,19 +680,19 @@ def _diki_template_vars(
             case "disa-kubernetes-stig":
                 rule_desc = f'[DISA STIG viewer - {finding_rule.rule_id}](https://stigviewer.com/stigs/kubernetes/2024-08-22/finding/V-{finding_rule.rule_id})'  # noqa: E501
             case "security-hardened-shoot-cluster":
-                diki_version_for_ruleset_version = {
+                diki_vers_for_ruleset_vers = {
                     'v0.1.0': 'v0.14.0',
                     'v0.2.0': 'v0.15.0',
                     'v0.2.1': 'v0.15.1',
                 }
-                diki_version = diki_version_for_ruleset_version.get(finding_rule.ruleset_version, 'main')
+                diki_version = diki_vers_for_ruleset_vers.get(finding_rule.ruleset_version, 'main')
 
                 rule_desc = f'[Security Hardened Shoot Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finding_rule.rule_id})' # noqa: E501
             case "security-hardened-k8s":
-                diki_version_for_ruleset_version = {
+                diki_vers_for_ruleset_vers = {
                     'v0.1.0': 'v0.15.0',
                 }
-                diki_version = diki_version_for_ruleset_version.get(finding_rule.ruleset_version, 'main')
+                diki_version = diki_vers_for_ruleset_vers.get(finding_rule.ruleset_version, 'main')
 
                 rule_desc = f'[Security Hardened Kubernetes Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-k8s/ruleset.md#{finding_rule.rule_id})' # noqa: E501
         if len(rule_desc) > 0:
