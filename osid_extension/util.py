@@ -2,8 +2,7 @@ import logging
 
 import awesomeversion
 
-import dso.model
-
+import odg.model
 import osinfo.model
 
 
@@ -11,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def find_branch_info(
-    osid: dso.model.OperatingSystemId,
+    osid: odg.model.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
 ) -> osinfo.model.OsReleaseInfo | None:
     os_version = osid.VERSION_ID
@@ -42,7 +41,7 @@ def find_branch_info(
 
 
 def branch_reached_eol(
-    osid: dso.model.OperatingSystemId,
+    osid: odg.model.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
 ) -> bool:
     if not osid.ID:
@@ -57,7 +56,7 @@ def branch_reached_eol(
 
 
 def update_available(
-    osid: dso.model.OperatingSystemId,
+    osid: odg.model.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
     ignore_if_patchlevel_is_next_to_greatest=False,
 ) -> bool:

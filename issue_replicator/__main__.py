@@ -12,7 +12,6 @@ import time
 import ci.log
 import cnudie.retrieve
 import delivery.client
-import dso.model
 
 import consts
 import ctx_util
@@ -24,6 +23,7 @@ import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import paths
 import rescore.utility
 
@@ -60,30 +60,30 @@ def handle_sigterm_and_sigint(signum, frame):
 
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     finding_type: odg.findings.FindingType,
     finding_source: str,
     chunk_size: int=10,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
-    findings: list[dso.model.ArtefactMetadata] = []
-    rescorings: list[dso.model.ArtefactMetadata] = []
+    findings: list[odg.model.ArtefactMetadata] = []
+    rescorings: list[odg.model.ArtefactMetadata] = []
 
     for idx in range(0, len(artefacts), chunk_size):
         chunked_artefacts = artefacts[idx:min(idx + chunk_size, len(artefacts))]
 
         findings.extend(delivery_client.query_metadata(
             artefacts=chunked_artefacts,
-            type=[dso.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
+            type=[odg.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
         ))
 
         rescorings.extend(delivery_client.query_metadata(
             artefacts=chunked_artefacts,
-            type=dso.model.Datatype.RESCORING,
+            type=odg.model.Datatype.RESCORING,
             referenced_type=finding_type,
         ))
 
     for finding in findings:
-        if finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+        if finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO:
             if finding.meta.datasource == finding_source:
                 yield issue_replicator.github.AggregatedFinding(finding)
             continue
@@ -107,7 +107,7 @@ def _iter_findings_with_processing_dates(
     sprints = sorted(sprints)
 
     for finding in findings:
-        if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO:
+        if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO:
             yield finding
             continue
 
@@ -151,7 +151,7 @@ def _group_findings_by_due_date(
 
 
 def replicate_issue_for_finding_type(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
@@ -159,7 +159,7 @@ def replicate_issue_for_finding_type(
     delivery_dashboard_url: str,
 ):
     finding_type = finding_cfg.type
-    finding_source = dso.model.Datatype.datatype_to_datasource(finding_type)
+    finding_source = odg.model.Datatype.datatype_to_datasource(finding_type)
 
     logger.info(f'updating issues for {finding_type=} and {finding_source=}')
 
@@ -170,13 +170,13 @@ def replicate_issue_for_finding_type(
 
     compliance_snapshots = delivery_client.query_metadata(
         artefacts=(artefact_group,),
-        type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
+        type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
     )
     logger.info(f'{len(compliance_snapshots)=}')
 
     active_compliance_snapshots = tuple(
         cs for cs in compliance_snapshots
-        if cs.data.current_state().status is dso.model.ComplianceSnapshotStatuses.ACTIVE
+        if cs.data.current_state().status is odg.model.ComplianceSnapshotStatuses.ACTIVE
     )
     logger.info(f'{len(active_compliance_snapshots)=}')
 
@@ -253,7 +253,7 @@ def replicate_issue_for_finding_type(
             ),
             keep_group_attributes=False,
         ) for finding in findings
-        if finding.finding.meta.type == dso.model.Datatype.ARTEFACT_SCAN_INFO
+        if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO
     }
     artefacts_without_scan = all_artefacts - scanned_artefacts
 
@@ -276,7 +276,7 @@ def replicate_issue_for_finding_type(
 
 
 def replicate_issue(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     issue_replicator_cfg: odg.extensions_cfg.IssueReplicatorConfig,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,

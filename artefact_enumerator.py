@@ -10,7 +10,6 @@ import ci.log
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
-import dso.model
 import ocm
 
 import ctx_util
@@ -21,6 +20,7 @@ import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import paths
 
 
@@ -49,27 +49,27 @@ def sprint_dates(
 
 
 def create_compliance_snapshot(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     due_date: datetime.date,
     now: datetime.datetime=datetime.datetime.now(),
     today: datetime.date=datetime.date.today(),
-) -> dso.model.ArtefactMetadata:
-    meta = dso.model.Metadata(
-        datasource=dso.model.Datasource.ARTEFACT_ENUMERATOR,
-        type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
+) -> odg.model.ArtefactMetadata:
+    meta = odg.model.Metadata(
+        datasource=odg.model.Datasource.ARTEFACT_ENUMERATOR,
+        type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
         creation_date=now,
         last_update=now,
     )
 
-    data = dso.model.ComplianceSnapshot(
+    data = odg.model.ComplianceSnapshot(
         due_date=due_date,
-        state=[dso.model.ComplianceSnapshotState(
+        state=[odg.model.ComplianceSnapshotState(
             timestamp=now,
-            status=dso.model.ComplianceSnapshotStatuses.ACTIVE,
+            status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
         )],
     )
 
-    return dso.model.ArtefactMetadata(
+    return odg.model.ArtefactMetadata(
         artefact=artefact,
         meta=meta,
         data=data,
@@ -81,7 +81,7 @@ def _iter_ocm_artefacts(
     components: collections.abc.Iterable[odg.extensions_cfg.Component],
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-) -> collections.abc.Generator[dso.model.ComponentArtefactId, None, None]:
+) -> collections.abc.Generator[odg.model.ComponentArtefactId, None, None]:
     for component in components:
         versions = delivery_client.greatest_component_versions(
             component_name=component.component_name,
@@ -110,19 +110,19 @@ def _iter_ocm_artefacts(
                 lookup=component_descriptor_lookup,
                 node_filter=cnudie.iter.Filter.artefacts,
             ):
-                yield dso.model.component_artefact_id_from_ocm(
+                yield odg.model.component_artefact_id_from_ocm(
                     component=artefact_node.component,
                     artefact=artefact_node.artefact,
                 )
 
 
 def _create_and_update_compliance_snapshots_of_artefact(
-    artefact: dso.model.ComponentArtefactId,
-    compliance_snapshots: list[dso.model.ArtefactMetadata],
+    artefact: odg.model.ComponentArtefactId,
+    compliance_snapshots: list[odg.model.ArtefactMetadata],
     sprints: tuple[datetime.date],
     now: datetime.datetime=datetime.datetime.now(),
     today: datetime.date=datetime.date.today(),
-) -> tuple[list[dso.model.ArtefactMetadata], bool]:
+) -> tuple[list[odg.model.ArtefactMetadata], bool]:
     update_is_required = False
 
     for sprint_date in sprints:
@@ -147,11 +147,11 @@ def _create_and_update_compliance_snapshots_of_artefact(
     for compliance_snapshot in compliance_snapshots:
         if (
             compliance_snapshot.data.current_state().status !=
-            dso.model.ComplianceSnapshotStatuses.ACTIVE
+            odg.model.ComplianceSnapshotStatuses.ACTIVE
         ):
-            compliance_snapshot.data.state.append(dso.model.ComplianceSnapshotState(
+            compliance_snapshot.data.state.append(odg.model.ComplianceSnapshotState(
                 timestamp=now,
-                status=dso.model.ComplianceSnapshotStatuses.ACTIVE,
+                status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
             ))
             compliance_snapshot.data.purge_old_states()
             update_is_required = True
@@ -161,7 +161,7 @@ def _create_and_update_compliance_snapshots_of_artefact(
 
 def _calculate_backlog_item_priority(
     service: odg.extensions_cfg.Services,
-    compliance_snapshots: list[dso.model.ArtefactMetadata],
+    compliance_snapshots: list[odg.model.ArtefactMetadata],
     interval: int,
     now: datetime.datetime=datetime.datetime.now(),
     status: int | None=None,
@@ -194,13 +194,13 @@ def _calculate_backlog_item_priority(
 def _create_backlog_item(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    artefact: dso.model.ComponentArtefactId,
-    compliance_snapshots: list[dso.model.ArtefactMetadata],
+    artefact: odg.model.ComponentArtefactId,
+    compliance_snapshots: list[odg.model.ArtefactMetadata],
     service: odg.extensions_cfg.Services,
     interval_seconds: int,
     now: datetime.datetime=datetime.datetime.now(),
     status: int | None=None,
-) -> tuple[list[dso.model.ArtefactMetadata], bool]:
+) -> tuple[list[odg.model.ArtefactMetadata], bool]:
     priority = _calculate_backlog_item_priority(
         service=service,
         compliance_snapshots=compliance_snapshots,
@@ -218,7 +218,7 @@ def _create_backlog_item(
     # otherwise, the trigger might happen to often because the state of some compliance snapshots
     # for the artefact might not have changed
     for compliance_snapshot in compliance_snapshots:
-        compliance_snapshot.data.state.append(dso.model.ComplianceSnapshotState(
+        compliance_snapshot.data.state.append(odg.model.ComplianceSnapshotState(
             timestamp=now,
             status=status,
             service=service,
@@ -243,14 +243,14 @@ def _create_backlog_item(
 def _create_backlog_item_for_extension(
     finding_cfgs: collections.abc.Iterable[odg.findings.Finding],
     finding_types: collections.abc.Sequence[odg.findings.FindingType],
-    artefact: dso.model.ComponentArtefactId,
-    compliance_snapshots: list[dso.model.ArtefactMetadata],
+    artefact: odg.model.ComponentArtefactId,
+    compliance_snapshots: list[odg.model.ArtefactMetadata],
     service: odg.extensions_cfg.Services,
     interval_seconds: int,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     now: datetime.datetime=datetime.datetime.now(),
-) -> tuple[list[dso.model.ArtefactMetadata], bool]:
+) -> tuple[list[odg.model.ArtefactMetadata], bool]:
     if not any(
         finding_cfg for finding_cfg in finding_cfgs
         if (
@@ -278,8 +278,8 @@ def _process_compliance_snapshots_of_artefact(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     delivery_client: delivery.client.DeliveryServiceClient,
-    artefact: dso.model.ComponentArtefactId,
-    compliance_snapshots: list[dso.model.ArtefactMetadata],
+    artefact: odg.model.ComponentArtefactId,
+    compliance_snapshots: list[odg.model.ArtefactMetadata],
     sprints: tuple[datetime.date],
     now: datetime.datetime=datetime.datetime.now(),
     today: datetime.date=datetime.date.today(),
@@ -353,7 +353,7 @@ def _process_compliance_snapshots_of_artefact(
         # if the number of executed scans has changed, trigger an issue update
         scan_count = len(delivery_client.query_metadata(
             artefacts=(artefact,),
-            type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+            type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
         ))
 
         compliance_snapshots, snapshots_have_changed = _create_backlog_item(
@@ -422,7 +422,7 @@ def _process_inactive_compliance_snapshots(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     delivery_client: delivery.client.DeliveryServiceClient,
-    compliance_snapshots: list[dso.model.ArtefactMetadata],
+    compliance_snapshots: list[odg.model.ArtefactMetadata],
     now: datetime.datetime=datetime.datetime.now(),
 ):
     cs_by_artefact = collections.defaultdict(list)
@@ -433,15 +433,15 @@ def _process_inactive_compliance_snapshots(
     for compliance_snapshots in cs_by_artefact.values():
         artefact = compliance_snapshots[0].artefact
         update_is_required = False
-        deletable_compliance_snapshots: list[dso.model.ArtefactMetadata] = []
+        deletable_compliance_snapshots: list[odg.model.ArtefactMetadata] = []
 
         for compliance_snapshot in compliance_snapshots:
             current_general_state = compliance_snapshot.data.current_state()
 
-            if current_general_state.status != dso.model.ComplianceSnapshotStatuses.INACTIVE:
-                compliance_snapshot.data.state.append(dso.model.ComplianceSnapshotState(
+            if current_general_state.status != odg.model.ComplianceSnapshotStatuses.INACTIVE:
+                compliance_snapshot.data.state.append(odg.model.ComplianceSnapshotState(
                     timestamp=now,
-                    status=dso.model.ComplianceSnapshotStatuses.INACTIVE,
+                    status=odg.model.ComplianceSnapshotStatuses.INACTIVE,
                 ))
                 compliance_snapshot.data.purge_old_states()
                 current_general_state = compliance_snapshot.data.current_state()
@@ -533,7 +533,7 @@ def enumerate_artefacts(
     logger.info(f'{len(artefacts)=}')
 
     compliance_snapshots = delivery_client.query_metadata(
-        type=dso.model.Datatype.COMPLIANCE_SNAPSHOTS,
+        type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
     )
     logger.info(f'{len(compliance_snapshots)=}')
 

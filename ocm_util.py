@@ -3,12 +3,13 @@ import logging
 
 import cnudie.iter
 import cnudie.retrieve_async
-import dso.model
 import ioutil
 import oci.client
 import oci.model
 import ocm
 import tarutil
+
+import odg.model
 
 
 logger = logging.getLogger(__name__)
@@ -66,10 +67,10 @@ def iter_local_blob_content(
 
 async def find_artefact_node(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     absent_ok: bool=False,
 ) -> cnudie.iter.ResourceNode | cnudie.iter.SourceNode | None:
-    if not dso.model.is_ocm_artefact(artefact.artefact_kind):
+    if not odg.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
     component = (await component_descriptor_lookup(
@@ -83,9 +84,9 @@ async def find_artefact_node(
     if not component:
         return None
 
-    if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+    if artefact.artefact_kind is odg.model.ArtefactKind.RESOURCE:
         artefacts = component.resources
-    elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+    elif artefact.artefact_kind is odg.model.ArtefactKind.SOURCE:
         artefacts = component.sources
     else:
         raise RuntimeError('this line should never be reached')
@@ -98,18 +99,18 @@ async def find_artefact_node(
         if a.type != artefact.artefact.artefact_type:
             continue
         if (
-            dso.model.normalise_artefact_extra_id(a.extraIdentity)
+            odg.model.normalise_artefact_extra_id(a.extraIdentity)
             != artefact.artefact.normalised_artefact_extra_id
         ):
             continue
 
         # found artefact in component's artefacts
-        if artefact.artefact_kind is dso.model.ArtefactKind.RESOURCE:
+        if artefact.artefact_kind is odg.model.ArtefactKind.RESOURCE:
             return cnudie.iter.ResourceNode(
                 path=(cnudie.iter.NodePathEntry(component),),
                 resource=a,
             )
-        elif artefact.artefact_kind is dso.model.ArtefactKind.SOURCE:
+        elif artefact.artefact_kind is odg.model.ArtefactKind.SOURCE:
             return cnudie.iter.SourceNode(
                 path=(cnudie.iter.NodePathEntry(component),),
                 source=a,

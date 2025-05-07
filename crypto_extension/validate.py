@@ -5,10 +5,9 @@ import re
 import textwrap
 import typing
 
-import dso.model
-
 import crypto_extension.config as cc
 import odg.findings
+import odg.model
 
 
 class FindingRatings(enum.StrEnum):
@@ -57,8 +56,8 @@ def iter_unmet_requirements(
 
 def find_crypto_asset_by_key(
     data_key: str,
-    crypto_assets: collections.abc.Iterable[dso.model.CryptoAsset],
-) -> dso.model.CryptoAsset:
+    crypto_assets: collections.abc.Iterable[odg.model.CryptoAsset],
+) -> odg.model.CryptoAsset:
     for crypto_asset in crypto_assets:
         if data_key == crypto_asset.key:
             return crypto_asset
@@ -69,10 +68,10 @@ def find_crypto_asset_by_key(
 def validate_symmetric_algorithm(
     algorithm_name: str,
     key_length: int | str,
-    algorithm_asset: dso.model.CryptoAsset,
+    algorithm_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
+) -> odg.model.CryptoFinding | None:
     '''
     Validates the provided symmetric algorithm (identified via its `algorithm_name` and `key_length`)
     against the allowed properties for symmetric algorithms defined in the `standard`. Therefore, it
@@ -136,7 +135,7 @@ def validate_symmetric_algorithm(
     )):
         return
 
-    return dso.model.CryptoFinding(
+    return odg.model.CryptoFinding(
         severity=categorisation.id,
         standard=standard.name,
         asset=algorithm_asset,
@@ -151,10 +150,10 @@ def validate_asymmetric_algorithm(
     algorithm_name: str,
     key_length: int | str,
     curve: str | None,
-    algorithm_asset: dso.model.CryptoAsset,
+    algorithm_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
+) -> odg.model.CryptoFinding | None:
     '''
     Validates the provided asymmetric algorithm (identified via its `algorithm_name` and
     `key_length`/`curve`) against the allowed properties for asymmetric algorithms defined in the
@@ -227,7 +226,7 @@ def validate_asymmetric_algorithm(
     )):
         return
 
-    return dso.model.CryptoFinding(
+    return odg.model.CryptoFinding(
         severity=categorisation.id,
         standard=standard.name,
         asset=algorithm_asset,
@@ -241,10 +240,10 @@ def validate_asymmetric_algorithm(
 def validate_hash_function(
     algorithm_name: str,
     output_size: int,
-    algorithm_asset: dso.model.CryptoAsset,
+    algorithm_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
+) -> odg.model.CryptoFinding | None:
     '''
     Validates the provided hash function (identified via its `algorithm_name` and `output_size`)
     against the allowed properties for hash functions defined in the `standard`. Therefore, it
@@ -308,7 +307,7 @@ def validate_hash_function(
     )):
         return
 
-    return dso.model.CryptoFinding(
+    return odg.model.CryptoFinding(
         severity=categorisation.id,
         standard=standard.name,
         asset=algorithm_asset,
@@ -321,10 +320,10 @@ def validate_hash_function(
 
 def validate_signature_algorithm(
     algorithm_name: str,
-    algorithm_asset: dso.model.CryptoAsset,
+    algorithm_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
+) -> odg.model.CryptoFinding | None:
     '''
     Validates the provided signature algorithm (identified via its `algorithm_name`) against the
     allowed properties for asymmetric algorithms and hash functions defined in the `standard`.
@@ -366,7 +365,7 @@ def validate_signature_algorithm(
     )):
         return
 
-    return dso.model.CryptoFinding(
+    return odg.model.CryptoFinding(
         severity=categorisation.id,
         standard=standard.name,
         asset=algorithm_asset,
@@ -375,21 +374,21 @@ def validate_signature_algorithm(
 
 
 def validate_algorithm(
-    algorithm_asset: dso.model.CryptoAsset,
+    algorithm_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
-    if algorithm_asset.asset_type is not dso.model.CryptoAssetTypes.ALGORITHM:
+) -> odg.model.CryptoFinding | None:
+    if algorithm_asset.asset_type is not odg.model.CryptoAssetTypes.ALGORITHM:
         raise ValueError(algorithm_asset.asset_type)
 
-    algorithm_properties: dso.model.AlgorithmProperties = algorithm_asset.properties
+    algorithm_properties: odg.model.AlgorithmProperties = algorithm_asset.properties
     parameter_set_identifier = (
         int(algorithm_properties.parameter_set_identifier)
         if algorithm_properties.parameter_set_identifier
         else 'unknown'
     )
 
-    if algorithm_properties.primitive is dso.model.Primitives.BLOCK_CIPHER:
+    if algorithm_properties.primitive is odg.model.Primitives.BLOCK_CIPHER:
         return validate_symmetric_algorithm(
             algorithm_name=algorithm_properties.name,
             key_length=parameter_set_identifier,
@@ -398,7 +397,7 @@ def validate_algorithm(
             crypto_finding_cfg=crypto_finding_cfg,
         )
 
-    elif algorithm_properties.primitive is dso.model.Primitives.PKE:
+    elif algorithm_properties.primitive is odg.model.Primitives.PKE:
         return validate_asymmetric_algorithm(
             algorithm_name=algorithm_properties.name,
             key_length=parameter_set_identifier,
@@ -408,7 +407,7 @@ def validate_algorithm(
             crypto_finding_cfg=crypto_finding_cfg,
         )
 
-    elif algorithm_properties.primitive is dso.model.Primitives.HASH:
+    elif algorithm_properties.primitive is odg.model.Primitives.HASH:
         return validate_hash_function(
             algorithm_name=algorithm_properties.name,
             output_size=parameter_set_identifier,
@@ -417,7 +416,7 @@ def validate_algorithm(
             crypto_finding_cfg=crypto_finding_cfg,
         )
 
-    elif algorithm_properties.primitive is dso.model.Primitives.SIGNATURE:
+    elif algorithm_properties.primitive is odg.model.Primitives.SIGNATURE:
         return validate_signature_algorithm(
             algorithm_name=algorithm_properties.name,
             algorithm_asset=algorithm_asset,
@@ -430,11 +429,11 @@ def validate_algorithm(
 
 
 def validate_certificate(
-    certificate_asset: dso.model.CryptoAsset,
+    certificate_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
-    crypto_assets: collections.abc.Sequence[dso.model.CryptoAsset],
+    crypto_assets: collections.abc.Sequence[odg.model.CryptoAsset],
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
+) -> odg.model.CryptoFinding | None:
     '''
     Validates the provided certificate (identified via the `certificate_properties`) against the
     allowed properties for certificates defined in the `standard`. Therefore, it resolves the
@@ -447,10 +446,10 @@ def validate_certificate(
     the used algorithms is not valid or the certificate properties are not sufficient for the
     detected certificate kind, a finding with the rating `not-compliant` will be created.
     '''
-    if certificate_asset.asset_type is not dso.model.CryptoAssetTypes.CERTIFICATE:
+    if certificate_asset.asset_type is not odg.model.CryptoAssetTypes.CERTIFICATE:
         raise ValueError(certificate_asset.asset_type)
 
-    certificate_properties: dso.model.CertificateProperties = certificate_asset.properties
+    certificate_properties: odg.model.CertificateProperties = certificate_asset.properties
 
     signature_algorithm = find_crypto_asset_by_key(
         data_key=certificate_properties.signature_algorithm_ref,
@@ -482,7 +481,7 @@ def validate_certificate(
     )
 
     def check_unmet_requirements(
-        certificate_kind: dso.model.CertificateKind,
+        certificate_kind: odg.model.CertificateKind,
         key_length: int | str,
         curve: str | None,
         validity_years: int | None,
@@ -572,7 +571,7 @@ def validate_certificate(
     )):
         return
 
-    return dso.model.CryptoFinding(
+    return odg.model.CryptoFinding(
         severity=categorisation.id,
         standard=standard.name,
         asset=certificate_asset,
@@ -581,20 +580,20 @@ def validate_certificate(
 
 
 def validate_library(
-    library_asset: dso.model.CryptoAsset,
+    library_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
+) -> odg.model.CryptoFinding | None:
     '''
     Validates the provided library (identified via its `name` and `version`) against the known
     validated libraries defined in the `standard`. If the libary matches one of the validated
     libraries (`name` or `name` and `version` matches), a finding with the rating `maybe-compliant`
     will be created. Otherwise, a finding with the rating `not-compliant` will be created.
     '''
-    if library_asset.asset_type is not dso.model.CryptoAssetTypes.LIBRARY:
+    if library_asset.asset_type is not odg.model.CryptoAssetTypes.LIBRARY:
         raise ValueError(library_asset.asset_type)
 
-    library_properties: dso.model.LibraryProperties = library_asset.properties
+    library_properties: odg.model.LibraryProperties = library_asset.properties
     provides_validated_variant = False
     may_be_validated_variant = False
 
@@ -644,7 +643,7 @@ def validate_library(
     )):
         return
 
-    return dso.model.CryptoFinding(
+    return odg.model.CryptoFinding(
         severity=categorisation.id,
         standard=standard.name,
         asset=library_asset,
@@ -653,11 +652,11 @@ def validate_library(
 
 
 def validate_protocol(
-    protocol_asset: dso.model.CryptoAsset,
+    protocol_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
-    if protocol_asset.asset_type is not dso.model.CryptoAssetTypes.LIBRARY:
+) -> odg.model.CryptoFinding | None:
+    if protocol_asset.asset_type is not odg.model.CryptoAssetTypes.LIBRARY:
         raise ValueError(protocol_asset.asset_type)
 
     # Currently, the generated CBOMs do not contain any detected protocols, hence skipping this
@@ -666,12 +665,12 @@ def validate_protocol(
 
 
 def validate_related_crypto_material(
-    related_crypto_material_asset: dso.model.CryptoAsset,
+    related_crypto_material_asset: odg.model.CryptoAsset,
     standard: cc.Standard,
-    crypto_assets: collections.abc.Sequence[dso.model.CryptoAsset],
+    crypto_assets: collections.abc.Sequence[odg.model.CryptoAsset],
     crypto_finding_cfg: odg.findings.Finding,
-) -> dso.model.CryptoFinding | None:
-    if related_crypto_material_asset.asset_type is not dso.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL: # noqa: E501
+) -> odg.model.CryptoFinding | None:
+    if related_crypto_material_asset.asset_type is not odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL: # noqa: E501
         raise ValueError(related_crypto_material_asset.asset_type)
 
     # Currently, the only detected related-crypto-material in the generated CBOMs are public keys,
@@ -681,12 +680,12 @@ def validate_related_crypto_material(
 
 
 def validate_against_standard(
-    crypto_assets: collections.abc.Sequence[dso.model.CryptoAsset],
+    crypto_assets: collections.abc.Sequence[odg.model.CryptoAsset],
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
-) -> collections.abc.Generator[dso.model.CryptoFinding, None, None]:
+) -> collections.abc.Generator[odg.model.CryptoFinding, None, None]:
     for crypto_asset in crypto_assets:
-        if crypto_asset.asset_type is dso.model.CryptoAssetTypes.ALGORITHM:
+        if crypto_asset.asset_type is odg.model.CryptoAssetTypes.ALGORITHM:
             if finding := validate_algorithm(
                 algorithm_asset=crypto_asset,
                 standard=standard,
@@ -694,7 +693,7 @@ def validate_against_standard(
             ):
                 yield finding
 
-        elif crypto_asset.asset_type is dso.model.CryptoAssetTypes.CERTIFICATE:
+        elif crypto_asset.asset_type is odg.model.CryptoAssetTypes.CERTIFICATE:
             if finding := validate_certificate(
                 certificate_asset=crypto_asset,
                 standard=standard,
@@ -703,7 +702,7 @@ def validate_against_standard(
             ):
                 yield finding
 
-        elif crypto_asset.asset_type is dso.model.CryptoAssetTypes.LIBRARY:
+        elif crypto_asset.asset_type is odg.model.CryptoAssetTypes.LIBRARY:
             if finding := validate_library(
                 library_asset=crypto_asset,
                 standard=standard,
@@ -711,7 +710,7 @@ def validate_against_standard(
             ):
                 yield finding
 
-        elif crypto_asset.asset_type is dso.model.CryptoAssetTypes.PROTOCOL:
+        elif crypto_asset.asset_type is odg.model.CryptoAssetTypes.PROTOCOL:
             if finding := validate_protocol(
                 protocol_asset=crypto_asset,
                 standard=standard,
@@ -719,7 +718,7 @@ def validate_against_standard(
             ):
                 yield finding
 
-        elif crypto_asset.asset_type is dso.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL:
+        elif crypto_asset.asset_type is odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL:
             if finding := validate_related_crypto_material(
                 related_crypto_material_asset=crypto_asset,
                 standard=standard,
@@ -733,10 +732,10 @@ def validate_against_standard(
 
 
 def iter_findings_for_standards(
-    crypto_assets: collections.abc.Sequence[dso.model.CryptoAsset],
+    crypto_assets: collections.abc.Sequence[odg.model.CryptoAsset],
     standards: collections.abc.Iterable[cc.Standard],
     crypto_finding_cfg: odg.findings.Finding,
-) -> collections.abc.Generator[dso.model.CryptoFinding, None, None]:
+) -> collections.abc.Generator[odg.model.CryptoFinding, None, None]:
     for standard in standards:
         yield from validate_against_standard(
             crypto_assets=crypto_assets,

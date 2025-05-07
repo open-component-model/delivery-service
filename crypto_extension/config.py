@@ -1,6 +1,6 @@
 import dataclasses
 
-import dso.model
+import odg.model
 
 
 @dataclasses.dataclass
@@ -112,7 +112,7 @@ class Schemes:
 
 @dataclasses.dataclass
 class CertificateProperties:
-    kind: dso.model.CertificateKind
+    kind: odg.model.CertificateKind
     curves: list[str] | None
     key_length: MinMaxEnumProperties | None
     validity_years: MinMaxEnumProperties | None
