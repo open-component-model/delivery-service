@@ -344,6 +344,7 @@ class Metadata:
     type: str
     creation_date: datetime.datetime | str = None
     last_update: datetime.datetime | str | None = None
+    responsibles: list[UserIdentity] | None = None
 
 
 @dataclasses.dataclass
@@ -1028,6 +1029,7 @@ def artefact_scan_info(
     artefact_node: 'cnudie.iter.ArtefactNode',
     datasource: str,
     data: dict={},
+    responsibles: list[UserIdentity] | None=None,
 ) -> ArtefactMetadata:
     '''
     The `data` property may contain extra information about the scan, e.g. a reference to the scan.
@@ -1049,6 +1051,7 @@ def artefact_scan_info(
         type=Datatype.ARTEFACT_SCAN_INFO,
         creation_date=now,
         last_update=now,
+        responsibles=responsibles,
     )
 
     return ArtefactMetadata(
