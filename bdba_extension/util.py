@@ -35,14 +35,15 @@ def iter_existing_findings(
         artefact=resource_node.resource,
     )
 
-    findings = delivery_client.query_metadata(
+    findings_raw = delivery_client.query_metadata(
         artefacts=(artefact,),
         type=finding_type,
     )
 
     return (
-        finding for finding in findings
-        if finding.meta.datasource == datasource
+        odg.model.ArtefactMetadata.from_dict(finding_raw)
+        for finding_raw in findings_raw
+        if finding_raw['meta']['datasource'] == datasource
     )
 
 

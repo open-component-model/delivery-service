@@ -184,14 +184,14 @@ def scan(
     ))
 
     existing_artefact_metadata = (
-        existing_artefact_metadatum
-        for existing_artefact_metadatum in delivery_client.query_metadata(
+        odg.model.ArtefactMetadata.from_dict(raw)
+        for raw in delivery_client.query_metadata(
             artefacts=(artefact,),
             type=(
                 odg.model.Datatype.CRYPTO_ASSET,
                 odg.findings.FindingType.CRYPTO,
             ),
-        ) if existing_artefact_metadatum.meta.datasource == odg.model.Datasource.CRYPTO
+        ) if raw['meta']['datasource'] == odg.model.Datasource.CRYPTO
     )
 
     stale_artefact_metadata = []

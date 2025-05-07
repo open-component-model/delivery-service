@@ -71,16 +71,22 @@ def _iter_findings_for_artefact(
     for idx in range(0, len(artefacts), chunk_size):
         chunked_artefacts = artefacts[idx:min(idx + chunk_size, len(artefacts))]
 
-        findings.extend(delivery_client.query_metadata(
-            artefacts=chunked_artefacts,
-            type=[odg.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
-        ))
+        findings.extend([
+            odg.model.ArtefactMetadata.from_dict(raw)
+            for raw in delivery_client.query_metadata(
+                artefacts=chunked_artefacts,
+                type=[odg.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
+            )
+        ])
 
-        rescorings.extend(delivery_client.query_metadata(
-            artefacts=chunked_artefacts,
-            type=odg.model.Datatype.RESCORING,
-            referenced_type=finding_type,
-        ))
+        rescorings.extend([
+            odg.model.ArtefactMetadata.from_dict(raw)
+            for raw in delivery_client.query_metadata(
+                artefacts=chunked_artefacts,
+                type=odg.model.Datatype.RESCORING,
+                referenced_type=finding_type,
+            )
+        ])
 
     for finding in findings:
         if finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO:
@@ -168,9 +174,12 @@ def replicate_issue_for_finding_type(
         keep_group_attributes=True,
     )
 
-    compliance_snapshots = delivery_client.query_metadata(
-        artefacts=(artefact_group,),
-        type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
+    compliance_snapshots = tuple(
+        odg.model.ArtefactMetadata.from_dict(raw)
+        for raw in delivery_client.query_metadata(
+            artefacts=(artefact_group,),
+            type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
+        )
     )
     logger.info(f'{len(compliance_snapshots)=}')
 

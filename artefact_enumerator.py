@@ -532,8 +532,11 @@ def enumerate_artefacts(
     artefacts = ocm_artefacts | runtime_artefacts
     logger.info(f'{len(artefacts)=}')
 
-    compliance_snapshots = delivery_client.query_metadata(
-        type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
+    compliance_snapshots = tuple(
+        odg.model.ArtefactMetadata.from_dict(raw)
+        for raw in delivery_client.query_metadata(
+            type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
+        )
     )
     logger.info(f'{len(compliance_snapshots)=}')
 
