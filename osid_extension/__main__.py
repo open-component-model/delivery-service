@@ -22,6 +22,7 @@ import tarutil
 import unixutil.model as um
 
 import consts
+import cnudie.retrieve
 import ctx_util
 import eol
 import k8s.backlog
@@ -263,6 +264,49 @@ def create_artefact_metadata(
     )
 
 
+def process_artefact(
+    artefact: dso.model.ComponentArtefactId,
+    osid_finding_config: odg.findings.Finding,
+    osid_config: odg.extensions_cfg.OsId,
+    oci_client: oci.client.Client,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    eol_client: eol.EolClient,
+    delivery_client: delivery.client.DeliveryServiceClient,
+):
+    if not osid_finding_config.matches(artefact):
+        logger.info(f'OSID findings are filtered out for {artefact=}, skipping...')
+        return
+
+    if not osid_config.is_supported(artefact_kind=artefact.artefact_kind):
+        if osid_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+            raise TypeError(
+                f'{artefact.artefact_kind} is not supported by the OSID extension, maybe the filter '
+                'configurations have to be adjusted to filter out this artefact kind'
+            )
+        return
+
+    resource = k8s.util.get_ocm_node(
+        component_descriptor_lookup=component_descriptor_lookup,
+        artefact=artefact,
+    ).resource
+
+    osid = determine_osid(
+        resource=resource,
+        oci_client=oci_client,
+    )
+
+    logger.info(f'uploading os-info for {artefact}')
+    osid_metadata = create_artefact_metadata(
+        artefact=artefact,
+        osid=osid,
+        osid_finding_config=osid_finding_config,
+        eol_client=eol_client,
+        relation=resource.relation,
+    )
+
+    delivery_client.update_metadata(data=osid_metadata)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -402,26 +446,15 @@ def main():
             backlog_item=backlog_crd.get('spec'),
         )
 
-        resource = k8s.util.get_ocm_node(
-            component_descriptor_lookup=component_descriptor_lookup,
+        process_artefact(
             artefact=backlog_item.artefact,
-        ).resource
-
-        osid = determine_osid(
-            resource=resource,
-            oci_client=oci_client,
-        )
-
-        logger.info(f'uploading os-info for {backlog_item.artefact}')
-        osid_metadata = create_artefact_metadata(
-            artefact=backlog_item.artefact,
-            osid=osid,
             osid_finding_config=osid_finding_config,
+            osid_config=osid_config,
+            oci_client=oci_client,
+            component_descriptor_lookup=component_descriptor_lookup,
             eol_client=eol_client,
-            relation=resource.relation,
+            delivery_client=delivery_client,
         )
-
-        delivery_client.update_metadata(data=osid_metadata)
 
         k8s.util.delete_custom_resource(
             crd=k8s.model.BacklogItemCrd,
