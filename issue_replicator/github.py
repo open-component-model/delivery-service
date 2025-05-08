@@ -850,6 +850,25 @@ def _osid_template_vars(
     }
 
 
+def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -> dict[str, str]:
+    findings: list[AggregatedFinding] = []
+    for finding_group in finding_groups:
+        findings.extend(finding_group.findings)
+
+    summary = '\n'
+    for item in findings:
+        data = item.finding.data
+        summary += f'# {data.summary} - {data.provider_name} - {data.resource_name}\n'
+        summary += '|    |    |\n'
+        summary += '| -- | -- |\n'
+        for k, v in data.attributes.items():
+            summary += f'| {k} | {v} |\n'
+
+    return {
+        'summary': summary,
+    }
+
+
 def _template_vars(
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
@@ -1064,6 +1083,11 @@ def _template_vars(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
+        )
+    elif finding_cfg.type is odg.findings.FindingType.INVENTORY:
+        template_variables |= _inventory_template_vars(
+            finding_groups=finding_groups,
+            summary=summary,
         )
 
     return template_variables
