@@ -79,6 +79,7 @@ class FindingType(enum.StrEnum):
     SAST = 'finding/sast'
     VULNERABILITY = 'finding/vulnerability'
     FALCO = 'finding/falco'
+    INVENTORY = 'finding/inventory'
 
 
 @dataclasses.dataclass
@@ -597,6 +598,8 @@ class Finding:
                 self._validate_sast()
             case FindingType.VULNERABILITY:
                 self._validate_vulnerabilty()
+            case FindingType.INVENTORY:
+                self._validate_inventory()
             case _:
                 pass
 
@@ -692,6 +695,16 @@ class Finding:
             return
 
         e = ModelValidationError('vulnerability finding model violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
+
+    def _validate_inventory(self):
+        violations = self._validate_categorisations()
+
+        if not violations:
+            return
+
+        e = ModelValidationError('inventory finding model violations found:')
         e.add_note('\n'.join(violations))
         raise e
 

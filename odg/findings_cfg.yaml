@@ -155,3 +155,25 @@
     - id: CRITICAL
       display_name: CRITICAL
       value: 8
+
+- type: finding/inventory
+  filter:
+    - semantics: include
+      artefact_kind: runtime
+  issues:
+    title_template: '[{meta.type}] - {artefact.component_name} - {artefact.artefact.artefact_type} - {artefact.artefact.artefact_name}'
+    enable_assignees: False
+    enable_per_finding: True
+  categorisations:
+    - id: NONE
+      display_name: NONE
+      value: 0
+      allowed_processing_time: ~
+    - id: MEDIUM
+      display_name: MEDIUM
+      value: 2
+      allowed_processing_time: 90
+    - id: HIGH
+      display_name: HIGH
+      value: 4
+      allowed_processing_time: 30
