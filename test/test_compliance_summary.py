@@ -59,7 +59,6 @@ async def test_vulnerability(component_artefact_id):
             ),
         )],
         rescorings=[],
-        eol_client=None,
     )).categorisation is cs.ComplianceEntryCategorisation.CLEAN
 
     assert (await cs.calculate_summary_entry(
@@ -82,7 +81,6 @@ async def test_vulnerability(component_artefact_id):
             ),
         )],
         rescorings=[],
-        eol_client=None,
     )).categorisation == 'CRITICAL'
 
 
@@ -119,7 +117,6 @@ async def test_malware(component_artefact_id):
             ),
         )],
         rescorings=[],
-        eol_client=None,
     )).categorisation is cs.ComplianceEntryCategorisation.CLEAN
 
     assert (await cs.calculate_summary_entry(
@@ -143,7 +140,6 @@ async def test_malware(component_artefact_id):
             ),
         )],
         rescorings=[],
-        eol_client=None,
     )).categorisation == 'BLOCKER'
 
 
@@ -176,7 +172,6 @@ async def test_licenses(component_artefact_id):
             ),
         )],
         rescorings=[],
-        eol_client=None,
     )).categorisation is cs.ComplianceEntryCategorisation.CLEAN
 
     assert (await cs.calculate_summary_entry(
@@ -196,5 +191,4 @@ async def test_licenses(component_artefact_id):
             ),
         )],
         rescorings=[],
-        eol_client=None,
     )).categorisation == 'BLOCKER'
