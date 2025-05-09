@@ -2,7 +2,7 @@ import logging
 
 import awesomeversion
 
-import unixutil.model as um
+import dso.model
 
 import osinfo.model
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def find_branch_info(
-    osid: um.OperatingSystemId,
+    osid: dso.model.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
 ) -> osinfo.model.OsReleaseInfo | None:
     os_version = osid.VERSION_ID
@@ -42,7 +42,7 @@ def find_branch_info(
 
 
 def branch_reached_eol(
-    osid: um.OperatingSystemId,
+    osid: dso.model.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
 ) -> bool:
     if not osid.ID:
@@ -57,7 +57,7 @@ def branch_reached_eol(
 
 
 def update_available(
-    osid: um.OperatingSystemId,
+    osid: dso.model.OperatingSystemId,
     os_infos: list[osinfo.model.OsReleaseInfo],
     ignore_if_patchlevel_is_next_to_greatest=False,
 ) -> bool:
