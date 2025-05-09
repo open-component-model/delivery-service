@@ -19,7 +19,6 @@ import oci.client
 import oci.model
 import ocm
 import tarutil
-import unixutil.model as um
 
 import consts
 import cnudie.retrieve
@@ -63,7 +62,7 @@ def handle_termination_signal(*args):
 
 
 def determine_os_status(
-    osid: um.OperatingSystemId,
+    osid: dso.model.OperatingSystemId,
     eol_client: eol.EolClient,
 ) -> tuple[dso.model.OsStatus, str | None, datetime.datetime | None]:
     '''
@@ -127,7 +126,7 @@ def determine_os_status(
 def determine_osid(
     resource: ocm.Resource,
     oci_client: oci.client.Client,
-) -> um.OperatingSystemId | None:
+) -> dso.model.OperatingSystemId | None:
 
     if resource.type != ocm.ArtefactType.OCI_IMAGE:
         return
@@ -147,7 +146,7 @@ def determine_osid(
 def base_image_osid(
     oci_client: oci.client.Client,
     resource: ocm.Resource,
-) -> um.OperatingSystemId:
+) -> dso.model.OperatingSystemId:
     image_reference = resource.access.imageReference
 
     manifest = oci_client.manifest(
@@ -182,7 +181,7 @@ def base_image_osid(
 def create_artefact_metadata(
     artefact: dso.model.ComponentArtefactId,
     osid_finding_config: odg.findings.Finding,
-    osid: um.OperatingSystemId | None,
+    osid: dso.model.OperatingSystemId | None,
     eol_client: eol.EolClient,
     relation: ocm.ResourceRelation,
     time_now: datetime.datetime | None = None,
