@@ -331,7 +331,7 @@ class FindingIssues:
             return prop
 
         return ''.join(
-            resolve_attr_ref(attr_ref)
+            str(resolve_attr_ref(attr_ref))
             for attr_ref in self.attrs_to_group_by
         )
 
