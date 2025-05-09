@@ -14,8 +14,6 @@ import ci.log
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
-import dso.labels
-import dso.model
 import ocm
 
 import consts
@@ -27,8 +25,9 @@ import k8s.logging
 import lookups
 import odg.extensions_cfg
 import odg.findings
+import odg.labels
+import odg.model
 import paths
-import rescore.model
 import rescore.utility
 
 
@@ -64,10 +63,10 @@ def has_local_linter(
     resources: list[ocm.Resource],
 ) -> bool:
     for resource in resources:
-        if not (label := resource.find_label(name=dso.labels.PurposeLabel.name)):
+        if not (label := resource.find_label(name=odg.labels.PurposeLabel.name)):
             continue
 
-        label_content = dso.labels.deserialise_label(label)
+        label_content = odg.labels.deserialise_label(label)
         if AnalysisLabel.SAST.value in label_content.value:
             return True
 
@@ -76,14 +75,14 @@ def has_local_linter(
 
 def find_scan_policy(
     snode: cnudie.iter.SourceNode
-) -> dso.labels.ScanPolicy | None:
-    if label := snode.source.find_label(name=dso.labels.SourceScanLabel.name):
-        label_content = dso.labels.deserialise_label(label)
+) -> odg.labels.ScanPolicy | None:
+    if label := snode.source.find_label(name=odg.labels.SourceScanLabel.name):
+        label_content = odg.labels.deserialise_label(label)
         return label_content.value.policy
 
     # Fallback to component-level label
-    if label := snode.component.find_label(name=dso.labels.SourceScanLabel.name):
-        label_content = dso.labels.deserialise_label(label)
+    if label := snode.component.find_label(name=odg.labels.SourceScanLabel.name):
+        label_content = odg.labels.deserialise_label(label)
         return label_content.value.policy
 
     # No label found
@@ -91,21 +90,21 @@ def find_scan_policy(
 
 
 def create_missing_linter_finding(
-    artefact: dso.model.ComponentArtefactId,
-    sub_type: dso.model.SastSubType,
+    artefact: odg.model.ComponentArtefactId,
+    sub_type: odg.model.SastSubType,
     categorisation: odg.findings.FindingCategorisation,
     creation_timestamp: datetime.datetime=datetime.datetime.now(tz=datetime.timezone.utc),
-) -> dso.model.ArtefactMetadata | None:
-    return dso.model.ArtefactMetadata(
+) -> odg.model.ArtefactMetadata | None:
+    return odg.model.ArtefactMetadata(
         artefact=artefact,
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.SAST,
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.SAST,
             type=odg.findings.FindingType.SAST,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
         ),
-        data=dso.model.SastFinding(
-            sast_status=dso.model.SastStatus.NO_LINTER,
+        data=odg.model.SastFinding(
+            sast_status=odg.model.SastStatus.NO_LINTER,
             severity=categorisation.id,
             sub_type=sub_type,
         ),
@@ -116,10 +115,10 @@ def create_missing_linter_finding(
 
 def iter_sast_artefacts_for_sub_type(
     sast_finding_config: odg.findings.Finding,
-    sub_type: dso.model.SastSubType,
-    artefact: dso.model.ComponentArtefactId,
+    sub_type: odg.model.SastSubType,
+    artefact: odg.model.ComponentArtefactId,
     creation_timestamp: datetime.datetime=datetime.datetime.now(datetime.timezone.utc),
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     categorisation = odg.findings.categorise_finding(
         finding_cfg=sast_finding_config,
         finding_property=sub_type,
@@ -144,7 +143,7 @@ def iter_sast_artefacts_for_sub_type(
         finding=missing_linter_finding,
         sast_finding_cfg=sast_finding_config,
         categorisation=categorisation,
-        user=dso.model.User(
+        user=odg.model.User(
             username='sast-extension-auto-rescoring',
             type='sast-extension-user',
         ),
@@ -158,12 +157,12 @@ def iter_sast_artefacts_for_sub_type(
 
 
 def iter_artefact_metadata(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     sast_finding_config: odg.findings.Finding,
     sast_config: odg.extensions_cfg.SASTConfig,
     creation_timestamp: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     '''
     Processes source nodes for a given component descriptor, yielding SAST metadata.
     Handles resource filtering, local linter findings, and rescoring logic.
@@ -195,11 +194,11 @@ def iter_artefact_metadata(
             if src_ref.identitySelector.get('name') == source_node.source.name
         ]
 
-    yield dso.model.ArtefactMetadata(
+    yield odg.model.ArtefactMetadata(
         artefact=artefact,
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.SAST,
-            type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.SAST,
+            type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
         ),
@@ -207,7 +206,7 @@ def iter_artefact_metadata(
         discovery_date=creation_timestamp.date(),
     )
 
-    if find_scan_policy(source_node) is dso.labels.ScanPolicy.SKIP:
+    if find_scan_policy(source_node) is odg.labels.ScanPolicy.SKIP:
         logger.info(f'Skip label found for source {source_node.source.name}. '
                     'No SAST Linting required ...')
         return
@@ -215,14 +214,14 @@ def iter_artefact_metadata(
     if not has_local_linter(resources):
         yield from iter_sast_artefacts_for_sub_type(
             sast_finding_config=sast_finding_config,
-            sub_type=dso.model.SastSubType.LOCAL_LINTING,
+            sub_type=odg.model.SastSubType.LOCAL_LINTING,
             artefact=artefact,
             creation_timestamp=creation_timestamp,
         )
 
     yield from iter_sast_artefacts_for_sub_type(
         sast_finding_config=sast_finding_config,
-        sub_type=dso.model.SastSubType.CENTRAL_LINTING,
+        sub_type=odg.model.SastSubType.CENTRAL_LINTING,
         artefact=artefact,
         creation_timestamp=creation_timestamp,
     )

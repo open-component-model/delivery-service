@@ -8,9 +8,8 @@ import typing
 import dacite
 import yaml
 
-import dso.model
-
 import consts
+import odg.model
 import odg.shared_cfg
 import rescore.model as rm
 import util
@@ -240,8 +239,8 @@ class FindingCategorisation:
 
     def effective_due_date(
         self,
-        finding: dso.model.ArtefactMetadata,
-        rescoring: dso.model.ArtefactMetadata | None,
+        finding: odg.model.ArtefactMetadata,
+        rescoring: odg.model.ArtefactMetadata | None,
     ) -> datetime.date | None:
         '''
         Returns the effective due date for the referenced finding. If any related rescoring exist,
@@ -280,7 +279,7 @@ class FindingIssues:
     :param str title_template:
         Template to use for the title of the created GitHub issues. Available substituates are
         `artefact`, `meta` and `data` (derived from the respective finding of type
-        `dso.model.ArtefactMetadata`).
+        `odg.model.ArtefactMetadata`).
     :param bool enable_issues:
         If disabled, no GitHub issues will be created/updated for the specified finding type.
     :param bool enable_assignees:
@@ -313,7 +312,7 @@ class FindingIssues:
 
     def group_id_for_artefact(
         self,
-        artefact: dso.model.ComponentArtefactId,
+        artefact: odg.model.ComponentArtefactId,
     ) -> str:
         '''
         Creates a stable representation of the grouping relevant attributes of the `artefact`.
@@ -326,7 +325,7 @@ class FindingIssues:
                 prop = prop.get(attr_ref_part, {})
 
             if isinstance(prop, dict):
-                return dso.model.normalise_artefact_extra_id(prop)
+                return odg.model.normalise_artefact_extra_id(prop)
 
             return prop
 
@@ -337,7 +336,7 @@ class FindingIssues:
 
     def issue_id(
         self,
-        artefact: dso.model.ComponentArtefactId,
+        artefact: odg.model.ComponentArtefactId,
         due_date: datetime.date,
         version: str='v1',
     ) -> str:
@@ -356,7 +355,7 @@ class FindingIssues:
 
     def issue_title(
         self,
-        finding: dso.model.ArtefactMetadata,
+        finding: odg.model.ArtefactMetadata,
     ) -> str:
         return self.title_template.format(
             artefact=finding.artefact,
@@ -366,9 +365,9 @@ class FindingIssues:
 
     def strip_artefact(
         self,
-        artefact: dso.model.ComponentArtefactId,
+        artefact: odg.model.ComponentArtefactId,
         keep_group_attributes: bool=True,
-    ) -> dso.model.ComponentArtefactId:
+    ) -> odg.model.ComponentArtefactId:
         '''
         Based on `keep_group_attributes`, either returns an artefact which only contains the
         attributes which are used for grouping, or the opposite.
@@ -377,11 +376,11 @@ class FindingIssues:
             is_group_attribute = attr_ref in self.attrs_to_group_by
             return is_group_attribute == keep_group_attributes
 
-        return dso.model.ComponentArtefactId(
+        return odg.model.ComponentArtefactId(
             component_name=artefact.component_name if include_attribute('component_name') else None, # noqa: E501
             component_version=artefact.component_version if include_attribute('component_version') else None, # noqa: E501
             artefact_kind=artefact.artefact_kind if include_attribute('artefact_kind') else None,
-            artefact=dso.model.LocalArtefactId(
+            artefact=odg.model.LocalArtefactId(
                 artefact_name=artefact.artefact.artefact_name if include_attribute('artefact.artefact_name') else None, # noqa: E501
                 artefact_version=artefact.artefact.artefact_version if include_attribute('artefact.artefact_version') else None, # noqa: E501
                 artefact_type=artefact.artefact.artefact_type if include_attribute('artefact.artefact_type') else None, # noqa: E501
@@ -411,7 +410,7 @@ class FindingFilter:
     name: str | None
     component_name: list[str] | str | None
     component_version: list[str] | str | None
-    artefact_kind: list[dso.model.ArtefactKind] | dso.model.ArtefactKind | None
+    artefact_kind: list[odg.model.ArtefactKind] | odg.model.ArtefactKind | None
     artefact_name: list[str] | str | None
     artefact_version: list[str] | str | None
     artefact_type: list[str] | str | None
@@ -422,7 +421,7 @@ class FindingFilter:
             self.component_name = [self.component_name]
         if isinstance(self.component_version, str):
             self.component_version = [self.component_version]
-        if isinstance(self.artefact_kind, dso.model.ArtefactKind):
+        if isinstance(self.artefact_kind, odg.model.ArtefactKind):
             self.artefact_kind = [self.artefact_kind]
         if isinstance(self.artefact_name, str):
             self.artefact_name = [self.artefact_name]
@@ -434,11 +433,11 @@ class FindingFilter:
             self.artefact_extra_id = [self.artefact_extra_id]
 
         self.artefact_extra_id = [
-            dso.model.normalise_artefact_extra_id(artefact_extra_id)
+            odg.model.normalise_artefact_extra_id(artefact_extra_id)
             for artefact_extra_id in self.artefact_extra_id or []
         ]
 
-    def matches(self, artefact: dso.model.ComponentArtefactId) -> bool:
+    def matches(self, artefact: odg.model.ComponentArtefactId) -> bool:
         def match_regexes(patterns: list[str], string: str) -> bool:
             if not patterns:
                 return True
@@ -811,7 +810,7 @@ class Finding:
 
         raise ValueError(f'did not find categorisation with {id=} for type "{self.type}"')
 
-    def matches(self, artefact: dso.model.ComponentArtefactId) -> bool:
+    def matches(self, artefact: odg.model.ComponentArtefactId) -> bool:
         if not self.filter:
             return True
 

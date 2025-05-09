@@ -7,8 +7,6 @@ import requests
 import ci.log
 import cnudie.iter
 import delivery.client
-import dso.labels
-import dso.model
 import ocm
 
 import bdba.client
@@ -18,6 +16,8 @@ import bdba_extension.rescore
 import bdba_extension.util
 import bdba_extension.model
 import odg.findings
+import odg.labels
+import odg.model
 
 
 logger = logging.getLogger(__name__)
@@ -180,7 +180,7 @@ class ResourceGroupProcessor:
         delivery_client: delivery.client.DeliveryServiceClient | None=None,
         vulnerability_cfg: odg.findings.Finding | None=None,
         license_cfg: odg.findings.Finding | None=None,
-    ) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+    ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
         scan_request = self.scan_request(
             resource_node=resource_node,
             content_iterator=content_iterator,
@@ -250,14 +250,14 @@ class ResourceGroupProcessor:
 
 def _package_version_hints(
     resource: ocm.Resource,
-) -> list[dso.labels.PackageVersionHint] | None:
-    package_hints_label = resource.find_label(name=dso.labels.PackageVersionHintLabel.name)
+) -> list[odg.labels.PackageVersionHint] | None:
+    package_hints_label = resource.find_label(name=odg.labels.PackageVersionHintLabel.name)
 
     if not package_hints_label:
         return None
 
     return [
-        dso.labels.PackageVersionHint(
+        odg.labels.PackageVersionHint(
             name=hint.get('name'),
             version=hint.get('version'),
         ) for hint in package_hints_label.value

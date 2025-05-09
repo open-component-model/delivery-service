@@ -11,27 +11,23 @@ import textwrap
 import time
 import urllib.parse
 
-import cachetools
 import github3
 import github3.issues.issue
 import github3.issues.milestone
 import github3.repos
-import requests
 
 import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import delivery.model
-import dso.model
 import github.compliance.milestone as gcmi
 import github.retry
-import github.user
-import github.util
 import ocm.util
 
 import k8s.util
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import rescore.utility
 import util
 
@@ -51,8 +47,8 @@ class IssueLabels(enum.StrEnum):
 
 @dataclasses.dataclass
 class AggregatedFinding:
-    finding: dso.model.ArtefactMetadata
-    rescorings: list[dso.model.ArtefactMetadata] = dataclasses.field(default_factory=list)
+    finding: odg.model.ArtefactMetadata
+    rescorings: list[odg.model.ArtefactMetadata] = dataclasses.field(default_factory=list)
     due_date: datetime.date | None = None
 
     @property
@@ -65,7 +61,7 @@ class AggregatedFinding:
 
 @dataclasses.dataclass
 class FindingGroup:
-    artefact: dso.model.ComponentArtefactId
+    artefact: odg.model.ComponentArtefactId
     findings: tuple[AggregatedFinding]
 
     def summary(
@@ -161,75 +157,6 @@ def filter_issues_for_labels(
     )
 
 
-@cachetools.cached(cachetools.TTLCache(maxsize=4096, ttl=60 * 60))
-def _valid_issue_assignees(
-    repository: github3.repos.Repository,
-) -> set[str]:
-    return set(
-        u.login for u in repository.assignees()
-    )
-
-
-def _issue_assignees(
-    mapping: odg.extensions_cfg.IssueReplicatorMapping,
-    delivery_client: delivery.client.DeliveryServiceClient,
-    artefact: dso.model.ComponentArtefactId,
-) -> tuple[set[str], set[delivery.model.Status]]:
-    assignees: set[str] = set()
-    statuses: set[delivery.model.Status] = set()
-
-    try:
-        responsibles, statuses = delivery_client.component_responsibles(
-            name=artefact.component_name,
-            version=artefact.component_version,
-            artifact=artefact.artefact.artefact_name,
-        )
-        statuses = set(statuses)
-
-        gh_users = delivery.client.github_users_from_responsibles(
-            responsibles=responsibles,
-            github_url=mapping.repository.html_url,
-        )
-
-        assignees = set(
-            gh_user.username.lower()
-            for gh_user in gh_users
-            if github.user.is_user_active(
-                username=gh_user.username,
-                github=mapping.github_api,
-            )
-        )
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            logger.warning(
-                f'delivery service returned 404 for {artefact.component_name=}, '
-                f'{artefact.component_version=}, {artefact.artefact.artefact_name=}'
-            )
-        else:
-            raise
-
-    valid_assignees = set(
-        assignee.lower()
-        for assignee in _valid_issue_assignees(
-            repository=mapping.repository,
-        )
-    )
-
-    if invalid_assignees := (assignees - valid_assignees):
-        logger.warning(
-            f'unable to assign {invalid_assignees} to issues in repository '
-            f'{mapping.repository.html_url}. Please make sure the users have the necessary '
-            'permissions to see issues in the repository.'
-        )
-        assignees -= invalid_assignees
-        logger.info(
-            f'removed invalid assignees {invalid_assignees} from target assignees for '
-            f'issue. Remaining assignees: {assignees}'
-        )
-
-    return assignees, statuses
-
-
 def _issue_milestone(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_client: delivery.client.DeliveryServiceClient,
@@ -248,7 +175,7 @@ def _issue_milestone(
 
 
 def _artefact_to_str(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
 ) -> str:
     id_str = '<br>'.join(
         f'{k}: {v}'
@@ -276,7 +203,7 @@ def _artefact_url(
 
 def _delivery_dashboard_url(
     base_url: str,
-    component_artefact_id: dso.model.ComponentArtefactId,
+    component_artefact_id: odg.model.ComponentArtefactId,
     finding_type: odg.findings.FindingType,
     sprint_name: str=None,
 ):
@@ -454,7 +381,7 @@ def _malware_template_vars(
         aggregated_findings: tuple[AggregatedFinding],
     ) -> collections.abc.Generator[tuple[str, str, str], None, None]:
         for af in aggregated_findings:
-            finding_details: dso.model.MalwareFindingDetails = af.finding.data.finding
+            finding_details: odg.model.MalwareFindingDetails = af.finding.data.finding
             yield finding_details.malware, finding_details.filename, finding_details.content_digest
 
     for finding_group in finding_groups:
@@ -493,14 +420,14 @@ def _sast_template_vars(
         aggragated_findings: tuple[AggregatedFinding],
     ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
         for af in aggragated_findings:
-            sast_finding: dso.model.SastFinding = af.finding.data
+            sast_finding: odg.model.SastFinding = af.finding.data
             sast_status = sast_finding.sast_status
             sub_type = sast_finding.sub_type
             severity = sast_finding.severity
 
-            if sub_type is dso.model.SastSubType.LOCAL_LINTING:
+            if sub_type is odg.model.SastSubType.LOCAL_LINTING:
                 issue_text = 'No evidence about SAST-linting was found.'
-            elif sub_type is dso.model.SastSubType.CENTRAL_LINTING:
+            elif sub_type is odg.model.SastSubType.CENTRAL_LINTING:
                 issue_text = 'No central linting found.'
             else:
                 issue_text = 'Unknown SAST issue subtype.'
@@ -766,7 +693,7 @@ def _crypto_template_vars(
                 sorted(af.finding.data.asset.names),
             ),
         ):
-            crypto_finding: dso.model.CryptoFinding = af.finding.data
+            crypto_finding: odg.model.CryptoFinding = af.finding.data
 
             standard = crypto_finding.standard
             asset_type = crypto_finding.asset.asset_type
@@ -816,7 +743,7 @@ def _osid_template_vars(
         aggregated_findings: tuple[AggregatedFinding],
     ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
         for af in aggregated_findings:
-            osid_finding: dso.model.OsIdFinding = af.finding.data
+            osid_finding: odg.model.OsIdFinding = af.finding.data
             os_name = osid_finding.osid.NAME
             greatest_version = osid_finding.greatest_version
             detected_version = osid_finding.osid.VERSION_ID
@@ -871,8 +798,8 @@ def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -
 
 def _template_vars(
     finding_cfg: odg.findings.Finding,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
-    artefacts_without_scan: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
+    artefacts_without_scan: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: collections.abc.Sequence[AggregatedFinding],
     due_date: datetime.date,
     delivery_dashboard_url: str,
@@ -1148,7 +1075,7 @@ def create_issue(
     milestone: github3.issues.milestone.Milestone | None,
     failed_milestones: list[github3.issues.milestone.Milestone],
     assignees: set[str],
-    assignees_statuses: set[str],
+    assignees_statuses: set[delivery.model.Status],
     labels: set[str],
 ) -> github3.issues.issue.ShortIssue:
     try:
@@ -1195,18 +1122,18 @@ def _create_or_update_issue(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    artefacts: tuple[dso.model.ComponentArtefactId],
+    artefacts: tuple[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone | None,
     failed_milestones: list[github3.issues.milestone.Milestone],
     due_date: datetime.date,
     is_scanned: bool,
-    artefacts_without_scan: set[dso.model.ComponentArtefactId],
+    artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     sprint_name: str=None,
     assignees: set[str]=set(),
-    assignees_statuses: set[str]=set(),
+    assignees_statuses: set[delivery.model.Status]=set(),
     labels: set[str]=set(),
 ):
     def labels_to_preserve(
@@ -1289,7 +1216,7 @@ def _create_or_update_or_close_issue_per_finding(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issue_id: str,
     issues: tuple[github3.issues.issue.ShortIssue],
@@ -1297,11 +1224,11 @@ def _create_or_update_or_close_issue_per_finding(
     failed_milestones: None | list[github3.issues.milestone.Milestone],
     due_date: datetime.date,
     is_scanned: bool,
-    artefacts_without_scan: set[dso.model.ComponentArtefactId],
+    artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     sprint_name: str=None,
     assignees: set[str]=set(),
-    assignees_statuses: set[str]=set(),
+    assignees_statuses: set[delivery.model.Status]=set(),
     labels: set[str]=set(),
 ):
     processed_issues = set()
@@ -1351,13 +1278,15 @@ def create_or_update_or_close_issue(
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-    artefacts: collections.abc.Iterable[dso.model.ComponentArtefactId],
+    artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     issue_id: str,
     due_date: datetime.date,
     is_in_bom: bool,
-    artefacts_without_scan: set[dso.model.ComponentArtefactId],
+    artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
+    assignees: set[str],
+    assignees_statuses: set[delivery.model.Status],
 ):
     is_scanned = len(artefacts_without_scan) == 0
 
@@ -1405,16 +1334,6 @@ def create_or_update_or_close_issue(
         else:
             # not scanned yet but no open issue found either -> nothing to do
             return
-
-    if finding_cfg.issues.enable_assignees:
-        assignees, assignees_statuses = _issue_assignees(
-            mapping=mapping,
-            delivery_client=delivery_client,
-            artefact=artefacts[0],
-        )
-    else:
-        assignees = set()
-        assignees_statuses = set()
 
     milestone, failed_milestones = _issue_milestone(
         mapping=mapping,

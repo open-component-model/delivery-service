@@ -10,12 +10,12 @@ import dacite
 import github3.repos
 import yaml
 
-import dso.model
 import github.compliance.milestone as gcmi
 import ocm
 
 import crypto_extension.config
 import lookups
+import odg.model
 import odg.shared_cfg
 
 
@@ -58,7 +58,7 @@ class BacklogItemMixins(ExtensionCfgMixins):
     '''
     def is_supported(
         self,
-        artefact_kind: dso.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
         access_type: ocm.AccessType | None=None,
     ) -> bool:
         raise NotImplementedError('function must be implemented by derived classes')
@@ -197,11 +197,11 @@ class BDBAConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: dso.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
         access_type: ocm.AccessType | None=None,
     ) -> bool:
         supported_artefact_kinds = (
-            dso.model.ArtefactKind.RESOURCE,
+            odg.model.ArtefactKind.RESOURCE,
         )
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
@@ -331,12 +331,12 @@ class ClamAVConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: dso.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
         access_type: ocm.AccessType | None=None,
         artefact_type: str | None=None,
     ) -> bool:
         supported_artefact_kinds = (
-            dso.model.ArtefactKind.RESOURCE,
+            odg.model.ArtefactKind.RESOURCE,
         )
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
@@ -458,7 +458,7 @@ class CryptoMapping(Mapping):
     '''
     standards: list[StandardRef | crypto_extension.config.Standard]
     libraries: list[LibrariesRef | str]
-    included_asset_types: list[dso.model.CryptoAssetTypes] | None
+    included_asset_types: list[odg.model.CryptoAssetTypes] | None
     aws_secret_name: str | None
 
     def __post_init__(self):
@@ -506,12 +506,12 @@ class CryptoConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: dso.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
         access_type: ocm.AccessType | None=None,
         artefact_type: str | None=None,
     ) -> bool:
         supported_artefact_kinds = (
-            dso.model.ArtefactKind.RESOURCE,
+            odg.model.ArtefactKind.RESOURCE,
         )
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
@@ -684,7 +684,7 @@ class IssueReplicatorConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: dso.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
         access_type: ocm.AccessType | None=None,
     ) -> bool:
         return True # issue replication works independent of any artefact or access type
@@ -706,10 +706,10 @@ class SASTConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: dso.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
     ) -> bool:
         supported_artefact_kinds = (
-            dso.model.ArtefactKind.SOURCE,
+            odg.model.ArtefactKind.SOURCE,
         )
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
@@ -738,10 +738,10 @@ class OsId(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: dso.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
     ) -> bool:
         supported_artefact_kinds = (
-            dso.model.ArtefactKind.RESOURCE,
+            odg.model.ArtefactKind.RESOURCE,
         )
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:

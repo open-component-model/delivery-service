@@ -3,11 +3,11 @@ import pytest
 import unittest.mock
 
 import ci.log
-import dso.model
 import unixutil.model
 
 import compliance_summary as cs
 import odg.findings
+import odg.model
 import paths
 
 
@@ -85,11 +85,11 @@ def artefact_metadata_cfg_by_type():
 
 
 @pytest.fixture
-def component_artefact_id() -> dso.model.ComponentArtefactId:
-    return dso.model.ComponentArtefactId(
+def component_artefact_id() -> odg.model.ComponentArtefactId:
+    return odg.model.ComponentArtefactId(
         component_name=None,
         component_version=None,
-        artefact=dso.model.LocalArtefactId(
+        artefact=odg.model.LocalArtefactId(
             artefact_name=None,
             artefact_version=None,
             artefact_type=None,
@@ -100,7 +100,7 @@ def component_artefact_id() -> dso.model.ComponentArtefactId:
 
 @pytest.mark.asyncio
 async def test_vulnerability(component_artefact_id):
-    meta = dso.model.Metadata(
+    meta = odg.model.Metadata(
         datasource=None,
         type=odg.findings.FindingType.VULNERABILITY,
     )
@@ -112,10 +112,10 @@ async def test_vulnerability(component_artefact_id):
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.VulnerabilityFinding(
+            data=odg.model.VulnerabilityFinding(
                 package_name=None,
                 package_version=None,
                 base_url=None,
@@ -135,10 +135,10 @@ async def test_vulnerability(component_artefact_id):
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.VulnerabilityFinding(
+            data=odg.model.VulnerabilityFinding(
                 package_name=None,
                 package_version=None,
                 base_url=None,
@@ -159,7 +159,7 @@ async def test_vulnerability(component_artefact_id):
 
 @pytest.mark.asyncio
 async def test_malware(component_artefact_id):
-    meta = dso.model.Metadata(
+    meta = odg.model.Metadata(
         datasource=None,
         type=odg.findings.FindingType.MALWARE,
     )
@@ -171,11 +171,11 @@ async def test_malware(component_artefact_id):
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.ClamAVMalwareFinding(
-                finding=dso.model.MalwareFindingDetails(
+            data=odg.model.ClamAVMalwareFinding(
+                finding=odg.model.MalwareFindingDetails(
                     filename='sha256:xxx|foo/bar',
                     content_digest='sha256:foo',
                     malware='very-bad-virus',
@@ -195,11 +195,11 @@ async def test_malware(component_artefact_id):
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.ClamAVMalwareFinding(
-                finding=dso.model.MalwareFindingDetails(
+            data=odg.model.ClamAVMalwareFinding(
+                finding=odg.model.MalwareFindingDetails(
                     filename='sha256:xxx|foo/bar',
                     content_digest='sha256:foo',
                     malware='very-bad-virus',
@@ -225,7 +225,7 @@ async def test_os_id(
     component_artefact_id,
 ):
     type = odg.findings.FindingType.OS_IDS
-    meta = dso.model.Metadata(
+    meta = odg.model.Metadata(
         datasource=None,
         type=type,
     )
@@ -237,10 +237,10 @@ async def test_os_id(
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.OsID(
+            data=odg.model.OsID(
                 os_info=unixutil.model.OperatingSystemId(),
             ),
         )],
@@ -251,10 +251,10 @@ async def test_os_id(
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.OsID(
+            data=odg.model.OsID(
                 os_info=unixutil.model.OperatingSystemId(
                     VERSION_ID='9.99.1',
                     ID='fooOs',
@@ -268,10 +268,10 @@ async def test_os_id(
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.OsID(
+            data=odg.model.OsID(
                 os_info=unixutil.model.OperatingSystemId(
                     VERSION_ID='9.99.9',
                     ID='fooOs',
@@ -285,10 +285,10 @@ async def test_os_id(
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.OsID(
+            data=odg.model.OsID(
                 os_info=unixutil.model.OperatingSystemId(
                     VERSION_ID='3.11.5',
                     ID='fooOs',
@@ -302,10 +302,10 @@ async def test_os_id(
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.OsID(
+            data=odg.model.OsID(
                 os_info=unixutil.model.OperatingSystemId(
                     VERSION_ID='bar--foo',
                     ID='fooOs',
@@ -320,7 +320,7 @@ async def test_os_id(
 
 @pytest.mark.asyncio
 async def test_licenses(component_artefact_id):
-    meta = dso.model.Metadata(
+    meta = odg.model.Metadata(
         datasource=None,
         type=odg.findings.FindingType.LICENSE,
     )
@@ -332,10 +332,10 @@ async def test_licenses(component_artefact_id):
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.LicenseFinding(
+            data=odg.model.LicenseFinding(
                 package_name=None,
                 package_version=None,
                 base_url=None,
@@ -352,10 +352,10 @@ async def test_licenses(component_artefact_id):
 
     assert (await cs.calculate_summary_entry(
         finding_cfg=finding_cfg,
-        findings=[dso.model.ArtefactMetadata(
+        findings=[odg.model.ArtefactMetadata(
             artefact=component_artefact_id,
             meta=meta,
-            data=dso.model.LicenseFinding(
+            data=odg.model.LicenseFinding(
                 package_name=None,
                 package_version=None,
                 base_url=None,

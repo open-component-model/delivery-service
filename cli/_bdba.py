@@ -8,7 +8,6 @@ import tabulate
 
 import cnudie.access
 import cnudie.iter
-import dso.model
 import oci
 import ocm
 import tarutil
@@ -19,6 +18,7 @@ import bdba_extension.scanning
 import ctx_util
 import lookups
 import ocm_util
+import odg.model
 import util
 
 
@@ -137,7 +137,7 @@ def scan(
         tls_verify=bdba_cfg.tls_verify,
     )
 
-    def iter_resource_scans() -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+    def iter_resource_scans() -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
         for resource_node in cnudie.iter.iter(
             component=component_descriptor.component,
             lookup=lookup,
@@ -201,14 +201,14 @@ def scan(
     results_above_threshold = [
         r for r in results
         if (
-            isinstance(r.data, dso.model.VulnerabilityFinding) and
+            isinstance(r.data, odg.model.VulnerabilityFinding) and
             r.data.cvss_v3_score >= cve_threshold
         )
     ]
     results_below_threshold = [
         r for r in results
         if (
-            isinstance(r.data, dso.model.VulnerabilityFinding) and
+            isinstance(r.data, odg.model.VulnerabilityFinding) and
             r.data.cvss_v3_score < cve_threshold
         )
     ]
@@ -217,7 +217,7 @@ def scan(
     logger.info(f'{len(results_above_threshold)=}')
     logger.info(f'{len(results_below_threshold)=}')
 
-    def _grouped_results(results: list[dso.model.ArtefactMetadata]) -> dict:
+    def _grouped_results(results: list[odg.model.ArtefactMetadata]) -> dict:
         grouped_results = dict()
 
         for r in results:

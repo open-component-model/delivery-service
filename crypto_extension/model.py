@@ -7,7 +7,7 @@ import re
 
 import cyclonedx.schema
 
-import dso.model
+import odg.model
 
 
 own_dir = os.path.dirname(__file__)
@@ -39,7 +39,7 @@ def validate_supported_schema_version(schema_version_raw: str):
 def filter_crypto_assets(
     components: collections.abc.Iterable[dict],
     known_crypto_libraries: collections.abc.Sequence[str],
-    included_asset_types: list[dso.model.CryptoAssetTypes] | None,
+    included_asset_types: list[odg.model.CryptoAssetTypes] | None,
 ) -> collections.abc.Generator[dict, None, None]:
     '''
     Filters the components of a CBOM document for those which are either of type
@@ -65,11 +65,11 @@ def filter_crypto_assets(
             continue
 
         if component_type is ComponentTypes.LIBRARY:
-            asset_type = dso.model.CryptoAssetTypes.LIBRARY
+            asset_type = odg.model.CryptoAssetTypes.LIBRARY
 
         elif component_type is ComponentTypes.CRYPTOGRAPHIC_ASSET:
             crypto_properties = component.get('cryptoProperties', dict())
-            asset_type = dso.model.CryptoAssetTypes(crypto_properties['assetType'])
+            asset_type = odg.model.CryptoAssetTypes(crypto_properties['assetType'])
 
         else:
             raise RuntimeError('this is a bug, we checked supported component types before')
@@ -127,7 +127,7 @@ def bom_ref_to_data_key(
 
 def guess_certificate_kind(
     subject_name: str | None,
-) -> dso.model.CertificateKind:
+) -> odg.model.CertificateKind:
     '''
     This function is intended to heuristically determine the "kind" of a certificate, like root-ca,
     intermediate-ca or end-user certificate. It checks the subject name for "well-known" phrases
@@ -145,19 +145,19 @@ def guess_certificate_kind(
     )
 
     if not subject_name:
-        return dso.model.CertificateKind.END_USER
+        return odg.model.CertificateKind.END_USER
 
     subject_name = subject_name.lower().replace(' ', '')
 
     for root_ca_phrase in root_ca_phrases:
         if root_ca_phrase in subject_name:
-            return dso.model.CertificateKind.ROOT_CA
+            return odg.model.CertificateKind.ROOT_CA
 
     for intermediate_ca_phrase in intermediate_ca_phrases:
         if intermediate_ca_phrase in subject_name:
-            return dso.model.CertificateKind.INTERMEDIATE_CA
+            return odg.model.CertificateKind.INTERMEDIATE_CA
 
-    return dso.model.CertificateKind.END_USER
+    return odg.model.CertificateKind.END_USER
 
 
 def determine_curve(
@@ -179,11 +179,11 @@ def determine_curve(
 def deserialise_algorithm(
     name: str,
     algorithm_properties: dict,
-) -> dso.model.AlgorithmProperties:
+) -> odg.model.AlgorithmProperties:
     if primitive := algorithm_properties.get('primitive'):
-        primitive = dso.model.Primitives(primitive)
+        primitive = odg.model.Primitives(primitive)
 
-    return dso.model.AlgorithmProperties(
+    return odg.model.AlgorithmProperties(
         name=name,
         primitive=primitive,
         parameter_set_identifier=algorithm_properties.get('parameterSetIdentifier'),
@@ -195,7 +195,7 @@ def deserialise_algorithm(
 def deserialise_certificate(
     certificate_properties: dict,
     crypto_assets_raw: collections.abc.Sequence[dict],
-) -> dso.model.CertificateProperties:
+) -> odg.model.CertificateProperties:
     signature_algorithm_ref = bom_ref_to_data_key(
         bom_ref=certificate_properties.get('signatureAlgorithmRef'),
         crypto_assets_raw=crypto_assets_raw,
@@ -222,7 +222,7 @@ def deserialise_certificate(
     else:
         validity_years = None
 
-    return dso.model.CertificateProperties(
+    return odg.model.CertificateProperties(
         kind=kind,
         validity_years=validity_years,
         signature_algorithm_ref=signature_algorithm_ref,
@@ -234,7 +234,7 @@ def deserialise_related_crypto_material(
     related_crypto_material_properties: dict,
     crypto_assets_raw: collections.abc.Sequence[dict],
     description: str | None,
-) -> dso.model.RelatedCryptoMaterialProperties:
+) -> odg.model.RelatedCryptoMaterialProperties:
     algorithm_ref = bom_ref_to_data_key(
         bom_ref=related_crypto_material_properties.get('algorithmRef'),
         crypto_assets_raw=crypto_assets_raw,
@@ -244,7 +244,7 @@ def deserialise_related_crypto_material(
         description=description,
     )
 
-    return dso.model.RelatedCryptoMaterialProperties(
+    return odg.model.RelatedCryptoMaterialProperties(
         type=related_crypto_material_properties.get('type'),
         algorithm_ref=algorithm_ref,
         curve=curve,
@@ -255,7 +255,7 @@ def deserialise_related_crypto_material(
 def deserialise_crypto_asset(
     crypto_asset_raw: dict,
     crypto_assets_raw: collections.abc.Sequence[dict],
-) -> dso.model.CryptoAsset:
+) -> odg.model.CryptoAsset:
     name = crypto_asset_raw['name']
     type = ComponentTypes(crypto_asset_raw['type'])
     version = crypto_asset_raw.get('version')
@@ -263,46 +263,46 @@ def deserialise_crypto_asset(
     crypto_properties = crypto_asset_raw.get('cryptoProperties')
 
     if type is ComponentTypes.LIBRARY:
-        asset_type = dso.model.CryptoAssetTypes.LIBRARY
+        asset_type = odg.model.CryptoAssetTypes.LIBRARY
 
     elif type is ComponentTypes.CRYPTOGRAPHIC_ASSET:
         if not crypto_properties:
             raise ValueError(
                 f'The component property `cryptoProperties` must be set for components of {type=}'
             )
-        asset_type = dso.model.CryptoAssetTypes(crypto_properties['assetType'])
+        asset_type = odg.model.CryptoAssetTypes(crypto_properties['assetType'])
 
     else:
         raise ValueError(
             f'{type=} is not a supported crypto asset type, '
-            f'supported values: {[asset_type.value for asset_type in dso.model.CryptoAssetTypes]}'
+            f'supported values: {[asset_type.value for asset_type in odg.model.CryptoAssetTypes]}'
         )
 
-    if asset_type is dso.model.CryptoAssetTypes.ALGORITHM:
+    if asset_type is odg.model.CryptoAssetTypes.ALGORITHM:
         properties = deserialise_algorithm(
             name=name,
             algorithm_properties=crypto_properties['algorithmProperties'],
         )
 
-    elif asset_type is dso.model.CryptoAssetTypes.CERTIFICATE:
+    elif asset_type is odg.model.CryptoAssetTypes.CERTIFICATE:
         properties = deserialise_certificate(
             certificate_properties=crypto_properties['certificateProperties'],
             crypto_assets_raw=crypto_assets_raw,
         )
 
-    elif asset_type is dso.model.CryptoAssetTypes.LIBRARY:
-        properties = dso.model.LibraryProperties(
+    elif asset_type is odg.model.CryptoAssetTypes.LIBRARY:
+        properties = odg.model.LibraryProperties(
             name=name,
             version=version,
         )
 
-    elif asset_type is dso.model.CryptoAssetTypes.PROTOCOL:
-        properties = dso.model.ProtocolProperties(
+    elif asset_type is odg.model.CryptoAssetTypes.PROTOCOL:
+        properties = odg.model.ProtocolProperties(
             type=crypto_properties['protocolProperties'].get('type'),
             version=crypto_properties['protocolProperties'].get('version'),
         )
 
-    elif asset_type is dso.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL:
+    elif asset_type is odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL:
         properties = deserialise_related_crypto_material(
             related_crypto_material_properties=crypto_properties.get('relatedCryptoMaterialProperties'), # noqa: E501
             crypto_assets_raw=crypto_assets_raw,
@@ -314,7 +314,7 @@ def deserialise_crypto_asset(
 
     locations = set(iter_locations(crypto_asset_raw=crypto_asset_raw))
 
-    return dso.model.CryptoAsset(
+    return odg.model.CryptoAsset(
         names=[name],
         locations=sorted(locations),
         asset_type=asset_type,
@@ -323,15 +323,15 @@ def deserialise_crypto_asset(
 
 
 def aggregate_crypto_assets(
-    crypto_assets: collections.abc.Iterable[dso.model.CryptoAsset],
-) -> list[dso.model.CryptoAsset]:
+    crypto_assets: collections.abc.Iterable[odg.model.CryptoAsset],
+) -> list[odg.model.CryptoAsset]:
     '''
     Aggregates the provided `crypto_assets` based on their `key` property. If multiple assets have
     the same key, it means they are semantical identical but they may have a different name or were
     found at a different location. Therefore, all distinct names and locations are assigned to the
     aggregated asset as well.
     '''
-    aggregated_crypto_assets: dict[str, dso.model.CryptoAsset] = dict()
+    aggregated_crypto_assets: dict[str, odg.model.CryptoAsset] = dict()
 
     for crypto_asset in crypto_assets:
         key = crypto_asset.key
@@ -354,8 +354,8 @@ def aggregate_crypto_assets(
 def iter_crypto_assets(
     cbom: dict,
     crypto_libraries: list[str],
-    included_asset_types: list[dso.model.CryptoAssetTypes] | None,
-) -> list[dso.model.CryptoAsset]:
+    included_asset_types: list[odg.model.CryptoAssetTypes] | None,
+) -> list[odg.model.CryptoAsset]:
     validate_supported_schema_version(
         schema_version_raw=cbom['specVersion'],
     )

@@ -11,11 +11,10 @@ import dacite
 import dateutil.parser
 import kubernetes.client.rest
 
-import dso.model
-
 import k8s.model
 import k8s.util
 import odg.extensions_cfg
+import odg.model
 import util
 
 
@@ -37,7 +36,7 @@ class BacklogPriorities(enum.IntEnum):
 @dataclasses.dataclass
 class BacklogItem:
     timestamp: datetime.datetime
-    artefact: dso.model.ComponentArtefactId
+    artefact: odg.model.ComponentArtefactId
     priority: BacklogPriorities
 
     def as_dict(self) -> dict:
@@ -56,7 +55,7 @@ class BacklogItem:
                 type_hooks=type_hooks,
                 cast=[
                     BacklogPriorities,
-                    dso.model.ArtefactKind,
+                    odg.model.ArtefactKind,
                 ],
             ),
         )
@@ -86,7 +85,7 @@ def iter_existing_backlog_items_for_artefact(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
 ) -> collections.abc.Generator[dict, None, None]:
     labels = {
         k8s.model.LABEL_SERVICE: service,
@@ -103,10 +102,10 @@ def iter_existing_backlog_items_for_artefact(
 
     for backlog_crd in backlog_crds:
         crd_artefact = dacite.from_dict(
-            data_class=dso.model.ComponentArtefactId,
+            data_class=odg.model.ComponentArtefactId,
             data=backlog_crd.get('spec').get('artefact'),
             config=dacite.Config(
-                cast=[dso.model.ArtefactKind],
+                cast=[odg.model.ArtefactKind],
             ),
         )
 
@@ -118,7 +117,7 @@ def create_backlog_item(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     priority: BacklogPriorities=BacklogPriorities.LOW,
 ):
     name = k8s.util.generate_kubernetes_name(
@@ -151,7 +150,7 @@ def create_unique_backlog_item(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     priority: BacklogPriorities=BacklogPriorities.LOW,
 ) -> bool:
     '''

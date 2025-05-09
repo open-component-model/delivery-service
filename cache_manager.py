@@ -21,7 +21,6 @@ import ci.log
 import cnudie.iter
 import cnudie.iter_async
 import cnudie.retrieve_async
-import dso.model
 import oci.client_async
 import ocm
 
@@ -33,11 +32,11 @@ import deliverydb
 import deliverydb.model as dm
 import eol
 import k8s.logging
-import k8s.model
 import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import paths
 import util
 
@@ -151,7 +150,7 @@ async def prefill_compliance_summary_cache(
             component=component_id,
             finding_cfg=finding_cfg,
             finding_type=finding_cfg.type,
-            datasource=dso.model.Datatype.datatype_to_datasource(finding_cfg.type),
+            datasource=odg.model.Datatype.datatype_to_datasource(finding_cfg.type),
             db_session=db_session,
             component_descriptor_lookup=component_descriptor_lookup,
             eol_client=eol_client,

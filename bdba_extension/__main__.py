@@ -10,7 +10,6 @@ import ci.log
 import cnudie.access
 import cnudie.retrieve
 import delivery.client
-import dso.model
 import oci.client
 import ocm
 import tarutil
@@ -30,6 +29,7 @@ import lookups
 import ocm_util
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import paths
 import secret_mgmt
 import secret_mgmt.bdba
@@ -71,7 +71,7 @@ def _mark_compliance_summary_cache_for_deletion(
         kwargs=dcu.normalise_and_serialise_object({
             'component': component,
             'finding_type': finding_type,
-            'datasource': dso.model.Datasource.BDBA,
+            'datasource': odg.model.Datasource.BDBA,
         }),
     )
 
@@ -81,7 +81,7 @@ def _mark_compliance_summary_cache_for_deletion(
 
 
 def scan(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     bdba_cfg: odg.extensions_cfg.BDBAConfig,
     vulnerability_cfg: odg.findings.Finding | None,
     license_cfg: odg.findings.Finding | None,

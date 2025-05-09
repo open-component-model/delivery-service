@@ -14,7 +14,6 @@ import awesomeversion.exceptions
 
 import ci.log
 import delivery.client
-import dso.model
 import oci.client
 import oci.model
 import ocm
@@ -32,6 +31,7 @@ import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import osinfo
 import osid_extension.scan as osidscan
 import osid_extension.util as osidutil
@@ -65,7 +65,7 @@ def handle_termination_signal(*args):
 def determine_os_status(
     osid: um.OperatingSystemId,
     eol_client: eol.EolClient,
-) -> tuple[dso.model.OsStatus, str | None, datetime.datetime | None]:
+) -> tuple[odg.model.OsStatus, str | None, datetime.datetime | None]:
     '''
     determines the os status based on the given osid and release infos
 
@@ -73,14 +73,14 @@ def determine_os_status(
     '''
     # checks if os id is empty
     if not any(dataclasses.asdict(osid).values()):
-        return dso.model.OsStatus.EMPTY_OS_ID, None, None
+        return odg.model.OsStatus.EMPTY_OS_ID, None, None
 
     release_infos = osinfo.os_release_infos(
         os_id=eol.normalise_os_id(osid.ID),
         eol_client=eol_client,
     )
     if not release_infos:
-        return dso.model.OsStatus.NO_RELEASE_INFO, None, None
+        return odg.model.OsStatus.NO_RELEASE_INFO, None, None
 
     branch_info = osidutil.find_branch_info(
         osid=osid,
@@ -88,19 +88,19 @@ def determine_os_status(
     )
 
     if not branch_info:
-        return dso.model.OsStatus.NO_BRANCH_INFO, None, None
+        return odg.model.OsStatus.NO_BRANCH_INFO, None, None
 
     greatest_version = branch_info.greatest_version
     eol_date = branch_info.eol_date
 
     if osid.is_distroless:
-        return dso.model.OsStatus.DISTROLESS, greatest_version, eol_date
+        return odg.model.OsStatus.DISTROLESS, greatest_version, eol_date
 
     if osidutil.branch_reached_eol(
         osid=osid,
         os_infos=release_infos,
     ):
-        return dso.model.OsStatus.BRANCH_REACHED_EOL, greatest_version, eol_date
+        return odg.model.OsStatus.BRANCH_REACHED_EOL, greatest_version, eol_date
 
     try:
         update_available = osidutil.update_available(
@@ -108,10 +108,10 @@ def determine_os_status(
             os_infos=release_infos,
         )
     except awesomeversion.exceptions.AwesomeVersionCompareException:
-        return dso.model.OsStatus.UNABLE_TO_COMPARE_VERSION, greatest_version, eol_date
+        return odg.model.OsStatus.UNABLE_TO_COMPARE_VERSION, greatest_version, eol_date
 
     if not update_available:
-        return dso.model.OsStatus.UP_TO_DATE, greatest_version, eol_date
+        return odg.model.OsStatus.UP_TO_DATE, greatest_version, eol_date
 
     more_than_one_patchlevel_behind = osidutil.update_available(
         osid=osid,
@@ -119,9 +119,9 @@ def determine_os_status(
         ignore_if_patchlevel_is_next_to_greatest=True,
     )
     if more_than_one_patchlevel_behind:
-        return dso.model.OsStatus.MORE_THAN_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
+        return odg.model.OsStatus.MORE_THAN_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
     # otherwise, it's exaclty one patch behind
-    return dso.model.OsStatus.AT_MOST_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
+    return odg.model.OsStatus.AT_MOST_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
 
 
 def determine_osid(
@@ -180,21 +180,21 @@ def base_image_osid(
 
 
 def create_artefact_metadata(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     osid_finding_config: odg.findings.Finding,
     osid: um.OperatingSystemId | None,
     eol_client: eol.EolClient,
     relation: ocm.ResourceRelation,
     time_now: datetime.datetime | None = None,
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     if not time_now:
         time_now = datetime.datetime.now()
 
-    yield dso.model.ArtefactMetadata(
+    yield odg.model.ArtefactMetadata(
         artefact=artefact,
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.OSID,
-            type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.OSID,
+            type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
             creation_date=time_now,
             last_update=time_now,
         ),
@@ -220,11 +220,11 @@ def create_artefact_metadata(
     severity = categorisation.id if categorisation else None
     logger.info(f'Determined {severity=}')
 
-    yield dso.model.ArtefactMetadata(
+    yield odg.model.ArtefactMetadata(
         artefact=artefact,
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.OSID,
-            type=dso.model.Datatype.OSID,
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.OSID,
+            type=odg.model.Datatype.OSID,
             creation_date=time_now,
             last_update=time_now,
         ),
@@ -237,22 +237,22 @@ def create_artefact_metadata(
 
     if (
         relation is ocm.ResourceRelation.EXTERNAL
-        and os_status is not dso.model.OsStatus.BRANCH_REACHED_EOL
+        and os_status is not odg.model.OsStatus.BRANCH_REACHED_EOL
     ):
         logger.info(
             f'skipping osid finding for external non-EOL artefact {artefact}'
         )
         return
 
-    yield dso.model.ArtefactMetadata(
+    yield odg.model.ArtefactMetadata(
         artefact=artefact,
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.OSID,
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.OSID,
             type=odg.findings.FindingType.OSID,
             creation_date=time_now,
             last_update=time_now,
         ),
-        data=dso.model.OsIdFinding(
+        data=odg.model.OsIdFinding(
             severity=severity,
             osid=osid,
             os_status=os_status,
@@ -265,7 +265,7 @@ def create_artefact_metadata(
 
 
 def process_artefact(
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     osid_finding_config: odg.findings.Finding,
     osid_config: odg.extensions_cfg.OsId,
     oci_client: oci.client.Client,
@@ -312,8 +312,7 @@ def parse_args():
 
     parser.add_argument(
         '--k8s-cfg-name',
-        help='kubernetes cluster to use',
-        default=os.environ.get('K8S_CFG_NAME'),
+        help='kubernetes cluster to use', default=os.environ.get('K8S_CFG_NAME'),
     )
     parser.add_argument(
         '--kubeconfig',

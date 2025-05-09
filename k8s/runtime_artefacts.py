@@ -9,10 +9,9 @@ import typing
 import dacite
 import dateutil.parser
 
-import dso.model
-
 import k8s.model
 import k8s.util
+import odg.model
 import util
 
 
@@ -25,7 +24,7 @@ class RuntimeArtefact:
     `artefact` property.
     '''
     creation_date: datetime.datetime
-    artefact: dso.model.ComponentArtefactId
+    artefact: odg.model.ComponentArtefactId
 
     def as_dict(self) -> dict:
         return util.dict_serialisation(self)
@@ -41,7 +40,7 @@ class RuntimeArtefact:
             data=runtime_artefact,
             config=dacite.Config(
                 type_hooks=type_hooks,
-                cast=[dso.model.ArtefactKind],
+                cast=[odg.model.ArtefactKind],
             ),
         )
 
@@ -91,7 +90,7 @@ def iter_runtime_artefacts(
 def create_runtime_artefact(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     labels: dict[str, str]=None,
 ):
     name = k8s.util.generate_kubernetes_name(
@@ -122,7 +121,7 @@ def create_runtime_artefact(
 def create_unique_runtime_artefact(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    artefact: dso.model.ComponentArtefactId,
+    artefact: odg.model.ComponentArtefactId,
     labels: dict[str, str]=None,
 ) -> bool:
     '''

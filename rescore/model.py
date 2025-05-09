@@ -7,8 +7,8 @@ import typing
 import dacite
 import yaml
 
-import dso.cvss
-import dso.model
+import odg.cvss
+import odg.model
 
 
 @dataclasses.dataclass
@@ -25,9 +25,9 @@ class Rule:
 
 @dataclasses.dataclass
 class SastRescoringRule(Rule):
-    match: list[dso.model.MatchCondition]
-    sub_types: list[dso.model.SastSubType]
-    sast_status: dso.model.SastStatus
+    match: list[odg.model.MatchCondition]
+    sub_types: list[odg.model.SastSubType]
+    sast_status: odg.model.SastStatus
 
 
 @dataclasses.dataclass
@@ -57,7 +57,7 @@ class CveRescoringRule(Rule):
     @property
     def category_type(self):
         attr = self.category_attr
-        annotations = typing.get_type_hints(dso.cvss.CveCategorisation)
+        annotations = typing.get_type_hints(odg.cvss.CveCategorisation)
 
         if not attr in annotations:
             raise ValueError(f'invalid category-name: {attr=}')
@@ -94,9 +94,9 @@ class CveRescoringRule(Rule):
 
         for cve_value in self.cve_values:
             attr, value = cve_value.split(':', 1)
-            attr = dso.cvss.CVSSV3.attr_name_from_CVSS(attr)
+            attr = odg.cvss.CVSSV3.attr_name_from_CVSS(attr)
 
-            if not attr in (annotations := typing.get_type_hints(dso.cvss.CVSSV3)):
+            if not attr in (annotations := typing.get_type_hints(odg.cvss.CVSSV3)):
                 raise ValueError(f'{attr=} is not an allowed cve-attrname')
 
             attr_type = annotations[attr]
@@ -104,7 +104,7 @@ class CveRescoringRule(Rule):
 
         return attr_values
 
-    def matches_cvss(self, cvss: dso.cvss.CVSSV3 | dict) -> bool:
+    def matches_cvss(self, cvss: odg.cvss.CVSSV3 | dict) -> bool:
         '''
         returns a boolean indicating whether this rule matches the given CVSS.
 
@@ -128,7 +128,7 @@ class CveRescoringRule(Rule):
 
         return True
 
-    def matches_categorisation(self, categorisation: dso.cvss.CveCategorisation) -> bool:
+    def matches_categorisation(self, categorisation: odg.cvss.CveCategorisation) -> bool:
         attr = self.category_attr
         value = self.parsed_category_value
 
