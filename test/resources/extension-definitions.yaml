@@ -1,0 +1,55 @@
+name: delivery-service
+installation:
+  ocm_references:
+  - ref_name: delivery-service
+    name: ocm.software/ocm-gear/delivery-service
+    version: 0.1142.0
+    artefact:
+      name: delivery-service
+      version: 0.1142.0
+    mappings: []
+  values:
+  - helm_reference: delivery-service
+    helm_attribute: db-url
+    value: dependencies.delivery-db.outputs.db-url
+outputs:
+- name: delivery-service-url
+  value: api.${base_url}
+dependencies:
+- delivery-db
+---
+name: delivery-dashboard
+installation:
+  ocm_references:
+  - ref_name: delivery-dashboard
+    name: ocm.software/ocm-gear/delivery-dashboard
+    version: 0.386.0
+    artefact:
+      name: delivery-dashboard
+      version: 0.386.0
+    mappings:
+    - name: delivery-dashboard
+      version: 0.386.0
+  values:
+  - helm_reference: delivery-dashboard
+    helm_attribute: backend-url
+    value: dependencies.delivery-service.outputs.delivery-service-url
+outputs: []
+dependencies:
+- delivery-service
+---
+name: delivery-db
+installation:
+  ocm_references:
+  - ref_name: delivery-database
+    name: ocm.software/ocm-gear/delivery-database
+    version: 0.7.0
+    artefact:
+      name: postgresql
+      version: 16.6.1
+    mappings: []
+  values: []
+outputs:
+- name: db-url
+  value: db.${base_url}
+dependencies: []
