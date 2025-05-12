@@ -1313,7 +1313,7 @@ def _create_or_update_or_close_issue_per_finding(
         data_digest = hashlib.shake_128(
             data.key.encode(),
             usedforsecurity=False,
-        ).hexdigest(length=github.limits.label / 2)
+        ).hexdigest(length=int(github.limits.label / 2))
 
         finding_labels = labels | {data_digest}
 
