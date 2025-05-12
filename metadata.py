@@ -25,6 +25,7 @@ types_with_reusable_discovery_dates = (
     odg.findings.FindingType.VULNERABILITY,
     odg.findings.FindingType.LICENSE,
     odg.findings.FindingType.DIKI,
+    odg.findings.FindingType.OSID,
 )
 
 
@@ -520,8 +521,7 @@ def reuse_discovery_date_if_possible(
             and new_metadata.data.get('osid').get('NAME')
                 == old_metadata.data.get('osid').get('NAME')
         ):
-            # found the same finding in existing entry, independent of the version_ID and NAME
-            # so we must re-use its discovery date
+            # found the same version and name in existing entry, so we must re-use its discovery date
             return old_metadata.discovery_date
 
     else:
