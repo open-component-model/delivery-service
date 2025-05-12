@@ -349,7 +349,10 @@ class FindingIssues:
         '''
         group_id = self.group_id_for_artefact(artefact)
         digest_str = group_id + due_date.isoformat()
-        digest = hashlib.shake_128(digest_str.encode()).hexdigest(length=23)
+        digest = hashlib.shake_128(
+            digest_str.encode(),
+            usedforsecurity=False,
+        ).hexdigest(length=23)
 
         return f'{version}/{digest}'
 
