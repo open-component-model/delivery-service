@@ -242,6 +242,7 @@ def delete_old_backup_versions(
         cnudie.purge.remove_component_descriptor_and_referenced_artefacts(
             component=component,
             oci_client=oci_client,
+            absent_ok=True,
         )
 
         for resource in local_resources:
