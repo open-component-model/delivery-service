@@ -146,24 +146,33 @@ definitions:
     enum:
       - artefact-enumerator
       - bdba
-      - cc-utils
       - clamav
+      - crypto
+      - delivery-dashboard
       - diki
+      - falco
+      - inventory
+      - osid
       - sast
 
   Datatype:
     type: string
     enum:
-      - structure_info
-      - finding/license
-      - finding/vulnerability
-      - finding/malware
-      - finding/diki
-      - finding/sast
-      - finding/osid
-      - rescorings
-      - compliance/snapshots
       - meta/artefact_scan_info
+      - compliance/snapshots
+      - rescorings
+      - finding/crypto
+      - finding/diki
+      - finding/falco
+      - finding/inventory
+      - finding/license
+      - finding/malware
+      - finding/osid
+      - finding/sast
+      - finding/vulnerability
+      - crypto_asset
+      - osid
+      - structure_info
 
   Metadata:
     type: object
