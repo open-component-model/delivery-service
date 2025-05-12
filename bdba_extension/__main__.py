@@ -62,7 +62,7 @@ def handle_termination_signal(*args):
 def _mark_compliance_summary_cache_for_deletion(
     delivery_client: delivery.client.DeliveryServiceClient,
     component: ocm.ComponentIdentity,
-    finding_type: odg.findings.FindingType,
+    finding_type: odg.model.Datatype,
 ):
     descriptor = dcm.CachedPythonFunction(
         encoding_format=dcm.EncodingFormat.PICKLE,
@@ -227,13 +227,13 @@ def scan(
         _mark_compliance_summary_cache_for_deletion(
             delivery_client=delivery_client,
             component=component,
-            finding_type=odg.findings.FindingType.VULNERABILITY,
+            finding_type=odg.model.Datatype.VULNERABILITY_FINDING,
         )
     if retrieve_license_findings:
         _mark_compliance_summary_cache_for_deletion(
             delivery_client=delivery_client,
             component=component,
-            finding_type=odg.findings.FindingType.LICENSE,
+            finding_type=odg.model.Datatype.LICENSE_FINDING,
         )
 
     logger.info(f'finished scan of artefact {artefact}')
@@ -328,11 +328,11 @@ def main():
 
     vulnerability_cfg = odg.findings.Finding.from_file(
         path=findings_cfg_path,
-        finding_type=odg.findings.FindingType.VULNERABILITY,
+        finding_type=odg.model.Datatype.VULNERABILITY_FINDING,
     )
     license_cfg = odg.findings.Finding.from_file(
         path=findings_cfg_path,
-        finding_type=odg.findings.FindingType.LICENSE,
+        finding_type=odg.model.Datatype.LICENSE_FINDING,
     )
 
     if not delivery_service_url:

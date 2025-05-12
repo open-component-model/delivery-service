@@ -206,7 +206,7 @@ def _artefact_url(
 def _delivery_dashboard_url(
     base_url: str,
     component_artefact_id: odg.model.ComponentArtefactId,
-    finding_type: odg.findings.FindingType,
+    finding_type: odg.model.Datatype,
     sprint_name: str=None,
 ):
     url = util.urljoin(
@@ -954,7 +954,7 @@ def _template_vars(
         'yielded findings relevant for future release decisions.\n'
     )
 
-    if finding_cfg.type is odg.findings.FindingType.VULNERABILITY:
+    if finding_cfg.type is odg.model.Datatype.VULNERABILITY_FINDING:
         template_variables |= _vulnerability_template_vars(
             finding_cfg=finding_cfg,
             finding_groups=finding_groups,
@@ -963,7 +963,7 @@ def _template_vars(
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-    elif finding_cfg.type is odg.findings.FindingType.LICENSE:
+    elif finding_cfg.type is odg.model.Datatype.LICENSE_FINDING:
         template_variables |= _license_template_vars(
             finding_cfg=finding_cfg,
             finding_groups=finding_groups,
@@ -972,7 +972,7 @@ def _template_vars(
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-    elif finding_cfg.type is odg.findings.FindingType.MALWARE:
+    elif finding_cfg.type is odg.model.Datatype.MALWARE_FINDING:
         template_variables |= _malware_template_vars(
             finding_cfg=finding_cfg,
             finding_groups=finding_groups,
@@ -981,7 +981,7 @@ def _template_vars(
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-    elif finding_cfg.type is odg.findings.FindingType.SAST:
+    elif finding_cfg.type is odg.model.Datatype.SAST_FINDING:
         template_variables |= _sast_template_vars(
             finding_cfg=finding_cfg,
             finding_groups=finding_groups,
@@ -990,12 +990,12 @@ def _template_vars(
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-    elif finding_cfg.type is odg.findings.FindingType.DIKI:
+    elif finding_cfg.type is odg.model.Datatype.DIKI_FINDING:
         template_variables |= _diki_template_vars(
             finding_groups=finding_groups,
             summary=summary,
         )
-    elif finding_cfg.type is odg.findings.FindingType.CRYPTO:
+    elif finding_cfg.type is odg.model.Datatype.CRYPTO_FINDING:
         template_variables |= _crypto_template_vars(
             finding_cfg=finding_cfg,
             finding_groups=finding_groups,
@@ -1004,7 +1004,7 @@ def _template_vars(
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-    elif finding_cfg.type is odg.findings.FindingType.OSID:
+    elif finding_cfg.type is odg.model.Datatype.OSID_FINDING:
         template_variables |= _osid_template_vars(
             finding_cfg=finding_cfg,
             finding_groups=finding_groups,
@@ -1013,7 +1013,7 @@ def _template_vars(
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-    elif finding_cfg.type is odg.findings.FindingType.INVENTORY:
+    elif finding_cfg.type is odg.model.Datatype.INVENTORY_FINDING:
         template_variables |= _inventory_template_vars(
             finding_groups=finding_groups,
             summary=summary,

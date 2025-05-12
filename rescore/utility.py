@@ -60,7 +60,7 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            finding.meta.type == odg.findings.FindingType.VULNERABILITY
+            finding.meta.type == odg.model.Datatype.VULNERABILITY_FINDING
             and (
                 rescoring.data.finding.cve != finding.data.cve
                 or rescoring.data.finding.package_name != finding.data.package_name
@@ -69,7 +69,7 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            finding.meta.type == odg.findings.FindingType.LICENSE
+            finding.meta.type == odg.model.Datatype.LICENSE_FINDING
             and (
                 rescoring.data.finding.license.name != finding.data.license.name
                 or rescoring.data.finding.package_name != finding.data.package_name
@@ -78,25 +78,25 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
-            finding.meta.type == odg.findings.FindingType.MALWARE
+            finding.meta.type == odg.model.Datatype.MALWARE_FINDING
             and rescoring.data.finding.key != finding.data.finding.key
         ):
             continue
 
         if (
-            finding.meta.type == odg.findings.FindingType.SAST
+            finding.meta.type == odg.model.Datatype.SAST_FINDING
             and rescoring.data.finding.key != finding.data.key
         ):
             continue
 
         if (
-            finding.meta.type == odg.findings.FindingType.CRYPTO
+            finding.meta.type == odg.model.Datatype.CRYPTO_FINDING
             and rescoring.data.finding.key != finding.data.key
         ):
             continue
 
         if (
-            finding.meta.type == odg.findings.FindingType.OSID
+            finding.meta.type == odg.model.Datatype.OSID_FINDING
             and rescoring.data.finding.key != finding.data.key
         ):
             continue
@@ -284,7 +284,7 @@ def rescoring_for_sast_finding(
                 sast_status=finding.data.sast_status,
                 sub_type=finding.data.sub_type,
             ),
-            referenced_type=odg.findings.FindingType.SAST,
+            referenced_type=odg.model.Datatype.SAST_FINDING,
             severity=rescored_categorisation.id,
             user=user,
             matching_rules=[rule.name for rule in matching_rules],

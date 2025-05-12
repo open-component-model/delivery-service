@@ -27,8 +27,8 @@ ci.log.configure_default_logging(print_thread_id=True)
 def iter_existing_findings(
     delivery_client: delivery.client.DeliveryServiceClient,
     resource_node: cnudie.iter.ResourceNode,
-    finding_type: str | tuple[str],
-    datasource: str=odg.model.Datasource.BDBA,
+    finding_type: odg.model.Datatype | tuple[odg.model.Datatype],
+    datasource: odg.model.Datasource=odg.model.Datasource.BDBA,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     artefact = odg.model.component_artefact_id_from_ocm(
         component=resource_node.component_id,
@@ -130,7 +130,7 @@ def iter_artefact_metadata(
         if license_cfg and license_cfg.matches(artefact_ref):
             meta = odg.model.Metadata(
                 datasource=datasource,
-                type=odg.findings.FindingType.LICENSE,
+                type=odg.model.Datatype.LICENSE_FINDING,
                 creation_date=now,
             )
 
@@ -168,7 +168,7 @@ def iter_artefact_metadata(
         if vulnerability_cfg and vulnerability_cfg.matches(artefact_ref):
             meta = odg.model.Metadata(
                 datasource=datasource,
-                type=odg.findings.FindingType.VULNERABILITY,
+                type=odg.model.Datatype.VULNERABILITY_FINDING,
                 creation_date=now,
             )
 
@@ -196,7 +196,7 @@ def iter_artefact_metadata(
                             package_name=package_name,
                             cve=vulnerability.cve,
                         ),
-                        referenced_type=odg.findings.FindingType.VULNERABILITY,
+                        referenced_type=odg.model.Datatype.VULNERABILITY_FINDING,
                         severity=vulnerability_cfg.none_categorisation.id,
                         user=dacite.from_dict(
                             data_class=odg.model.BDBAUser,
@@ -245,8 +245,8 @@ def iter_artefact_metadata(
             delivery_client=delivery_client,
             resource_node=scanned_element,
             finding_type=(
-                odg.findings.FindingType.VULNERABILITY,
-                odg.findings.FindingType.LICENSE,
+                odg.model.Datatype.VULNERABILITY_FINDING,
+                odg.model.Datatype.LICENSE_FINDING,
             ),
         )
 

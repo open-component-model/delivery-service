@@ -31,12 +31,12 @@ def component_artefact_id() -> odg.model.ComponentArtefactId:
 async def test_vulnerability(component_artefact_id):
     meta = odg.model.Metadata(
         datasource=None,
-        type=odg.findings.FindingType.VULNERABILITY,
+        type=odg.model.Datatype.VULNERABILITY_FINDING,
     )
 
     finding_cfg = odg.findings.Finding.from_file(
         path=paths.findings_cfg_path(),
-        finding_type=odg.findings.FindingType.VULNERABILITY,
+        finding_type=odg.model.Datatype.VULNERABILITY_FINDING,
     )
 
     assert (await cs.calculate_summary_entry(
@@ -88,12 +88,12 @@ async def test_vulnerability(component_artefact_id):
 async def test_malware(component_artefact_id):
     meta = odg.model.Metadata(
         datasource=None,
-        type=odg.findings.FindingType.MALWARE,
+        type=odg.model.Datatype.MALWARE_FINDING,
     )
 
     finding_cfg = odg.findings.Finding.from_file(
         path=paths.findings_cfg_path(),
-        finding_type=odg.findings.FindingType.MALWARE,
+        finding_type=odg.model.Datatype.MALWARE_FINDING,
     )
 
     assert (await cs.calculate_summary_entry(
@@ -147,12 +147,12 @@ async def test_malware(component_artefact_id):
 async def test_licenses(component_artefact_id):
     meta = odg.model.Metadata(
         datasource=None,
-        type=odg.findings.FindingType.LICENSE,
+        type=odg.model.Datatype.LICENSE_FINDING,
     )
 
     finding_cfg = odg.findings.Finding.from_file(
         path=paths.findings_cfg_path(),
-        finding_type=odg.findings.FindingType.LICENSE,
+        finding_type=odg.model.Datatype.LICENSE_FINDING,
     )
 
     assert (await cs.calculate_summary_entry(

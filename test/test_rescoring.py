@@ -45,7 +45,7 @@ def vulnerability_finding_cfg(
 ) -> odg.findings.Finding:
     return odg.findings.Finding.from_dict(
         findings_raw=[{
-            'type': odg.findings.FindingType.VULNERABILITY,
+            'type': odg.model.Datatype.VULNERABILITY_FINDING,
             'categorisations': [{
                 'id': 'NONE',
                 'display_name': 'NONE display name',
@@ -75,7 +75,7 @@ def vulnerability_finding_cfg(
             }],
             'rescoring_ruleset': cve_rescoring_ruleset,
         }],
-        finding_type=odg.findings.FindingType.VULNERABILITY,
+        finding_type=odg.model.Datatype.VULNERABILITY_FINDING,
     )
 
 
@@ -108,7 +108,7 @@ def sast_finding_cfg(
 ) -> odg.findings.Finding:
     return odg.findings.Finding.from_dict(
         findings_raw=[{
-            'type': odg.findings.FindingType.SAST,
+            'type': odg.model.Datatype.SAST_FINDING,
             'categorisations': [{
                 'id': 'no-findings',
                 'display_name': 'scan exists and has no findings',
@@ -130,7 +130,7 @@ def sast_finding_cfg(
             }],
             'rescoring_ruleset': sast_rescoring_ruleset,
         }],
-        finding_type=odg.findings.FindingType.SAST,
+        finding_type=odg.model.Datatype.SAST_FINDING,
     )
 
 
@@ -199,7 +199,7 @@ def sast_finding_public(
         ),
         meta=odg.model.Metadata(
             datasource=odg.model.Datasource.SAST,
-            type=odg.findings.FindingType.SAST,
+            type=odg.model.Datatype.SAST_FINDING,
             creation_date=datetime.datetime.now(),
             last_update=datetime.datetime.now(),
         ),

@@ -92,7 +92,7 @@ def as_artefact_metadata(
 
     meta = odg.model.Metadata(
         datasource=odg.model.Datasource.CRYPTO,
-        type=odg.findings.FindingType.CRYPTO,
+        type=odg.model.Datatype.CRYPTO_FINDING,
         creation_date=now,
         last_update=now,
     )
@@ -189,7 +189,7 @@ def scan(
             artefacts=(artefact,),
             type=(
                 odg.model.Datatype.CRYPTO_ASSET,
-                odg.findings.FindingType.CRYPTO,
+                odg.model.Datatype.CRYPTO_FINDING,
             ),
         ) if raw['meta']['datasource'] == odg.model.Datasource.CRYPTO
     )
@@ -308,7 +308,7 @@ def main():
 
     crypto_finding_cfg = odg.findings.Finding.from_file(
         path=findings_cfg_path,
-        finding_type=odg.findings.FindingType.CRYPTO,
+        finding_type=odg.model.Datatype.CRYPTO_FINDING,
     )
 
     if not delivery_service_url:

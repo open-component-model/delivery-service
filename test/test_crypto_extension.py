@@ -41,7 +41,7 @@ def crypto_finding_cfg() -> odg.findings.Finding:
 
     return odg.findings.Finding.from_file(
         path=findings_cfg_path,
-        finding_type=odg.findings.FindingType.CRYPTO,
+        finding_type=odg.model.Datatype.CRYPTO_FINDING,
     )
 
 
