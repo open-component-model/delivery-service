@@ -247,7 +247,7 @@ def create_artefact_metadata(
         artefact=artefact,
         meta=odg.model.Metadata(
             datasource=odg.model.Datasource.OSID,
-            type=odg.findings.FindingType.OSID,
+            type=odg.model.Datatype.OSID_FINDING,
             creation_date=time_now,
             last_update=time_now,
         ),
@@ -394,7 +394,7 @@ def main():
 
     osid_finding_config = odg.findings.Finding.from_file(
         path=findings_cfg_path,
-        finding_type=odg.findings.FindingType.OSID,
+        finding_type=odg.model.Datatype.OSID_FINDING,
     )
 
     if not osid_finding_config:

@@ -67,8 +67,8 @@ def handle_sigterm_and_sigint(signum, frame):
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
-    finding_type: odg.findings.FindingType,
-    finding_source: str,
+    finding_type: odg.model.Datatype,
+    finding_source: odg.model.Datasource,
     chunk_size: int=10,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
     findings: list[odg.model.ArtefactMetadata] = []
@@ -269,7 +269,7 @@ def replicate_issue_for_finding_type(
     delivery_dashboard_url: str,
 ):
     finding_type = finding_cfg.type
-    finding_source = odg.model.Datatype.datatype_to_datasource(finding_type)
+    finding_source = finding_type.datasource()
 
     logger.info(f'updating issues for {finding_type=} and {finding_source=}')
 

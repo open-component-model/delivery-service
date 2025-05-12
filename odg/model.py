@@ -19,6 +19,87 @@ def _as_key(
     return separator.join(absent_indicator if arg is None else arg for arg in args)
 
 
+class Datatype(enum.StrEnum):
+    # finding independent datatypes/"meta"-types
+    ARTEFACT_SCAN_INFO = 'meta/artefact_scan_info'
+    COMPLIANCE_SNAPSHOTS = 'compliance/snapshots'
+    RESCORING = 'rescorings'
+
+    # finding types
+    CRYPTO_FINDING = 'finding/crypto'
+    DIKI_FINDING = 'finding/diki'
+    FALCO_FINDING = 'finding/falco'
+    INVENTORY_FINDING = 'finding/inventory'
+    LICENSE_FINDING = 'finding/license'
+    MALWARE_FINDING = 'finding/malware'
+    OSID_FINDING = 'finding/osid'
+    SAST_FINDING = 'finding/sast'
+    VULNERABILITY_FINDING = 'finding/vulnerability'
+
+    # informational datatypes
+    CRYPTO_ASSET = 'crypto_asset'
+    OSID = 'osid'
+    STRUCTURE_INFO = 'structure_info'
+
+    def datasource(self) -> 'Datasource':
+        return {
+            Datatype.CRYPTO_FINDING: Datasource.CRYPTO,
+            Datatype.DIKI_FINDING: Datasource.DIKI,
+            Datatype.FALCO_FINDING: Datasource.FALCO,
+            Datatype.INVENTORY_FINDING: Datasource.INVENTORY,
+            Datatype.LICENSE_FINDING: Datasource.BDBA,
+            Datatype.MALWARE_FINDING: Datasource.CLAMAV,
+            Datatype.OSID_FINDING: Datasource.OSID,
+            Datatype.SAST_FINDING: Datasource.SAST,
+            Datatype.VULNERABILITY_FINDING: Datasource.BDBA,
+        }[self]
+
+
+class Datasource(enum.StrEnum):
+    ARTEFACT_ENUMERATOR = 'artefact-enumerator'
+    BDBA = 'bdba'
+    CLAMAV = 'clamav'
+    CRYPTO = 'crypto'
+    DELIVERY_DASHBOARD = 'delivery-dashboard'
+    DIKI = 'diki'
+    FALCO = 'falco'
+    INVENTORY = 'inventory'
+    OSID = 'osid'
+    SAST = 'sast'
+
+    def datatypes(self) -> tuple[Datatype, ...]:
+        return {
+            Datasource.BDBA: (
+                Datatype.LICENSE_FINDING,
+                Datatype.STRUCTURE_INFO,
+                Datatype.VULNERABILITY_FINDING,
+            ),
+            Datasource.CLAMAV: (
+                Datatype.MALWARE_FINDING,
+            ),
+            Datasource.CRYPTO: (
+                Datatype.CRYPTO_FINDING,
+                Datatype.CRYPTO_ASSET,
+            ),
+            Datasource.DIKI: (
+                Datatype.DIKI_FINDING,
+            ),
+            Datasource.FALCO: (
+                Datatype.FALCO_FINDING,
+            ),
+            Datasource.INVENTORY: (
+                Datatype.INVENTORY_FINDING,
+            ),
+            Datasource.OSID: (
+                Datatype.OSID,
+                Datatype.OSID_FINDING,
+            ),
+            Datasource.SAST: (
+                Datatype.SAST_FINDING,
+            ),
+        }.get(self, tuple())
+
+
 class UserTypes(enum.StrEnum):
     EMAIL_ADDRESS = 'emailAddress'
     GITHUB_USER = 'githubUser'
@@ -95,70 +176,6 @@ class OsStatus(enum.StrEnum):
     MORE_THAN_ONE_PATCHLEVEL_BEHIND = 'moreThanOnePatchlevelBehind'
     UP_TO_DATE = 'upToDate'
     DISTROLESS = 'distroless'
-
-
-class Datasource:
-    ARTEFACT_ENUMERATOR = 'artefact-enumerator'
-    BDBA = 'bdba'
-    SAST = 'sast'
-    CLAMAV = 'clamav'
-    OSID = 'osid'
-    CRYPTO = 'crypto'
-    DELIVERY_DASHBOARD = 'delivery-dashboard'
-    DIKI = 'diki'
-    FALCO = 'falco'
-    INVENTORY = 'inventory'
-
-    @staticmethod
-    def datasource_to_datatypes(datasource: str) -> tuple[str, ...]:
-        return {
-            Datasource.ARTEFACT_ENUMERATOR: (
-                Datatype.COMPLIANCE_SNAPSHOTS,
-            ),
-            Datasource.BDBA: (
-                Datatype.ARTEFACT_SCAN_INFO,
-                Datatype.VULNERABILITY,
-                Datatype.LICENSE,
-                Datatype.STRUCTURE_INFO,
-                Datatype.RESCORING,
-            ),
-            Datasource.SAST: (
-                Datatype.ARTEFACT_SCAN_INFO,
-                Datatype.SAST_FINDING,
-                Datatype.RESCORING,
-            ),
-            Datasource.CLAMAV: (
-                Datatype.ARTEFACT_SCAN_INFO,
-                Datatype.MALWARE_FINDING,
-            ),
-            Datasource.OSID: (
-                Datatype.OSID,
-                Datatype.OSID_FINDING,
-                Datatype.ARTEFACT_SCAN_INFO,
-            ),
-            Datasource.CRYPTO: (
-                Datatype.ARTEFACT_SCAN_INFO,
-                Datatype.CRYPTO_ASSET,
-                Datatype.CRYPTO,
-            ),
-            Datasource.DELIVERY_DASHBOARD: (
-                Datatype.RESCORING,
-            ),
-            Datasource.DIKI: (
-                Datatype.ARTEFACT_SCAN_INFO,
-                Datatype.DIKI_FINDING,
-            ),
-            Datasource.FALCO: (
-                Datatype.FALCO_FINDING,
-            ),
-            Datasource.INVENTORY: (
-                Datatype.INVENTORY_FINDING,
-            ),
-        }.get(datasource, tuple())
-
-    @staticmethod
-    def has_scan_info(datasource: str) -> bool:
-        return Datatype.ARTEFACT_SCAN_INFO in Datasource.datasource_to_datatypes(datasource)
 
 
 def normalise_artefact_extra_id(
@@ -302,40 +319,6 @@ def component_artefact_id_from_ocm(
         artefact=local_artefact,
         artefact_kind=artefact_kind,
     )
-
-
-class Datatype:
-    STRUCTURE_INFO = 'structure_info'
-    LICENSE = 'finding/license'
-    VULNERABILITY = 'finding/vulnerability'
-    MALWARE_FINDING = 'finding/malware'
-    SAST_FINDING = 'finding/sast'
-    DIKI_FINDING = 'finding/diki'
-    OSID_FINDING = 'finding/osid'
-    OSID = 'osid'
-    RESCORING = 'rescorings'
-    COMPLIANCE_SNAPSHOTS = 'compliance/snapshots'
-    ARTEFACT_SCAN_INFO = 'meta/artefact_scan_info'
-    CRYPTO_ASSET = 'crypto_asset'
-    CRYPTO = 'finding/crypto'
-    FALCO_FINDING = 'finding/falco'
-    INVENTORY_FINDING = 'finding/inventory'
-
-    @staticmethod
-    def datatype_to_datasource(datatype: str) -> str:
-        return {
-            Datatype.LICENSE: Datasource.BDBA,
-            Datatype.VULNERABILITY: Datasource.BDBA,
-            Datatype.OSID: Datasource.OSID,
-            Datatype.MALWARE_FINDING: Datasource.CLAMAV,
-            Datatype.DIKI_FINDING: Datasource.DIKI,
-            Datatype.SAST_FINDING: Datasource.SAST,
-            Datatype.OSID_FINDING: Datasource.OSID,
-            Datatype.CRYPTO_ASSET: Datasource.CRYPTO,
-            Datatype.CRYPTO: Datasource.CRYPTO,
-            Datatype.FALCO_FINDING: Datasource.FALCO,
-            Datatype.INVENTORY_FINDING: Datasource.INVENTORY,
-        }[datatype]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1027,7 +1010,7 @@ class ArtefactMetadata:
 
 def artefact_scan_info(
     artefact_node: 'cnudie.iter.ArtefactNode',
-    datasource: str,
+    datasource: Datasource,
     data: dict={},
     responsibles: list[UserIdentity] | None=None,
 ) -> ArtefactMetadata:

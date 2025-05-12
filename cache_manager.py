@@ -35,7 +35,6 @@ import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.findings
-import odg.model
 import paths
 
 
@@ -146,7 +145,7 @@ async def prefill_compliance_summary_cache(
             component=component_id,
             finding_cfg=finding_cfg,
             finding_type=finding_cfg.type,
-            datasource=odg.model.Datatype.datatype_to_datasource(finding_cfg.type),
+            datasource=finding_cfg.type.datasource(),
             db_session=db_session,
             component_descriptor_lookup=component_descriptor_lookup,
         )

@@ -264,8 +264,8 @@ class ArtefactMetadataQueries:
 
 async def findings_for_component(
     component: ocm.Component,
-    finding_type: str,
-    datasource: str,
+    finding_type: odg.model.Datatype,
+    datasource: odg.model.Datasource,
     db_session: sqlasync.session.AsyncSession,
     chunk_size: int=50,
 ) -> list[odg.model.ArtefactMetadata]:
@@ -295,7 +295,7 @@ async def findings_for_component(
 
 async def rescorings_for_component(
     component: ocm.Component | ocm.ComponentIdentity,
-    finding_type: str,
+    finding_type: odg.model.Datatype,
     db_session: sqlasync.session.AsyncSession,
     chunk_size: int=50,
 ) -> list[odg.model.ArtefactMetadata]:

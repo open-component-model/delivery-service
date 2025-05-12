@@ -65,7 +65,7 @@ class ComplianceScanStatus:
 @dataclasses.dataclass
 class ComplianceSummaryEntry:
     '''
-    :param FindingType type
+    :param Datatype type
     :param Datasource source
     :param ComplianceEntryCategorisation | str categorisation:
         The id of the most severe categorisation which was found for the given `source` and `type`.
@@ -75,7 +75,7 @@ class ComplianceSummaryEntry:
         The semantic value of the respective categorisation.
     :param ComplianceScanStatus scanStatus
     '''
-    type: odg.findings.FindingType
+    type: odg.model.Datatype
     source: odg.model.Datasource
     categorisation: ComplianceEntryCategorisation | str
     value: int
@@ -151,7 +151,7 @@ async def calculate_summary_entry(
 
 async def compliance_summary_entry(
     finding_cfg: odg.findings.Finding,
-    datasource: str,
+    datasource: odg.model.Datasource,
     scan_exists: bool,
     findings: collections.abc.Sequence[odg.model.ArtefactMetadata],
     rescorings: collections.abc.Sequence[odg.model.ArtefactMetadata],
@@ -184,7 +184,7 @@ async def compliance_summary_entry(
 async def artefact_datatype_summary(
     artefact: odg.model.ComponentArtefactId,
     finding_cfg: odg.findings.Finding,
-    datasource: str,
+    datasource: odg.model.Datasource,
     artefact_scan_infos: collections.abc.Sequence[odg.model.ArtefactMetadata],
     findings: collections.abc.Sequence[odg.model.ArtefactMetadata],
     rescorings: collections.abc.Sequence[odg.model.ArtefactMetadata],
@@ -249,8 +249,8 @@ async def artefact_datatype_summary(
 async def component_datatype_summaries(
     component: ocm.ComponentIdentity,
     finding_cfg: odg.findings.Finding,
-    finding_type: odg.findings.FindingType,
-    datasource: str,
+    finding_type: odg.model.Datatype,
+    datasource: odg.model.Datasource,
     db_session: sqlasync.session.AsyncSession,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OciOcmRepository | None=None,
@@ -355,7 +355,7 @@ async def component_compliance_summary(
             component=component,
             finding_cfg=finding_cfg,
             finding_type=finding_cfg.type,
-            datasource=odg.model.Datatype.datatype_to_datasource(finding_cfg.type),
+            datasource=finding_cfg.type.datasource(),
             db_session=db_session,
             component_descriptor_lookup=component_descriptor_lookup,
             ocm_repo=ocm_repo,

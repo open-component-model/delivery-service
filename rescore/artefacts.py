@@ -68,7 +68,7 @@ class RescoringProposal:
         | odg.model.CryptoFinding
         | odg.model.OsIdFinding
     )
-    finding_type: str
+    finding_type: odg.model.Datatype
     severity: str
     matching_rules: list[str]
     applicable_rescorings: tuple[dict, ...] # "..." for dacite.from_dict
@@ -263,7 +263,7 @@ async def _iter_rescoring_proposals(
             continue
 
         for finding_cfg in finding_cfgs:
-            if odg.findings.FindingType(am.meta.type) is finding_cfg.type:
+            if odg.model.Datatype(am.meta.type) is finding_cfg.type:
                 break
         else:
             # we checked this already earlier, all types must have a correspondig configuration
@@ -307,7 +307,7 @@ async def _iter_rescoring_proposals(
             } for rescoring in current_rescorings
         )
 
-        if finding_cfg.type is odg.findings.FindingType.MALWARE:
+        if finding_cfg.type is odg.model.Datatype.MALWARE_FINDING:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
                 data={
@@ -329,7 +329,7 @@ async def _iter_rescoring_proposals(
                 },
             )
 
-        elif finding_cfg.type is odg.findings.FindingType.SAST:
+        elif finding_cfg.type is odg.model.Datatype.SAST_FINDING:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
                 data={
@@ -349,8 +349,8 @@ async def _iter_rescoring_proposals(
             )
 
         elif finding_cfg.type in (
-            odg.findings.FindingType.VULNERABILITY,
-            odg.findings.FindingType.LICENSE,
+            odg.model.Datatype.VULNERABILITY_FINDING,
+            odg.model.Datatype.LICENSE_FINDING,
         ):
             artefact_metadata_with_same_ocm = tuple(
                 matching_am for matching_am in artefact_metadata
@@ -372,7 +372,7 @@ async def _iter_rescoring_proposals(
             )
             package_name = am.data.package_name
 
-            if finding_cfg.type is odg.findings.FindingType.VULNERABILITY:
+            if finding_cfg.type is odg.model.Datatype.VULNERABILITY_FINDING:
                 cve = am.data.cve
                 cvss = odg.cvss.CVSSV3.from_dict(cvss=am.data.cvss)
                 cvss_v3_score = am.data.cvss_v3_score
@@ -438,7 +438,7 @@ async def _iter_rescoring_proposals(
                     },
                 )
 
-            elif finding_cfg.type is odg.findings.FindingType.LICENSE:
+            elif finding_cfg.type is odg.model.Datatype.LICENSE_FINDING:
                 license = am.data.license
 
                 am_across_package_versions = tuple(
@@ -481,7 +481,7 @@ async def _iter_rescoring_proposals(
                     },
                 )
 
-        elif finding_cfg.type is odg.findings.FindingType.CRYPTO:
+        elif finding_cfg.type is odg.model.Datatype.CRYPTO_FINDING:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
                 data={
@@ -498,7 +498,7 @@ async def _iter_rescoring_proposals(
                     strict=True,
                 ),
             )
-        elif finding_cfg.type is odg.findings.FindingType.OSID:
+        elif finding_cfg.type is odg.model.Datatype.OSID_FINDING:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
                 data={
@@ -532,7 +532,7 @@ async def create_backlog_items_for_rescored_artefacts(
     artefact_groups = set()
 
     for rescoring in rescorings:
-        finding_type = odg.findings.FindingType(rescoring.data.referenced_type)
+        finding_type = odg.model.Datatype(rescoring.data.referenced_type)
 
         for finding_cfg in finding_cfgs:
             if finding_type is finding_cfg.type:
@@ -731,7 +731,7 @@ class Rescore(aiohttp.web.View):
         finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
         for finding_type in type_filter:
             for finding_cfg in finding_cfgs:
-                if odg.findings.FindingType(finding_type) is finding_cfg.type:
+                if odg.model.Datatype(finding_type) is finding_cfg.type:
                     break
             else:
                 raise aiohttp.web.HTTPNotFound(
@@ -740,8 +740,8 @@ class Rescore(aiohttp.web.View):
 
         # also filter for structure info to enrich findings
         if (
-            odg.findings.FindingType.LICENSE in type_filter
-            or odg.findings.FindingType.VULNERABILITY in type_filter
+            odg.model.Datatype.LICENSE_FINDING in type_filter
+            or odg.model.Datatype.VULNERABILITY_FINDING in type_filter
         ):
             type_filter.append(odg.model.Datatype.STRUCTURE_INFO)
 
@@ -757,7 +757,7 @@ class Rescore(aiohttp.web.View):
             ),
         )
 
-        if odg.findings.FindingType.VULNERABILITY in type_filter:
+        if odg.model.Datatype.VULNERABILITY_FINDING in type_filter:
             artefact_node = await ocm_util.find_artefact_node(
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
                 artefact=artefact,

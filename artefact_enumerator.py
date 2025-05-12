@@ -242,7 +242,7 @@ def _create_backlog_item(
 
 def _create_backlog_item_for_extension(
     finding_cfgs: collections.abc.Iterable[odg.findings.Finding],
-    finding_types: collections.abc.Sequence[odg.findings.FindingType],
+    finding_types: collections.abc.Sequence[odg.model.Datatype],
     artefact: odg.model.ComponentArtefactId,
     compliance_snapshots: list[odg.model.ArtefactMetadata],
     service: odg.extensions_cfg.Services,
@@ -299,7 +299,10 @@ def _process_compliance_snapshots_of_artefact(
     ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
-            finding_types=(odg.findings.FindingType.VULNERABILITY, odg.findings.FindingType.LICENSE),
+            finding_types=(
+                odg.model.Datatype.VULNERABILITY_FINDING,
+                odg.model.Datatype.LICENSE_FINDING,
+            ),
             artefact=artefact,
             compliance_snapshots=compliance_snapshots,
             service=odg.extensions_cfg.Services.BDBA,
@@ -317,7 +320,7 @@ def _process_compliance_snapshots_of_artefact(
     ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
-            finding_types=(odg.findings.FindingType.MALWARE,),
+            finding_types=(odg.model.Datatype.MALWARE_FINDING,),
             artefact=artefact,
             compliance_snapshots=compliance_snapshots,
             service=odg.extensions_cfg.Services.CLAMAV,
@@ -335,7 +338,7 @@ def _process_compliance_snapshots_of_artefact(
     ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
-            finding_types=(odg.findings.FindingType.CRYPTO,),
+            finding_types=(odg.model.Datatype.CRYPTO_FINDING,),
             artefact=artefact,
             compliance_snapshots=compliance_snapshots,
             service=odg.extensions_cfg.Services.CRYPTO,
@@ -375,7 +378,7 @@ def _process_compliance_snapshots_of_artefact(
     ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
-            finding_types=(odg.findings.FindingType.SAST,),
+            finding_types=(odg.model.Datatype.SAST_FINDING,),
             artefact=artefact,
             compliance_snapshots=compliance_snapshots,
             service=odg.extensions_cfg.Services.SAST,
@@ -393,7 +396,7 @@ def _process_compliance_snapshots_of_artefact(
     ):
         compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
-            finding_types=(odg.findings.FindingType.OSID,),
+            finding_types=(odg.model.Datatype.OSID_FINDING,),
             artefact=artefact,
             compliance_snapshots=compliance_snapshots,
             service=odg.extensions_cfg.Services.OSID,

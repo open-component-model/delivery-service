@@ -68,18 +68,6 @@ class RescoringSpecificity(enum.Enum):
         return self._asint(self) >= self._asint(other)
 
 
-class FindingType(enum.StrEnum):
-    CRYPTO = 'finding/crypto'
-    DIKI = 'finding/diki'
-    LICENSE = 'finding/license'
-    MALWARE = 'finding/malware'
-    OSID = 'finding/osid'
-    SAST = 'finding/sast'
-    VULNERABILITY = 'finding/vulnerability'
-    FALCO = 'finding/falco'
-    INVENTORY = 'finding/inventory'
-
-
 @dataclasses.dataclass
 class MinMaxRange:
     min: float
@@ -485,7 +473,7 @@ class SharedCfgReference:
 @dataclasses.dataclass
 class Finding:
     '''
-    :param FindingType type
+    :param Datatype type
     :param list[FindingCategorisation] categorisation:
         The available categories for this type of findings and information on how to assign the
         findings to one of these categories. If a string is given, the corresponding standard
@@ -501,7 +489,7 @@ class Finding:
     :param RescoringScope default_scope
         Default scope selection to be used for rescoring via the Delivery-Dashboard.
     '''
-    type: FindingType
+    type: odg.model.Datatype
     categorisations: SharedCfgReference | list[FindingCategorisation]
     filter: list[FindingFilter] | None
     rescoring_ruleset: SharedCfgReference | dict | None
@@ -513,7 +501,7 @@ class Finding:
     @staticmethod
     def from_dict(
         findings_raw: list[dict],
-        finding_type: FindingType | None=None,
+        finding_type: odg.model.Datatype | None=None,
     ) -> list[typing.Self] | typing.Self | None:
         if not finding_type:
             return [
@@ -527,7 +515,7 @@ class Finding:
             ]
 
         for finding_raw in findings_raw:
-            if FindingType(finding_raw['type']) is finding_type:
+            if odg.model.Datatype(finding_raw['type']) is finding_type:
                 break
         else:
             return None
@@ -543,7 +531,7 @@ class Finding:
     @staticmethod
     def from_file(
         path: str,
-        finding_type: FindingType | None=None,
+        finding_type: odg.model.Datatype | None=None,
     ) -> list[typing.Self] | typing.Self | None:
         with open(path) as file:
             findings_raw = yaml.safe_load(file) or []
@@ -575,31 +563,31 @@ class Finding:
             )
 
         if isinstance(self.rescoring_ruleset, dict):
-            if self.type is FindingType.SAST:
+            if self.type is odg.model.Datatype.SAST_FINDING:
                 self.rescoring_ruleset = rm.SastRescoringRuleSet.from_dict(self.rescoring_ruleset)
 
-            elif self.type is FindingType.VULNERABILITY:
+            elif self.type is odg.model.Datatype.VULNERABILITY_FINDING:
                 self.rescoring_ruleset = rm.CveRescoringRuleSet.from_dict(self.rescoring_ruleset)
 
         self._validate()
 
     def _validate(self):
         match self.type:
-            case FindingType.OSID:
+            case odg.model.Datatype.OSID_FINDING:
                 self._validate_osid()
-            case FindingType.CRYPTO:
+            case odg.model.Datatype.CRYPTO_FINDING:
                 self._validate_crypto()
-            case FindingType.DIKI:
+            case odg.model.Datatype.DIKI_FINDING:
                 self._validate_diki()
-            case FindingType.LICENSE:
+            case odg.model.Datatype.LICENSE_FINDING:
                 self._validate_license()
-            case FindingType.MALWARE:
+            case odg.model.Datatype.MALWARE_FINDING:
                 self._validate_malware()
-            case FindingType.SAST:
+            case odg.model.Datatype.SAST_FINDING:
                 self._validate_sast()
-            case FindingType.VULNERABILITY:
+            case odg.model.Datatype.VULNERABILITY_FINDING:
                 self._validate_vulnerabilty()
-            case FindingType.INVENTORY:
+            case odg.model.Datatype.INVENTORY_FINDING:
                 self._validate_inventory()
             case _:
                 pass
@@ -834,11 +822,11 @@ class Finding:
 
 def default_finding_categorisations(
     categorisations_raw: list[dict],
-    finding_type: FindingType,
+    finding_type: odg.model.Datatype,
     name: str,
 ) -> list[FindingCategorisation]:
     for categorisation_raw in categorisations_raw:
-        if FindingType(categorisation_raw['type']) is finding_type:
+        if odg.model.Datatype(categorisation_raw['type']) is finding_type:
             break
     else:
         raise ValueError(f'did not find default categorisation for {finding_type=}')
@@ -859,11 +847,11 @@ def default_finding_categorisations(
 
 def default_rescoring_ruleset(
     rescoring_rulesets_raw: list[dict],
-    finding_type: FindingType,
+    finding_type: odg.model.Datatype,
     name: str,
 ) -> dict:
     for rescoring_ruleset_raw in rescoring_rulesets_raw:
-        if FindingType(rescoring_ruleset_raw['type']) is finding_type:
+        if odg.model.Datatype(rescoring_ruleset_raw['type']) is finding_type:
             break
     else:
         raise ValueError(f'did not find default rescoring ruleset for {finding_type=}')

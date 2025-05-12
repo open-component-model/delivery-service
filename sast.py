@@ -99,7 +99,7 @@ def create_missing_linter_finding(
         artefact=artefact,
         meta=odg.model.Metadata(
             datasource=odg.model.Datasource.SAST,
-            type=odg.findings.FindingType.SAST,
+            type=odg.model.Datatype.SAST_FINDING,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
         ),
@@ -316,7 +316,7 @@ def main():
 
     sast_finding_config = odg.findings.Finding.from_file(
         path=findings_cfg_path,
-        finding_type=odg.findings.FindingType.SAST,
+        finding_type=odg.model.Datatype.SAST_FINDING,
     )
 
     if not sast_finding_config:
