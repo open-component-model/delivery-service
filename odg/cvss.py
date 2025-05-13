@@ -3,6 +3,7 @@ utils/model classes for CVSS (https://www.first.org/cvss/user-guide)
 '''
 import dataclasses
 import enum
+import typing
 
 import dacite
 
@@ -135,13 +136,13 @@ class CVENoneLowHigh(enum.Enum):
 
 @dataclasses.dataclass
 class CveCategorisation:
-    network_exposure: NetworkExposure | None
-    authentication_enforced: bool | None
-    user_interaction: InteractingUserCategory | None
-    confidentiality_requirement: CVENoneLowHigh | None
-    integrity_requirement: CVENoneLowHigh | None
-    availability_requirement: CVENoneLowHigh | None
-    comment: str | None
+    network_exposure: typing.Optional[NetworkExposure]
+    authentication_enforced: typing.Optional[bool]
+    user_interaction: typing.Optional[InteractingUserCategory]
+    confidentiality_requirement: typing.Optional[CVENoneLowHigh]
+    integrity_requirement: typing.Optional[CVENoneLowHigh]
+    availability_requirement: typing.Optional[CVENoneLowHigh]
+    comment: typing.Optional[str]
 
     @staticmethod
     def from_dict(raw: dict) -> 'CveCategorisation':
