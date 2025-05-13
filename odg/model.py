@@ -29,6 +29,7 @@ class Datatype(enum.StrEnum):
     CRYPTO_FINDING = 'finding/crypto'
     DIKI_FINDING = 'finding/diki'
     FALCO_FINDING = 'finding/falco'
+    GHAS_FINDING = 'finding/ghas'
     INVENTORY_FINDING = 'finding/inventory'
     LICENSE_FINDING = 'finding/license'
     MALWARE_FINDING = 'finding/malware'
@@ -46,6 +47,7 @@ class Datatype(enum.StrEnum):
             Datatype.CRYPTO_FINDING: Datasource.CRYPTO,
             Datatype.DIKI_FINDING: Datasource.DIKI,
             Datatype.FALCO_FINDING: Datasource.FALCO,
+            Datatype.GHAS_FINDING: Datasource.GHAS,
             Datatype.INVENTORY_FINDING: Datasource.INVENTORY,
             Datatype.LICENSE_FINDING: Datasource.BDBA,
             Datatype.MALWARE_FINDING: Datasource.CLAMAV,
@@ -63,6 +65,7 @@ class Datasource(enum.StrEnum):
     DELIVERY_DASHBOARD = 'delivery-dashboard'
     DIKI = 'diki'
     FALCO = 'falco'
+    GHAS = 'ghas'
     INVENTORY = 'inventory'
     OSID = 'osid'
     SAST = 'sast'
@@ -86,6 +89,9 @@ class Datasource(enum.StrEnum):
             ),
             Datasource.FALCO: (
                 Datatype.FALCO_FINDING,
+            ),
+            Datasource.GHAS: (
+                Datatype.GHAS_FINDING,
             ),
             Datasource.INVENTORY: (
                 Datatype.INVENTORY_FINDING,
@@ -547,6 +553,21 @@ class DikiFinding(Finding):
         return _as_key(self.provider_id, self.ruleset_id, self.rule_id)
 
 
+@dataclasses.dataclass(frozen=True)
+class GitHubSecretFinding(Finding):
+    html_url: str
+    secret: str
+    secret_type: str
+    secret_type_display_name: str
+    path: str
+    line: int
+    state: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.html_url)
+
+
 class CryptoAssetTypes(enum.StrEnum):
     ALGORITHM = 'algorithm'
     CERTIFICATE = 'certificate'
@@ -967,6 +988,7 @@ class ArtefactMetadata:
         | CryptoFinding
         | FalcoFinding
         | InventoryFinding
+        | GitHubSecretFinding
         | dict # fallback, there should be a type
     )
     discovery_date: datetime.date | None = None # required for finding specific SLA tracking
