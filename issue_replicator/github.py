@@ -857,7 +857,7 @@ def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -
     for finding_group in finding_groups:
         findings.extend(finding_group.findings)
 
-    summary = '\n'
+    summary += '\n'
     for item in findings:
         data = item.finding.data
         summary += f'# {data.summary} - {data.provider_name} - {data.resource_name}\n'
