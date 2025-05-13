@@ -29,6 +29,11 @@ swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')
 
 _odg_path = os.path.join(_own_dir, 'odg')
 
+test_resources_extension_definitions = os.path.join(
+    _own_dir,
+    'test/resources/extension-definitions.yaml',
+)
+
 
 def features_cfg_candidates() -> collections.abc.Generator[str, None, None]:
     if features_cfg_path := os.environ.get('FEATURES_CFG_PATH'):
