@@ -24,6 +24,7 @@ import delivery.model
 import github.compliance.milestone as gcmi
 import github.limits
 import github.retry
+import github.util
 import ocm.util
 
 import k8s.util
