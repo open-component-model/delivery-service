@@ -95,6 +95,37 @@ definitions:
         items:
           type: string
 
+  UserIdentifier:
+    type: object
+    required:
+      - source
+      - type
+    properties:
+      source:
+        type: string
+      type:
+        type: string
+      username:
+        type: string
+      github_hostname:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      origin_type:
+        type: string
+
+  UserIdentity:
+    type: object
+    properties:
+      identifiers:
+        type: array
+        items:
+          $ref: '#/definitions/UserIdentifier'
+
   ComponentId:
     type: object
     required:
@@ -188,6 +219,10 @@ definitions:
         type: string
       last_update:
         type: string
+      responsibles:
+        type: array
+        items:
+          $ref: '#/definitions/UserIdentity'
 
   ArtefactMetadata:
     type: object
@@ -221,14 +256,6 @@ definitions:
         $ref: '#/definitions/Datasource'
       categorisation:
         type: string
-        enum:
-          - UNKNOWN
-          - CLEAN
-          - LOW
-          - MEDIUM
-          - HIGH
-          - CRITICAL
-          - BLOCKER
       value:
         type: integer
       scanStatus:
@@ -304,27 +331,9 @@ definitions:
           Each user-identity consists of a list of typed userinfo-entries. Callers should ignore
           types they do not know or care about.
         items:
-          type: object
-          required:
-            - source
-            - type
-          properties:
-            source:
-              type: string
-            type:
-              type: string
-            username:
-              type: string
-            github_hostname:
-              type: string
-            email:
-              type: string
-            first_name:
-              type: string
-            last_name:
-              type: string
-            origin_type:
-              type: string
+          type: array
+          items:
+            $ref: '#/definitions/UserIdentifier'
       statuses:
         type: array
         description: |
