@@ -52,3 +52,8 @@ osid:
   image:
     repository: null
     tag: null
+responsibles:
+  enabled: false
+  image:
+    repository: null
+    tag: null

@@ -162,6 +162,42 @@ def _group_findings_by_due_date(
         yield filtered_findings, sprint
 
 
+def _responsibles_from_responsible_infos(
+    artefacts: collections.abc.Sequence[odg.model.ComponentArtefactId],
+    finding_type: odg.model.Datatype,
+    delivery_client: delivery.client.DeliveryServiceClient,
+) -> tuple[list[dict] | None, odg.model.ResponsibleAssigneeModes | None]:
+    '''
+    If at least one responsible-info exists for one of the passed-in `artefacts` and the
+    `finding_type` (even if it contains an empty list of responsibles), these responsibles are
+    returned together with the defined `assignee_mode`. If no such info exists, `None` is returned
+    instead.
+    '''
+    responsible_infos_raw = delivery_client.query_metadata(
+        artefacts=artefacts,
+        type=odg.model.Datatype.RESPONSIBLES,
+        referenced_type=finding_type,
+    )
+
+    if not responsible_infos_raw:
+        return None, None
+
+    responsibles: list[dict] = []
+    assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
+
+    for responsible_info_raw in responsible_infos_raw:
+        current_responsibles = responsible_info_raw['meta']['responsibles']
+        if assignee_mode_raw := responsible_info_raw['meta']['assignee_mode']:
+            assignee_mode = odg.model.ResponsibleAssigneeModes(assignee_mode_raw)
+
+        responsibles += [
+            responsible['identifiers']
+            for responsible in current_responsibles
+        ]
+
+    return responsibles, assignee_mode
+
+
 def _responsibles_from_overwrites(
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
 ) -> tuple[list[dict] | None, odg.model.ResponsibleAssigneeModes | None]:
@@ -192,7 +228,8 @@ def _responsibles_from_overwrites(
 
 def _responsibles(
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
-    artefact: odg.model.ComponentArtefactId | None,
+    artefacts: collections.abc.Sequence[odg.model.ComponentArtefactId],
+    finding_type: odg.model.Datatype,
     default_assignee_mode: odg.model.ResponsibleAssigneeModes,
     delivery_client: delivery.client.DeliveryServiceClient,
 ) -> tuple[
@@ -201,20 +238,28 @@ def _responsibles(
     list[delivery.model.Status] | None,
 ]:
     '''
-    If responsibles can be retrieved via overwrites, a list of these responsibles is returned
-    together with the defined `assignee_mode`. Otherwise, responsibles are resolved via the
-    delivery-service api together with their `assignee_mode` and `statuses`.
+    If responsibles can be retrieved via responsible-info entries, a list of these responsibles is
+    returned together with the defined `assignee_mode`. Otherwise, responsibles are determined via
+    finding overwrites or, as last fallback, via the delivery-service api together with their
+    `assignee_mode` and `statuses`.
     '''
+    current_responsibles, assignee_mode = _responsibles_from_responsible_infos(
+        artefacts=artefacts,
+        finding_type=finding_type,
+        delivery_client=delivery_client,
+    )
+
+    if current_responsibles is not None:
+        return current_responsibles, assignee_mode or default_assignee_mode, None
+
     current_responsibles, assignee_mode = _responsibles_from_overwrites(
         artefact_metadata=artefact_metadata,
     )
 
-    if (
-        current_responsibles is not None
-        or not artefact
-    ):
+    if current_responsibles is not None:
         return current_responsibles, assignee_mode or default_assignee_mode, None
 
+    artefact = artefacts[0]
     component_responsibles, statuses = delivery_client.component_responsibles(
         name=artefact.component_name,
         version=artefact.component_version,
@@ -392,7 +437,8 @@ def replicate_issue_for_finding_type(
         ]
         responsibles, assignee_mode, statuses = _responsibles(
             artefact_metadata=artefact_scan_infos,
-            artefact=artefacts[0] if artefacts else None,
+            artefacts=artefacts,
+            finding_type=finding_cfg.type,
             default_assignee_mode=finding_cfg.issues.default_assignee_mode,
             delivery_client=delivery_client,
         )

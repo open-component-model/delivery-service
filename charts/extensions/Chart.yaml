@@ -32,3 +32,6 @@ dependencies:
   - name: osid
     repository: file://charts/osid
     condition: osid.enabled
+  - name: responsibles
+    repository: file://charts/responsibles
+    condition: responsibles.enabled
