@@ -321,6 +321,12 @@ def component_artefact_id_from_ocm(
     )
 
 
+class ResponsibleAssigneeModes(enum.StrEnum):
+    EXTEND = 'extend'
+    OVERWRITE = 'overwrite'
+    SKIP = 'skip'
+
+
 @dataclasses.dataclass(frozen=True)
 class Metadata:
     datasource: str
@@ -328,6 +334,7 @@ class Metadata:
     creation_date: datetime.datetime | str = None
     last_update: datetime.datetime | str | None = None
     responsibles: list[UserIdentity] | None = None
+    assignee_mode: ResponsibleAssigneeModes | None = None
 
 
 @dataclasses.dataclass

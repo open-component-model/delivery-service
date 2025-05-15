@@ -223,6 +223,12 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/UserIdentity'
+      assignee_mode:
+        type: string
+        enum:
+          - extend
+          - overwrite
+          - skip
 
   ArtefactMetadata:
     type: object
