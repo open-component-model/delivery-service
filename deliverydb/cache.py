@@ -304,6 +304,7 @@ def dbcached_route(
 
             return result
 
+        wrapper.__doc__ = func.__doc__
         return wrapper
 
     return decorator
