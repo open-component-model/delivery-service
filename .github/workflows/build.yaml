@@ -421,6 +421,10 @@ jobs:
                 attribute: osid.image.repository
               - ref: ocm-resource:extensions.tag
                 attribute: osid.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: responsibles.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: responsibles.image.tag
 
           - name: bootstrapping
             dir: charts/bootstrapping

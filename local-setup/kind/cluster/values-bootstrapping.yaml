@@ -45,6 +45,8 @@ extensions_cfg:
     component_name: ''
     ocm_repo_url: ''
     backup_retention_count: 1
+  responsibles:
+    enabled: True
   sast:
     enabled: True
   issue_replicator:

@@ -117,3 +117,9 @@ repositories specified under `extensions_cfg.issue_replicator.mappings.[].github
 
 To set up the SAST scanner, you need to set the `sast.enabled` flag and add
 configuration (if desired) via `extensions_cfg.sast`.
+
+### Responsibles
+> Requires: Artefact Enumerator, Backlog Controller
+
+To set up the responsibles extension, you have to set the `responsibles.enabled` flag
+and add configuration (if desired) via `extensions_cfg.responsibles`.

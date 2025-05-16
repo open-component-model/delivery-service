@@ -1044,10 +1044,11 @@ def close_issue_if_present(
 def update_issue(
     issue: github3.issues.issue.ShortIssue,
     body: str,
-    title: str=None,
-    labels: set[str]=set(),
-    assignees: set[str]=set(),
-    milestone: github3.issues.milestone.Milestone=None,
+    title: str,
+    labels: set[str],
+    assignees: set[str],
+    assignee_mode: odg.model.ResponsibleAssigneeModes,
+    milestone: github3.issues.milestone.Milestone,
 ):
     kwargs = {
         'state': 'open',
@@ -1057,9 +1058,17 @@ def update_issue(
     if title:
         kwargs['title'] = title
 
-    if not issue.assignees and assignees:
+    if assignee_mode is odg.model.ResponsibleAssigneeModes.EXTEND:
+        assignees |= set(issue.assignees)
         # conversion to tuple required for issue update (JSON serialisation)
         kwargs['assignees'] = tuple(assignees)
+    elif assignee_mode is odg.model.ResponsibleAssigneeModes.OVERWRITE:
+        kwargs['assignees'] = tuple(assignees)
+    elif assignee_mode is odg.model.ResponsibleAssigneeModes.SKIP:
+        if not issue.assignees:
+            kwargs['assignees'] = tuple(assignees)
+    else:
+        raise ValueError(f'unknown {assignee_mode=}')
 
     if milestone and (not issue.milestone or issue.state == 'closed'):
         kwargs['milestone'] = milestone.number
@@ -1134,10 +1143,11 @@ def _create_or_update_issue(
     is_scanned: bool,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
-    sprint_name: str=None,
-    assignees: set[str]=set(),
-    assignees_statuses: set[delivery.model.Status] | None=None,
-    labels: set[str]=set(),
+    sprint_name: str,
+    assignees: set[str],
+    assignees_statuses: set[delivery.model.Status] | None,
+    assignee_mode: odg.model.ResponsibleAssigneeModes,
+    labels: set[str],
 ):
     def labels_to_preserve(
         issue: github3.issues.issue.ShortIssue,
@@ -1200,6 +1210,7 @@ def _create_or_update_issue(
             title=title,
             labels=labels,
             assignees=assignees,
+            assignee_mode=assignee_mode,
             milestone=milestone,
         )
 
@@ -1229,10 +1240,11 @@ def _create_or_update_or_close_issue_per_finding(
     is_scanned: bool,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
-    sprint_name: str=None,
-    assignees: set[str]=set(),
-    assignees_statuses: set[delivery.model.Status] | None=None,
-    labels: set[str]=set(),
+    sprint_name: str,
+    assignees: set[str],
+    assignees_statuses: set[delivery.model.Status] | None,
+    assignee_mode: odg.model.ResponsibleAssigneeModes,
+    labels: set[str],
 ):
     processed_issues = set()
     for finding in findings:
@@ -1275,6 +1287,7 @@ def _create_or_update_or_close_issue_per_finding(
             sprint_name=sprint_name,
             assignees=assignees,
             assignees_statuses=assignees_statuses,
+            assignee_mode=assignee_mode,
             labels=finding_labels,
         )
 
@@ -1301,6 +1314,7 @@ def create_or_update_or_close_issue(
     delivery_dashboard_url: str,
     assignees: set[str],
     assignees_statuses: set[delivery.model.Status] | None,
+    assignee_mode: odg.model.ResponsibleAssigneeModes,
 ):
     is_scanned = len(artefacts_without_scan) == 0
 
@@ -1378,6 +1392,7 @@ def create_or_update_or_close_issue(
             sprint_name=sprint_name,
             assignees=assignees,
             assignees_statuses=assignees_statuses,
+            assignee_mode=assignee_mode,
             labels=labels,
         )
 
@@ -1397,5 +1412,6 @@ def create_or_update_or_close_issue(
         sprint_name=sprint_name,
         assignees=assignees,
         assignees_statuses=assignees_statuses,
+        assignee_mode=assignee_mode,
         labels=labels,
     )

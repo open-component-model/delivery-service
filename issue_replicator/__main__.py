@@ -162,15 +162,52 @@ def _group_findings_by_due_date(
         yield filtered_findings, sprint
 
 
+def _responsibles_from_responsible_infos(
+    artefacts: collections.abc.Sequence[odg.model.ComponentArtefactId],
+    finding_type: odg.model.Datatype,
+    delivery_client: delivery.client.DeliveryServiceClient,
+) -> tuple[list[dict] | None, odg.model.ResponsibleAssigneeModes | None]:
+    '''
+    If at least one responsible-info exists for one of the passed-in `artefacts` and the
+    `finding_type` (even if it contains an empty list of responsibles), these responsibles are
+    returned together with the defined `assignee_mode`. If no such info exists, `None` is returned
+    instead.
+    '''
+    responsible_infos_raw = delivery_client.query_metadata(
+        artefacts=artefacts,
+        type=odg.model.Datatype.RESPONSIBLES,
+        referenced_type=finding_type,
+    )
+
+    if not responsible_infos_raw:
+        return None, None
+
+    responsibles: list[dict] = []
+    assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
+
+    for responsible_info_raw in responsible_infos_raw:
+        current_responsibles = responsible_info_raw['meta']['responsibles']
+        if assignee_mode_raw := responsible_info_raw['meta']['assignee_mode']:
+            assignee_mode = odg.model.ResponsibleAssigneeModes(assignee_mode_raw)
+
+        responsibles += [
+            responsible['identifiers']
+            for responsible in current_responsibles
+        ]
+
+    return responsibles, assignee_mode
+
+
 def _responsibles_from_overwrites(
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
-) -> list[dict] | None:
+) -> tuple[list[dict] | None, odg.model.ResponsibleAssigneeModes | None]:
     '''
     If at least one of the specified `artefact_metadata` entries contains responsible overwrites
-    (responsibles != `None`), a list of these responsibles is returned. Otherwise, `None` is
-    returned.
+    (responsibles != `None`), a list of these responsibles is returned together with the defined
+    `assignee_mode`. Otherwise, `None` is returned.
     '''
     responsibles: list[dict] | None = None
+    assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
 
     for artefact_metadatum in artefact_metadata:
         # explicitly check for `None` here as an empty list is allowed to overwrite responsibles
@@ -184,35 +221,53 @@ def _responsibles_from_overwrites(
             util.dict_serialisation(responsible.identifiers)
             for responsible in current_responsibles
         ]
+        assignee_mode = artefact_metadatum.meta.assignee_mode
 
-    return responsibles
+    return responsibles, assignee_mode
 
 
 def _responsibles(
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
-    artefact: odg.model.ComponentArtefactId | None,
+    artefacts: collections.abc.Sequence[odg.model.ComponentArtefactId],
+    finding_type: odg.model.Datatype,
+    default_assignee_mode: odg.model.ResponsibleAssigneeModes,
     delivery_client: delivery.client.DeliveryServiceClient,
-) -> tuple[list[dict] | None, list[delivery.model.Status] | None]:
+) -> tuple[
+    list[dict] | None,
+    odg.model.ResponsibleAssigneeModes,
+    list[delivery.model.Status] | None,
+]:
     '''
-    If responsibles can be retrieved via overwrites, a list of these responsibles is returned.
-    Otherwise, responsibles are resolved via the delivery-service api together with their statuses.
+    If responsibles can be retrieved via responsible-info entries, a list of these responsibles is
+    returned together with the defined `assignee_mode`. Otherwise, responsibles are determined via
+    finding overwrites or, as last fallback, via the delivery-service api together with their
+    `assignee_mode` and `statuses`.
     '''
-    current_responsibles = _responsibles_from_overwrites(
+    current_responsibles, assignee_mode = _responsibles_from_responsible_infos(
+        artefacts=artefacts,
+        finding_type=finding_type,
+        delivery_client=delivery_client,
+    )
+
+    if current_responsibles is not None:
+        return current_responsibles, assignee_mode or default_assignee_mode, None
+
+    current_responsibles, assignee_mode = _responsibles_from_overwrites(
         artefact_metadata=artefact_metadata,
     )
 
-    if (
-        current_responsibles is not None
-        or not artefact
-    ):
-        return current_responsibles, None
+    if current_responsibles is not None:
+        return current_responsibles, assignee_mode or default_assignee_mode, None
 
-    return delivery_client.component_responsibles(
+    artefact = artefacts[0]
+    component_responsibles, statuses = delivery_client.component_responsibles(
         name=artefact.component_name,
         version=artefact.component_version,
         artifact=artefact.artefact.artefact_name,
         absent_ok=True,
     )
+
+    return component_responsibles, default_assignee_mode, statuses
 
 
 @cachetools.cached(cachetools.TTLCache(maxsize=4096, ttl=60 * 60))
@@ -380,9 +435,11 @@ def replicate_issue_for_finding_type(
             finding.finding for finding in findings
             if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO
         ]
-        responsibles, statuses = _responsibles(
+        responsibles, assignee_mode, statuses = _responsibles(
             artefact_metadata=artefact_scan_infos,
-            artefact=artefacts[0] if artefacts else None,
+            artefacts=artefacts,
+            finding_type=finding_cfg.type,
+            default_assignee_mode=finding_cfg.issues.default_assignee_mode,
             delivery_client=delivery_client,
         )
         github_assignees = _github_assignees(
@@ -391,6 +448,7 @@ def replicate_issue_for_finding_type(
         )
     else:
         github_assignees = set()
+        assignee_mode = finding_cfg.issues.default_assignee_mode
         statuses = None
 
     for findings, due_date in findings_by_due_date:
@@ -410,6 +468,7 @@ def replicate_issue_for_finding_type(
             delivery_dashboard_url=delivery_dashboard_url,
             assignees=github_assignees,
             assignees_statuses=statuses,
+            assignee_mode=assignee_mode,
         )
 
 
