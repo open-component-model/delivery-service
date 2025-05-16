@@ -183,3 +183,79 @@
       display_name: HIGH
       value: 4
       allowed_processing_time: 30
+- type: finding/osid
+  issues:
+    enable_assignees: False
+  categorisations:
+    - id: empty-os-id
+      display_name: Empty OS ID
+      value: -1
+      allowed_processing_time: ~
+      selector:
+        status:
+          - emptyOsId
+    - id: no-branch-info
+      display_name: No Branch Info
+      value: -1
+      allowed_processing_time: ~
+      selector:
+        status:
+          - noBranchInfo
+    - id: no-release-info
+      display_name: No Release Info
+      value: -1
+      allowed_processing_time: ~
+      selector:
+        status:
+          - noReleaseInfo
+    - id: unable-to-compare-version
+      display_name: Unable to Compare Version
+      value: -1
+      allowed_processing_time: ~
+      selector:
+        status:
+          - unableToCompareVersion
+    - id: up-to-date
+      display_name: Up to Date
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+    - id: false-positive
+      display_name: False-Positive
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+    - id: distroless
+      display_name: Distroless
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+      selector:
+        status:
+          - distroless
+    - id: one-patchlevel-behind
+      display_name: One Patchlevel behind (tip)
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+    - id: postpone
+      display_name: Postpone
+      value: 1
+      allowed_processing_time: input
+      rescoring: manual
+    - id: more-than-one-patchlevel-behind
+      display_name: More than one Patchlevel behind
+      value: 2
+      allowed_processing_time: 90
+      rescoring: manual
+      selector:
+        status:
+          - moreThanOnePatchlevelBehind
+    - id: eol
+      display_name: Branch no longer supported
+      value: 8
+      allowed_processing_time: 30
+      rescoring: manual
+      selector:
+        status:
+          - branchReachedEol

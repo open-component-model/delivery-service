@@ -372,6 +372,21 @@ def _process_compliance_snapshots_of_artefact(
         metadata_update_required |= snapshots_have_changed
 
     if (
+        extensions_cfg.responsibles
+        and extensions_cfg.responsibles.enabled
+    ):
+        compliance_snapshots, snapshots_have_changed = _create_backlog_item(
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+            artefact=artefact,
+            compliance_snapshots=compliance_snapshots,
+            service=odg.extensions_cfg.Services.RESPONSIBLES,
+            interval_seconds=extensions_cfg.responsibles.interval,
+            now=now,
+        )
+        metadata_update_required |= snapshots_have_changed
+
+    if (
         extensions_cfg.sast
         and extensions_cfg.sast.enabled
         and extensions_cfg.sast.is_supported(artefact_kind=artefact.artefact_kind)

@@ -307,6 +307,7 @@ class FindingIssues:
         'artefact.artefact_name',
         'artefact.artefact_type',
     ])
+    default_assignee_mode: odg.model.ResponsibleAssigneeModes = odg.model.ResponsibleAssigneeModes.SKIP # noqa: E501
 
     def group_id_for_artefact(
         self,

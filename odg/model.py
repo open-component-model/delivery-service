@@ -24,6 +24,7 @@ class Datatype(enum.StrEnum):
     ARTEFACT_SCAN_INFO = 'meta/artefact_scan_info'
     COMPLIANCE_SNAPSHOTS = 'compliance/snapshots'
     RESCORING = 'rescorings'
+    RESPONSIBLES = 'meta/responsibles'
 
     # finding types
     CRYPTO_FINDING = 'finding/crypto'
@@ -67,6 +68,7 @@ class Datasource(enum.StrEnum):
     FALCO = 'falco'
     INVENTORY = 'inventory'
     OSID = 'osid'
+    RESPONSIBLES = 'responsibles'
     SAST = 'sast'
     GHAS = 'ghas'
 
@@ -96,6 +98,9 @@ class Datasource(enum.StrEnum):
             Datasource.OSID: (
                 Datatype.OSID,
                 Datatype.OSID_FINDING,
+            ),
+            Datasource.RESPONSIBLES: (
+                Datatype.RESPONSIBLES,
             ),
             Datasource.SAST: (
                 Datatype.SAST_FINDING,
@@ -327,6 +332,12 @@ def component_artefact_id_from_ocm(
     )
 
 
+class ResponsibleAssigneeModes(enum.StrEnum):
+    EXTEND = 'extend'
+    OVERWRITE = 'overwrite'
+    SKIP = 'skip'
+
+
 @dataclasses.dataclass(frozen=True)
 class Metadata:
     datasource: str
@@ -334,6 +345,7 @@ class Metadata:
     creation_date: datetime.datetime | str = None
     last_update: datetime.datetime | str | None = None
     responsibles: list[UserIdentity] | None = None
+    assignee_mode: ResponsibleAssigneeModes | None = None
 
 
 @dataclasses.dataclass
@@ -956,6 +968,15 @@ class FalcoFinding(Finding):
         return self.finding.key
 
 
+@dataclasses.dataclass(frozen=True)
+class ResponsibleInfo:
+    referenced_type: Datatype
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.referenced_type)
+
+
 @dataclasses.dataclass
 class ArtefactMetadata:
     '''
@@ -989,6 +1010,7 @@ class ArtefactMetadata:
         | FalcoFinding
         | InventoryFinding
         | GitHubSecretFinding
+        | ResponsibleInfo
         | dict # fallback, there should be a type
     )
     discovery_date: datetime.date | None = None # required for finding specific SLA tracking

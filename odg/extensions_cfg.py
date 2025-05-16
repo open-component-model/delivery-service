@@ -17,6 +17,8 @@ import crypto_extension.config
 import lookups
 import odg.model
 import odg.shared_cfg
+import responsibles_extension.filters as ref
+import responsibles_extension.strategies as res
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,8 @@ class Services(enum.StrEnum):
     SAST = 'sast'
     GHAS = 'ghas'
     OSID = 'osid'
+    RESPONSIBLES = 'responsibles'
+    SAST = 'sast'
 
 
 class VersionAliases(enum.StrEnum):
@@ -692,6 +696,51 @@ class IssueReplicatorConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
+class ResponsibleConfigRule:
+    '''
+    :param str name:
+        The name of the rule used for logging purposes.
+    :param list[FilterBase] filters:
+        The specified filters are concatenated using an `AND` expression.
+    :param list[StrategyBase] strategies:
+        The responsibles determined via the specified `strategies` are concatenated.
+    :param ResponsibleAssigneeModes assignee_mode:
+        Specifies how to handle an issue that already has assignees different to those determined
+        via this rule. If `None` is specified, the `default_assignee_mode` of the respective
+        finding-cfg will be used.
+    '''
+    name: str | None
+    filters: list[
+        ref.ArtefactFilter
+        | ref.ComponentFilter
+        | ref.DatatypeFilter
+        | ref.MatchAllFilter
+    ] = dataclasses.field(default_factory=list)
+    strategies: list[
+        res.ComponentResponsibles
+        | res.StaticResponsibles
+    ] = dataclasses.field(default_factory=list)
+    assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
+
+
+@dataclasses.dataclass
+class ResponsiblesConfig(BacklogItemMixins):
+    '''
+    :param str delivery_service_url:
+    :param int interval:
+        Time after which the responsibles for an artefact must be re-determined at latest.
+    :param list[ResponsibleConfigRule] rules:
+        These rules are used to map desired responsible `strategies` to artefacts and finding types
+        using `filters`. The first matching rule "wins". In case no rule matches, the responsibles
+        extension will not determine any responsibles and instead the default lookup will take
+        precedence (i.e. lookup responsibles in findings and as fallback via delivery-service api).
+    '''
+    delivery_service_url: str
+    interval: int = 60 * 60 * 12 # 12h
+    rules: list[ResponsibleConfigRule] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass
 class SASTConfig(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -809,6 +858,8 @@ class ExtensionsConfiguration:
     sast: SASTConfig | None
     ghas: GHASConfig | None
     osid: OsId | None
+    responsibles: ResponsiblesConfig | None
+    sast: SASTConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod

@@ -35,3 +35,6 @@ dependencies:
   - name: ghas
     repository: file://charts/ghas
     condition: ghas.enabled
+  - name: responsibles
+    repository: file://charts/responsibles
+    condition: responsibles.enabled

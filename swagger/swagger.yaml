@@ -184,6 +184,7 @@ definitions:
       - falco
       - inventory
       - osid
+      - responsibles
       - sast
       - ghas
 
@@ -191,6 +192,7 @@ definitions:
     type: string
     enum:
       - meta/artefact_scan_info
+      - meta/responsibles
       - compliance/snapshots
       - rescorings
       - finding/crypto
@@ -225,6 +227,12 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/UserIdentity'
+      assignee_mode:
+        type: string
+        enum:
+          - extend
+          - overwrite
+          - skip
 
   ArtefactMetadata:
     type: object

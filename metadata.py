@@ -409,9 +409,15 @@ class ArtefactMetadata(aiohttp.web.View):
 
                 # create new dict instead of patching it, otherwise it won't be updated in the db
                 del existing_entry.meta['last_update']
+                if 'responsibles' in existing_entry.meta:
+                    del existing_entry.meta['responsibles']
+                if 'assignee_mode' in existing_entry.meta:
+                    del existing_entry.meta['assignee_mode']
                 existing_entry.meta = dict(
                     **existing_entry.meta,
                     last_update=metadata_entry.meta['last_update'],
+                    responsibles=metadata_entry.meta.get('responsibles'),
+                    assignee_mode=metadata_entry.meta.get('assignee_mode'),
                 )
 
             await db_session.commit()

@@ -1,4 +1,3 @@
-import collections.abc
 import logging
 
 import cnudie.iter
@@ -7,7 +6,6 @@ import ioutil
 import oci.client
 import oci.model
 import ocm
-import tarutil
 
 import odg.model
 
@@ -15,11 +13,11 @@ import odg.model
 logger = logging.getLogger(__name__)
 
 
-def iter_local_blob_content(
+def local_blob_access_as_blob_descriptor(
     access: ocm.LocalBlobAccess,
     oci_client: oci.client.Client,
     image_reference: str=None,
-) -> collections.abc.Generator[bytes, None, None]:
+) -> ioutil.BlobDescriptor:
     if access.globalAccess:
         image_reference = access.globalAccess.ref
         digest = access.globalAccess.digest
@@ -54,14 +52,10 @@ def iter_local_blob_content(
         else:
             raise ValueError('`size` must not be empty to stream local blob')
 
-    return tarutil.concat_blobs_as_tarstream(
-        blobs=[
-            ioutil.BlobDescriptor(
-                content=blob.iter_content(chunk_size=4096),
-                size=size,
-                name=access.referenceName,
-            )
-        ],
+    return ioutil.BlobDescriptor(
+        content=blob.iter_content(chunk_size=4096),
+        size=size,
+        name=access.referenceName,
     )
 
 

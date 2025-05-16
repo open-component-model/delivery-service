@@ -211,6 +211,11 @@ def main():
             # [ref](https://github.com/kiwigrid/k8s-sidecar/issues/233#issuecomment-1332358459)
             resource_version = ''
             logger.info('API resource watching received protocol error, will start new watch')
+        except urllib3.exceptions.MaxRetryError as e:
+            if not isinstance(e.reason, urllib3.exceptions.ProtocolError):
+                raise
+            resource_version = ''
+            logger.info('API resource watching received protocol error, will start new watch')
 
 
 if __name__ == '__main__':

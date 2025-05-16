@@ -45,6 +45,10 @@ extensions_cfg:
     component_name: ''
     ocm_repo_url: ''
     backup_retention_count: 1
+  osid:
+    enabled: False # disable in default because of high memory
+  responsibles:
+    enabled: True
   sast:
     enabled: True
   ghas:
@@ -191,6 +195,82 @@ findings:
         selector:
           html_url:
             - .*
+  - type: finding/osid
+    categorisations:
+      - id: empty-os-id
+        display_name: Empty OS ID
+        value: -1
+        allowed_processing_time: ~
+        selector:
+          status:
+            - emptyOsId
+      - id: no-branch-info
+        display_name: No Branch Info
+        value: -1
+        allowed_processing_time: ~
+        selector:
+          status:
+            - noBranchInfo
+      - id: no-release-info
+        display_name: No Release Info
+        value: -1
+        allowed_processing_time: ~
+        selector:
+          status:
+            - noReleaseInfo
+      - id: unable-to-compare-version
+        display_name: Unable to Compare Version
+        value: -1
+        allowed_processing_time: ~
+        selector:
+          status:
+            - unableToCompareVersion
+      - id: up-to-date
+        display_name: Up to Date
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+      - id: false-positive
+        display_name: False-Positive
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+      - id: distroless
+        display_name: Distroless
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+        selector:
+          status:
+            - distroless
+      - id: one-patchlevel-behind
+        display_name: One Patchlevel behind (tip)
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+      - id: postpone
+        display_name: Postpone
+        value: 1
+        allowed_processing_time: input
+        rescoring: manual
+      - id: more-than-one-patchlevel-behind
+        display_name: More than one Patchlevel behind
+        value: 2
+        allowed_processing_time: 90
+        rescoring: manual
+        selector:
+          status:
+            - moreThanOnePatchlevelBehind
+      - id: eol
+        display_name: Branch no longer supported
+        value: 8
+        allowed_processing_time: 30
+        rescoring: manual
+        selector:
+          status:
+            - branchReachedEol
+    issues:
+      enable_assignees: False
 
 ocm_repo_mappings:
   - prefix: ocm.software/ocmcli
@@ -209,6 +289,7 @@ profiles:
       - finding/sast
       - finding/crypto
       - finding/ghas
+      - finding/osid
     special_component_ids:
       - f7e84fdb-69fe-4837-b1c2-58cf4e58e5c7
       - 8ca887cf-0d09-4f28-bc88-727aa3e30a26

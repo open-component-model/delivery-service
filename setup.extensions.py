@@ -37,6 +37,7 @@ def packages():
         'issue_replicator',
         'malware',
         'osid_extension',
+        'responsibles_extension',
     ]
 
 
