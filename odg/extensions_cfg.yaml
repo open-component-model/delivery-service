@@ -54,6 +54,9 @@ issue_replicator:
     - prefix: ''
       github_repository: my-github-repository # <str> must be set
 
+osid:
+  enabled: False
+
 responsibles:
   enabled: False
   rules:

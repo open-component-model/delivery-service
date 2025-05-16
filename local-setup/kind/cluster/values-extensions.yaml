@@ -14,6 +14,8 @@ delivery-db-backup:
   enabled: False
 issue-replicator:
   enabled: False
+osid:
+  enabled: True
 responsibles:
   enabled: True
 sast:
