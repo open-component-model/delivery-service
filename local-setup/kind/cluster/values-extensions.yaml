@@ -16,3 +16,5 @@ issue-replicator:
   enabled: False
 sast:
   enabled: True
+ghas: 
+  enabled: False

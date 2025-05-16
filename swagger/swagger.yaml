@@ -185,6 +185,7 @@ definitions:
       - inventory
       - osid
       - sast
+      - ghas
 
   Datatype:
     type: string
@@ -201,6 +202,7 @@ definitions:
       - finding/osid
       - finding/sast
       - finding/vulnerability
+      - finding/ghas
       - crypto_asset
       - osid
       - structure_info

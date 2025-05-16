@@ -32,3 +32,6 @@ dependencies:
   - name: osid
     repository: file://charts/osid
     condition: osid.enabled
+  - name: ghas
+    repository: file://charts/ghas
+    condition: ghas.enabled

@@ -160,3 +160,26 @@
       display_name: HIGH
       value: 4
       allowed_processing_time: 30
+
+# need to confirm the content !!!!
+- type: finding/ghas
+  filter:
+    - semantics: include
+      artefact_kind: runtime
+  issues:
+    title_template: '[{meta.type}] - {artefact.component_name}:{artefact.artefact.artefact_name} - {data.key}'
+    enable_assignees: False
+    enable_per_finding: True
+  categorisations:
+    - id: NONE
+      display_name: NONE
+      value: 0
+      allowed_processing_time: ~
+    - id: MEDIUM
+      display_name: MEDIUM
+      value: 2
+      allowed_processing_time: 90
+    - id: HIGH
+      display_name: HIGH
+      value: 4
+      allowed_processing_time: 30

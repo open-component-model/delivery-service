@@ -35,6 +35,7 @@ class Datatype(enum.StrEnum):
     OSID_FINDING = 'finding/osid'
     SAST_FINDING = 'finding/sast'
     VULNERABILITY_FINDING = 'finding/vulnerability'
+    GHAS_FINDING = 'finding/ghas'
 
     # informational datatypes
     CRYPTO_ASSET = 'crypto_asset'
@@ -52,6 +53,7 @@ class Datatype(enum.StrEnum):
             Datatype.OSID_FINDING: Datasource.OSID,
             Datatype.SAST_FINDING: Datasource.SAST,
             Datatype.VULNERABILITY_FINDING: Datasource.BDBA,
+            Datatype.GHAS_FINDING: Datasource.GHAS,
         }[self]
 
 
@@ -66,6 +68,7 @@ class Datasource(enum.StrEnum):
     INVENTORY = 'inventory'
     OSID = 'osid'
     SAST = 'sast'
+    GHAS = 'ghas'
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
@@ -96,6 +99,9 @@ class Datasource(enum.StrEnum):
             ),
             Datasource.SAST: (
                 Datatype.SAST_FINDING,
+            ),
+            Datasource.GHAS: (
+                Datatype.GHAS_FINDING,
             ),
         }.get(self, tuple())
 
@@ -524,6 +530,21 @@ class RescoreOsIdFinding:
     @property
     def key(self) -> str:
         return _as_key(self.osid.ID)
+
+
+@dataclasses.dataclass(frozen=True)
+class GitHubSecretFinding(Finding):
+    html_url: str
+    secret: str
+    secret_type: str
+    secret_type_display_name: str
+    path: str
+    line: int
+    state: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.html_url)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -967,6 +988,7 @@ class ArtefactMetadata:
         | CryptoFinding
         | FalcoFinding
         | InventoryFinding
+        | GitHubSecretFinding
         | dict # fallback, there should be a type
     )
     discovery_date: datetime.date | None = None # required for finding specific SLA tracking
