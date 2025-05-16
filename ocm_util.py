@@ -1,4 +1,3 @@
-import collections.abc
 import logging
 
 import cnudie.iter
