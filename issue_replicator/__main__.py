@@ -1,11 +1,8 @@
-import atexit
 import collections.abc
 import dataclasses
 import datetime
+import functools
 import logging
-import signal
-import sys
-import time
 
 import cachetools
 import github3.repos
@@ -16,13 +13,8 @@ import delivery.client
 import delivery.model
 import github.user
 
-import consts
 import issue_replicator.github
-import k8s.backlog
 import k8s.logging
-import k8s.model
-import k8s.util
-import lookups
 import odg.extensions_cfg
 import odg.findings
 import odg.model
@@ -35,28 +27,6 @@ import util
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
-
-ready_to_terminate = True
-wants_to_terminate = False
-
-
-def handle_sigterm_and_sigint(signum, frame):
-    global wants_to_terminate
-
-    sig = signal.Signals(signum)
-    if sig not in (signal.SIGTERM, signal.SIGINT):
-        raise ValueError(sig)
-
-    # also terminate if > 1 termination signals were received
-    if ready_to_terminate or wants_to_terminate:
-        sys.exit(0)
-
-    # grace period to finish current issue replication is defined in the replica set
-    # after this period, the issue replication will be terminated anyways by k8s means
-    logger.info(
-        f'{sig.name} signal received, will try to finish current issue replication and then exit'
-    )
-    wants_to_terminate = True
 
 
 def _iter_findings_for_artefact(
@@ -469,14 +439,18 @@ def replicate_issue_for_finding_type(
 
 def replicate_issue(
     artefact: odg.model.ComponentArtefactId,
-    issue_replicator_cfg: odg.extensions_cfg.IssueReplicatorConfig,
+    extension_cfg: odg.extensions_cfg.IssueReplicatorConfig,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
+    **kwargs,
 ):
     logger.info(f'starting issue replication of {artefact}')
 
-    mapping = issue_replicator_cfg.mapping(artefact.component_name)
+    # cache clear is necessary to prevent creating duplicated issues
+    issue_replicator.github._all_issues.cache_clear()
+
+    mapping = extension_cfg.mapping(artefact.component_name)
     issue_replicator.github.wait_for_quota_if_required(gh_api=mapping.github_api)
 
     for finding_cfg in finding_cfgs:
@@ -486,38 +460,14 @@ def replicate_issue(
             component_descriptor_lookup=component_descriptor_lookup,
             delivery_client=delivery_client,
             mapping=mapping,
-            delivery_dashboard_url=issue_replicator_cfg.delivery_dashboard_url,
+            delivery_dashboard_url=extension_cfg.delivery_dashboard_url,
         )
 
     logger.info(f'finished issue replication of {artefact}')
 
 
 def main():
-    signal.signal(signal.SIGTERM, handle_sigterm_and_sigint)
-    signal.signal(signal.SIGINT, handle_sigterm_and_sigint)
-
     parsed_arguments = odg.util.parse_args()
-    kubernetes_api = odg.util.kubernetes_api(parsed_arguments)
-    namespace = parsed_arguments.k8s_namespace
-    delivery_service_url = parsed_arguments.delivery_service_url
-
-    k8s.logging.init_logging_thread(
-        service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
-    atexit.register(
-        k8s.logging.log_to_crd,
-        service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
-
-    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
-        extensions_cfg_path = paths.extensions_cfg_path()
-
-    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
-    issue_replicator_cfg = extensions_cfg.issue_replicator
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
         findings_cfg_path = paths.findings_cfg_path()
@@ -525,64 +475,16 @@ def main():
     finding_cfgs = odg.findings.Finding.from_file(findings_cfg_path)
     finding_cfgs = [finding_cfg for finding_cfg in finding_cfgs if finding_cfg.issues.enable_issues]
 
-    if not delivery_service_url:
-        delivery_service_url = issue_replicator_cfg.delivery_service_url
-
-    delivery_client = delivery.client.DeliveryServiceClient(
-        routes=delivery.client.DeliveryServiceRoutes(
-            base_url=delivery_service_url,
-        ),
-        auth_token_lookup=lookups.github_auth_token_lookup,
+    replicate_issue_callback = functools.partial(
+        replicate_issue,
+        finding_cfgs=finding_cfgs,
     )
 
-    component_descriptor_lookup = lookups.init_component_descriptor_lookup(
-        cache_dir=parsed_arguments.cache_dir,
-        delivery_client=delivery_client,
+    odg.util.process_backlog_items(
+        parsed_arguments=parsed_arguments,
+        service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
+        callback=replicate_issue_callback,
     )
-
-    global ready_to_terminate
-    while not wants_to_terminate:
-        ready_to_terminate = False
-
-        backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-        )
-
-        if not backlog_crd:
-            ready_to_terminate = True
-            sleep_interval = consts.BACKLOG_ITEM_SLEEP_INTERVAL_SECONDS
-            logger.info(f'no open backlog item found, will sleep for {sleep_interval} sec')
-            time.sleep(sleep_interval)
-            continue
-
-        name = backlog_crd.get('metadata').get('name')
-        logger.info(f'processing backlog item {name}')
-
-        backlog_item = k8s.backlog.BacklogItem.from_dict(
-            backlog_item=backlog_crd.get('spec'),
-        )
-
-        # cache clear is necessary to prevent creating duplicated issues
-        issue_replicator.github._all_issues.cache_clear()
-        replicate_issue(
-            artefact=backlog_item.artefact,
-            issue_replicator_cfg=issue_replicator_cfg,
-            finding_cfgs=finding_cfgs,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_client=delivery_client,
-        )
-
-        k8s.util.delete_custom_resource(
-            crd=k8s.model.BacklogItemCrd,
-            name=name,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-        )
-        logger.info(f'processed and deleted backlog item {name}')
-
-        time.sleep(2) # throttle github-api-requests
 
 
 if __name__ == '__main__':
