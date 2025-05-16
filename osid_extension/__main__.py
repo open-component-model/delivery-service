@@ -311,14 +311,7 @@ def main():
     delivery_service_url = parsed_arguments.delivery_service_url
 
     secret_factory = ctx_util.secret_factory()
-
-    if parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = secret_factory.kubernetes(parsed_arguments.k8s_cfg_name)
-        kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
-    else:
-        kubernetes_api = k8s.util.kubernetes_api(
-            kubeconfig_path=parsed_arguments.kubeconfig,
-        )
+    kubernetes_api = odg.util.kubernetes_api(parsed_arguments, secret_factory=secret_factory)
 
     k8s.logging.init_logging_thread(
         service=odg.extensions_cfg.Services.OSID,

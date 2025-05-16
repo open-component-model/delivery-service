@@ -10,7 +10,6 @@ import cnudie.retrieve
 import delivery.client
 import ocm
 
-import ctx_util
 import k8s.backlog
 import k8s.logging
 import k8s.runtime_artefacts
@@ -596,17 +595,8 @@ def enumerate_artefacts(
 
 def main():
     parsed_arguments = odg.util.parse_args()
+    kubernetes_api = odg.util.kubernetes_api(parsed_arguments)
     namespace = parsed_arguments.k8s_namespace
-
-    secret_factory = ctx_util.secret_factory()
-
-    if parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = secret_factory.kubernetes(parsed_arguments.k8s_cfg_name)
-        kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
-    else:
-        kubernetes_api = k8s.util.kubernetes_api(
-            kubeconfig_path=parsed_arguments.kubeconfig,
-        )
 
     k8s.logging.init_logging_thread(
         service=odg.extensions_cfg.Services.ARTEFACT_ENUMERATOR,

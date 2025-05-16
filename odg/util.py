@@ -2,6 +2,10 @@ import argparse
 import collections.abc
 import os
 
+import ctx_util
+import k8s.util
+import secret_mgmt
+
 
 own_dir = os.path.abspath(os.path.dirname(__file__))
 root_dir = os.path.join(own_dir, os.pardir)
@@ -72,3 +76,17 @@ def parse_args(
         )
 
     return parser.parse_args()
+
+
+def kubernetes_api(
+    parsed_arguments: argparse.Namespace,
+    secret_factory: secret_mgmt.SecretFactory | None=None,
+) -> k8s.util.KubernetesApi:
+    if not parsed_arguments.k8s_cfg_name:
+        return k8s.util.kubernetes_api(kubeconfig_path=parsed_arguments.kubeconfig)
+
+    if not secret_factory:
+        secret_factory = ctx_util.secret_factory()
+
+    kubernetes_cfg = secret_factory.kubernetes(parsed_arguments.k8s_cfg_name)
+    return k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
