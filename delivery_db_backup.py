@@ -1,4 +1,3 @@
-import argparse
 import atexit
 import collections.abc
 import datetime
@@ -25,10 +24,9 @@ import k8s.logging
 import k8s.util
 import lookups
 import odg.extensions_cfg
-import odg.findings
+import odg.util
 import paths
 import secret_mgmt
-import secret_mgmt.delivery_db
 import secret_mgmt.oci_registry
 
 
@@ -257,44 +255,15 @@ def delete_old_backup_versions(
             )
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        '--k8s-cfg-name',
-        help='specify kubernetes cluster to interact with',
-        default=os.environ.get('K8S_CFG_NAME'),
-    )
-    parser.add_argument(
-        '--kubeconfig',
-        help='''
-            specify kubernetes cluster to interact with extensions (and logs); if both
-            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
-        ''',
-    )
-    parser.add_argument(
-        '--k8s-namespace',
-        help='specify kubernetes cluster namespace to interact with',
-        default=os.environ.get('K8S_TARGET_NAMESPACE'),
-    )
-    parser.add_argument(
-        '--extensions-cfg-path',
-        help='path to the `extensions_cfg.yaml` file that should be used',
-    )
-
-    parsed_arguments = parser.parse_args()
-
-    if not parsed_arguments.k8s_namespace:
-        raise ValueError(
-            'k8s namespace must be set, either via argument "--k8s-namespace" '
-            'or via environment variable "K8S_TARGET_NAMESPACE"'
-        )
-
-    return parsed_arguments
-
-
 def main():
-    parsed_arguments = parse_args()
+    parsed_arguments = odg.util.parse_args(
+        arguments=(
+            odg.util.Arguments.K8S_CFG_NAME,
+            odg.util.Arguments.KUBECONFIG,
+            odg.util.Arguments.K8S_NAMESPACE,
+            odg.util.Arguments.EXTENSIONS_CFG_PATH,
+        ),
+    )
     namespace = parsed_arguments.k8s_namespace
 
     secret_factory = ctx_util.secret_factory()

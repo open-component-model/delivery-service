@@ -1,10 +1,8 @@
-import argparse
 import atexit
 import collections
 import collections.abc
 import datetime
 import logging
-import os
 
 import ci.log
 import cnudie.iter
@@ -21,15 +19,13 @@ import lookups
 import odg.extensions_cfg
 import odg.findings
 import odg.model
+import odg.util
 import paths
 
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
-
-own_dir = os.path.abspath(os.path.dirname(__file__))
-default_cache_dir = os.path.join(own_dir, '.cache')
 
 
 def sprint_dates(
@@ -598,56 +594,8 @@ def enumerate_artefacts(
     )
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        '--k8s-cfg-name',
-        help='specify kubernetes cluster to interact with',
-        default=os.environ.get('K8S_CFG_NAME'),
-    )
-    parser.add_argument(
-        '--kubeconfig',
-        help='''
-            specify kubernetes cluster to interact with extensions (and logs); if both
-            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
-        ''',
-    )
-    parser.add_argument(
-        '--k8s-namespace',
-        help='specify kubernetes cluster namespace to interact with',
-        default=os.environ.get('K8S_TARGET_NAMESPACE'),
-    )
-    parser.add_argument(
-        '--extensions-cfg-path',
-        help='path to the `extensions_cfg.yaml` file that should be used',
-    )
-    parser.add_argument(
-        '--findings-cfg-path',
-        help='path to the `findings.yaml` file that should be used',
-    )
-    parser.add_argument(
-        '--delivery-service-url',
-        help='''
-            specify the url of the delivery service to use instead of the one configured in the
-            respective extensions configuration
-        ''',
-    )
-    parser.add_argument('--cache-dir', default=default_cache_dir)
-
-    parsed_arguments = parser.parse_args()
-
-    if not parsed_arguments.k8s_namespace:
-        raise ValueError(
-            'k8s namespace must be set, either via argument "k8s-namespace" '
-            'or via environment variable "K8S_TARGET_NAMESPACE"'
-        )
-
-    return parsed_arguments
-
-
 def main():
-    parsed_arguments = parse_args()
+    parsed_arguments = odg.util.parse_args()
     namespace = parsed_arguments.k8s_namespace
 
     secret_factory = ctx_util.secret_factory()
