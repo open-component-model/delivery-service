@@ -32,6 +32,8 @@ def modules():
         'paths',
         'rescore.model',
         'rescore.utility',
+        'responsibles_extension.filters',
+        'responsibles_extension.strategies',
         'util',
     ]
 
