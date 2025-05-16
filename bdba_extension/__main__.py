@@ -196,10 +196,14 @@ def scan(
             version=resource_node.component.version,
         )
 
-        content_iterator = ocm_util.iter_local_blob_content(
-            access=access,
-            oci_client=oci_client,
-            image_reference=image_reference,
+        content_iterator = tarutil.concat_blobs_as_tarstream(
+            blobs=[
+                ocm_util.local_blob_access_as_blob_descriptor(
+                    access=access,
+                    oci_client=oci_client,
+                    image_reference=image_reference,
+                ),
+            ]
         )
 
     else:
