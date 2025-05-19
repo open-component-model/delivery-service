@@ -18,7 +18,6 @@ import yaml
 import cnudie.retrieve
 import ocm
 
-import config
 import consts
 import ctx_util
 import k8s.util
@@ -160,7 +159,7 @@ class SpecialComponentsCfg:
     displayName: str
     type: str
     version: str | CurrentVersion
-    versionFilter: config.VersionFilter | None
+    versionFilter: odg.extensions_cfg.VersionFilter | None
     icon: str | None
     releasePipelineUrl: str | None
     sprintRules: SprintRules | None
@@ -551,9 +550,9 @@ class FeatureUpgradePRs(FeatureBase):
 @dataclasses.dataclass(frozen=True)
 class FeatureVersionFilter(FeatureBase):
     name: str = 'version-filter'
-    version_filter: config.VersionFilter = config.VersionFilter.RELEASES_ONLY
+    version_filter: odg.extensions_cfg.VersionFilter = odg.extensions_cfg.VersionFilter.RELEASES_ONLY
 
-    def get_version_filter(self) -> config.VersionFilter:
+    def get_version_filter(self) -> odg.extensions_cfg.VersionFilter:
         return self.version_filter
 
 
@@ -790,7 +789,7 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
     else:
         yield FeatureVersionFilter(
             state=FeatureStates.AVAILABLE,
-            version_filter=config.VersionFilter(version_filter),
+            version_filter=odg.extensions_cfg.VersionFilter(version_filter),
         )
 
 

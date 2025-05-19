@@ -24,7 +24,6 @@ import ocm
 
 import compliance_summary
 import components as components_module
-import config
 import ctx_util
 import deliverydb
 import deliverydb.model as dm
@@ -158,10 +157,8 @@ async def prefill_compliance_summary_caches(
     seen_component_ids = set()
 
     for component in components:
-        if component.version_filter:
-            version_filter = config.VersionFilter(component.version_filter)
-        else:
-            version_filter = config.VersionFilter.RELEASES_ONLY
+        if not (version_filter := component.version_filter):
+            version_filter = odg.extensions_cfg.VersionFilter.RELEASES_ONLY
 
         versions = await components_module.greatest_component_versions(
             component_name=component.component_name,

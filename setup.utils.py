@@ -21,7 +21,6 @@ def requirements():
 def modules():
     return [
         'caching',
-        'config',
         'consts',
         'crypto_extension.config',
         'ctx_util',

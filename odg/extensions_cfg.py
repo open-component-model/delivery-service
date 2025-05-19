@@ -42,6 +42,11 @@ class VersionAliases(enum.StrEnum):
     GREATEST = 'greatest'
 
 
+class VersionFilter(enum.StrEnum):
+    ALL = 'all'
+    RELEASES_ONLY = 'releases_only'
+
+
 class WarningVerbosities(enum.StrEnum):
     FAIL = 'fail'
     IGNORE = 'ignore'
@@ -73,7 +78,7 @@ class Component:
     component_name: str
     version: str | None
     ocm_repo_url: str | None
-    version_filter: str | None
+    version_filter: VersionFilter | None
     max_versions_limit: int = 1
 
     def __post_init__(self):
