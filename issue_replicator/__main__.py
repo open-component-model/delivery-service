@@ -203,22 +203,22 @@ def _responsibles(
     list[delivery.model.Status] | None,
 ]:
     '''
-    If responsibles can be retrieved via responsible-info entries, a list of these responsibles is
-    returned together with the defined `assignee_mode`. Otherwise, responsibles are determined via
-    finding overwrites or, as last fallback, via the delivery-service api together with their
-    `assignee_mode` and `statuses`.
+    If responsibles can be retrieved via overwrites, a list of these responsibles is returned
+    together with the defined `assignee_mode`. Otherwise, responsibles are determined via
+    responsible-info entries created by the responsibles-extension or, as last fallback, via the
+    delivery-service api together with their `assignee_mode` and `statuses`.
     '''
-    current_responsibles, assignee_mode = _responsibles_from_responsible_infos(
-        artefacts=artefacts,
-        finding_type=finding_type,
-        delivery_client=delivery_client,
+    current_responsibles, assignee_mode = _responsibles_from_overwrites(
+        artefact_metadata=artefact_metadata,
     )
 
     if current_responsibles is not None:
         return current_responsibles, assignee_mode or default_assignee_mode, None
 
-    current_responsibles, assignee_mode = _responsibles_from_overwrites(
-        artefact_metadata=artefact_metadata,
+    current_responsibles, assignee_mode = _responsibles_from_responsible_infos(
+        artefacts=artefacts,
+        finding_type=finding_type,
+        delivery_client=delivery_client,
     )
 
     if current_responsibles is not None:
