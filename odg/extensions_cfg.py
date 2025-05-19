@@ -74,7 +74,6 @@ class Component:
     version: str | None
     ocm_repo_url: str | None
     version_filter: str | None
-    timerange_days: int | None
     max_versions_limit: int = 1
 
     def __post_init__(self):
