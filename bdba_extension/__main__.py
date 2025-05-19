@@ -1,10 +1,5 @@
-import argparse
-import atexit
+import functools
 import logging
-import os
-import signal
-import sys
-import time
 
 import ci.log
 import cnudie.access
@@ -17,19 +12,15 @@ import tarutil
 import bdba.client
 import bdba.model
 import bdba_extension.scanning
-import consts
-import ctx_util
 import deliverydb_cache.model as dcm
 import deliverydb_cache.util as dcu
-import k8s.backlog
 import k8s.logging
-import k8s.model
 import k8s.util
-import lookups
 import ocm_util
 import odg.extensions_cfg
 import odg.findings
 import odg.model
+import odg.util
 import paths
 import secret_mgmt
 import secret_mgmt.bdba
@@ -38,25 +29,6 @@ import secret_mgmt.bdba
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
-
-own_dir = os.path.abspath(os.path.dirname(__file__))
-default_cache_dir = os.path.join(own_dir, '.cache')
-
-ready_to_terminate = True
-wants_to_terminate = False
-
-
-def handle_termination_signal(*args):
-    global wants_to_terminate
-
-    # also terminate if > 1 termination signals were received
-    if ready_to_terminate or wants_to_terminate:
-        sys.exit(0)
-
-    # grace period to finish current scan is defined in the replica set
-    # after this period, the scan will be terminated anyways by k8s means
-    logger.info('termination signal received, will try to finish current scan and then exit')
-    wants_to_terminate = True
 
 
 def _mark_compliance_summary_cache_for_deletion(
@@ -82,13 +54,14 @@ def _mark_compliance_summary_cache_for_deletion(
 
 def scan(
     artefact: odg.model.ComponentArtefactId,
-    bdba_cfg: odg.extensions_cfg.BDBAConfig,
+    extension_cfg: odg.extensions_cfg.BDBAConfig,
     vulnerability_cfg: odg.findings.Finding | None,
     license_cfg: odg.findings.Finding | None,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
+    **kwargs,
 ):
     logger.info(f'scanning {artefact}')
 
@@ -115,8 +88,8 @@ def scan(
             'vulnerability findings will be considered'
         )
 
-    if not bdba_cfg.is_supported(artefact_kind=artefact.artefact_kind):
-        if bdba_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+    if not extension_cfg.is_supported(artefact_kind=artefact.artefact_kind):
+        if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{artefact.artefact_kind} is not supported by the BDBA extension, maybe the filter '
                 'configurations have to be adjusted to filter out this artefact kind'
@@ -129,15 +102,15 @@ def scan(
     )
     access = resource_node.resource.access
 
-    if not bdba_cfg.is_supported(access_type=access.type):
-        if bdba_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+    if not extension_cfg.is_supported(access_type=access.type):
+        if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{access.type} is not supported by the BDBA extension, maybe the filter '
                 'configurations have to be adjusted to filter out this access type'
             )
         return
 
-    mapping = bdba_cfg.mapping(artefact.component_name)
+    mapping = extension_cfg.mapping(artefact.component_name)
 
     logger.info(f'using BDBA secret element "{mapping.bdba_secret_name}"')
     bdba_secret: secret_mgmt.bdba.BDBA = secret_factory.bdba(mapping.bdba_secret_name)
@@ -243,89 +216,8 @@ def scan(
     logger.info(f'finished scan of artefact {artefact}')
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        '--k8s-cfg-name',
-        help='specify kubernetes cluster to interact with',
-        default=os.environ.get('K8S_CFG_NAME'),
-    )
-    parser.add_argument(
-        '--kubeconfig',
-        help='''
-            specify kubernetes cluster to interact with extensions (and logs); if both
-            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
-        ''',
-    )
-    parser.add_argument(
-        '--k8s-namespace',
-        help='specify kubernetes cluster namespace to interact with',
-        default=os.environ.get('K8S_TARGET_NAMESPACE'),
-    )
-    parser.add_argument(
-        '--extensions-cfg-path',
-        help='path to the `extensions_cfg.yaml` file that should be used',
-    )
-    parser.add_argument(
-        '--findings-cfg-path',
-        help='path to the `findings.yaml` file that should be used',
-    )
-    parser.add_argument(
-        '--delivery-service-url',
-        help='''
-            specify the url of the delivery service to use instead of the one configured in the
-            respective extensions configuration
-        ''',
-    )
-    parser.add_argument('--cache-dir', default=default_cache_dir)
-
-    parsed_arguments = parser.parse_args()
-
-    if not parsed_arguments.k8s_namespace:
-        raise ValueError(
-            'k8s namespace must be set, either via argument "--k8s-namespace" '
-            'or via environment variable "K8S_TARGET_NAMESPACE"'
-        )
-
-    return parsed_arguments
-
-
 def main():
-    signal.signal(signal.SIGTERM, handle_termination_signal)
-    signal.signal(signal.SIGINT, handle_termination_signal)
-
-    parsed_arguments = parse_args()
-    namespace = parsed_arguments.k8s_namespace
-    delivery_service_url = parsed_arguments.delivery_service_url
-
-    secret_factory = ctx_util.secret_factory()
-
-    if parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = secret_factory.kubernetes(parsed_arguments.k8s_cfg_name)
-        kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
-    else:
-        kubernetes_api = k8s.util.kubernetes_api(
-            kubeconfig_path=parsed_arguments.kubeconfig,
-        )
-
-    k8s.logging.init_logging_thread(
-        service=odg.extensions_cfg.Services.BDBA,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
-    atexit.register(
-        k8s.logging.log_to_crd,
-        service=odg.extensions_cfg.Services.BDBA,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-    )
-
-    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
-        extensions_cfg_path = paths.extensions_cfg_path()
-
-    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
-    bdba_cfg = extensions_cfg.bdba
+    parsed_arguments = odg.util.parse_args()
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
         findings_cfg_path = paths.findings_cfg_path()
@@ -339,68 +231,17 @@ def main():
         finding_type=odg.model.Datatype.LICENSE_FINDING,
     )
 
-    if not delivery_service_url:
-        delivery_service_url = bdba_cfg.delivery_service_url
-
-    delivery_client = delivery.client.DeliveryServiceClient(
-        routes=delivery.client.DeliveryServiceRoutes(
-            base_url=delivery_service_url,
-        ),
-        auth_token_lookup=lookups.github_auth_token_lookup,
+    scan_callback = functools.partial(
+        scan,
+        vulnerability_cfg=vulnerability_cfg,
+        license_cfg=license_cfg,
     )
 
-    oci_client = lookups.semver_sanitising_oci_client(
-        secret_factory=secret_factory,
+    odg.util.process_backlog_items(
+        parsed_arguments=parsed_arguments,
+        service=odg.extensions_cfg.Services.BDBA,
+        callback=scan_callback,
     )
-
-    component_descriptor_lookup = lookups.init_component_descriptor_lookup(
-        cache_dir=parsed_arguments.cache_dir,
-        delivery_client=delivery_client,
-        oci_client=oci_client,
-    )
-
-    global ready_to_terminate
-    while not wants_to_terminate:
-        ready_to_terminate = False
-
-        backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=odg.extensions_cfg.Services.BDBA,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-        )
-
-        if not backlog_crd:
-            ready_to_terminate = True
-            sleep_interval = consts.BACKLOG_ITEM_SLEEP_INTERVAL_SECONDS
-            logger.info(f'no open backlog item found, will sleep for {sleep_interval} sec')
-            time.sleep(sleep_interval)
-            continue
-
-        name = backlog_crd.get('metadata').get('name')
-        logger.info(f'processing backlog item {name}')
-
-        backlog_item = k8s.backlog.BacklogItem.from_dict(
-            backlog_item=backlog_crd.get('spec'),
-        )
-
-        scan(
-            artefact=backlog_item.artefact,
-            bdba_cfg=bdba_cfg,
-            vulnerability_cfg=vulnerability_cfg,
-            license_cfg=license_cfg,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_client=delivery_client,
-            oci_client=oci_client,
-            secret_factory=secret_factory,
-        )
-
-        k8s.util.delete_custom_resource(
-            crd=k8s.model.BacklogItemCrd,
-            name=name,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-        )
-        logger.info(f'processed and deleted backlog item {name}')
 
 
 if __name__ == '__main__':
