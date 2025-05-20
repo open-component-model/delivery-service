@@ -1,6 +1,5 @@
 import collections.abc
 import dataclasses
-import datetime
 import enum
 import functools
 import logging
@@ -96,31 +95,12 @@ class Component:
         )
 
 
-@dataclasses.dataclass
-class TimeRange:
-    days_from: int = -90
-    days_to: int = 150
-
-    @property
-    def start_date(self) -> datetime.date:
-        today = datetime.date.today()
-        return today + datetime.timedelta(days=self.days_from)
-
-    @property
-    def end_date(self) -> datetime.date:
-        today = datetime.date.today()
-        return today + datetime.timedelta(days=self.days_to)
-
-
 @dataclasses.dataclass(kw_only=True)
 class ArtefactEnumeratorConfig(ExtensionCfgMixins):
     '''
     :param str delivery_service_url
     :param list[Component] components:
         Components which are classified as "active" and for which compliance snapshots are created.
-    :param TimeRange sprints_relative_time_range:
-        Earliest start and latest end date for which compliance snapshots should be created. If not
-        set, all available sprints will be considered.
     :param int compliance_snapshot_grace_period:
         Time after which inactive compliance snapshots are deleted from the delivery-db. During this
         period, the inactive snapshots are used to possibly close outdated GitHub issues (i.e. the
@@ -132,7 +112,6 @@ class ArtefactEnumeratorConfig(ExtensionCfgMixins):
     service: Services = Services.ARTEFACT_ENUMERATOR
     delivery_service_url: str
     components: list[Component]
-    sprints_relative_time_range: TimeRange | None
     compliance_snapshot_grace_period: int = 60 * 60 * 24 # 24h
     schedule: str = '*/5 * * * *' # every 5 minutes
     successful_jobs_history_limit: int = 1
