@@ -29,6 +29,23 @@ ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
 
 
+@functools.cache
+def sprint_dates(
+    delivery_client: delivery.client.DeliveryServiceClient,
+    date_name: str='release_decision',
+) -> tuple[datetime.date]:
+    sprints = delivery_client.sprints()
+    sprint_dates = tuple(
+        sprint.find_sprint_date(name=date_name).value.date()
+        for sprint in sprints
+    )
+
+    if not sprint_dates:
+        raise ValueError('no sprints found')
+
+    return sprint_dates
+
+
 def _iter_findings_for_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
@@ -76,12 +93,12 @@ def _iter_findings_for_artefact(
         )
 
 
-def _iter_findings_with_processing_dates(
+def _iter_findings_with_due_dates(
     findings: collections.abc.Iterable[issue_replicator.github.AggregatedFinding],
     finding_cfg: odg.findings.Finding,
-    sprints: collections.abc.Sequence[datetime.date],
+    due_dates: collections.abc.Iterable[datetime.date],
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
-    sprints = sorted(sprints)
+    sprint_due_dates = sorted(due_dates)
 
     for finding in findings:
         if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO:
@@ -96,9 +113,9 @@ def _iter_findings_with_processing_dates(
         )):
             continue # finding does not have to be processed anymore
 
-        for sprint in sprints:
-            if sprint >= due_date:
-                finding.due_date = sprint
+        for sprint_due_date in sprint_due_dates:
+            if sprint_due_date >= due_date:
+                finding.due_date = sprint_due_date
                 break
         else:
             logger.warning(f'could not determine target sprint for {finding=})')
@@ -109,7 +126,7 @@ def _iter_findings_with_processing_dates(
 
 def _group_findings_by_due_date(
     findings: collections.abc.Sequence[issue_replicator.github.AggregatedFinding],
-    sprints: collections.abc.Sequence[datetime.date],
+    due_dates: collections.abc.Iterable[datetime.date],
 ) -> collections.abc.Generator[
     tuple[
         tuple[issue_replicator.github.AggregatedFinding], # findings
@@ -118,13 +135,13 @@ def _group_findings_by_due_date(
     None,
     None,
 ]:
-    for sprint in sprints:
+    for due_date in due_dates:
         filtered_findings = tuple(
             finding for finding in findings
-            if finding.due_date == sprint
+            if finding.due_date == due_date
         )
 
-        yield filtered_findings, sprint
+        yield filtered_findings, due_date
 
 
 def _responsibles_from_responsible_infos(
@@ -287,6 +304,7 @@ def replicate_issue_for_finding_type(
     delivery_client: delivery.client.DeliveryServiceClient,
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_dashboard_url: str,
+    due_dates: collections.abc.Iterable[datetime.date],
 ):
     finding_type = finding_cfg.type
     finding_source = finding_type.datasource()
@@ -298,40 +316,18 @@ def replicate_issue_for_finding_type(
         keep_group_attributes=True,
     )
 
-    compliance_snapshots = tuple(
-        odg.model.ArtefactMetadata.from_dict(raw)
+    active_compliance_snapshots = tuple(
+        compliance_snapshot
         for raw in delivery_client.query_metadata(
             artefacts=(artefact_group,),
             type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
         )
-    )
-    logger.info(f'{len(compliance_snapshots)=}')
-
-    active_compliance_snapshots = tuple(
-        cs for cs in compliance_snapshots
-        if cs.data.current_state().status is odg.model.ComplianceSnapshotStatuses.ACTIVE
+        if (
+            (compliance_snapshot := odg.model.ArtefactMetadata.from_dict(raw))
+            and compliance_snapshot.data.is_active
+        )
     )
     logger.info(f'{len(active_compliance_snapshots)=}')
-
-    issue_ids_by_due_date: dict[datetime.date, str] = dict()
-    for compliance_snapshot in compliance_snapshots:
-        due_date = compliance_snapshot.data.due_date
-
-        if due_date in issue_ids_by_due_date:
-            continue
-
-        issue_ids_by_due_date[due_date] = finding_cfg.issues.issue_id(
-            artefact=artefact,
-            due_date=due_date,
-        )
-
-    active_sprints = set()
-    for compliance_snapshot in active_compliance_snapshots:
-        active_sprints.add(compliance_snapshot.data.due_date)
-
-    if not (all_sprints := list(issue_ids_by_due_date.keys())):
-        logger.warning('did not find any sprints, exiting...')
-        return
 
     artefacts = tuple({
         cs.artefact for cs in active_compliance_snapshots
@@ -346,10 +342,10 @@ def replicate_issue_for_finding_type(
             finding_source=finding_source,
         )
 
-        findings = tuple(_iter_findings_with_processing_dates(
+        findings = tuple(_iter_findings_with_due_dates(
             findings=findings,
             finding_cfg=finding_cfg,
-            sprints=active_sprints,
+            due_dates=due_dates,
         ))
         logger.info(f'{len(findings)=}')
     else:
@@ -359,7 +355,7 @@ def replicate_issue_for_finding_type(
 
     findings_by_due_date = _group_findings_by_due_date(
         findings=findings,
-        sprints=all_sprints,
+        due_dates=due_dates,
     )
 
     # `artefacts` are retrieved from all active compliance snapshots, whereas `scanned_artefacts`
@@ -417,7 +413,10 @@ def replicate_issue_for_finding_type(
         statuses = None
 
     for findings, due_date in findings_by_due_date:
-        issue_id = issue_ids_by_due_date.get(due_date)
+        issue_id = finding_cfg.issues.issue_id(
+            artefact=artefact,
+            due_date=due_date,
+        )
 
         issue_replicator.github.create_or_update_or_close_issue(
             mapping=mapping,
@@ -447,6 +446,12 @@ def replicate_issue(
 ):
     logger.info(f'starting issue replication of {artefact}')
 
+    due_dates = sprint_dates(delivery_client=delivery_client)
+
+    if not (due_dates := sprint_dates(delivery_client=delivery_client)):
+        logger.warning('did not find any sprints, exiting...')
+        return
+
     # cache clear is necessary to prevent creating duplicated issues
     issue_replicator.github._all_issues.cache_clear()
 
@@ -461,6 +466,7 @@ def replicate_issue(
             delivery_client=delivery_client,
             mapping=mapping,
             delivery_dashboard_url=extension_cfg.delivery_dashboard_url,
+            due_dates=due_dates,
         )
 
     logger.info(f'finished issue replication of {artefact}')
