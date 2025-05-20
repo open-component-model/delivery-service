@@ -799,16 +799,11 @@ class ComplianceSnapshotState:
 
 @dataclasses.dataclass
 class ComplianceSnapshot:
-    due_date: datetime.date
     state: list[ComplianceSnapshotState]
-
-    @property
-    def key(self) -> str:
-        return self.due_date.isoformat()
 
     def current_state(
         self,
-        service: str = None,
+        service: str | None=None,
     ) -> ComplianceSnapshotState | None:
         for state in sorted(self.state, key=lambda s: s.timestamp, reverse=True):
             if service == state.service:
@@ -817,11 +812,11 @@ class ComplianceSnapshot:
 
     def purge_old_states(
         self,
-        service: str = None,
+        service: str | None=None,
     ):
         current_state = None
         for state in sorted(self.state, key=lambda s: s.timestamp, reverse=True):
-            if not service == state.service:
+            if service != state.service:
                 continue
 
             if not current_state:
