@@ -801,6 +801,20 @@ class ComplianceSnapshotState:
 class ComplianceSnapshot:
     state: list[ComplianceSnapshotState]
 
+    @property
+    def is_active(self) -> bool:
+        if not (state := self.current_state()):
+            return False
+
+        return state.status is ComplianceSnapshotStatuses.ACTIVE
+
+    def update_state(
+        self,
+        state: ComplianceSnapshotState,
+    ):
+        self.state.append(state)
+        self._purge_old_states(service=state.service)
+
     def current_state(
         self,
         service: str | None=None,
@@ -810,7 +824,7 @@ class ComplianceSnapshot:
                 return state
         return None
 
-    def purge_old_states(
+    def _purge_old_states(
         self,
         service: str | None=None,
     ):

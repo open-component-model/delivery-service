@@ -107,16 +107,12 @@ def _create_or_update_compliance_snapshot_of_artefact(
             today=today,
         )
 
-    if (
-        compliance_snapshot.data.current_state().status !=
-        odg.model.ComplianceSnapshotStatuses.ACTIVE
-    ):
+    if not compliance_snapshot.data.is_active:
         logger.info(f'updating state of compliance snapshot for {artefact=}')
-        compliance_snapshot.data.state.append(odg.model.ComplianceSnapshotState(
+        compliance_snapshot.data.update_state(odg.model.ComplianceSnapshotState(
             timestamp=now,
             status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
         ))
-        compliance_snapshot.data.purge_old_states()
 
     return compliance_snapshot
 
@@ -172,14 +168,11 @@ def _create_backlog_item(
 
     # there is a need to create a new backlog item, thus update the state of the compliance snapshot
     # of this artefact so that the configured interval can be acknowledged correctly
-    compliance_snapshot.data.state.append(odg.model.ComplianceSnapshotState(
+    compliance_snapshot.data.update_state(odg.model.ComplianceSnapshotState(
         timestamp=now,
         status=status,
         service=service,
     ))
-    compliance_snapshot.data.purge_old_states(
-        service=service,
-    )
 
     was_created = k8s.backlog.create_unique_backlog_item(
         service=service,
@@ -386,15 +379,11 @@ def _process_inactive_compliance_snapshots(
         cs_by_artefact[compliance_snapshot.artefact] = compliance_snapshot
 
     for artefact, compliance_snapshot in cs_by_artefact.items():
-        current_general_state = compliance_snapshot.data.current_state()
-
-        if current_general_state.status != odg.model.ComplianceSnapshotStatuses.INACTIVE:
-            current_general_state = odg.model.ComplianceSnapshotState(
+        if compliance_snapshot.data.is_active:
+            compliance_snapshot.data.update_state(odg.model.ComplianceSnapshotState(
                 timestamp=now,
                 status=odg.model.ComplianceSnapshotStatuses.INACTIVE,
-            )
-            compliance_snapshot.data.state.append(current_general_state)
-            compliance_snapshot.data.purge_old_states()
+            ))
 
             delivery_client.update_metadata(data=[compliance_snapshot])
             logger.info(f'updated inactive compliance snapshot in delivery-db ({artefact=})')
@@ -414,7 +403,7 @@ def _process_inactive_compliance_snapshots(
                         f'{artefact=}'
                     )
 
-        if now - current_general_state.timestamp >= datetime.timedelta(
+        if now - compliance_snapshot.data.current_state().timestamp >= datetime.timedelta(
             seconds=extensions_cfg.artefact_enumerator.compliance_snapshot_grace_period,
         ):
             deletable_compliance_snapshots.append(compliance_snapshot)
