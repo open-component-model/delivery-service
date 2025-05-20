@@ -33,7 +33,7 @@ import yp
 logger = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class LicenseFinding(odg.model.Finding):
     package_name: str
     package_versions: tuple[str, ...] # "..." for dacite.from_dict
@@ -41,7 +41,7 @@ class LicenseFinding(odg.model.Finding):
     filesystem_paths: list[odg.model.FilesystemPath]
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class VulnerabilityFinding(odg.model.Finding):
     package_name: str
     package_versions: tuple[str, ...] # "..." for dacite.from_dict
@@ -53,12 +53,12 @@ class VulnerabilityFinding(odg.model.Finding):
     filesystem_paths: list[odg.model.FilesystemPath]
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class MalwareFinding(odg.model.Finding):
     finding: odg.model.MalwareFindingDetails
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class RescoringProposal:
     finding: (
         LicenseFinding
