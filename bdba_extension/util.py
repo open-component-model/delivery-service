@@ -97,11 +97,15 @@ def iter_artefact_metadata(
 
         filesystem_paths = list(iter_filesystem_paths(component=package))
 
-        licenses = list({
+        license_names = {
+            license.name
+            for license in package.iter_licenses
+        }
+        licenses = [
             odg.model.License(
-                name=license.name,
-            ) for license in package.iter_licenses
-        })
+                name=license_name,
+            ) for license_name in license_names
+        ]
 
         meta = odg.model.Metadata(
             datasource=datasource,
