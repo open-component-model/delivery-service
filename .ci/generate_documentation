@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -eu
+
+repo_dir="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/..")"
+out_dir="${GH_PAGES_PATH:-${repo_dir}/documentation.out}"
+
+if [ ! -d ${out_dir} ]; then
+  echo "not a directory: ${out_dir}"
+  exit 1
+fi
+
+src_dir="${repo_dir}/docs"
+sphinx-build -E -av "${src_dir}" "${out_dir}"
+
+# disable github's theme
+touch "${out_dir}/.nojekyll"
+
+# cp custom css
+cp -r "${src_dir}/css" "${out_dir}/_static/"
