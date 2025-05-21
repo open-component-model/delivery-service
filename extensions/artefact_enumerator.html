@@ -1,0 +1,240 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artefact-Enumerator &mdash; Open Delivery Gear  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Issue-Replicator" href="issue_replicator.html" />
+    <link rel="prev" title="Open Delivery Gear - Overview" href="../index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Open Delivery Gear
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Artefact-Enumerator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="issue_replicator.html">Issue-Replicator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="responsibles.html">Responsibles</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Open Delivery Gear</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Artefact-Enumerator</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/extensions/artefact_enumerator.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="artefact-enumerator">
+<h1>Artefact-Enumerator<a class="headerlink" href="#artefact-enumerator" title="Link to this heading"></a></h1>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading"></a></h2>
+<p>The artefact-enumerator extension periodically checks the configured
+<a class="reference internal" href="#ocm-components"><span class="std std-ref">OCM artefacts</span></a> and available
+<a class="reference internal" href="#runtime-artefacts"><span class="std std-ref">runtime artefacts</span></a> and takes care of the lifecycle of
+their <a class="reference internal" href="issue_replicator.html#compliance-snapshots"><span class="std std-ref">compliance snapshots</span></a>
+(create/update/delete). Based on the status information in the compliance
+snapshots, the artefact-enumerator evaluates whether it must create backlog
+items for certain extensions or not.</p>
+</section>
+<section id="how-it-works">
+<h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h2>
+<section id="artefacts">
+<span id="id1"></span><h3>Artefacts<a class="headerlink" href="#artefacts" title="Link to this heading"></a></h3>
+<p>It is required to specify a set of <strong>artefacts “of interest”</strong> which should be
+periodically being processed by the available extensions (e.g. scanned,
+reported, etc.). Apart from these periodical triggers initiated by the
+artefact-enumerator, certain extensions might be triggered manually by creating
+a respective <strong>backlog item</strong> for the desired extension and <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> (see
+<a class="reference internal" href="#example-backlog-item"><span class="std std-ref">example</span></a>), for example via delivery-dashboard or
+directly via delivery-service or cluster API. In general, creating backlog
+items is the same trigger as used by the artefact-enumerator, however, certain
+extensions might require the artefacts to be configured here in order to
+process them (e.g.
+<a class="reference internal" href="issue_replicator.html"><span class="doc">issue-replicator extension</span></a>). Artefacts
+may be configured in two different ways, as referenced
+<a class="reference internal" href="#ocm-components"><span class="std std-ref">OCM components</span></a> or as
+<a class="reference internal" href="#runtime-artefacts"><span class="std std-ref">runtime artefacts</span></a>.</p>
+<section id="ocm-components">
+<span id="id2"></span><h4>OCM Components<a class="headerlink" href="#ocm-components" title="Link to this heading"></a></h4>
+<p>OCM components are configured using the <code class="code docutils literal notranslate"><span class="pre">components</span></code> property in the extensions
+configuration. The configured components and their dependencies are retrieved
+<strong>recursively</strong> and each of their dependencies is subject of being processed.
+As the Open Delivery Gear generally works on the granularity of
+<code class="code docutils literal notranslate"><span class="pre">ComponentArtefactIds</span></code>, each <code class="code docutils literal notranslate"><span class="pre">resource</span></code> and <code class="code docutils literal notranslate"><span class="pre">source</span></code> of the OCM components is
+parsed into such a <code class="code docutils literal notranslate"><span class="pre">ComponentArtefactId</span></code> and tracked individually.</p>
+</section>
+<section id="runtime-artefacts">
+<span id="id3"></span><h4>Runtime Artefacts<a class="headerlink" href="#runtime-artefacts" title="Link to this heading"></a></h4>
+<p>To be also able to process artefacts which are not (yet) subject of being
+modelled via OCM, i.e. volatile <strong>runtime artefacts</strong>, those can be added to
+the list of artefacts “of interest” by creating respective <code class="code docutils literal notranslate"><span class="pre">RuntimeArtefact</span></code>
+custom resources, either via delivery-service or via cluster API (see
+<a class="reference internal" href="#example-runtime-artefact"><span class="std std-ref">example</span></a>). Note that, because these artefacts
+are not modelled via OCM, the artefact-enumerator is not able to resolve any
+dependencies and thus each artefact must be specified via a dedicated runtime
+artefact. Those runtime artefacts also contain a <code class="code docutils literal notranslate"><span class="pre">ComponentArtefactId</span></code> and are
+later processed equally as the before mentioned OCM resources and sources.</p>
+</section>
+</section>
+<section id="compliance-snapshots">
+<span id="id4"></span><h3>Compliance Snapshots<a class="headerlink" href="#compliance-snapshots" title="Link to this heading"></a></h3>
+<p>Compliance snapshots are used as internal state for the configured
+<a class="reference internal" href="#artefacts"><span class="std std-ref">artefacts</span></a>, e.g. to store information on the last execution
+time by a extension or to keep track of artefacts which should be reported
+before but, by now, they are not “of interest” anymore, and thus, for example,
+remaining open GitHub issues must be closed. Therefore, for each artefact, a
+respective compliance snapshot is being created. Already existing compliance
+snapshots of artefacts which are not “of interest” anymore are kept for an
+extra grace period to allow other extensions (e.g. the
+<a class="reference internal" href="issue_replicator.html"><span class="doc">issue-replicator</span></a>) to react upon those
+changes (e.g. to close related GitHub issues).</p>
+</section>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">artefact_enumerator</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">components</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">component_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-component</span>
+<span class="w">      </span><span class="nt">ocm_repo_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">europe-docker.pkgk.dev/gardener-project/releases</span>
+<span class="w">      </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">greatest</span>
+<span class="w">      </span><span class="nt">version_filter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">releases_only</span>
+<span class="w">      </span><span class="nt">max_versions_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</pre></div>
+</div>
+</section>
+<section id="backlog-item">
+<span id="example-backlog-item"></span><h3>Backlog Item<a class="headerlink" href="#backlog-item" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">delivery-gear.gardener.cloud/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BacklogItem</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">issuereplicator-8-abcde</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">delivery</span>
+<span class="w">  </span><span class="nt">labels</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">delivery-gear.gardener.cloud/service</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">issueReplicator</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">artefact</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">component_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-component</span>
+<span class="w">    </span><span class="nt">component_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">    </span><span class="nt">artefact_kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">runtime</span>
+<span class="w">    </span><span class="nt">artefact</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">artefact_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-runtime-resource</span>
+<span class="w">      </span><span class="nt">artefact_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">      </span><span class="nt">artefact_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">virtual-machine</span>
+<span class="w">      </span><span class="nt">artefact_extra_id</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">        </span><span class="nt">hyperscaler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hyperscaler</span>
+<span class="w">  </span><span class="nt">priority</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">  </span><span class="nt">timestamp</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2025-01-01T12:00:00.000000+00:00&#39;</span>
+</pre></div>
+</div>
+</section>
+<section id="runtime-artefact">
+<span id="example-runtime-artefact"></span><h3>Runtime Artefact<a class="headerlink" href="#runtime-artefact" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">delivery-gear.gardener.cloud/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RuntimeArtefact</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">runtime-artefact-abcde</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">delivery</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">artefact</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">component_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-component</span>
+<span class="w">    </span><span class="nt">component_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">    </span><span class="nt">artefact_kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">runtime</span>
+<span class="w">    </span><span class="nt">artefact</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">artefact_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-runtime-resource</span>
+<span class="w">      </span><span class="nt">artefact_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">      </span><span class="nt">artefact_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">virtual-machine</span>
+<span class="w">      </span><span class="nt">artefact_extra_id</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">        </span><span class="nt">hyperscaler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hyperscaler</span>
+<span class="w">  </span><span class="nt">creation_date</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2025-01-01T12:00:00.000000+00:00&#39;</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../index.html" class="btn btn-neutral float-left" title="Open Delivery Gear - Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="issue_replicator.html" class="btn btn-neutral float-right" title="Issue-Replicator" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SAP SE or an SAP affiliate company.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

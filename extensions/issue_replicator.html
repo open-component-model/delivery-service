@@ -1,0 +1,241 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Issue-Replicator &mdash; Open Delivery Gear  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Responsibles" href="responsibles.html" />
+    <link rel="prev" title="Artefact-Enumerator" href="artefact_enumerator.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Open Delivery Gear
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="artefact_enumerator.html">Artefact-Enumerator</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Issue-Replicator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="responsibles.html">Responsibles</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Open Delivery Gear</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Issue-Replicator</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/extensions/issue_replicator.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="issue-replicator">
+<h1>Issue-Replicator<a class="headerlink" href="#issue-replicator" title="Link to this heading"></a></h1>
+<p>The issue-replicator extension is responsible for the GitHub issue lifecycle
+(create/update/close) for issues of the configured artefacts and finding
+types. If enabled, it will also take care of assigning responsibles to the
+GitHub issue.</p>
+<p>A GitHub issue always comprises <strong>all findings</strong> of a single <strong>finding type</strong>
+for an <a class="reference internal" href="#artefact-groups"><span class="std std-ref">artefact group</span></a> which are due in the same
+<strong>sprint</strong>. This behaviour can be changed to create one GitHub issue per
+finding (no grouping) instead by setting the <code class="code docutils literal notranslate"><span class="pre">enable_per_finding</span></code> flag in the
+respective findings configuration.</p>
+<section id="how-it-works">
+<h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h2>
+<p>To identify already existing GitHub issues, the issue-replicator creates a
+<strong>stable id</strong> and adds it as label to the managed GitHub issues. This label is
+later used to query already existing issues. The issue id is made up by the
+<strong>grouping relevant properties</strong> of the <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> (see
+<a class="reference internal" href="#artefact-groups"><span class="std std-ref">artefact groups</span></a>) as well as the <strong>due date</strong>. Also, a
+version prefix is added to be able to differentiate issue ids in case their
+calculation changes in the future.</p>
+<section id="artefact-groups">
+<span id="id1"></span><h3>Artefact Groups<a class="headerlink" href="#artefact-groups" title="Link to this heading"></a></h3>
+<p>Artefact groups are defined by those properties configured in
+<code class="code docutils literal notranslate"><span class="pre">attrs_to_group_by</span></code> per type in the findings configuration. All GitHub issues
+related to the artefacts in the group are updated at once upon processing of a
+respective backlog item. However, the <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> defined in this backlog item
+<strong>must</strong> contain (at least) all grouping relevant properties! The not grouping
+relevant properties of the backlog item are only used in case the findings
+configuration has a respective <code class="code docutils literal notranslate"><span class="pre">filter</span></code> configured. To find all artefacts
+associated to the group, all <a class="reference internal" href="#compliance-snapshots"><span class="std std-ref">compliance snapshots</span></a>
+with matching artefact group properties are retrieved and their <code class="code docutils literal notranslate"><span class="pre">artefact</span></code>
+information is used.</p>
+</section>
+<section id="compliance-snapshots">
+<span id="id2"></span><h3>Compliance Snapshots<a class="headerlink" href="#compliance-snapshots" title="Link to this heading"></a></h3>
+<p>Compliance snapshots are used to store the state of components which are
+intended to be processed periodically, e.g. scanned, reported, etc. (see
+<a class="reference internal" href="artefact_enumerator.html"><span class="doc">artefact-enumerator extension</span></a> for more
+details). To prevent GitHub issues being created for components which are not
+of interest (e.g. if a scan and issue update were triggered manually), the
+<strong>issue-replicator requires compliance snapshots</strong> to be present for the
+artefact group. If there is not at least one “active” compliance snapshot for
+the artefact group, it is considered to be not of interest (anymore), and all
+associated GitHub issues (if there are any) will be closed. However, please
+note that compliance snapshots are not intended to be managed manually but only
+via the <a class="reference internal" href="artefact_enumerator.html"><span class="doc">artefact-enumerator extension</span></a>.</p>
+</section>
+<section id="github-issue-assignees">
+<h3>GitHub Issue Assignees<a class="headerlink" href="#github-issue-assignees" title="Link to this heading"></a></h3>
+<p>If the <code class="code docutils literal notranslate"><span class="pre">enable_assignees</span></code> flag is set in the respective findings configuration,
+the issue-replicator will try to determine the responsibles for the artefact
+group and if there are any, assign those to the GitHub issues. Since there are
+different ways, where and how responsible information is stored, the following
+<strong>lookup precedence</strong> applies (in case one lookup yields <code class="code docutils literal notranslate"><span class="pre">None</span></code>, the next one
+is tried, but if one lookup yields an empty list <code class="code docutils literal notranslate"><span class="pre">[]</span></code>, this is interpreted as
+“no responsibles” and no further lookup is performed):</p>
+<ol class="arabic">
+<li><p><em>Overwrites</em></p>
+<p>When uploading <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> of type <code class="code docutils literal notranslate"><span class="pre">meta/artefact_scan_info</span></code>,
+extensions may add information on responsibles via the <code class="code docutils literal notranslate"><span class="pre">.meta.responsibles</span></code>
+attribute and a corresponding assignee mode via <code class="code docutils literal notranslate"><span class="pre">.meta.assignee_mode</span></code>.</p>
+</li>
+<li><p><em>Extension</em></p>
+<p>The <a class="reference internal" href="responsibles.html"><span class="doc">responsibles extension</span></a> tries to
+resolve responsibles by examining configured <code class="code docutils literal notranslate"><span class="pre">rules</span></code> for the components of
+interest. If a rule matches, the responsibles retrieved via the configured
+<code class="code docutils literal notranslate"><span class="pre">strategies</span></code> are uploaded as <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> of type
+<code class="code docutils literal notranslate"><span class="pre">meta/responsibles</span></code>, with the <code class="code docutils literal notranslate"><span class="pre">.meta</span></code> attribute used like in (1).</p>
+</li>
+<li><p><em>Delivery-Service</em></p>
+<p>The responsibles retrieved from the delivery-service api
+<code class="code docutils literal notranslate"><span class="pre">/ocm/component/responsibles</span></code> are used as last fallback. Those are not
+persisted as <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> but calculated ad-hoc (or consumed from
+persistent cache).</p>
+</li>
+</ol>
+<p>The <strong>behavioural contract</strong> in case a GitHub issue already has assignees which
+are different to those the current execution yields, can be defined via the
+<code class="code docutils literal notranslate"><span class="pre">assignee_mode</span></code>. In (1) and (2), this mode can be set via the <code class="code docutils literal notranslate"><span class="pre">.meta</span></code> property.
+In (3) or if it is not set (or explicitly set to <code class="code docutils literal notranslate"><span class="pre">None</span></code>), the
+<code class="code docutils literal notranslate"><span class="pre">default_assignee_mode</span></code> configured in the respective findings configuration is
+used.</p>
+</section>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">issue_replicator</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">mappings</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-component</span>
+<span class="w">      </span><span class="nt">github_repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">github.com/my-organisation/my-repository</span>
+<span class="w">      </span><span class="nt">github_issue_labels_to_preserve</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">never-remove-this-label</span>
+<span class="w">      </span><span class="nt">number_included_closed_issues</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+<span class="w">      </span><span class="nt">milestones</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">title</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">week-</span>
+<span class="w">          </span><span class="nt">suffix</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;&#39;</span>
+<span class="w">          </span><span class="nt">sprint</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">value_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">date</span>
+<span class="w">            </span><span class="nt">date_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">end_date</span>
+<span class="w">            </span><span class="nt">date_string_format</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;%V&#39;</span><span class="w"> </span><span class="c1"># week number</span>
+<span class="w">        </span><span class="nt">due_date</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">date_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">release_decision</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;&#39;</span>
+<span class="w">      </span><span class="nt">github_repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">github.com/my-organisation/my-repository</span>
+</pre></div>
+</div>
+</section>
+<section id="finding-type-configuration">
+<h3>Finding Type Configuration<a class="headerlink" href="#finding-type-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">finding/vulnerability</span>
+<span class="w">  </span><span class="nt">issues</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">enable_issues</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+<span class="w">    </span><span class="nt">enable_per_finding</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">False</span>
+<span class="w">    </span><span class="nt">enable_assignees</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+<span class="w">    </span><span class="nt">default_assignee_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">skip</span>
+<span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;{summary}&#39;</span>
+<span class="w">    </span><span class="nt">title_template</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;[{meta.type}]</span><span class="nv"> </span><span class="s">-</span><span class="nv"> </span><span class="s">{artefact.component_name}:{artefact.artefact.artefact_name}&#39;</span>
+<span class="w">    </span><span class="nt">labels</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">this-label-is-assigned-to-every-issue</span>
+<span class="w">    </span><span class="nt">attrs_to_group_by</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">component_name</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">artefact_kind</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">artefact.artefact_name</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">artefact.artefact_type</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="artefact_enumerator.html" class="btn btn-neutral float-left" title="Artefact-Enumerator" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="responsibles.html" class="btn btn-neutral float-right" title="Responsibles" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SAP SE or an SAP affiliate company.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
