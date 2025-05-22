@@ -57,6 +57,8 @@ associated GitHub issues (if there are any) will be closed. However, please
 note that compliance snapshots are not intended to be managed manually but only
 via the :doc:`artefact-enumerator extension </extensions/artefact_enumerator>`.
 
+.. image:: ../res/issues-overview.svg
+
 GitHub Issue Assignees
 ^^^^^^^^^^^^^^^^^^^^^^
 
