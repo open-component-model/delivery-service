@@ -3,36 +3,26 @@ import argparse
 import atexit
 import collections.abc
 import datetime
-import enum
 import logging
 import os
-import signal
 import sys
-import time
 import github3
+import urllib.parse
 
 import ci.log
-import cnudie.iter
 import cnudie.retrieve
 import delivery.client
-import dso.labels
-import dso.model
-import ocm
 import delivery.client
+import odg.model
 import secret_mgmt
 
-import consts
 import ctx_util
-import k8s.backlog
 import k8s.util
-import k8s.model
 import k8s.logging
 import lookups
 import odg.extensions_cfg
 import odg.findings
 import paths
-
-import requests
 
 
 logger = logging.getLogger(__name__)
@@ -82,32 +72,39 @@ def get_secret_location(
         response = github_client._session.get(location_url)
         response.raise_for_status()
         locations = response.json()
-        if locations and isinstance(locations, list):
-            details = locations[0].get("details", {})
+
+        if not locations or not isinstance(locations, list):
+            return {"path": "", "line": 0}
+
+        location = locations[0]
+        loc_type = location.get("type", "")
+        details = location.get("details", {})
+
+        if loc_type in {"commit", "wiki_commit"}:
             return {
-                "path": details.get("path", ""),
-                "line": details.get("start_line", 0)
+                "path": details.get("path", loc_type),
+                "line": details.get("start_line", 0),
             }
-        return {"path": "", "line": 0}
+
     except Exception as e:
         logger.error(f"Failed to fetch alert locations: {e}")
         return {"path": "", "line": 0}
 
 
 def as_artefact_metadata(
-    artefact: dso.model.ComponentArtefactId,
-    ghas_findings: collections.abc.Iterable[dso.model.GHASFinding],
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
+    artefact: odg.model.ComponentArtefactId,
+    ghas_finding: collections.abc.Iterable[odg.model.GitHubSecretFinding],
+) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     """Transform GitHub secret scanning findings into ArtefactMetadata."""
     today = datetime.date.today()
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
     # Yield scan info metadata
-    yield dso.model.ArtefactMetadata(
+    yield odg.model.ArtefactMetadata(
         artefact=artefact,
-        meta=dso.model.Metadata(
-            datasource=dso.model.Datasource.GHAS,
-            type=dso.model.Datatype.ARTEFACT_SCAN_INFO,
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.GHAS,
+            type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
             creation_date=now,
             last_update=now,
         ),
@@ -115,40 +112,29 @@ def as_artefact_metadata(
     )
 
     # Yield findings metadata
-    meta = dso.model.Metadata(
-        datasource=dso.model.Datasource.GHAS,
+    meta = odg.model.Metadata(
+        datasource=odg.model.Datasource.GHAS,
         type=odg.findings.FindingType.GHAS,
         creation_date=now,
         last_update=now,
     )
-    for finding in ghas_findings:
-        yield dso.model.ArtefactMetadata(
-            artefact=artefact,
-            meta=meta,
-            data=finding,
-            discovery_date=today,
-        )
+
+    yield odg.model.ArtefactMetadata(
+        artefact=artefact,
+        meta=meta,
+        data=ghas_finding,
+        discovery_date=today,
+    )
 
 def create_ghas_findings(
-    artefact: dso.model.ComponentArtefactId,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    ghas_finding_config: odg.findings.Finding,
     ghas_config: odg.extensions_cfg.GHASConfig,
-    secret_factory: secret_mgmt.SecretFactory,
-    creation_timestamp: datetime.datetime=datetime.datetime.now(tz=datetime.timezone.utc),
-) -> collections.abc.Generator[dso.model.ArtefactMetadata, None, None]:
-
-    # Fetch GitHub
-    if not ghas_config.githubs:
-        logger.info("No Github instance found in the extension configuration.")
-        return
-
-    # Fetch alerts
+    secret_factory: ctx_util.SecretFactory,
+) -> list[odg.model.GitHubSecretFinding]:
     ghas_findings = []
 
     for github in ghas_config.githubs:
         for org in github.orgs:
-            org_url = f'https://{github.github}/{org}'
+            org_url = f'{github.github}/{org}'
             logger.info(f"Fetching GHAS alerts for org '{org}' from {org_url}...")
 
             github_api = lookups.github_api_lookup(secret_factory)
@@ -158,51 +144,66 @@ def create_ghas_findings(
                 logger.error(f"Could not authenticate Github API for {github}")
                 continue
 
-            try: 
+            try:
                 alerts = get_secret_alerts(github_client, org)
-                for alert in alerts: 
+                for alert in alerts:
                     locations = get_secret_location(github_client, alert.get("locations_url", ""))
-                    finding = dso.model.GHASFinding(
-                        html_url=alert.get("html_url"),
-                        secret_type=alert.get("secret_type", ""),
-                        secret="REDACTED",  # Avoid storing sensitive data
-                        secret_type_display_name=alert.get("secret_type_display_name", ""),
-                        path=locations["path"],
-                        line=locations["line"],                   
-                    )
                     ghas_findings.append(
-                        dso.model.ArtefactMetadata(
-                            artefact=artefact,
-                            meta=dso.model.Metadata(
-                                datasource=dso.model.Datasource.GHAS,
-                                type=odg.findings.FindingType.GHAS,
-                                creation_date=creation_timestamp,
-                                last_update=creation_timestamp,
-                            ),
-                            data=finding,
-                            discovery_date=creation_timestamp.date(),
+                        odg.model.GitHubSecretFinding(
+                            html_url=alert.get("html_url"),
+                            secret_type=alert.get("secret_type", ""),
+                            secret="REDACTED",
+                            secret_type_display_name=alert.get("secret_type_display_name", ""),
+                            path=locations["path"],
+                            line=locations["line"],
                         )
                     )
             except Exception as e:
                 logger.error(f"Error fetching GHAS alerts for org '{org}': {str(e)}")
-                continue
+    return ghas_findings
     
+def build_artefact_from_finding(
+    finding: odg.model.GitHubSecretFinding,
+) -> odg.model.ComponentArtefactId:
+    """Extract component info from finding and return a ComponentArtefactId."""
+    try:
+        parsed = urllib.parse.urlparse(finding.html_url)
+        path_parts = parsed.path.strip("/").split("/")
+        if len(path_parts) < 2:
+            raise ValueError(f"Invalid HTML URL format: {finding.html_url}")
+
+        org, repo = path_parts[0], path_parts[1]
+        component_name = f"github.com/{org}/{repo}"
+
+        return odg.model.ComponentArtefactId(
+            component_name=component_name,
+            component_version="main",  # Use real version if available
+            artefact=odg.model.Artefact(
+                artefact_name="main-source",
+                artefact_type="git",
+                artefact_version="main",
+                artefact_extra_id={},
+            ),
+            artefact_kind=odg.model.ArtefactKind.SOURCE,
+            references=[],
+        )
+    except Exception as e:
+        logger.warning(f"Failed to extract artefact from finding URL '{finding.html_url}': {e}")
+        raise
 
 def scan(
-    artefact: dso.model.ComponentArtefactId,
     ghas_config: odg.extensions_cfg.GHASConfig,
-    ghas_finding_cfg: odg.findings.Finding | None,
+    ghas_finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-): 
-    logger.info(f'scanning {artefact} for GitHub secret scanning findings')
+    secret_factory: secret_mgmt.SecretFactory,
+):
+    logger.info('Starting GHAS scan...')
 
-    """
-    Processes GitHub secret scanning alerts for a given artefact, yielding ArtefactMetadata.
-    Handles filtering, API calls, and metadata transformation.
-    """
-    if ghas_config and not ghas_finding_cfg.matches(artefact):
-        logger.info(f'GHAS findings are filtered out for {artefact=}, skipping...')
+    retrieve_ghas_findings = ghas_finding_cfg and ghas_finding_cfg.matches(artefact)
+
+    if not retrieve_ghas_findings:
+        logger.info('ghas findings are filtered out for this artefact, skipping...')
         return
 
     if not ghas_config.is_supported(artefact_kind=artefact.artefact_kind):
@@ -212,7 +213,6 @@ def scan(
                 'configurations have to be adjusted to filter out this artefact kind'
             )
         return
-
 
     resource_node = k8s.util.get_ocm_node(
         component_descriptor_lookup=component_descriptor_lookup,
@@ -232,20 +232,19 @@ def scan(
             )
         return
 
+    ghas_findings = create_ghas_findings(ghas_config, secret_factory)
 
-    findings = list(create_ghas_findings())
+    artefact_metadata = []
 
-    artefact_metadata = list(as_artefact_metadata(
-        artefact=artefact,
-        findings=findings
-    ))
+    for finding in ghas_findings:
+        try:
+            artefact = build_artefact_from_finding(finding)
+            artefact_metadata.extend(as_artefact_metadata(artefact, finding))
+        except Exception:
+            continue  # Already logged in helper
 
-    delivery_client.update_metadata(
-        data=artefact_metadata,
-    )
-
-    logger.info(f'finished scan of artefact {artefact}')
-
+    delivery_client.update_metadata(data=artefact_metadata)
+    logger.info("Finished GHAS scan.")
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -295,10 +294,7 @@ def parse_args():
     return parsed_arguments
 
 
-
 def main():
-    signal.signal(signal.SIGTERM, handle_termination_signal)
-    signal.signal(signal.SIGINT, handle_termination_signal)
 
     parsed_arguments = parse_args()
     namespace = parsed_arguments.k8s_namespace
@@ -359,46 +355,13 @@ def main():
         delivery_client=delivery_client,
     )
 
-    global ready_to_terminate
-    while not wants_to_terminate:
-        ready_to_terminate = False
-
-        backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=odg.extensions_cfg.Services.GHAS,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-        )
-
-        if not backlog_crd:
-            ready_to_terminate = True
-            sleep_interval_seconds = consts.BACKLOG_ITEM_SLEEP_INTERVAL_SECONDS
-            logger.info(f'no open backlog item found, will sleep for {sleep_interval_seconds=}')
-            time.sleep(sleep_interval_seconds)
-            continue
-
-        name = backlog_crd.get('metadata').get('name')
-        logger.info(f'processing backlog item {name}')
-
-        backlog_item = k8s.backlog.BacklogItem.from_dict(
-            backlog_item=backlog_crd.get('spec'),
-        )
-
-        scan(
-            artefact=backlog_item.artefact,
-            ghas_config=ghas_config,
-            ghas_finding_cfg=ghas_finding_config,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_client=delivery_client,
-        )
-
-        k8s.util.delete_custom_resource(
-            crd=k8s.model.BacklogItemCrd,
-            name=name,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-        )
-        logger.info(f'processed and deleted backlog item {name}')
-
+    scan(
+        ghas_config=ghas_config,
+        ghas_finding_cfg=ghas_finding_config,
+        component_descriptor_lookup=component_descriptor_lookup,
+        delivery_client=delivery_client,
+        secret_factory=secret_factory,
+    )
 
 if __name__ == '__main__':
     main()

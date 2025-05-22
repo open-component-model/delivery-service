@@ -795,12 +795,13 @@ def _ghas_template_vars(
     ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
         for af in aggregated_findings:
             ghas_finding: odg.model.GitHubSecretFinding = af.finding.data
-            os_name = ghas_finding.osid.NAME
-            greatest_version = ghas_finding.greatest_version
-            detected_version = ghas_finding.osid.VERSION_ID
-            issue_text = ghas_finding.status_description
+            secret = ghas_finding.secret
+            secret_type = ghas_finding.secret_type
+            path = ghas_finding.path
+            line = ghas_finding.line
+            display_name = ghas_finding.secret_type_display_name
 
-            yield os_name, detected_version, greatest_version, issue_text
+            yield secret, secret_type, path, line, display_name
 
     for finding_group in finding_groups:
         summary += '\n' + finding_group.summary(
@@ -811,14 +812,14 @@ def _ghas_template_vars(
         )
 
         summary += (
-            '\n| OS Name | Detected Version | Greatest Version | Issue Text |'
-            '\n| --- | --- | --- | --- |'
+            '\n| Secret Type | Secret | Path | Line | Display Name |'
+            '\n| --- | --- | --- | --- | --- |'
         )
-        for os_name, detected_version, greatest_version, issue_text in iter_findings(
+        for secret_type, secret, path, line, display_name in iter_findings(
             aggregated_findings=finding_group.findings
         ):
             summary += (
-                f'\n| {os_name} | {detected_version} | {greatest_version} | {issue_text} |'
+                f'\n| {secret_type} | {secret} | {path} | {line} | {display_name} |'
             )
 
         summary += '\n---'
@@ -1055,6 +1056,15 @@ def _template_vars(
         )
     elif finding_cfg.type is odg.model.Datatype.OSID_FINDING:
         template_variables |= _osid_template_vars(
+            finding_cfg=finding_cfg,
+            finding_groups=finding_groups,
+            summary=summary,
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
+            sprint_name=sprint_name,
+        )
+    elif finding_cfg.type is odg.model.Datatype.GHAS_FINDING:
+        template_variables |= _ghas_template_vars(
             finding_cfg=finding_cfg,
             finding_groups=finding_groups,
             summary=summary,

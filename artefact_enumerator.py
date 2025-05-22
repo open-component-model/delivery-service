@@ -405,24 +405,6 @@ def _process_compliance_snapshots_of_artefact(
         metadata_update_required |= snapshots_have_changed
 
     if (
-        extensions_cfg.ghas
-        and extensions_cfg.ghas.enabled
-        and extensions_cfg.ghas.is_supported(artefact_kind=artefact.artefact_kind)
-    ):
-        compliance_snapshots, snapshots_have_changed = _create_backlog_item_for_extension(
-            finding_cfgs=finding_cfgs,
-            finding_types=(odg.model.Datatype.GHAS_FINDING,),
-            artefact=artefact,
-            compliance_snapshots=compliance_snapshots,
-            service=odg.extensions_cfg.Services.GHAS,
-            interval_seconds=extensions_cfg.ghas.interval,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
-            now=now,
-        )
-        metadata_update_required |= snapshots_have_changed
-
-    if (
         extensions_cfg.osid
         and extensions_cfg.osid.enabled
         and extensions_cfg.osid.is_supported(artefact_kind=artefact.artefact_kind)

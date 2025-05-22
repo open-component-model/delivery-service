@@ -1,48 +1,40 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: CronJob
 metadata:
-  name: sast
+  name: ghas
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
-  replicas: 0 # will be scaled automatically by backlog-controller
-  selector:
-    matchLabels:
-      app: sast
-      delivery-gear.gardener.cloud/service: sast
-  template:
-    metadata:
-      labels:
-        app: sast
-        delivery-gear.gardener.cloud/service: sast
+  schedule: {{ default "0 0 * * *" .Values.schedule | quote }} # Default: Every day at 12:00 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ default 1 .Values.successful_jobs_history_limit }}
+  failedJobsHistoryLimit: {{ default 1 .Values.failed_jobs_history_limit }}
+  jobTemplate:
     spec:
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app: sast
-      terminationGracePeriodSeconds: 300 # 5 min
-      containers:
-        - name: sast
-          image: {{ include "image" .Values.image }}
-          imagePullPolicy: IfNotPresent
-          command:
+      ttlSecondsAfterFinished: {{ default 43200 .Values.ttl_seconds_after_finished }} # 43200 -> 12h
+      backoffLimit: {{ default 6 .Values.backoff_limit }}
+      template:
+        metadata:
+          labels:
+            app: ghas
+        spec:
+          containers:
+          - name: ghas
+            image: {{ include "image" .Values.image }}
+            imagePullPolicy: IfNotPresent
+            command:
             - python3
             - -m
-            - sast
-          env:
+            - ghas
+            env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
             - name: EXTENSIONS_CFG_PATH
               value: /extensions_cfg/extensions_cfg
-            - name: FINDINGS_CFG_PATH
-              value: /findings_cfg/findings_cfg
-            - name: OCM_REPO_MAPPINGS_PATH
-              value: /ocm_repo_mappings/ocm_repo_mappings
             - name: K8S_TARGET_NAMESPACE
               value: {{ .Values.target_namespace | default .Release.Namespace }}
-          volumeMounts:
+            volumeMounts:
+            - name: delivery-db
+              mountPath: /secrets/delivery-db
             - name: github
               mountPath: /secrets/github
             - name: kubernetes
@@ -51,41 +43,21 @@ spec:
               mountPath: /secrets/oci-registry
             - name: extensions-cfg
               mountPath: /extensions_cfg
-            - name: findings-cfg
-              mountPath: /findings_cfg
-            - name: ocm-repo-mappings
-              mountPath: /ocm_repo_mappings
-              readOnly: true
-          lifecycle:
-            preStop: # hook ensures that just created pods have at least enough time alive to add a termination signal handler
-              exec:
-                command:
-                  - sleep
-                  - "60"
-          resources:
-            requests:
-              memory: 100Mi
-              cpu: 250m
-            limits:
-              memory: 300Mi
-              cpu: 500m
-      volumes:
-        - name: github
-          secret:
-            secretName: secret-factory-github
-        - name: kubernetes
-          secret:
-            secretName: secret-factory-kubernetes
-            optional: true # might use incluster config
-        - name: oci-registry
-          secret:
-            secretName: secret-factory-oci-registry
-        - name: extensions-cfg
-          configMap:
-            name: extensions-cfg
-        - name: findings-cfg
-          configMap:
-            name: findings-cfg
-        - name: ocm-repo-mappings
-          configMap:
-            name: ocm-repo-mappings
+          volumes:
+            - name: delivery-db
+              secret:
+                secretName: secret-factory-delivery-db
+            - name: github
+              secret:
+                secretName: secret-factory-github
+            - name: kubernetes
+              secret:
+                secretName: secret-factory-kubernetes
+                optional: true # might use incluster config
+            - name: oci-registry
+              secret:
+                secretName: secret-factory-oci-registry
+            - name: extensions-cfg
+              configMap:
+                name: extensions-cfg
+          restartPolicy: Never

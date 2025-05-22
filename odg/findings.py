@@ -120,16 +120,6 @@ class SASTFindingSelector:
 
 
 @dataclasses.dataclass
-class GHASFindingSelector:
-    '''
-    :param list[str] secret_type:
-        List of regexes to determine matching GitHub Secret findings.
-    '''
-    secret_type: list[str]
-
-
-
-@dataclasses.dataclass
 class VulnerabilityFindingSelector:
     '''
     :param MinMaxRange cve_score_range:
@@ -187,7 +177,6 @@ class FindingCategorisation:
         | SASTFindingSelector
         | VulnerabilityFindingSelector
         | OsIdFindingSelector
-        | GHASFindingSelector
         | None
     )
 
@@ -601,8 +590,6 @@ class Finding:
                 self._validate_vulnerabilty()
             case odg.model.Datatype.INVENTORY_FINDING:
                 self._validate_inventory()
-            case odg.model.Datatype.GHAS_FINDING:
-                self._validate_ghas()
             case _:
                 pass
 
@@ -679,17 +666,6 @@ class Finding:
             return
 
         e = ModelValidationError('sast finding model violations found:')
-        e.add_note('\n'.join(violations))
-        raise e
-
-    def _validate_ghas(self):
-        violations = self._validate_categorisations(
-            expected_selector=GHASFindingSelector,
-        )
-
-        if not violations:
-            return
-        e = ModelValidationError('ghas finding found:')
         e.add_note('\n'.join(violations))
         raise e
 
@@ -928,8 +904,4 @@ def categorise_finding(
         elif isinstance(selector, OsIdFindingSelector):
             for status in selector.status:
                 if re.fullmatch(status, finding_property, re.IGNORECASE):
-                    return categorisation
-        elif isinstance(selector, GHASFindingSelector):
-            for secret_type in selector.secret_type:
-                if re.fullmatch(secret_type, finding_property, re.IGNORECASE):
                     return categorisation
