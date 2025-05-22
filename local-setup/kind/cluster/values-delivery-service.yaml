@@ -1,5 +1,11 @@
 ingress:
   class: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 8m
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '"900"'
+    nginx.ingress.kubernetes.io/proxy-next-upstream: error timeout http_503
+    nginx.ingress.kubernetes.io/proxy-next-upstream-timeout: '"0"'
+    nginx.ingress.kubernetes.io/proxy-next-upstream-tries: '"0"'
   disableTls: True
   hosts:
     - delivery-service
