@@ -11,6 +11,15 @@ Extensions
 
    extensions/*
 
+Contribute
+==========
+
+.. toctree::
+   :titlesonly:
+   :glob:
+
+   contribute/*
+
 Indices and tables
 ==================
 
