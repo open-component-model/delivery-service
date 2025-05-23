@@ -12,7 +12,6 @@ import urllib.parse
 import ci.log
 import cnudie.retrieve
 import delivery.client
-import delivery.client
 import odg.model
 import secret_mgmt
 
@@ -63,8 +62,9 @@ def get_secret_alerts(
         logger.error(f"Failed to fetch GitHub secret scanning alerts: {e}")
         return []
 
+
 def get_secret_location(
-    github_client: github3.GitHub, 
+    github_client: github3.GitHub,
     location_url: str,
 ) -> dict:
     """Fetch location details (path, line) for a secret alert using GitHub client."""
@@ -114,7 +114,7 @@ def as_artefact_metadata(
     # Yield findings metadata
     meta = odg.model.Metadata(
         datasource=odg.model.Datasource.GHAS,
-        type=odg.findings.FindingType.GHAS,
+        type=odg.model.Datatype.GHAS_FINDING,
         creation_date=now,
         last_update=now,
     )
@@ -126,9 +126,10 @@ def as_artefact_metadata(
         discovery_date=today,
     )
 
+
 def create_ghas_findings(
     ghas_config: odg.extensions_cfg.GHASConfig,
-    secret_factory: ctx_util.SecretFactory,
+    secret_factory: secret_mgmt.SecretFactory,
 ) -> list[odg.model.GitHubSecretFinding]:
     ghas_findings = []
 
@@ -150,6 +151,7 @@ def create_ghas_findings(
                     locations = get_secret_location(github_client, alert.get("locations_url", ""))
                     ghas_findings.append(
                         odg.model.GitHubSecretFinding(
+                            severity=alert.get("secret_type", ""),
                             html_url=alert.get("html_url"),
                             secret_type=alert.get("secret_type", ""),
                             secret="REDACTED",
@@ -161,7 +163,8 @@ def create_ghas_findings(
             except Exception as e:
                 logger.error(f"Error fetching GHAS alerts for org '{org}': {str(e)}")
     return ghas_findings
-    
+
+
 def build_artefact_from_finding(
     finding: odg.model.GitHubSecretFinding,
 ) -> odg.model.ComponentArtefactId:
@@ -178,7 +181,7 @@ def build_artefact_from_finding(
         return odg.model.ComponentArtefactId(
             component_name=component_name,
             component_version="main",  # Use real version if available
-            artefact=odg.model.Artefact(
+            artefact=odg.model.LocalArtefactId(
                 artefact_name="main-source",
                 artefact_type="git",
                 artefact_version="main",
@@ -191,6 +194,7 @@ def build_artefact_from_finding(
         logger.warning(f"Failed to extract artefact from finding URL '{finding.html_url}': {e}")
         raise
 
+
 def scan(
     ghas_config: odg.extensions_cfg.GHASConfig,
     ghas_finding_cfg: odg.findings.Finding,
@@ -200,38 +204,6 @@ def scan(
 ):
     logger.info('Starting GHAS scan...')
 
-    retrieve_ghas_findings = ghas_finding_cfg and ghas_finding_cfg.matches(artefact)
-
-    if not retrieve_ghas_findings:
-        logger.info('ghas findings are filtered out for this artefact, skipping...')
-        return
-
-    if not ghas_config.is_supported(artefact_kind=artefact.artefact_kind):
-        if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
-            raise TypeError(
-                f'{artefact.artefact_kind} is not supported by the GHAS extension, maybe the filter '
-                'configurations have to be adjusted to filter out this artefact kind'
-            )
-        return
-
-    resource_node = k8s.util.get_ocm_node(
-        component_descriptor_lookup=component_descriptor_lookup,
-        artefact=artefact,
-    )
-    access_type = resource_node.resource.access.type
-    resource_type = resource_node.resource.type
-
-    if not ghas_config.is_supported(
-        access_type=access_type,
-        artefact_type=resource_type,
-    ):
-        if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
-            raise TypeError(
-                f'{access_type=} with {resource_type=} is not supported by the ghas extension, '
-                'maybe the filter configurations have to be adjusted to filter out these types'
-            )
-        return
-
     ghas_findings = create_ghas_findings(ghas_config, secret_factory)
 
     artefact_metadata = []
@@ -239,12 +211,44 @@ def scan(
     for finding in ghas_findings:
         try:
             artefact = build_artefact_from_finding(finding)
+
+            if ghas_finding_cfg and not ghas_finding_cfg.matches(artefact):
+                logger.info(f'Finding filtered out for artefact: {artefact}')
+                continue
+
+            if not ghas_config.is_supported(artefact_kind=artefact.artefact_kind):
+                if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+                    raise TypeError(
+                        f'{artefact.artefact_kind} is not supported by the GHAS extension, maybe the filter '
+                        'configurations have to be adjusted to filter out this artefact kind'
+                    )
+                continue
+
+            resource_node = k8s.util.get_ocm_node(
+                component_descriptor_lookup=component_descriptor_lookup,
+                artefact=artefact,
+            )
+            access_type = resource_node.resource.access.type
+            resource_type = resource_node.resource.type
+
+            if not ghas_config.is_supported(
+                access_type=access_type,
+                artefact_type=resource_type,
+            ):
+                if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+                    raise TypeError(
+                        f'{access_type=} with {resource_type=} is not supported by the GHAS extension, '
+                        'maybe the filter configurations have to be adjusted to filter out these types'
+                    )
+                continue
+
             artefact_metadata.extend(as_artefact_metadata(artefact, finding))
         except Exception:
-            continue  # Already logged in helper
+            continue
 
     delivery_client.update_metadata(data=artefact_metadata)
     logger.info("Finished GHAS scan.")
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -333,7 +337,7 @@ def main():
 
     ghas_finding_config = odg.findings.Finding.from_file(
         path=findings_cfg_path,
-        finding_type=odg.findings.FindingType.GHAS,
+        finding_type=odg.model.Datatype.GHAS_FINDING,
     )
 
     if not ghas_finding_config:
@@ -362,6 +366,7 @@ def main():
         delivery_client=delivery_client,
         secret_factory=secret_factory,
     )
+
 
 if __name__ == '__main__':
     main()

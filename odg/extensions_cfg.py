@@ -36,7 +36,6 @@ class Services(enum.StrEnum):
     GHAS = 'ghas'
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
-    SAST = 'sast'
 
 
 class VersionAliases(enum.StrEnum):
