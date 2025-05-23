@@ -27,12 +27,6 @@ class Responsible:
     type: ResponsibleTypes
 
 
-@dataclasses.dataclass
-class GitHubResponsible(Responsible):
-    name: str
-    hostname: str
-
-
 @dataclasses.dataclass(kw_only=True)
 class GitHubUserResponsible(Responsible):
     username: str

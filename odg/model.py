@@ -338,7 +338,7 @@ class ResponsibleAssigneeModes(enum.StrEnum):
     SKIP = 'skip'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Metadata:
     datasource: str
     type: str
@@ -372,7 +372,7 @@ class OperatingSystemId:
         return self.PRETTY_NAME == 'Distroless'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class BDBAMixin:
     package_name: str
     package_version: str | None # bdba might be unable to determine a version
@@ -382,24 +382,24 @@ class BDBAMixin:
     group_id: int
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class License:
     name: str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class FilesystemPathEntry:
     path: str
     type: str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class FilesystemPath:
     path: list[FilesystemPathEntry]
     digest: str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class StructureInfo(BDBAMixin):
     licenses: list[License]
     filesystem_paths: list[FilesystemPath]
@@ -409,7 +409,7 @@ class StructureInfo(BDBAMixin):
         return _as_key(self.package_name, self.package_version)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Finding:
     '''
     Base class for artefact metadata which is interpreted as a finding. "Finding" as in it has a
@@ -418,7 +418,7 @@ class Finding:
     severity: str
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class LicenseFinding(Finding, BDBAMixin):
     license: License
 
@@ -427,7 +427,7 @@ class LicenseFinding(Finding, BDBAMixin):
         return _as_key(self.package_name, self.package_version, self.license.name)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class VulnerabilityFinding(Finding, BDBAMixin):
     cve: str
     cvss_v3_score: float
@@ -439,7 +439,7 @@ class VulnerabilityFinding(Finding, BDBAMixin):
         return _as_key(self.package_name, self.package_version, self.cve)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class RescoringVulnerabilityFinding:
     package_name: str
     cve: str
@@ -449,7 +449,7 @@ class RescoringVulnerabilityFinding:
         return _as_key(self.package_name, self.cve)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class RescoringLicenseFinding:
     package_name: str
     license: License
@@ -459,7 +459,7 @@ class RescoringLicenseFinding:
         return _as_key(self.package_name, self.license.name)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class MalwareFindingDetails:
     filename: str
     content_digest: str
@@ -471,7 +471,7 @@ class MalwareFindingDetails:
         return _as_key(self.content_digest, self.filename, self.malware)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class ClamAVMalwareFinding(Finding):
     finding: MalwareFindingDetails
     octets_count: int
@@ -485,7 +485,7 @@ class ClamAVMalwareFinding(Finding):
         return self.finding.key
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class SastFinding(Finding):
     sast_status: SastStatus
     sub_type: SastSubType
@@ -495,7 +495,7 @@ class SastFinding(Finding):
         return _as_key(self.sast_status, self.sub_type)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class RescoreSastFinding:
     sast_status: SastStatus
     sub_type: SastSubType
@@ -505,7 +505,7 @@ class RescoreSastFinding:
         return _as_key(self.sast_status, self.sub_type)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class OsIdFinding(Finding):
     osid: OperatingSystemId
     os_status: OsStatus
@@ -535,7 +535,7 @@ class OsIdFinding(Finding):
             return 'Unknown OSID status'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class RescoreOsIdFinding:
     osid: OperatingSystemId
 
@@ -565,7 +565,7 @@ class DikiCheck:
     targets: list[dict] | dict
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class DikiFinding(Finding):
     provider_id: str
     ruleset_id: str
@@ -687,7 +687,7 @@ class CryptoAsset:
         return _as_key(self.asset_type, self.properties.key)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class CryptoFinding(Finding):
     standard: str
     asset: CryptoAsset
@@ -708,7 +708,7 @@ class RescoringCryptoFinding:
         return _as_key(self.standard, self.asset.key)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class InventoryFinding(Finding):
     '''
     Represents a finding from the gardener/inventory system
@@ -735,7 +735,7 @@ class InventoryFinding(Finding):
         return _as_key(self.provider_name, self.resource_kind, self.resource_name)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class User:
     username: str
     type: str = 'user'
@@ -745,7 +745,7 @@ class User:
         return _as_key(self.username, self.type)
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass(kw_only=True)
 class BDBAUser(User):
     email: str
     firstname: str
@@ -753,7 +753,7 @@ class BDBAUser(User):
     type: str = 'bdba-user'
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass(kw_only=True)
 class GitHubUser(User):
     github_hostname: str
     type: str = 'github-user'
@@ -765,7 +765,7 @@ class MetaRescoringRules(enum.StrEnum):
     ORIGINAL_SEVERITY = 'original-severity'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class CustomRescoring:
     '''
     The `allowed_processing_time` is stored relatively to allow the rescoring to apply to findings
@@ -811,38 +811,47 @@ class ComplianceSnapshotStatuses(enum.StrEnum):
     INACTIVE = 'inactive'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class ComplianceSnapshotState:
     timestamp: datetime.datetime
     status: ComplianceSnapshotStatuses | str | int | None = None
     service: str | None = None
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class ComplianceSnapshot:
-    due_date: datetime.date
     state: list[ComplianceSnapshotState]
 
     @property
-    def key(self) -> str:
-        return self.due_date.isoformat()
+    def is_active(self) -> bool:
+        if not (state := self.current_state()):
+            return False
+
+        return state.status is ComplianceSnapshotStatuses.ACTIVE
+
+    def update_state(
+        self,
+        state: ComplianceSnapshotState,
+    ):
+        self.state.append(state)
+        self._purge_old_states(service=state.service)
 
     def current_state(
         self,
-        service: str = None,
+        service: str | None=None,
     ) -> ComplianceSnapshotState | None:
         for state in sorted(self.state, key=lambda s: s.timestamp, reverse=True):
             if service == state.service:
                 return state
         return None
 
-    def purge_old_states(
+    def _purge_old_states(
         self,
-        service: str = None,
+        service: str | None=None,
     ):
         current_state = None
         for state in sorted(self.state, key=lambda s: s.timestamp, reverse=True):
-            if not service == state.service:
+            if service != state.service:
                 continue
 
             if not current_state:
@@ -863,7 +872,7 @@ class FalcoPriority(enum.StrEnum):
     DEBUG = 'Debug'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class FalcoEvent:
     message: str
     cluster: str
@@ -874,19 +883,19 @@ class FalcoEvent:
     output: dict[str, typing.Any]
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Node:
     name: str
     count: int
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Cluster:
     name: str
     nodes: list[Node]
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class FalcoEventGroup:
     '''
     FalcoEventGroup represents a group of Falco events that are similar in
@@ -924,7 +933,7 @@ class FalcoEventGroup:
         return self.group_hash
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class FalcoInteractiveEventGroup:
     '''
     Group of events that - most likely - are a result of a single interactive
@@ -958,7 +967,7 @@ class FalcoFindingSubType(enum.StrEnum):
     INTERACTIVE_EVENT_GROUP = 'interactive-event-group'
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class FalcoFinding(Finding):
     subtype: FalcoFindingSubType
     finding: FalcoInteractiveEventGroup | FalcoEventGroup
@@ -968,7 +977,7 @@ class FalcoFinding(Finding):
         return self.finding.key
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class ResponsibleInfo:
     referenced_type: Datatype
 

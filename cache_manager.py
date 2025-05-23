@@ -6,12 +6,10 @@ Also, the cache manager can be used to prefill the cache for specific functions 
 supplied configuration.
 '''
 import asyncio
-import argparse
 import atexit
 import collections.abc
 import datetime
 import logging
-import os
 
 import sqlalchemy
 import sqlalchemy.ext.asyncio as sqlasync
@@ -26,24 +24,20 @@ import ocm
 
 import compliance_summary
 import components as components_module
-import config
 import ctx_util
 import deliverydb
 import deliverydb.model as dm
 import k8s.logging
-import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.findings
+import odg.util
 import paths
 
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
-
-own_dir = os.path.abspath(os.path.dirname(__file__))
-default_cache_dir = os.path.join(own_dir, '.cache')
 
 
 def bytes_to_str(
@@ -163,10 +157,8 @@ async def prefill_compliance_summary_caches(
     seen_component_ids = set()
 
     for component in components:
-        if component.version_filter:
-            version_filter = config.VersionFilter(component.version_filter)
-        else:
-            version_filter = config.VersionFilter.RELEASES_ONLY
+        if not (version_filter := component.version_filter):
+            version_filter = odg.extensions_cfg.VersionFilter.RELEASES_ONLY
 
         versions = await components_module.greatest_component_versions(
             component_name=component.component_name,
@@ -253,64 +245,22 @@ async def prefill_function_caches(
                 )
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        '--k8s-cfg-name',
-        help='specify kubernetes cluster to interact with',
-        default=os.environ.get('K8S_CFG_NAME'),
-    )
-    parser.add_argument(
-        '--kubeconfig',
-        help='''
-            specify kubernetes cluster to interact with extensions (and logs); if both
-            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
-        ''',
-    )
-    parser.add_argument(
-        '--k8s-namespace',
-        help='specify kubernetes cluster namespace to interact with',
-        default=os.environ.get('K8S_TARGET_NAMESPACE'),
-    )
-    parser.add_argument(
-        '--extensions-cfg-path',
-        help='path to the `extensions_cfg.yaml` file that should be used',
-    )
-    parser.add_argument(
-        '--findings-cfg-path',
-        help='path to the `findings.yaml` file that should be used',
-    )
-    parser.add_argument(
-        '--invalid-semver-ok',
-        action='store_true',
-        default=os.environ.get('INVALID_SEMVER_OK') or False,
-        help='whether to raise on invalid (semver) version when resolving greatest version',
-    )
-    parser.add_argument('--cache-dir', default=default_cache_dir)
-
-    parsed_arguments = parser.parse_args()
-
-    if not parsed_arguments.k8s_namespace:
-        raise ValueError(
-            'k8s namespace must be set, either via argument "k8s-namespace" '
-            'or via environment variable "K8S_TARGET_NAMESPACE"'
-        )
-
-    return parsed_arguments
-
-
 async def main():
-    parsed_arguments = parse_args()
+    parsed_arguments = odg.util.parse_args(
+        arguments=(
+            odg.util.Arguments.K8S_CFG_NAME,
+            odg.util.Arguments.KUBECONFIG,
+            odg.util.Arguments.K8S_NAMESPACE,
+            odg.util.Arguments.EXTENSIONS_CFG_PATH,
+            odg.util.Arguments.FINDINGS_CFG_PATH,
+            odg.util.Arguments.INVALID_SEMVER_OK,
+            odg.util.Arguments.CACHE_DIR,
+        ),
+    )
     namespace = parsed_arguments.k8s_namespace
 
     secret_factory = ctx_util.secret_factory()
-
-    if k8s_cfg_name := parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = secret_factory.kubernetes(k8s_cfg_name)
-        kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
-    else:
-        kubernetes_api = k8s.util.kubernetes_api(kubeconfig_path=parsed_arguments.kubeconfig)
+    kubernetes_api = odg.util.kubernetes_api(parsed_arguments, secret_factory=secret_factory)
 
     k8s.logging.init_logging_thread(
         service=odg.extensions_cfg.Services.CACHE_MANAGER,

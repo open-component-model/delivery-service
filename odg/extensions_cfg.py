@@ -1,6 +1,5 @@
 import collections.abc
 import dataclasses
-import datetime
 import enum
 import functools
 import logging
@@ -44,6 +43,11 @@ class VersionAliases(enum.StrEnum):
     GREATEST = 'greatest'
 
 
+class VersionFilter(enum.StrEnum):
+    ALL = 'all'
+    RELEASES_ONLY = 'releases_only'
+
+
 class WarningVerbosities(enum.StrEnum):
     FAIL = 'fail'
     IGNORE = 'ignore'
@@ -53,6 +57,7 @@ class WarningVerbosities(enum.StrEnum):
 @dataclasses.dataclass(kw_only=True)
 class ExtensionCfgMixins:
     enabled: bool = True
+    service: Services
 
 
 @dataclasses.dataclass
@@ -74,8 +79,7 @@ class Component:
     component_name: str
     version: str | None
     ocm_repo_url: str | None
-    version_filter: str | None
-    timerange_days: int | None
+    version_filter: VersionFilter | None
     max_versions_limit: int = 1
 
     def __post_init__(self):
@@ -93,31 +97,12 @@ class Component:
         )
 
 
-@dataclasses.dataclass
-class TimeRange:
-    days_from: int = -90
-    days_to: int = 150
-
-    @property
-    def start_date(self) -> datetime.date:
-        today = datetime.date.today()
-        return today + datetime.timedelta(days=self.days_from)
-
-    @property
-    def end_date(self) -> datetime.date:
-        today = datetime.date.today()
-        return today + datetime.timedelta(days=self.days_to)
-
-
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class ArtefactEnumeratorConfig(ExtensionCfgMixins):
     '''
     :param str delivery_service_url
     :param list[Component] components:
         Components which are classified as "active" and for which compliance snapshots are created.
-    :param TimeRange sprints_relative_time_range:
-        Earliest start and latest end date for which compliance snapshots should be created. If not
-        set, all available sprints will be considered.
     :param int compliance_snapshot_grace_period:
         Time after which inactive compliance snapshots are deleted from the delivery-db. During this
         period, the inactive snapshots are used to possibly close outdated GitHub issues (i.e. the
@@ -126,16 +111,16 @@ class ArtefactEnumeratorConfig(ExtensionCfgMixins):
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
     '''
+    service: Services = Services.ARTEFACT_ENUMERATOR
     delivery_service_url: str
     components: list[Component]
-    sprints_relative_time_range: TimeRange | None
     compliance_snapshot_grace_period: int = 60 * 60 * 24 # 24h
     schedule: str = '*/5 * * * *' # every 5 minutes
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class BacklogControllerConfig(ExtensionCfgMixins):
     '''
     :param int max_replicas:
@@ -149,6 +134,7 @@ class BacklogControllerConfig(ExtensionCfgMixins):
         infinetly by a single pod, the backlog controller will remove the claim again after this
         period.
     '''
+    service: Services = Services.BACKLOG_CONTROLLER
     max_replicas: int = 5
     backlog_items_per_replica: int = 3
     remove_claim_after_minutes: int = 30
@@ -177,7 +163,7 @@ class BDBAMapping(Mapping):
     processing_mode: str = 'rescan'
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class BDBAConfig(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -188,6 +174,7 @@ class BDBAConfig(BacklogItemMixins):
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
     '''
+    service: Services = Services.BDBA
     delivery_service_url: str
     mappings: list[BDBAMapping]
     interval: int = 60 * 60 * 24 # 24h
@@ -278,7 +265,7 @@ class PrefillFunctionCaches:
     functions: list[FunctionNames] = dataclasses.field(default_factory=lambda: [f for f in FunctionNames]) # noqa: E501
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class CacheManagerConfig(ExtensionCfgMixins):
     '''
     :param int max_cache_size_bytes
@@ -293,6 +280,7 @@ class CacheManagerConfig(ExtensionCfgMixins):
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
     '''
+    service: Services = Services.CACHE_MANAGER
     max_cache_size_bytes: int = 1000000000 # 1Gb
     min_pruning_bytes: int = 100000000 # 100Mb
     cache_pruning_weights: CachePruningWeights = dataclasses.field(default_factory=CachePruningWeights.default) # noqa: E501
@@ -311,7 +299,7 @@ class ClamAVMapping(Mapping):
     aws_secret_name: str | None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class ClamAVConfig(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -322,6 +310,7 @@ class ClamAVConfig(BacklogItemMixins):
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
     '''
+    service: Services = Services.CLAMAV
     delivery_service_url: str
     mappings: list[ClamAVMapping]
     interval: int = 60 * 60 * 24 # 24h
@@ -486,7 +475,7 @@ class CryptoMapping(Mapping):
         self.libraries = libraries
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class CryptoConfig(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -497,6 +486,7 @@ class CryptoConfig(BacklogItemMixins):
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
     '''
+    service: Services = Services.CRYPTO
     delivery_service_url: str
     mappings: list[CryptoMapping]
     interval: int = 60 * 60 * 24 # 24h
@@ -564,7 +554,7 @@ class CryptoConfig(BacklogItemMixins):
         return is_supported
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class DeliveryDBBackup(ExtensionCfgMixins):
     '''
     :param str delivery_service_url
@@ -584,6 +574,7 @@ class DeliveryDBBackup(ExtensionCfgMixins):
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
     '''
+    service: Services = Services.DELIVERY_DB_BACKUP
     delivery_service_url: str
     component_name: str
     ocm_repo_url: str
@@ -666,7 +657,7 @@ class IssueReplicatorMapping(Mapping):
         return github_api_lookup(self.repository.html_url)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class IssueReplicatorConfig(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -675,6 +666,7 @@ class IssueReplicatorConfig(BacklogItemMixins):
     :param int interval:
         Time after which an issue must be updated at latest.
     '''
+    service: Services = Services.ISSUE_REPLICATOR
     delivery_service_url: str
     delivery_dashboard_url: str
     mappings: list[IssueReplicatorMapping]
@@ -723,7 +715,7 @@ class ResponsibleConfigRule:
     assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class ResponsiblesConfig(BacklogItemMixins):
     '''
     :param str delivery_service_url:
@@ -735,12 +727,13 @@ class ResponsiblesConfig(BacklogItemMixins):
         extension will not determine any responsibles and instead the default lookup will take
         precedence (i.e. lookup responsibles in findings and as fallback via delivery-service api).
     '''
+    service: Services = Services.RESPONSIBLES
     delivery_service_url: str
     interval: int = 60 * 60 * 12 # 12h
     rules: list[ResponsibleConfigRule] = dataclasses.field(default_factory=list)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class SASTConfig(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -750,6 +743,7 @@ class SASTConfig(BacklogItemMixins):
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
     '''
+    service: Services = Services.SAST
     delivery_service_url: str
     interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
@@ -814,7 +808,7 @@ class GHASConfig(BacklogItemMixins):
 
         return True
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class OsId(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -824,6 +818,7 @@ class OsId(BacklogItemMixins):
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
     '''
+    service: Services = Services.OSID
     delivery_service_url: str
     interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
@@ -890,6 +885,21 @@ class ExtensionsConfiguration:
         return ExtensionsConfiguration.from_dict(
             extensions_cfg_raw=extensions_cfg_raw,
         )
+
+    def find_extension_cfg(
+        self,
+        service: Services,
+        require_enabled: bool=True,
+    ) -> object | None:
+        for extension_name in dataclasses.asdict(self).keys():
+            if not (extension_cfg := getattr(self, extension_name)):
+                continue
+            if extension_cfg.service is not service:
+                continue
+            if require_enabled and not extension_cfg.enabled:
+                continue
+
+            return extension_cfg
 
     def enabled_extensions(
         self,

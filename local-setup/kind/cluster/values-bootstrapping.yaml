@@ -6,9 +6,6 @@ extensions_cfg:
     components:
       - component_name: ocm.software/ocm-gear
       - component_name: ocm.software/ocmcli
-    sprints_relative_time_range:
-      days_from: -90
-      days_to: 150
   bdba:
     enabled: False # disable in default because of missing BDBA credentials
     mappings:

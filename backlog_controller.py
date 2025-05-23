@@ -1,9 +1,7 @@
-import argparse
 import datetime
 import http
 import logging
 import math
-import os
 
 import dateutil.parser
 import kubernetes.client.rest
@@ -11,12 +9,12 @@ import urllib3.exceptions
 
 import ci.log
 
-import ctx_util
 import k8s.backlog
 import k8s.logging
 import k8s.model
 import k8s.util
 import odg.extensions_cfg
+import odg.util
 import paths
 
 
@@ -109,55 +107,17 @@ def on_backlog_change(
     )
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        '--k8s-cfg-name',
-        help='specify kubernetes cluster to watch',
-        default=os.environ.get('K8S_CFG_NAME'),
-    )
-    parser.add_argument(
-        '--kubeconfig',
-        help='''
-            specify kubernetes cluster to interact with extensions (and logs); if both
-            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
-        ''',
-    )
-    parser.add_argument(
-        '--k8s-namespace',
-        help='specify kubernetes cluster namespace to watch',
-        default=os.environ.get('K8S_TARGET_NAMESPACE'),
-    )
-    parser.add_argument(
-        '--extensions-cfg-path',
-        help='path to the `extensions_cfg.yaml` file that should be used',
-    )
-
-    parsed_arguments = parser.parse_args()
-
-    if not parsed_arguments.k8s_namespace:
-        raise ValueError(
-            'k8s namespace must be set, either via argument "--k8s-namespace" '
-            'or via environment variable "K8S_TARGET_NAMESPACE"'
-        )
-
-    return parsed_arguments
-
-
 def main():
-    parsed_arguments = parse_args()
+    parsed_arguments = odg.util.parse_args(
+        arguments=(
+            odg.util.Arguments.K8S_CFG_NAME,
+            odg.util.Arguments.KUBECONFIG,
+            odg.util.Arguments.K8S_NAMESPACE,
+            odg.util.Arguments.EXTENSIONS_CFG_PATH,
+        ),
+    )
+    kubernetes_api = odg.util.kubernetes_api(parsed_arguments)
     namespace = parsed_arguments.k8s_namespace
-
-    secret_factory = ctx_util.secret_factory()
-
-    if parsed_arguments.k8s_cfg_name:
-        kubernetes_cfg = secret_factory.kubernetes(parsed_arguments.k8s_cfg_name)
-        kubernetes_api = k8s.util.kubernetes_api(kubernetes_cfg=kubernetes_cfg)
-    else:
-        kubernetes_api = k8s.util.kubernetes_api(
-            kubeconfig_path=parsed_arguments.kubeconfig,
-        )
 
     k8s.logging.init_logging_thread(
         service=odg.extensions_cfg.Services.BACKLOG_CONTROLLER,
