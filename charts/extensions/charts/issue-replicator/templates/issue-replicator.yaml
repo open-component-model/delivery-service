@@ -24,6 +24,8 @@ spec:
             - python3
             - -m
             - issue_replicator
+            securityContext:
+              allowPrivilegeEscalation: false
           env:
             - name: SECRET_FACTORY_PATH
               value: /secrets

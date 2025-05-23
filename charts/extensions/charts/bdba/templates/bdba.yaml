@@ -31,6 +31,8 @@ spec:
             - python3
             - -m
             - bdba_extension
+          securityContext:
+            allowPrivilegeEscalation: false
           env:
             - name: SECRET_FACTORY_PATH
               value: /secrets

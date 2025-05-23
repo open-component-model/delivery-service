@@ -24,6 +24,8 @@ spec:
             - python3
             - -m
             - artefact_enumerator
+            securityContext:
+              allowPrivilegeEscalation: false
             env:
             - name: SECRET_FACTORY_PATH
               value: /secrets

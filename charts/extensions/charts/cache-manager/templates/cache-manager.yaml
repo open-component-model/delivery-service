@@ -30,6 +30,8 @@ spec:
             - {{ $arg }}
             {{- end }}
             {{- end }}
+            securityContext:
+              allowPrivilegeEscalation: false
             env:
             - name: SECRET_FACTORY_PATH
               value: /secrets

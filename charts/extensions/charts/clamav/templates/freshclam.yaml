@@ -21,6 +21,8 @@ spec:
         - name: freshclam
           image: {{ include "image" .Values.freshclam.image }}
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
           startupProbe:
             httpGet:
               path: /readiness

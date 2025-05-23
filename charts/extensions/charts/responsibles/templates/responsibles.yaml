@@ -31,6 +31,8 @@ spec:
             - python3
             - -m
             - responsibles_extension
+          securityContext:
+            allowPrivilegeEscalation: false
           env:
             - name: SECRET_FACTORY_PATH
               value: /secrets

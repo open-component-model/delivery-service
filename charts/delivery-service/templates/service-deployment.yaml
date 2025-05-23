@@ -36,6 +36,8 @@ spec:
         - name: delivery-service
           image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
           args:
             - --productive
           {{- range $arg := default list .Values.args }}

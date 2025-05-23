@@ -21,6 +21,8 @@ spec:
             - python3
             - -m
             - backlog_controller
+          securityContext:
+            allowPrivilegeEscalation: false
           env:
             - name: SECRET_FACTORY_PATH
               value: /secrets

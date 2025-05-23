@@ -25,6 +25,8 @@ spec:
             - python3
             - -m
             - delivery_db_backup
+            securityContext:
+              allowPrivilegeEscalation: false
             env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
