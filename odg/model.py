@@ -544,7 +544,7 @@ class RescoreOsIdFinding:
         return _as_key(self.osid.ID)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class GitHubSecretFinding(Finding):
     html_url: str
     secret: str

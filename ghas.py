@@ -7,13 +7,13 @@ import logging
 import os
 import sys
 import github3
-import urllib.parse
 
 import ci.log
 import cnudie.retrieve
 import delivery.client
 import odg.model
 import secret_mgmt
+import ctx_util
 
 import util
 import k8s.util
@@ -36,7 +36,6 @@ ready_to_terminate = True
 wants_to_terminate = False
 
 
-
 def handle_termination_signal(*args):
     global wants_to_terminate
 
@@ -54,6 +53,7 @@ class GitHubSecretLocationType(str, Enum):
     COMMIT = "commit"
     WIKI_COMMIT = "wiki_commit"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class SecretLocation:
@@ -221,7 +221,7 @@ def scan(
     try:
         ghas_findings = create_ghas_findings(ghas_config, secret_factory)
     except Exception as e:
-        logger.exception("Failed to create GHAS findings")
+        logger.exception(f"Failed to create GHAS findings: {e}")
         return
 
     artefact_metadata = []
