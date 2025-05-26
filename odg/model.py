@@ -552,6 +552,7 @@ class GitHubSecretFinding(Finding):
     secret_type_display_name: str
     path: str
     line: int
+    location_type: str
 
     @property
     def key(self) -> str:

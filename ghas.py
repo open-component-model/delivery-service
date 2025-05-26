@@ -15,14 +15,15 @@ import delivery.client
 import odg.model
 import secret_mgmt
 
-import ctx_util
+import util
 import k8s.util
 import k8s.logging
 import lookups
 import odg.extensions_cfg
 import odg.findings
 import paths
-
+from enum import Enum
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
@@ -33,6 +34,7 @@ default_cache_dir = os.path.join(own_dir, '.cache')
 
 ready_to_terminate = True
 wants_to_terminate = False
+
 
 
 def handle_termination_signal(*args):
@@ -48,11 +50,23 @@ def handle_termination_signal(*args):
     wants_to_terminate = True
 
 
+class GitHubSecretLocationType(str, Enum):
+    COMMIT = "commit"
+    WIKI_COMMIT = "wiki_commit"
+    UNKNOWN = "unknown"
+
+@dataclass
+class SecretLocation:
+    path: str
+    line: int
+    location_type: GitHubSecretLocationType
+
+
 def get_secret_alerts(
     github_client: github3.GitHub,
     org: str
 ) -> collections.abc.Iterable[dict]:
-    """Fetch open secret scanning alerts using authenticated GitHub client."""
+    'Fetch open secret scanning alerts using authenticated GitHub client.'
     try:
         org_obj = github_client.organization(org)
         response = org_obj._session.get(f"{org_obj.url}/secret-scanning/alerts?state=open")
@@ -67,35 +81,37 @@ def get_secret_location(
     github_client: github3.GitHub,
     location_url: str,
 ) -> dict:
-    """Fetch location details (path, line) for a secret alert using GitHub client."""
+    'Fetch location details (path, line) for a secret alert using GitHub client.'
     try:
         response = github_client._session.get(location_url)
         response.raise_for_status()
         locations = response.json()
 
         if not locations or not isinstance(locations, list):
-            return {"path": "", "line": 0}
+            return SecretLocation(path="", line=0, location_type=GitHubSecretLocationType.UNKNOWN)
 
-        location = locations[0]
-        loc_type = location.get("type", "")
-        details = location.get("details", {})
+        for loc in locations:
+            loc_type = loc.get("type", "")
+            if loc_type in (GitHubSecretLocationType.COMMIT, GitHubSecretLocationType.WIKI_COMMIT):
+                details = loc.get("details", {})
+                return SecretLocation(
+                    path=details.get("path", ""),
+                    line=details.get("start_line", 0),
+                    location_type=GitHubSecretLocationType(loc_type),
+                )
 
-        if loc_type in {"commit", "wiki_commit"}:
-            return {
-                "path": details.get("path", loc_type),
-                "line": details.get("start_line", 0),
-            }
+        return SecretLocation(path="", line=0, location_type=GitHubSecretLocationType.UNKNOWN)
 
     except Exception as e:
         logger.error(f"Failed to fetch alert locations: {e}")
-        return {"path": "", "line": 0}
+        return SecretLocation(path="", line=0, location_type=GitHubSecretLocationType.UNKNOWN)
 
 
 def as_artefact_metadata(
     artefact: odg.model.ComponentArtefactId,
     ghas_finding: collections.abc.Iterable[odg.model.GitHubSecretFinding],
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
-    """Transform GitHub secret scanning findings into ArtefactMetadata."""
+    'Transform GitHub secret scanning findings into ArtefactMetadata.'
     today = datetime.date.today()
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
@@ -133,16 +149,16 @@ def create_ghas_findings(
 ) -> list[odg.model.GitHubSecretFinding]:
     ghas_findings = []
 
-    for github in ghas_config.githubs:
-        for org in github.orgs:
-            org_url = f'{github.github}/{org}'
+    for github_hostname in ghas_config.github_hostnames:
+        for org in github_hostname.orgs:
+            org_url = f'{github_hostname.github}/{org}'
             logger.info(f"Fetching GHAS alerts for org '{org}' from {org_url}...")
 
             github_api = lookups.github_api_lookup(secret_factory)
             github_client = github_api(org_url)
 
             if not github_client:
-                logger.error(f"Could not authenticate Github API for {github}")
+                logger.error(f"Could not authenticate Github API for {github_hostname}")
                 continue
 
             try:
@@ -156,8 +172,9 @@ def create_ghas_findings(
                             secret_type=alert.get("secret_type", ""),
                             secret="REDACTED",
                             secret_type_display_name=alert.get("secret_type_display_name", ""),
-                            path=locations["path"],
-                            line=locations["line"],
+                            path=locations.path,
+                            line=locations.line,
+                            location_type=locations.location_type.value
                         )
                     )
             except Exception as e:
@@ -168,14 +185,11 @@ def create_ghas_findings(
 def build_artefact_from_finding(
     finding: odg.model.GitHubSecretFinding,
 ) -> odg.model.ComponentArtefactId:
-    """Extract component info from finding and return a ComponentArtefactId."""
+    'Extract component info from finding and return a ComponentArtefactId.'
     try:
-        parsed = urllib.parse.urlparse(finding.html_url)
-        path_parts = parsed.path.strip("/").split("/")
-        if len(path_parts) < 2:
-            raise ValueError(f"Invalid HTML URL format: {finding.html_url}")
+        parsed_url = util.urlparse(finding.html_url)
 
-        org, repo = path_parts[0], path_parts[1]
+        org, repo = parsed_url.path.strip('/').split('/')
         component_name = f"github.com/{org}/{repo}"
 
         return odg.model.ComponentArtefactId(
@@ -202,32 +216,48 @@ def scan(
     delivery_client: delivery.client.DeliveryServiceClient,
     secret_factory: secret_mgmt.SecretFactory,
 ):
-    logger.info('Starting GHAS scan...')
+    logger.info("Starting GHAS scan...")
 
-    ghas_findings = create_ghas_findings(ghas_config, secret_factory)
+    try:
+        ghas_findings = create_ghas_findings(ghas_config, secret_factory)
+    except Exception as e:
+        logger.exception("Failed to create GHAS findings")
+        return
 
     artefact_metadata = []
 
     for finding in ghas_findings:
         try:
             artefact = build_artefact_from_finding(finding)
+        except Exception as e:
+            logger.warning(f"Failed to build artefact from finding {finding.html_url}: {e}")
+            continue
 
+        try:
             if ghas_finding_cfg and not ghas_finding_cfg.matches(artefact):
-                logger.info(f'Finding filtered out for artefact: {artefact}')
+                logger.debug(f"Finding filtered out for artefact: {artefact}")
                 continue
 
             if not ghas_config.is_supported(artefact_kind=artefact.artefact_kind):
+                msg = (
+                    f"{artefact.artefact_kind} is not supported by the GHAS extension. "
+                    "Consider adjusting filter configurations."
+                )
                 if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
-                    raise TypeError(
-                        f'{artefact.artefact_kind} is not supported by the GHAS extension, maybe the filter '
-                        'configurations have to be adjusted to filter out this artefact kind'
-                    )
+                    logger.error(msg)
+                    raise TypeError(msg)
+                logger.warning(msg)
                 continue
 
-            resource_node = k8s.util.get_ocm_node(
-                component_descriptor_lookup=component_descriptor_lookup,
-                artefact=artefact,
-            )
+            try:
+                resource_node = k8s.util.get_ocm_node(
+                    component_descriptor_lookup=component_descriptor_lookup,
+                    artefact=artefact,
+                )
+            except Exception as e:
+                logger.error(f"Failed to retrieve resource node for artefact {artefact}: {e}")
+                continue
+
             access_type = resource_node.resource.access.type
             resource_type = resource_node.resource.type
 
@@ -235,18 +265,36 @@ def scan(
                 access_type=access_type,
                 artefact_type=resource_type,
             ):
+                msg = (
+                    f"{access_type=} with {resource_type=} is not supported by the GHAS extension. "
+                    "Consider adjusting filter configurations."
+                )
                 if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
-                    raise TypeError(
-                        f'{access_type=} with {resource_type=} is not supported by the GHAS extension, '
-                        'maybe the filter configurations have to be adjusted to filter out these types'
-                    )
+                    logger.error(msg)
+                    raise TypeError(msg)
+                logger.warning(msg)
                 continue
 
-            artefact_metadata.extend(as_artefact_metadata(artefact, finding))
-        except Exception:
+            try:
+                metadata = as_artefact_metadata(artefact, finding)
+                artefact_metadata.extend(metadata)
+            except Exception as e:
+                logger.exception(f"Failed to convert finding into metadata for artefact {artefact}: {e}")
+                continue
+
+        except Exception as e:
+            logger.exception(f"Unexpected error processing finding {finding.html_url}: {e}")
             continue
 
-    delivery_client.update_metadata(data=artefact_metadata)
+    if artefact_metadata:
+        try:
+            delivery_client.update_metadata(data=artefact_metadata)
+            logger.info("GHAS metadata successfully delivered.")
+        except Exception as e:
+            logger.exception(f"Failed to update delivery client with metadata: {e}")
+    else:
+        logger.warning("No artefact metadata was created from findings.")
+
     logger.info("Finished GHAS scan.")
 
 

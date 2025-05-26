@@ -766,7 +766,7 @@ class SASTConfig(BacklogItemMixins):
 
 @dataclasses.dataclass
 class GitHubInstance:
-    github: str
+    github_hostname: str
     orgs: list[str]
 
 
@@ -784,11 +784,11 @@ class GHASConfig(BacklogItemMixins):
     interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     schedule: str = '0 0 * * *' # every day at 12:00 AM
-    githubs: list[GitHubInstance] = dataclasses.field(default_factory=list)
+    github_hostnames: list[GitHubInstance] = dataclasses.field(default_factory=list)
 
     def __post_init__(self):
         # Ensure GitHub instances are correctly initialized
-        self.githubs = [GitHubInstance(**gh) for gh in self.githubs]
+        self.github_hostnames = [GitHubInstance(**gh) for gh in self.github_hostnames]
 
     def is_supported(
         self,
@@ -853,7 +853,6 @@ class ExtensionsConfiguration:
     ghas: GHASConfig | None
     osid: OsId | None
     responsibles: ResponsiblesConfig | None
-    sast: SASTConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod
