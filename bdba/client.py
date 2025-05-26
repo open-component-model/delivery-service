@@ -109,6 +109,9 @@ class BDBAApiRoutes:
     def api_key(self):
         return self._api_url('key/')
 
+    def bdio_export(self, product_id: int):
+        return self._api_url('product', str(product_id), '?format=bdio')
+
     # ---- "rest" routes (undocumented API)
 
     def scans(self, product_id: int):
@@ -589,3 +592,11 @@ class BDBAApi:
             json={'validity': validity_seconds},
             timeout=timeout,
         )
+
+    def bdio_export(
+        self,
+        product_id: int
+    ) -> bytes:
+        url = self._routes.bdio_export(product_id)
+        response = self._get(url=url)
+        return response.content
