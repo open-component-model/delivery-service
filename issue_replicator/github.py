@@ -788,7 +788,7 @@ def _ghas_template_vars(
     delivery_dashboard_url: str,
     sprint_name: str | None=None,
 ) -> dict[str, str]:
-    summary += '# Summary of found Issues related to Operating-System versioning policies'
+    summary += '# Summary of found secret scanning alert'
 
     def iter_findings(
         aggregated_findings: tuple[AggregatedFinding],

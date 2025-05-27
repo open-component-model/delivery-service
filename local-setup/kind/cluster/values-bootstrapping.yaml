@@ -192,6 +192,8 @@ findings:
         selector:
           html_url:
             - .*
+    issues:
+      enable_assignees: False
   - type: finding/osid
     categorisations:
       - id: empty-os-id
