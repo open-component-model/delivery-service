@@ -589,3 +589,25 @@ class BDBAApi:
             json={'validity': validity_seconds},
             timeout=timeout,
         )
+
+    def bdio_export(
+        self,
+        product_id: int
+    ) -> bytes:
+        url = self._routes.bdio_export(product_id)
+        response = self._get(url=url)
+        raw_data = response.json()
+
+        mapped_data = {
+            'id': raw_data.get('@id'),
+            'name': raw_data.get('name'),
+            'publisher': raw_data.get('publisher'),
+            'publisherVersion': raw_data.get('publisherVersion'),
+            'creationDateTime': raw_data.get('creationDateTime'),
+            'entries': raw_data.get('@graph', []),
+        }
+
+        return dacite.from_dict(
+            data_class=bm.BDIO,
+            data=mapped_data,
+        )
