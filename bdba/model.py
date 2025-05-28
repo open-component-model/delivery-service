@@ -11,6 +11,7 @@ import logging
 
 import dacite
 import dateutil.parser
+import typing
 
 import bdba.util as bu
 
@@ -244,6 +245,16 @@ class AnalysisResult(Result):
     fail_reason: str | None
     components: list[Component] = dataclasses.field(default_factory=list)
     custom_data: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
+@dataclasses.dataclass
+class BDIO:
+    id: str
+    name: str
+    publisher: str
+    publisherVersion: str
+    creationDateTime: str
+    entries: list[dict[str, typing.Any]]
 
 
 #############################################################################
