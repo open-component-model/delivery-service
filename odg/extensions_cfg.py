@@ -27,6 +27,7 @@ class Services(enum.StrEnum):
     ACCESS_MANAGER = 'accessManager'
     ARTEFACT_ENUMERATOR = 'artefactEnumerator'
     BACKLOG_CONTROLLER = 'backlogController'
+    BLACKDUCK = 'blackduck'
     BDBA = 'bdba'
     CACHE_MANAGER = 'cacheManager'
     CLAMAV = 'clamav'
@@ -152,6 +153,62 @@ class BacklogControllerConfig(ExtensionCfgMixins):
 @dataclasses.dataclass
 class Mapping:
     prefix: str
+
+
+@dataclasses.dataclass
+class BlackDuckExtensionMapping(Mapping):
+    group_id_blackduck: str | int
+    group_id_bdba: int
+    aws_secret_name: str | None
+    processing_mode: str = 'rescan'
+
+
+@dataclasses.dataclass(kw_only=True)
+class BlackDuckExtensionConfig(BacklogItemMixins):
+    service: Services = Services.BLACKDUCK
+    delivery_service_url: str
+    mappings: list[BlackDuckExtensionMapping]
+    interval: int = 60 * 60 * 24 # 24h
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+
+    def mapping(self, name: str, /) -> BlackDuckExtensionMapping:
+        for mapping in self.mappings:
+            if name.startswith(mapping.prefix):
+                return mapping
+
+        raise ValueError(f'No matching mapping entry found for {name=}')
+
+    def is_supported(
+        self,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.RESOURCE,
+        )
+        supported_access_types = (
+            ocm.AccessType.OCI_REGISTRY,
+            ocm.AccessType.LOCAL_BLOB,
+            ocm.AccessType.S3,
+        )
+
+        is_supported = True
+
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for BD scans, {supported_artefact_kinds=}'
+                )
+
+        if access_type and access_type not in supported_access_types:
+            is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{access_type=} is not supported for BD scans, {supported_access_types=}'
+                )
+
+        return is_supported
 
 
 @dataclasses.dataclass
@@ -852,6 +909,7 @@ class OsId(BacklogItemMixins):
 class ExtensionsConfiguration:
     access_manager: AccessManagerConfig | None
     artefact_enumerator: ArtefactEnumeratorConfig | None
+    blackduck: BlackDuckExtensionConfig | None
     bdba: BDBAConfig | None
     cache_manager: CacheManagerConfig | None
     clamav: ClamAVConfig | None
