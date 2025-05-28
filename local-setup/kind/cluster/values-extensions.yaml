@@ -20,3 +20,5 @@ responsibles:
   enabled: True
 sast:
   enabled: True
+ghas: 
+  enabled: False
