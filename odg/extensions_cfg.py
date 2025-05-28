@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 class Services(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefactEnumerator'
     BACKLOG_CONTROLLER = 'backlogController'
+    BD = 'bd'
     BDBA = 'bdba'
     CACHE_MANAGER = 'cacheManager'
     CLAMAV = 'clamav'
@@ -141,6 +142,50 @@ class BacklogControllerConfig(ExtensionCfgMixins):
 @dataclasses.dataclass
 class Mapping:
     prefix: str
+
+
+@dataclasses.dataclass
+class BDMapping(Mapping):
+    group_id_bd: str
+    bd_secret_name: str
+    group_id_bdba: int
+    bdba_secret_name: str
+
+
+@dataclasses.dataclass(kw_only=True)
+class BDConfig(BacklogItemMixins):
+    service: Services = Services.BD
+    delivery_service_url: str
+    mappings: list[BDMapping]
+    interval: int = 60 * 60 * 24 # 24h
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+
+    def mapping(self, name: str, /) -> BDMapping:
+        for mapping in self.mappings:
+            if name.startswith(mapping.prefix):
+                return mapping
+
+        raise ValueError(f'No matching mapping entry found for {name=}')
+
+    def is_supported(
+        self,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.RESOURCE,
+        )
+
+        is_supported = True
+
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for BD scans, {supported_artefact_kinds=}'
+                )
+
+        return is_supported
 
 
 @dataclasses.dataclass
@@ -800,6 +845,7 @@ class OsId(BacklogItemMixins):
 @dataclasses.dataclass
 class ExtensionsConfiguration:
     artefact_enumerator: ArtefactEnumeratorConfig | None
+    bd: BDConfig | None
     bdba: BDBAConfig | None
     cache_manager: CacheManagerConfig | None
     clamav: ClamAVConfig | None
