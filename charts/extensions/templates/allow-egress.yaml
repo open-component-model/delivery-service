@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-extensions
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - issue-replicator
+      - cache-manager
+      - artefact-enumerator
+      - backlog-controller
+      - crypto
+      - bdba
+      - clamav
+      - osid
+      - responsibles
+      - sast
+      - delivery-db-backup
+      - prometheus-operator
+  policyTypes:
+    - Egress
+  egress:
+    - {}  # Allows all egress traffic to any destination and port
