@@ -1,18 +1,20 @@
+{{- $podName := "sast" }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sast
+  name: {{ $podName }}
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   replicas: 0 # will be scaled automatically by backlog-controller
   selector:
     matchLabels:
-      app: sast
+      app: {{ $podName }}
       delivery-gear.gardener.cloud/service: sast
   template:
     metadata:
       labels:
-        app: sast
+        app: {{ $podName }}
         delivery-gear.gardener.cloud/service: sast
     spec:
       topologySpreadConstraints:
@@ -21,10 +23,10 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: sast
+              app: {{ $podName }}
       terminationGracePeriodSeconds: 300 # 5 min
       containers:
-        - name: sast
+        - name: {{ $podName }}
           image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
           command:
@@ -91,3 +93,17 @@ spec:
         - name: ocm-repo-mappings
           configMap:
             name: ocm-repo-mappings
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-sast
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $podName }}
+  policyTypes:
+    - Egress
+  egress:
+    - {}  # Allows all egress traffic to any destination and port
