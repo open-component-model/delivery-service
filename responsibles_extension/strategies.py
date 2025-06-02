@@ -1,6 +1,7 @@
 import collections.abc
 import dataclasses
 import enum
+import time
 import typing
 
 import delivery.client
@@ -135,6 +136,7 @@ class StaticResponsibles(StrategyBase):
                             github_hostname=responsible.github_hostname,
                         )],
                     )
+                time.sleep(3) # prevent GitHub secondary rate limits
 
             else:
                 raise ValueError(f'unknown {responsible.type=}')
