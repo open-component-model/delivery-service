@@ -348,7 +348,7 @@ jobs:
       version: ${{ needs.prepare.outputs.version }}
       oci-registry: ${{ needs.prepare.outputs.oci-registry }}
       oci-repository: ${{ matrix.args.oci-repository }}
-      oci-platforms: 'linux/amd64'
+      oci-platforms: 'linux/arm64,linux/amd64'
       dockerfile: ${{ matrix.args.dockerfile }}
       build-ctx-artefact: ${{ matrix.args.build-ctx-artefact }}
       untar-build-ctx-artefact: ${{ matrix.args.untar-build-ctx-artefact }}
