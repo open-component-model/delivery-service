@@ -10,7 +10,6 @@ CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
 FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
 BDBA_VERSIONFILE = os.path.join(repo_dir, 'BDBA_DEPENDENCY_VERSION')
 REQUIREMENTS_EXTENSIONS_FILE = os.path.join(repo_dir, 'requirements.extensions.txt')
-REQUIREMENTS_SERVICE_FILE = os.path.join(repo_dir, 'requirements.service.txt')
 REQUIREMENTS_UTILS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
 EXTENSIONS_CHART_DIR = os.path.join(repo_dir, 'charts', 'extensions')
 
@@ -62,10 +61,6 @@ def main():
         write_package_version_to_requirements_file(
             package_name=python_distribution_package_name,
             file_path=REQUIREMENTS_EXTENSIONS_FILE,
-        )
-        write_package_version_to_requirements_file(
-            package_name=python_distribution_package_name,
-            file_path=REQUIREMENTS_SERVICE_FILE,
         )
 
     elif dependency_name == 'ocm.software/ocm-gear/freshclam':
