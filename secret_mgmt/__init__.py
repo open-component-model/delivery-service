@@ -41,6 +41,9 @@ def default_secret_type_to_class(secret_type: str) -> object:
         case 'oci-registry':
             import secret_mgmt.oci_registry
             return secret_mgmt.oci_registry.OciRegistry
+        case 'rbac':
+            import secret_mgmt.rbac
+            return secret_mgmt.rbac.RoleBindings
         case 'signing-cfg':
             import secret_mgmt.signing_cfg
             return secret_mgmt.signing_cfg.SigningCfg
@@ -135,6 +138,25 @@ class SecretFactory:
             and (delivery_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='delivery')))
         ):
             for delivery_cfg in delivery_cfgs:
+                if rbac_cfg := getattr(delivery_cfg, 'rbac', None):
+                    import secret_mgmt.rbac
+                    secrets_dict['rbac'] = secrets_dict.get('rbac', {})
+
+                    secrets_dict['rbac'][delivery_cfg._name] = secret_mgmt.rbac.RoleBindings(
+                        permissions=[
+                            dacite.from_dict(
+                                data_class=secret_mgmt.rbac.Permission,
+                                data=permission_raw,
+                            ) for permission_raw in rbac_cfg().get('permissions', [])
+                        ],
+                        roles=[
+                            dacite.from_dict(
+                                data_class=secret_mgmt.rbac.Role,
+                                data=role_raw,
+                            ) for role_raw in rbac_cfg().get('roles', [])
+                        ],
+                    )
+
                 if oauth_cfgs := delivery_cfg.oauth_cfgs():
                     import secret_mgmt.oauth_cfg
                     secrets_dict['oauth-cfg'] = secrets_dict.get('oauth-cfg', {})
