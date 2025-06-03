@@ -29,6 +29,9 @@ swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')
 
 _odg_path = os.path.join(_own_dir, 'odg')
 
+_secret_mgmt_path = os.path.join(_own_dir, 'secret_mgmt')
+builtin_role_bindings_path = os.path.join(_secret_mgmt_path, 'builtin-role-bindings.yaml')
+
 
 def features_cfg_candidates() -> collections.abc.Generator[str, None, None]:
     if features_cfg_path := os.environ.get('FEATURES_CFG_PATH'):

@@ -57,6 +57,9 @@ def default_secret_type_to_class(secret_type: str) -> object:
         case 'oci-registry':
             import secret_mgmt.oci_registry
             return secret_mgmt.oci_registry.OciRegistry
+        case 'rbac':
+            import secret_mgmt.rbac
+            return secret_mgmt.rbac.RoleBindings
         case 'signing-cfg':
             import secret_mgmt.signing_cfg
             return secret_mgmt.signing_cfg.SigningCfg
@@ -126,6 +129,23 @@ class SecretFactory:
                         kubeconfig=element.kubeconfig(),
                     )
                 elif cfg_type == 'delivery':
+                    if rbac_cfg := getattr(element, 'rbac', None):
+                        import secret_mgmt.rbac
+
+                        secrets_dict['rbac'][element._name] = secret_mgmt.rbac.RoleBindings(
+                            permissions=[
+                                dacite.from_dict(
+                                    data_class=secret_mgmt.rbac.Permission,
+                                    data=permission_raw,
+                                ) for permission_raw in rbac_cfg().get('permissions', [])
+                            ],
+                            roles=[
+                                dacite.from_dict(
+                                    data_class=secret_mgmt.rbac.Role,
+                                    data=role_raw,
+                                ) for role_raw in rbac_cfg().get('roles', [])
+                            ],
+                        )
                     if oauth_cfgs := element.oauth_cfgs():
                         import secret_mgmt.oauth_cfg
 
@@ -160,7 +180,6 @@ class SecretFactory:
                                 algorithm=signing_cfg['algorithm'],
                                 priority=signing_cfg.get('priority', 0),
                             )
-
                 elif cfg_type == 'container_registry':
                     import secret_mgmt.oci_registry
                     secrets_dict['oci-registry'][element._name] = secret_mgmt.oci_registry.OciRegistry( # noqa: E501
