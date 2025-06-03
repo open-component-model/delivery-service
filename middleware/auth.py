@@ -371,6 +371,7 @@ class OAuthLogin(aiohttp.web.View):
             },
             'exp': int((now + time_delta).timestamp()),
             'key_id': signing_cfg.id,
+            'roles': list(roles),
         }
 
         response = aiohttp.web.json_response(
