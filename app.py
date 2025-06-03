@@ -296,6 +296,10 @@ def add_routes(
         handler=middleware.auth.OAuthLogin,
     )
     app.router.add_view(
+        path='/auth/refresh',
+        handler=middleware.auth.OAuthRefresh,
+    )
+    app.router.add_view(
         path='/auth/logout',
         handler=middleware.auth.OAuthLogout,
     )
