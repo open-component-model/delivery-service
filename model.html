@@ -1,0 +1,371 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Model &mdash; Open Delivery Gear  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Artefact-Enumerator" href="extensions/artefact_enumerator.html" />
+    <link rel="prev" title="Contribute a new Extension" href="contribute_extension.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Open Delivery Gear
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="local_setup.html">Setup Local Development Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribute_extension.html">Contribute a new Extension</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Data Model</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="extensions/artefact_enumerator.html">Artefact-Enumerator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/issue_replicator.html">Issue-Replicator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/responsibles.html">Responsibles</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Open Delivery Gear</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Data Model</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/model.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="data-model">
+<h1>Data Model<a class="headerlink" href="#data-model" title="Link to this heading"></a></h1>
+<p>The data model of the Open Delivery Gear intends to correlate typed metadata
+from multiple sources with <a class="reference internal" href="#artefact"><span class="std std-ref">Artefacts</span></a> said metadata is related
+to. Artefacts can either be OCM Artefacts (i.e.
+<a class="reference internal" href="#designtime-artefacts"><span class="std std-ref">Designtime Artefacts</span></a>), or
+<a class="reference internal" href="#runtime-artefacts"><span class="std std-ref">Runtime Artefacts</span></a>. They are referenced using OCM
+coordinates with optional extensions.</p>
+<p>At its core, the Open Delivery Gear’s data model consists of the
+<code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> meta-type, which allows describing such metadata, and
+correlating it to an <a class="reference internal" href="#artefact"><span class="std std-ref">Artefact</span></a>. It is the output of an extension which is
+uploaded to the Delivery-Database via the Delivery-Service, and then may be
+used for further processing and reporting. In the most basic form, it consists
+of an <a class="reference internal" href="#artefact"><span class="std std-ref">Artefact</span></a>, some <a class="reference internal" href="#metadata"><span class="std std-ref">Metadata</span></a> and an extension specific
+<a class="reference internal" href="#payload"><span class="std std-ref">Payload</span></a> (see Fig. 1). The model is defined in the <code class="code docutils literal notranslate"><span class="pre">odg.model</span></code> module of
+the delivery-service (<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/odg/model.py">ref</a>).</p>
+<figure class="align-center" id="id6" style="width: 50%">
+<img alt="_images/artefact-metadata.svg" src="_images/artefact-metadata.svg" />
+<figcaption>
+<p><span class="caption-text">Fig. 1: Artefact Metadata Model</span><a class="headerlink" href="#id6" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>The <a class="reference internal" href="#artefact"><span class="std std-ref">Artefact</span></a> is used as a <strong>correlation-id</strong> to identify where the
+<a class="reference internal" href="#payload"><span class="std std-ref">Payload</span></a> belongs to, e.g. to an OCI image, some source code or a
+Kubernetes cluster. Also, it may be used to group multiple <a class="reference internal" href="#payload"><span class="std std-ref">Payloads</span></a> together. The <a class="reference internal" href="#payload"><span class="std std-ref">Payload</span></a> in turn holds the actual content the
+extension has created, this might be for example a finding, some informational
+data or some metadata (see Fig. 2).</p>
+<figure class="align-center" id="id7" style="width: 70%">
+<img alt="_images/general-overview.svg" src="_images/general-overview.svg" />
+<figcaption>
+<p><span class="caption-text">Fig. 2: General Overview</span><a class="headerlink" href="#id7" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<section id="artefact">
+<span id="id1"></span><h2>Artefact<a class="headerlink" href="#artefact" title="Link to this heading"></a></h2>
+<p>The <em>Artefact</em> identifies where the <a class="reference internal" href="#payload"><span class="std std-ref">Payload</span></a> belongs to. These
+<em>Artefacts</em> can be generally divided into two different groups:</p>
+<ul id="designtime-artefacts">
+<li><p><strong>Designtime Artefacts</strong> <em>(e.g. OCI images, Helm charts, source code)</em></p>
+<blockquote>
+<div><p><em>Designtime artefacts</em> includes those artefacts which are statically
+available right after the build. Commonly, these artefacts are already
+modelled via OCM as <code class="code docutils literal notranslate"><span class="pre">resources</span></code> or <code class="code docutils literal notranslate"><span class="pre">sources</span></code> and can be directly translated
+into the <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> model of the <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code>. The supported
+<code class="code docutils literal notranslate"><span class="pre">artefact_kinds</span></code> are therefore <code class="code docutils literal notranslate"><span class="pre">resource</span></code> and <code class="code docutils literal notranslate"><span class="pre">source</span></code>.</p>
+<div class="literal-block-wrapper docutils container" id="id8">
+<div class="code-block-caption"><span class="caption-text">OCM component descriptor (excerpt)</span><a class="headerlink" href="#id8" title="Link to this code"></a></div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">meta</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">schemaVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v2</span>
+<span class="nt">component</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-component</span>
+<span class="w">  </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">  </span><span class="nt">resources</span><span class="p">:</span><span class="w"> </span><span class="c1"># might be `sources` as well</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-image</span>
+<span class="w">      </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ociImage</span>
+<span class="w">      </span><span class="nt">extraIdentity</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id9">
+<div class="code-block-caption"><span class="caption-text">Derived <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> of <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code></span><a class="headerlink" href="#id9" title="Link to this code"></a></div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">artefact</span><span class="p">:</span>
+<span class="hll"><span class="w">  </span><span class="nt">component_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-component</span>
+</span><span class="w">  </span><span class="nt">component_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="hll"><span class="w">  </span><span class="nt">artefact_kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">resource</span><span class="w"> </span><span class="c1"># might be `source` as well</span>
+</span><span class="w">  </span><span class="nt">artefact</span><span class="p">:</span>
+<span class="hll"><span class="w">    </span><span class="nt">artefact_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-image</span>
+</span><span class="w">    </span><span class="nt">artefact_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="hll"><span class="w">    </span><span class="nt">artefact_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ociImage</span>
+</span><span class="w">    </span><span class="nt">artefact_extra_id</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+</pre></div>
+</div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<ul id="runtime-artefacts">
+<li><p><strong>Runtime Artefacts</strong> <em>(e.g. Kubernetes clusters, hyperscaler resources)</em></p>
+<blockquote>
+<div><p><em>Runtime artefacts</em> can not be statically modelled via OCM as they are
+ephemeral in nature and not related to the build process. Hence, those
+kinds of artefacts have to be modelled more individually. An important
+aspect to consider when defining the model is that it is necessary to be
+able to unambiguously identify an artefact and that related artefacts can be
+grouped together (i.e. there must be some shared properties, e.g. the
+<code class="code docutils literal notranslate"><span class="pre">artefact_type</span></code>). Some already existing examples:</p>
+<div class="literal-block-wrapper docutils container" id="id10">
+<div class="code-block-caption"><span class="caption-text"><code class="code docutils literal notranslate"><span class="pre">artefact</span></code> as modelled by the Diki extension</span><a class="headerlink" href="#id10" title="Link to this code"></a></div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">artefact</span><span class="p">:</span>
+<span class="hll"><span class="w">  </span><span class="nt">component_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-landscape-component</span><span class="w"> </span><span class="c1"># OCM component name of the landscape</span>
+</span><span class="w">  </span><span class="nt">component_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span><span class="w"> </span><span class="c1"># current version of the landscape</span>
+<span class="hll"><span class="w">  </span><span class="nt">artefact_kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">runtime</span>
+</span><span class="w">  </span><span class="nt">artefact</span><span class="p">:</span>
+<span class="hll"><span class="w">    </span><span class="nt">artefact_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">managed-seeds</span><span class="w"> </span><span class="c1"># group of Kubernetes clusters, might also be a project etc.</span>
+</span><span class="w">    </span><span class="nt">artefact_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">diki</span><span class="w"> </span><span class="c1"># Diki does not specify an actual version here</span>
+<span class="hll"><span class="w">    </span><span class="nt">artefact_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dikiReport</span><span class="w"> </span><span class="c1"># Diki does not specifiy multiple artefact types</span>
+</span></pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id11">
+<div class="code-block-caption"><span class="caption-text"><code class="code docutils literal notranslate"><span class="pre">artefact</span></code> as modelled by the Inventory extension</span><a class="headerlink" href="#id11" title="Link to this code"></a></div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">artefact</span><span class="p">:</span>
+<span class="hll"><span class="w">  </span><span class="nt">component_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-landscape-component</span><span class="w"> </span><span class="c1"># OCM component name of the landscape</span>
+</span><span class="hll"><span class="w">  </span><span class="nt">artefact_kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">runtime</span>
+</span><span class="w">  </span><span class="nt">artefact</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">artefact_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">instance-abc</span><span class="w"> </span><span class="c1"># instance-id of a hyperscale resource</span>
+<span class="hll"><span class="w">    </span><span class="nt">artefact_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws/virtual-machine</span><span class="w"> </span><span class="c1"># Inventory uses different artefact types here</span>
+</span><span class="w">    </span><span class="nt">artefact_extra_id</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">account_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0123456789</span>
+<span class="w">      </span><span class="nt">region_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eu-west-1</span>
+<span class="w">      </span><span class="nt">vpc_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vpc-0123456789</span>
+</pre></div>
+</div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<p>When defining how to set the <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> properties, it is important to consider
+that this <strong>correlation-id</strong> is used to find related data or to create logical
+groups which may be used, for example, to group items into the same issue as
+part of the GitHub issue reporting. The attributes which are used for this kind
+of grouping can be configured freely, but it must be ensured that the content
+of the included properties is “stable”. That means, it might be not benefical
+to include a <em>version</em> property or a temporary <em>instance-id</em> as a grouping
+relevant properties as this would not allow to correlate the same
+<a class="reference internal" href="#payload"><span class="std std-ref">Payload</span></a> between multiple versions or instances, ultimately causing for
+example initial discovery dates to be re-written or new GitHub issues being
+created instead of existing ones being updated. In the examples above, grouping
+constellations which proved to be favorable are highlighted.</p>
+</section>
+<section id="metadata">
+<span id="id2"></span><h2>Metadata<a class="headerlink" href="#metadata" title="Link to this heading"></a></h2>
+<p>In general, the <code class="code docutils literal notranslate"><span class="pre">meta</span></code> field holds information on where the <a class="reference internal" href="#payload"><span class="std std-ref">Payload</span></a>
+comes from (<code class="code docutils literal notranslate"><span class="pre">datasource</span></code>) and what type of <a class="reference internal" href="#payload"><span class="std std-ref">Payload</span></a> it is (<code class="code docutils literal notranslate"><span class="pre">type</span></code>). In
+most cases, the <code class="code docutils literal notranslate"><span class="pre">datasource</span></code> is equivalent to the name of the extension. Both,
+the <code class="code docutils literal notranslate"><span class="pre">datasource</span></code> and the <code class="code docutils literal notranslate"><span class="pre">type</span></code> share a global namespace. When it comes to the
+<code class="code docutils literal notranslate"><span class="pre">type</span></code>, it can be differentiated between three kinds of datatypes:</p>
+<ol class="arabic" id="meta-types">
+<li><p><em>Meta Types</em></p>
+<p>Those datatypes are not directly related to any type of finding or a single
+extension, but rather used internally by the Open Delivery Gear. Most
+presumably the new extension does not have to define any of those datatypes.
+The most prominent one is the <code class="code docutils literal notranslate"><span class="pre">meta/artefact_scan_info</span></code> which must be
+emitted by an extension for every processed <a class="reference internal" href="#artefact"><span class="std std-ref">Artefact</span></a> to indicate that
+is has been successfully processed. Also, it contains information on the
+last execution in general (e.g. a timestamp or a reference) (see
+<a class="reference internal" href="#artefact-scan-info"><span class="std std-ref">Artefact Scan Info</span></a> for an example). The relationship of a <em>meta type</em>
+and an <a class="reference internal" href="#artefact"><span class="std std-ref">Artefact</span></a> is usually 1:1.</p>
+<p><em>Examples:</em> <code class="code docutils literal notranslate"><span class="pre">meta/artefact_scan_info</span></code>, <code class="code docutils literal notranslate"><span class="pre">meta/responsibles</span></code></p>
+</li>
+<li><p><em>Finding Types</em></p>
+<p>Finding types describe deviations from a desired state defined by a ruleset,
+for example the presence of a known vulnerability. Also, those finding types
+can be assigned to a certain “severity”. As findings usually have to be
+resolved within a certain timeframe, those <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> entries also
+have to provide a initial <a class="reference internal" href="#discovery-date"><span class="std std-ref">Discovery Date</span></a> together with their
+<code class="code docutils literal notranslate"><span class="pre">allowed_processing_time</span></code>. To have more control over the assignees in case
+of a reporting via GitHub issues, the <code class="code docutils literal notranslate"><span class="pre">responsibles</span></code> detected by the
+extension can be also added to the <code class="code docutils literal notranslate"><span class="pre">meta</span></code> field to overwrite the default
+fallback (see
+<a class="reference internal" href="extensions/issue_replicator.html"><span class="doc">issue-replicator extension</span></a>). The
+relationship of findings and an <a class="reference internal" href="#artefact"><span class="std std-ref">Artefact</span></a> is typically n:1.</p>
+</li>
+<li><p><em>Informational Types</em></p>
+<p>If an extension collects data for a certain <a class="reference internal" href="#artefact"><span class="std std-ref">Artefact</span></a> which is not
+considered to be a finding, it should be modelled as an informational
+datatype. The information might be used to enrich the reported findings.
+For example, in the context of vulnerabilities, an additional informational
+type holds information on the detected file paths to add the package
+location to the reporting afterwards. In this case, the information is not
+part of the <a class="reference internal" href="#payload"><span class="std std-ref">Payload</span></a> of the finding type already as the relationship
+of file paths to vulnerability findings is n:n.</p>
+</li>
+</ol>
+<p>To create a mapping between the <code class="code docutils literal notranslate"><span class="pre">Datasource</span></code> and the <code class="code docutils literal notranslate"><span class="pre">Datatypes</span></code> it emits (and
+vice-versa), the respective util functions <code class="code docutils literal notranslate"><span class="pre">datasource()</span></code> and <code class="code docutils literal notranslate"><span class="pre">datatypes()</span></code>
+must be updated as well.</p>
+</section>
+<section id="payload">
+<span id="id3"></span><h2>Payload<a class="headerlink" href="#payload" title="Link to this heading"></a></h2>
+<p>The schema of the <em>Payload</em>, model-wise referred to as <code class="code docutils literal notranslate"><span class="pre">data</span></code>, can be
+individually defined by the extension to store the actual content. Therefore,
+it is necessary to add a new dataclass with the desired structure for each
+<code class="code docutils literal notranslate"><span class="pre">Datatype</span></code>. However, type-definitions must be consistent for each model-element
+of the same <code class="code docutils literal notranslate"><span class="pre">Datatype</span></code>. Afterwards, this new dataclass must be added to the
+list of allowed types for the <code class="code docutils literal notranslate"><span class="pre">data</span></code> property of the <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> model
+class.</p>
+<section id="key">
+<span id="artefact-metadata-key"></span><h3>Key<a class="headerlink" href="#key" title="Link to this heading"></a></h3>
+<p>To be able to unambiguously identify already existing database entries, it is
+required for each <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> instance to define a unique <code class="code docutils literal notranslate"><span class="pre">key</span></code>
+property. This <code class="code docutils literal notranslate"><span class="pre">key</span></code> always consists of the <code class="code docutils literal notranslate"><span class="pre">artefact</span></code>, <code class="code docutils literal notranslate"><span class="pre">Datasource</span></code>,
+<code class="code docutils literal notranslate"><span class="pre">Datatype</span></code> as well as the <code class="code docutils literal notranslate"><span class="pre">key</span></code> defined by the <code class="code docutils literal notranslate"><span class="pre">data</span></code> class (if there is any).
+This means, in case it is expected that there may be multiple entries per tuple
+of <code class="code docutils literal notranslate"><span class="pre">artefact</span></code>, <code class="code docutils literal notranslate"><span class="pre">Datasource</span></code> and <code class="code docutils literal notranslate"><span class="pre">Datatype</span></code>, the new class must define a unique
+<code class="code docutils literal notranslate"><span class="pre">key</span></code> property as well.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>See <a class="reference external" href="https://github.com/gardener/cc-utils/pull/1166/files">gardener/cc-utils#1166</a>
+as an example for this chapter. Please note that the <code class="code docutils literal notranslate"><span class="pre">dso.model</span></code> module in
+the pull request has been replaced by the <code class="code docutils literal notranslate"><span class="pre">odg.model</span></code> module in the
+delivery-service.</p>
+</div>
+</section>
+</section>
+<section id="discovery-date">
+<span id="id4"></span><h2>Discovery Date<a class="headerlink" href="#discovery-date" title="Link to this heading"></a></h2>
+<p>Findings (deviations from rulesets) typically have to be processed within an
+allowed timeframe. Hence, the date of first discovery is stored to allow for
+the calculation for latest due-dates. Thereby, the initial <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code>
+must be retained during subsequent updates. Therefore, the <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code> is
+part of the <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> model. To re-use the initial <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code> of
+a finding, and don’t reset it as part of every new scan, it must be defined
+when a finding is to be interpreted as equal so that the <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code> must
+be re-used.</p>
+<section id="considerations">
+<h3>Considerations<a class="headerlink" href="#considerations" title="Link to this heading"></a></h3>
+<p>In the most trivial example, this is the case when the <code class="code docutils literal notranslate"><span class="pre">data</span></code> key is equal.
+However, there might be cases where this is not enough, for example for
+vulnerability findings, the <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code> must be re-used in case the CVE
+and the package is the same, even if the package-version (which is part of the
+<code class="code docutils literal notranslate"><span class="pre">data</span></code> key) changes. Therefore, the behaviour must be defined in the
+<code class="code docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/artefacts/metadata</span></code> route
+(see <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/6697e5045d080d72c70b2ccaa214ffcaa8d0e244">open-component-model/delivery-service&#64;6697e50</a>
+as an example how to define this behaviour). In case it is not defined, the
+<code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code> will be always consumed as it is defined in the new
+<code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> entry.</p>
+</section>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<section id="artefact-scan-info">
+<span id="id5"></span><h3>Artefact Scan Info<a class="headerlink" href="#artefact-scan-info" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">artefact</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">component_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example.org/my-component</span>
+<span class="w">  </span><span class="nt">component_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">  </span><span class="nt">artefact_kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">resource</span>
+<span class="w">  </span><span class="nt">artefact</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">artefact_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-image</span>
+<span class="w">    </span><span class="nt">artefact_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="w">    </span><span class="nt">artefact_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ociImage</span>
+<span class="w">    </span><span class="nt">artefact_extra_id</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+<span class="nt">meta</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">meta/artefact_scan_info</span>
+<span class="w">  </span><span class="nt">datasource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bdba</span><span class="w"> </span><span class="c1"># name of the new extension</span>
+<span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"> </span><span class="c1"># optional properties describing the scan</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="contribute_extension.html" class="btn btn-neutral float-left" title="Contribute a new Extension" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="extensions/artefact_enumerator.html" class="btn btn-neutral float-right" title="Artefact-Enumerator" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SAP SE or an SAP affiliate company.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

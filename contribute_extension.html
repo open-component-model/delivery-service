@@ -1,0 +1,330 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contribute a new Extension &mdash; Open Delivery Gear  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Data Model" href="model.html" />
+    <link rel="prev" title="Setup Local Development Environment" href="local_setup.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Open Delivery Gear
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="local_setup.html">Setup Local Development Environment</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Contribute a new Extension</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="model.html">Data Model</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="extensions/artefact_enumerator.html">Artefact-Enumerator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/issue_replicator.html">Issue-Replicator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/responsibles.html">Responsibles</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Open Delivery Gear</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Contribute a new Extension</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/contribute_extension.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="contribute-a-new-extension">
+<h1>Contribute a new Extension<a class="headerlink" href="#contribute-a-new-extension" title="Link to this heading"></a></h1>
+<section id="setup-local-development-environment">
+<h2>Setup Local Development Environment<a class="headerlink" href="#setup-local-development-environment" title="Link to this heading"></a></h2>
+<p>For instructions on how to setup a local development environment, please refer
+to <a class="reference internal" href="local_setup.html"><span class="doc">Setup Local Development Environment</span></a>.</p>
+</section>
+<section id="model">
+<h2>Model<a class="headerlink" href="#model" title="Link to this heading"></a></h2>
+<p>For information on the <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> model and how to extend it, please
+refer to <a class="reference internal" href="model.html"><span class="doc">Data Model</span></a>.</p>
+</section>
+<section id="extensions-configuration">
+<span id="id1"></span><h2>Extensions Configuration<a class="headerlink" href="#extensions-configuration" title="Link to this heading"></a></h2>
+<p>Configuration for each extension should be provided via the interface defined
+in the <code class="code docutils literal notranslate"><span class="pre">odg.extensions_cfg</span></code> module
+(<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/odg/extensions.py">ref</a>).
+A minimal set of configuration parameters is defined by the required base class
+<code class="code docutils literal notranslate"><span class="pre">ExtensionCfgMixins</span></code>. In case the extension is expected to be working with
+backlog items (more on that topic in <a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a> and
+<a class="reference internal" href="#artefact-enumerator"><span class="std std-ref">Artefact-Enumerator</span></a>), the <code class="code docutils literal notranslate"><span class="pre">BacklogItemMixins</span></code> base class must be used
+instead. Usually, an extension will also require the <code class="code docutils literal notranslate"><span class="pre">delivery_service_url</span></code> to
+be defined to be able to access the delivery-service and an <code class="code docutils literal notranslate"><span class="pre">interval</span></code> or
+<code class="code docutils literal notranslate"><span class="pre">schedule</span></code>.</p>
+<p>Once a suitable dataclass for the extension is defined, it must be added to the
+<code class="code docutils literal notranslate"><span class="pre">ExtensionsConfiguration</span></code> class as optional property as well. Such an
+<code class="code docutils literal notranslate"><span class="pre">ExtensionsConfiguration</span></code> will be available to the workload in the cluster via
+a mounted ConfigMap (more on that topic in <a class="reference internal" href="#helm-chart"><span class="std std-ref">Helm Chart</span></a>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>See <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/b6354706c7545eacd571271472807c95aa2525da">open-component-model/delivery-service&#64;b635470</a>
+as an example for this chapter.</p>
+</div>
+</section>
+<section id="findings-configuration">
+<span id="id2"></span><h2>Findings Configuration<a class="headerlink" href="#findings-configuration" title="Link to this heading"></a></h2>
+<p>If the extension emits findings (see <a class="reference internal" href="model.html"><span class="doc">Data Model</span></a> for information on the
+supported datatypes), it will also be necessary to add the new finding type to
+the findings configuration (see <code class="code docutils literal notranslate"><span class="pre">odg.findings_cfg</span></code> module for the model
+definition and <code class="code docutils literal notranslate"><span class="pre">odg/findings_cfg.yaml</span></code> for the example used for the local
+development). The most important part are the <code class="code docutils literal notranslate"><span class="pre">categorisations</span></code> which define
+the supported “severities” with extra information like for example the
+<code class="code docutils literal notranslate"><span class="pre">allowed_processing_time</span></code>. Also, if the findings should be reported as GitHub
+issues, the <code class="code docutils literal notranslate"><span class="pre">issues</span></code> property has to be configured accordingly too (see
+<a class="reference internal" href="#issue-replicator"><span class="std std-ref">Issue-Replicator</span></a> as well).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>See <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/15dabcf1b9f439b0d4eff6b60aa7f7310819bd09">open-component-model/delivery-service&#64;15dabcf</a>
+as an example for this chapter.</p>
+</div>
+</section>
+<section id="anatomy-of-an-odg-extension">
+<h2>Anatomy of an ODG Extension<a class="headerlink" href="#anatomy-of-an-odg-extension" title="Link to this heading"></a></h2>
+<p>When adding an extension to the Open Delivery Gear, different flavours
+specifying the level of integration are supported:</p>
+<ul>
+<li><p><strong>Fully Integrated / Running In-Cluster</strong></p>
+<blockquote>
+<div><p>If an extension is fully integrated into the ODG, it is part of the ODG
+deployment and running within the same Kubernetes cluster. In this case,
+the steps in <a class="reference internal" href="#helm-chart"><span class="std std-ref">Helm Chart</span></a>, <a class="reference internal" href="#oci-image"><span class="std std-ref">OCI Image</span></a> and <a class="reference internal" href="#python-package"><span class="std std-ref">Python Package</span></a>
+can be followed and then the new extension will be automatically part of the
+ODG deployment (in case it is enabled via configuration). When running fully
+integrated, it also has to be considered <em>when</em> the extension should run
+(e.g. regularly as a cronjob, triggered by artefact updates or both) (see
+<a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>).</p>
+</div></blockquote>
+</li>
+<li><p><strong>Lightly Integrated / Running Out-Of-Cluster</strong></p>
+<blockquote>
+<div><p>In the lightly integrated variant, the extension is running standalone and
+only uploads <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> via the delivery-service API to make use of
+the reporting capabilities of the ODG. In that case, the extension must take
+care of deployment and triggering on its own, hence the chapters
+<a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>, <a class="reference internal" href="#helm-chart"><span class="std std-ref">Helm Chart</span></a>, <a class="reference internal" href="#oci-image"><span class="std std-ref">OCI Image</span></a> and
+<a class="reference internal" href="#python-package"><span class="std std-ref">Python Package</span></a> can be skipped.</p>
+</div></blockquote>
+</li>
+</ul>
+<section id="extension-triggers">
+<span id="id3"></span><h3>Extension Triggers<a class="headerlink" href="#extension-triggers" title="Link to this heading"></a></h3>
+<p>The Open Delivery Gear currently features two kinds of triggers:</p>
+<ol class="arabic">
+<li><p><em>Kubernetes Cronjob</em></p>
+<p>As the title already states, an extension can be modelled as regular
+Kubernetes Cronjob with a well-defined <code class="code docutils literal notranslate"><span class="pre">schedule</span></code>. If running as a Cronjob,
+the extension might has to be able to retrieve the information for which
+artefacts it should run. This is relevant as the
+<a class="reference internal" href="model.html"><span class="doc">Data Model</span></a> requires the data to be always correlated to a certain
+<code class="code docutils literal notranslate"><span class="pre">artefact</span></code>. This information should be passed to the extension using the
+<a class="reference internal" href="#extensions-configuration"><span class="std std-ref">Extensions Configuration</span></a>.</p>
+</li>
+<li><p><em>Artefact-Enumerator</em></p>
+<p>Another common trigger is the artefact-enumerator (see
+<a class="reference internal" href="extensions/artefact_enumerator.html"><span class="doc">artefact-enumerator extension</span></a>). The
+artefact-enumerator itself is a Kubernetes Cronjob as described before which
+retrieves a list of artefacts via the <a class="reference internal" href="#extensions-configuration"><span class="std std-ref">Extensions Configuration</span></a>. For
+these artefacts, it periodically checks if there are any updates or the
+<code class="code docutils literal notranslate"><span class="pre">interval</span></code> for a certain extension has passed, and if that is the case, it
+creates a <code class="code docutils literal notranslate"><span class="pre">BacklogItem</span></code> custom resource. The backlog-controller extension
+itself reconciles these resources and scales the Kubernetes Deployment of
+the affected extension accordingly. This means, if the new extension uses
+this trigger, it should be designed to always process the <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> defined
+by one <code class="code docutils literal notranslate"><span class="pre">BacklogItem</span></code> at a time. For that, the <code class="code docutils literal notranslate"><span class="pre">process_backlog_items</span></code>
+utility function, defined in the <code class="code docutils literal notranslate"><span class="pre">odg.util</span></code> module
+(<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/odg/util.py">ref</a>),
+should be used.</p>
+</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <a class="reference external" href="https://github.com/open-component-model/delivery-service/tree/master/charts/extensions/charts">already existing extensions</a>
+and their respective implementations can be always used as a reference how
+either a Kubernetes Cronjob or a <code class="code docutils literal notranslate"><span class="pre">BacklogItem</span></code> based approach via the
+artefact-enumerator might look like.</p>
+</div>
+</section>
+<section id="general-flow">
+<h3>General Flow<a class="headerlink" href="#general-flow" title="Link to this heading"></a></h3>
+<p>The general flow for extensions which are intended to submit
+<a class="reference internal" href="model.html"><span class="doc">Data Model</span></a> via the delivery-service API is usually very similar. In case of
+findings, there is a well-defined overview of the supported states of a finding
+(see Fig. 1).</p>
+<figure class="align-center" id="id15" style="width: 50%">
+<img alt="_images/finding-states.svg" src="_images/finding-states.svg" />
+<figcaption>
+<p><span class="caption-text">Fig. 1: Finding State Machine</span><a class="headerlink" href="#id15" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>If the extension is written in Python, the <a class="reference external" href="https://github.com/gardener/cc-utils/blob/master/delivery/client.py">delivery-service-client</a> should
+be used which already contains functionality for the below described points:</p>
+<ol class="arabic">
+<li><p>Fetch existing <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> entries</p>
+<p>As a first step, the existing <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> entries for the current
+<code class="code docutils literal notranslate"><span class="pre">artefact</span></code> should be queried using the <code class="code docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/artefacts/metadata/query</span></code>
+endpoint of the delivery-service. This is required to be able to delete the
+obsolete entries afterwards in step (3).</p>
+</li>
+<li><p>Submit new entries and update existing ones</p>
+<p>The new or updated entries must be submitted using the
+<code class="code docutils literal notranslate"><span class="pre">PUT</span> <span class="pre">/artefacts/metadata</span></code> endpoint. This will upload new entries to the
+delivery-db or update existing entries in case the defined <code class="code docutils literal notranslate"><span class="pre">key</span></code> matches.
+Apart from the entries containing the findings, an extra entry of type
+<code class="code docutils literal notranslate"><span class="pre">meta/artefact_scan_info</span></code> must be submitted for each <code class="code docutils literal notranslate"><span class="pre">artefact</span></code>. This info
+object is used to store information about the last execution and that an
+<code class="code docutils literal notranslate"><span class="pre">artefact</span></code> has been scanned in general.</p>
+</li>
+<li><p>Delete obsolete entries</p>
+<p>At last, entries which were fetched in step (1) but not submitted anymore in
+step (2) have to be deleted using the <code class="code docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/artefacts/metadata</span></code> endpoint.
+This is required to ensure that outdated findings or informational entries
+are not reported anymore.</p>
+</li>
+</ol>
+</section>
+</section>
+<section id="artefact-enumerator">
+<span id="id5"></span><h2>Artefact-Enumerator<a class="headerlink" href="#artefact-enumerator" title="Link to this heading"></a></h2>
+<p>If the artefact-enumerator was chosen as trigger in <a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>,
+it is necessary to inform the artefact-enumerator about this extension and that
+it should create <code class="code docutils literal notranslate"><span class="pre">BacklogItems</span></code> for it. Therefore, a minor change must be added
+to the artefact-enumerator (see <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/68d6f5bd322bd018a67e54784804d65dde3f2a38">open-component-model/delivery-service&#64;68d6f5b</a>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In the future, it is planned that this must not be explicitly defined
+anymore but the artefact-enumerator should instead automatically detect
+which extensions require <code class="code docutils literal notranslate"><span class="pre">BacklogItems</span></code> to be created.</p>
+</div>
+</section>
+<section id="issue-replicator">
+<span id="id6"></span><h2>Issue-Replicator<a class="headerlink" href="#issue-replicator" title="Link to this heading"></a></h2>
+<p>In order to enable the
+<a class="reference internal" href="extensions/issue_replicator.html"><span class="doc">issue-replicator extension</span></a> to also report
+findings for the new extension, it must be defined how the findings should be
+templated into a GitHub issue. Therefore, a minor change must be added to the
+issue-replicator (see <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/adb723957c2f6ec115ac702463f94802b35ed6df">open-component-model/delivery-service&#64;adb7239</a>).
+Also, the <code class="code docutils literal notranslate"><span class="pre">issues</span></code> property of the <a class="reference internal" href="#findings-configuration"><span class="std std-ref">Findings Configuration</span></a> must be
+configured accordingly.</p>
+</section>
+<section id="helm-chart">
+<span id="id7"></span><h2>Helm Chart<a class="headerlink" href="#helm-chart" title="Link to this heading"></a></h2>
+<p>If the extension should be deployed as part of the Open Delivery Gear
+deployment, it must be added as subchart to the <code class="code docutils literal notranslate"><span class="pre">extensions</span></code> Helm chart
+(<a class="reference external" href="https://github.com/open-component-model/delivery-service/tree/master/charts/extensions/charts">ref</a>).
+Based on the trigger (see <a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>), either a Kubernetes
+Deployment or Cronjob should be used. In all cases, it can be assumed that
+an <code class="code docutils literal notranslate"><span class="pre">extensions-cfg</span></code> and a <code class="code docutils literal notranslate"><span class="pre">findings-cfg</span></code> ConfigMap exists which may be mounted
+as volume. Also, in case an OCM lookup is required, the <code class="code docutils literal notranslate"><span class="pre">ocm-repo-mappings</span></code>
+ConfigMap should be used. If any secrets are required by the extension, those
+can be mounted as well by referencing the Secrets
+<code class="code docutils literal notranslate"><span class="pre">secret-factory-&lt;SECRET_TYPE&gt;</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>It might be very helpful to use the <a class="reference external" href="https://github.com/open-component-model/delivery-service/tree/master/charts/extensions/charts">already existing extensions</a>
+as reference and adjust them accordingly.</p>
+</div>
+</section>
+<section id="oci-image">
+<span id="id10"></span><h2>OCI Image<a class="headerlink" href="#oci-image" title="Link to this heading"></a></h2>
+<p>In case the extension does not require any additional installations, the
+general purpose extensions OCI image can be re-used (<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/Dockerfile.extensions">ref</a>).
+Otherwise, a new Dockerfile <code class="code docutils literal notranslate"><span class="pre">Dockerfile.extensions.&lt;EXTENSION_NAME&gt;</span></code> must be
+created and added to the <a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml">build</a>.
+In both cases, a Helm chart mapping must be added to the <a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml">build</a>
+as well.</p>
+</section>
+<section id="python-package">
+<span id="id13"></span><h2>Python Package<a class="headerlink" href="#python-package" title="Link to this heading"></a></h2>
+<p>The default extensions image built from <code class="code docutils literal notranslate"><span class="pre">Dockerfile.extensions</span></code> installs the
+Python package <code class="code docutils literal notranslate"><span class="pre">ocm-gear-extensions</span></code> which contains the sources of all Python
+extensions. In case this image is re-used, the module(s) of the new extension
+must be included in the Python package (<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/setup.extensions.py">ref</a>).</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="local_setup.html" class="btn btn-neutral float-left" title="Setup Local Development Environment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="model.html" class="btn btn-neutral float-right" title="Data Model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SAP SE or an SAP affiliate company.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

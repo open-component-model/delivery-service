@@ -22,7 +22,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Issue-Replicator" href="issue_replicator.html" />
-    <link rel="prev" title="Open Delivery Gear - Overview" href="../index.html" /> 
+    <link rel="prev" title="Data Model" href="../model.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -44,7 +44,14 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul class="current">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../local_setup.html">Setup Local Development Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contribute_extension.html">Contribute a new Extension</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../model.html">Data Model</a></li>
+</ul>
+<ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Artefact-Enumerator</a></li>
 <li class="toctree-l1"><a class="reference internal" href="issue_replicator.html">Issue-Replicator</a></li>
 <li class="toctree-l1"><a class="reference internal" href="responsibles.html">Responsibles</a></li>
@@ -80,7 +87,7 @@
 <h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading"></a></h2>
 <p>The artefact-enumerator extension periodically checks the configured
 <a class="reference internal" href="#ocm-components"><span class="std std-ref">OCM artefacts</span></a> and available
-<a class="reference internal" href="#runtime-artefacts"><span class="std std-ref">runtime artefacts</span></a> and takes care of the lifecycle of
+<a class="reference internal" href="../model.html#runtime-artefacts"><span class="std std-ref">runtime artefacts</span></a> and takes care of the lifecycle of
 their <a class="reference internal" href="issue_replicator.html#compliance-snapshots"><span class="std std-ref">compliance snapshots</span></a>
 (create/update/delete). Based on the status information in the compliance
 snapshots, the artefact-enumerator evaluates whether it must create backlog
@@ -103,7 +110,7 @@ process them (e.g.
 <a class="reference internal" href="issue_replicator.html"><span class="doc">issue-replicator extension</span></a>). Artefacts
 may be configured in two different ways, as referenced
 <a class="reference internal" href="#ocm-components"><span class="std std-ref">OCM components</span></a> or as
-<a class="reference internal" href="#runtime-artefacts"><span class="std std-ref">runtime artefacts</span></a>.</p>
+<a class="reference internal" href="../model.html#runtime-artefacts"><span class="std std-ref">runtime artefacts</span></a>.</p>
 <section id="ocm-components">
 <span id="id2"></span><h4>OCM Components<a class="headerlink" href="#ocm-components" title="Link to this heading"></a></h4>
 <p>OCM components are configured using the <code class="code docutils literal notranslate"><span class="pre">components</span></code> property in the extensions
@@ -210,7 +217,7 @@ changes (e.g. to close related GitHub issues).</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../index.html" class="btn btn-neutral float-left" title="Open Delivery Gear - Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../model.html" class="btn btn-neutral float-left" title="Data Model" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="issue_replicator.html" class="btn btn-neutral float-right" title="Issue-Replicator" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

@@ -1,0 +1,259 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Setup Local Development Environment &mdash; Open Delivery Gear  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Contribute a new Extension" href="contribute_extension.html" />
+    <link rel="prev" title="Open Delivery Gear - Overview" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Open Delivery Gear
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Setup Local Development Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribute_extension.html">Contribute a new Extension</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="model.html">Data Model</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="extensions/artefact_enumerator.html">Artefact-Enumerator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/issue_replicator.html">Issue-Replicator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/responsibles.html">Responsibles</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Open Delivery Gear</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Setup Local Development Environment</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/local_setup.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="setup-local-development-environment">
+<h1>Setup Local Development Environment<a class="headerlink" href="#setup-local-development-environment" title="Link to this heading"></a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This guide focuses on running the delivery-service (+ database) and one
+extension locally, possibly with interacting with a remote Kubernetes
+cluster. This might be used during the process of developing a new or
+updating an existing extension. To run a full Open Delivery Gear locally,
+i.e. containing multiple extensions and a local Kubernetes cluster, please
+refer to the <a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/local-setup/local-setup.md">Local Setup</a>
+guide instead.</p>
+</div>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="code docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3.12</span></code> or greater (qualification is always done using the Python3
+version from <code class="code docutils literal notranslate"><span class="pre">alpine:edge</span></code>)</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">Docker</span></code> (only if running a local PostgreSQL container)</p></li>
+<li><p><code class="code docutils literal notranslate"><span class="pre">SQLite3</span></code> (only if running a local SQLite3 database)</p></li>
+</ul>
+</section>
+<section id="running-the-delivery-database">
+<h2>Running the Delivery-Database<a class="headerlink" href="#running-the-delivery-database" title="Link to this heading"></a></h2>
+<p>For the local development, currently, <strong>SQLite3</strong> and <strong>PostgreSQL 16</strong> are
+supported, so either of them can be chosen. For production environments, the
+usage of PostgreSQL is recommended (the Helm charts do not support SQLite3).</p>
+<section id="sqlite3">
+<h3>SQLite3<a class="headerlink" href="#sqlite3" title="Link to this heading"></a></h3>
+<p>Valid SQLite3 URL forms are:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sqlite</span><span class="o">+</span><span class="n">aiosqlite</span><span class="p">:</span><span class="o">///</span><span class="p">:</span><span class="n">memory</span><span class="p">:</span>
+<span class="n">sqlite</span><span class="o">+</span><span class="n">aiosqlite</span><span class="p">:</span><span class="o">///</span><span class="n">relative</span><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">file</span><span class="o">.</span><span class="n">db</span>
+<span class="n">sqlite</span><span class="o">+</span><span class="n">aiosqlite</span><span class="p">:</span><span class="o">////</span><span class="n">absolute</span><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">file</span><span class="o">.</span><span class="n">db</span>
+</pre></div>
+</div>
+</section>
+<section id="postgresql">
+<h3>PostgreSQL<a class="headerlink" href="#postgresql" title="Link to this heading"></a></h3>
+<p>Instantiate a local PostgreSQL 16 database, e.g. as OCI container:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">dit</span> \
+  <span class="o">--</span><span class="n">name</span> <span class="n">postgres</span> \
+  <span class="o">-</span><span class="n">e</span> <span class="n">POSTGRES_USER</span><span class="o">=</span><span class="n">postgres</span> \
+  <span class="o">-</span><span class="n">e</span> <span class="n">POSTGRES_PASSWORD</span><span class="o">=</span><span class="n">MyPassword</span> \
+  <span class="o">-</span><span class="n">p</span> <span class="mi">5432</span><span class="p">:</span><span class="mi">5432</span> \
+  <span class="n">postgres</span><span class="p">:</span><span class="mi">16</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="running-the-delivery-service">
+<h2>Running the Delivery-Service<a class="headerlink" href="#running-the-delivery-service" title="Link to this heading"></a></h2>
+<section id="requirements">
+<h3>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p>(Optional) Create a new <a class="reference external" href="https://docs.python.org/3/library/venv.html">virtual env</a> and activate it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+<span class="nb">source</span><span class="w"> </span>venv/bin/activate
+</pre></div>
+</div>
+</li>
+<li><p>Install development dependencies</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip3<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>-r<span class="w"> </span>&lt;path-to-delivery-service&gt;/requirements-dev.txt
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="secrets">
+<h3>Secrets<a class="headerlink" href="#secrets" title="Link to this heading"></a></h3>
+<p>For the local setup, the delivery-service retrieves its secrets from a config
+repository. Therefore, a local copy of the config repository must be available
+and specified via env var <code class="code docutils literal notranslate"><span class="pre">CC_CONFIG_DIR=/path/to/config.d</span></code> (see Gardener’s
+configuration management for more details) (more comprehensive documentation on
+how to obtain secrets TBD).</p>
+</section>
+<section id="certificates">
+<h3>Certificates<a class="headerlink" href="#certificates" title="Link to this heading"></a></h3>
+<p>In the context of local development, interaction with endpoints with either
+self-signed certificates, or certificates signed by CAs not included in the
+default trust-bundles might be required. Therefore, it is necessary to include
+them into Python’s trust store (Python does by default not honour system’s
+CA-bundle).</p>
+<p>As an example, the following script can be used to add SAP’s CAs to Python’s
+trust store.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env bash</span>
+
+<span class="nb">set</span><span class="w"> </span>-eu
+
+<span class="nv">ca_bundle_path</span><span class="o">=</span><span class="k">$(</span>python3<span class="w"> </span>-m<span class="w"> </span>certifi<span class="k">)</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;appending certs to </span><span class="si">${</span><span class="nv">ca_bundle_path</span><span class="si">}</span><span class="s2">&quot;</span>
+
+<span class="nv">urls</span><span class="o">=(</span>
+<span class="w">    </span><span class="s2">&quot;https://aia.pki.co.sap.com/aia/SAP%20Global%20Root%20CA.crt&quot;</span>
+<span class="w">    </span><span class="s2">&quot;https://aia.pki.co.sap.com/aia/SAPNetCA_G2_2.crt&quot;</span>
+<span class="o">)</span>
+
+<span class="k">for</span><span class="w"> </span>url<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="si">${</span><span class="nv">urls</span><span class="p">[@]</span><span class="si">}</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">  </span>curl<span class="w"> </span><span class="nv">$url</span><span class="w"> </span>&gt;&gt;<span class="w"> </span><span class="nv">$ca_bundle_path</span>
+<span class="k">done</span>
+</pre></div>
+</div>
+</section>
+<section id="start-up">
+<h3>Start-Up<a class="headerlink" href="#start-up" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Running with PostgreSQL</span>
+python3<span class="w"> </span>&lt;path-to-delivery-service&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+
+<span class="c1"># Running with SQLite3</span>
+python3<span class="w"> </span>&lt;path-to-delivery-service&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///relative/path/to/file.db
+</pre></div>
+</div>
+<p>Start-up with useful development tooling (e.g. hot-reloading or enhanced
+request information upon errors):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Running with PostgreSQL</span>
+adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-delivery-service&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+
+<span class="c1"># Running with SQLite3</span>
+adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-delivery-service&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///relative/path/to/file.db
+</pre></div>
+</div>
+</section>
+</section>
+<section id="running-the-extension">
+<h2>Running the Extension<a class="headerlink" href="#running-the-extension" title="Link to this heading"></a></h2>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
+<p>The configuration required for the extension can be added locally to the
+<code class="code docutils literal notranslate"><span class="pre">odg/extensions_cfg.yaml</span></code> file as well as to the <code class="code docutils literal notranslate"><span class="pre">odg/findings_cfg.yaml</span></code> file
+respectively. Those will be picked-up automatically if using the
+<code class="code docutils literal notranslate"><span class="pre">paths.extensions_cfg_path()</span></code> and <code class="code docutils literal notranslate"><span class="pre">paths.findings_cfg_path</span></code> utility functions.</p>
+</section>
+<section id="id1">
+<h3>Start-Up<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<p>To run the extension locally, the Kubernetes cluster and the delivery-service
+to interact with have to be specified via additional argument:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>&lt;path-to-extension&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--k8s-cfg-name<span class="w"> </span>ocm_gear_dev<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--k8s-namespace<span class="w"> </span>delivery<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--delivery-service-url<span class="w"> </span>http://localhost:5000
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Open Delivery Gear - Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="contribute_extension.html" class="btn btn-neutral float-right" title="Contribute a new Extension" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SAP SE or an SAP affiliate company.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
