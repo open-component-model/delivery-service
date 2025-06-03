@@ -50,6 +50,7 @@ def packages():
 def package_data():
     return {
         'odg': ['*.yaml'],
+        'secret_mgmt': ['*.yaml'],
     }
 
 
