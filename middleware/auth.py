@@ -339,7 +339,7 @@ class OAuthLogin(aiohttp.web.View):
             ):
                 roles.update(role_binding.roles)
 
-        if secret_mgmt.oauth_cfg.Role.ADMIN not in roles:
+        if not roles:
             raise aiohttp.web.HTTPUnauthorized(
                 text='user is not authorised to access this service',
             )
