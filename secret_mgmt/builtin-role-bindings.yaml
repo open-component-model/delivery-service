@@ -1,0 +1,30 @@
+permissions:
+  - name: read-all
+    routes: .*
+    methods: GET
+  - name: read-routes-with-post
+    routes:
+      - /artefacts/metadata/query
+      - /components/diff
+    methods: POST
+  - name: write-all
+    routes: .*
+    methods:
+      - PUT
+      - POST
+      - DELETE
+  - name: admin
+    routes: .*
+    methods: .*
+
+roles:
+  - name: reader
+    permissions:
+      - read-all
+      - read-routes-with-post
+  - name: writer
+    permissions:
+      - read-all
+      - write-all
+  - name: admin
+    permissions: admin
