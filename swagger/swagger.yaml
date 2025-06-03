@@ -6,9 +6,9 @@ definitions:
       - sub
       - iss
       - iat
-      - github_oAuth
       - exp
       - key_id
+      - roles
     properties:
       version:
         type: string
@@ -18,25 +18,14 @@ definitions:
         type: string
       iat:
         type: integer
-      github_oAuth:
-        type: object
-        required:
-          - host
-          - team_names
-          - email_address
-        properties:
-          host:
-            type: string
-          team_names:
-            type: array
-            items:
-              type: string
-          email_address:
-            type: string
       exp:
         type: integer
       key_id:
         type: string
+      roles:
+        type: array
+        items:
+          type: string
 
   AuthConfig:
     type: object

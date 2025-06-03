@@ -22,6 +22,7 @@ def gen_jwt_payload():
         'iat': int((now-datetime.timedelta(minutes=10)).timestamp()),
         'exp': int((now+datetime.timedelta(minutes=5)).timestamp()),
         'key_id': '1',
+        'roles': [],
     }
 
 
@@ -168,3 +169,11 @@ def test_nbf_in_future(signing_cfg):
             signing_cfg=signing_cfg,
             verify_signature=True,
         )
+
+
+def test_no_roles():
+    payload = gen_jwt_payload()
+    payload.pop('roles')
+
+    with pytest.raises(aiohttp.web.HTTPUnauthorized):
+        middleware.auth.validate_jwt_payload(payload)
