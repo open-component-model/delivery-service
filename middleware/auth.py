@@ -4,6 +4,7 @@ import datetime
 import enum
 import functools
 import logging
+import re
 import urllib.parse
 import uuid
 
@@ -26,6 +27,7 @@ import deliverydb.model as dm
 import lookups
 import paths
 import secret_mgmt.oauth_cfg
+import secret_mgmt.rbac
 import secret_mgmt.signing_cfg
 import util
 
@@ -777,6 +779,29 @@ def auth_middleware(
 
         validate_jwt_payload(decoded_jwt)
 
+        secret_factory = request.app[consts.APP_SECRET_FACTORY]
+
+        try:
+            rbac_cfgs = secret_factory.rbac()
+            if len(rbac_cfgs) != 1:
+                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
+            role_bindings = rbac_cfgs[0]
+        except secret_mgmt.SecretTypeNotFound:
+            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+
+        user_role_names = decoded_jwt.get('roles', [])
+
+        user_permissions = _iter_user_permissions(
+            user_role_names=user_role_names,
+            role_bindings=role_bindings,
+        )
+
+        _raise_on_missing_permissions(
+            user_permissions=user_permissions,
+            route=request.path,
+            method=request.method,
+        )
+
         subject = decoded_jwt['sub']
         request[consts.REQUEST_GITHUB_USER] = GithubUser(
             username=subject,
@@ -786,6 +811,57 @@ def auth_middleware(
         return await handler(request)
 
     return middleware
+
+
+def _iter_user_permissions(
+    user_role_names: collections.abc.Sequence[str],
+    role_bindings: secret_mgmt.rbac.RoleBindings,
+) -> collections.abc.Generator[secret_mgmt.rbac.Permission, None, None]:
+    for role in role_bindings.filter_roles(names=user_role_names):
+        for permission_name in role.permissions:
+            if permission := role_bindings.find_permission(
+                name=permission_name,
+                absent_ok=True,
+            ):
+                yield permission
+                continue
+
+            # raise 401 -> delivery-dashboard will require the user to re-authenticate
+            raise aiohttp.web.HTTPUnauthorized(
+                text=(
+                    f'did not find permission with {permission_name=}, this means there is a '
+                    'configuration error, please check the role definitions or contact an admin'
+                ),
+            )
+
+
+def _raise_on_missing_permissions(
+    user_permissions: collections.abc.Iterable[secret_mgmt.rbac.Permission],
+    route: str,
+    method: str,
+):
+    '''
+    If the `user_permissions` do not grant the necessary permissions to use the `method` for the
+    `route`, this function will raise a HTTP 403 forbidden exception.
+    '''
+    for user_permission in user_permissions:
+        for permission_route in user_permission.routes:
+            if re.fullmatch(permission_route, route):
+                break
+        else:
+            continue # `user_permission` does not grant access to `route`
+
+        for permission_method in user_permission.methods:
+            if re.fullmatch(permission_method, method, re.IGNORECASE):
+                break
+        else:
+            continue # `user_permission` does not grant access to `route` via `method`
+
+        return # user has required permissions
+
+    raise aiohttp.web.HTTPForbidden(
+        text=f'User is not allowed to perform the {method=} for {route=}',
+    )
 
 
 def get_signing_cfg_for_key(
