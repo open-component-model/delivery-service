@@ -1019,6 +1019,10 @@ def _template_vars(
             finding_groups=finding_groups,
             summary=summary,
         )
+    else:
+        template_variables |= {
+            'summary': summary,
+        }
 
     return template_variables
 
