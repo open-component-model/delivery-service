@@ -168,7 +168,7 @@ def create_ghas_findings(
                         location_type=locations.location_type.value,
                     )
             except Exception as e:
-                logger.error(f'Error fetching GHAS alerts for org '{org}': {str(e)}')
+                logger.error(f"Error fetching GHAS alerts for org '{org}': {str(e)}")
 
 
 def build_artefact_from_finding(
@@ -245,7 +245,7 @@ def scan(
             continue
 
         if not ghas_config.is_supported(artefact_kind=artefact.artefact_kind):
-            logger.warning(f'Artefact kind '{artefact.artefact_kind}' is not supported.')
+            logger.warning(f"Artefact kind '{artefact.artefact_kind}' is not supported.")
             if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
                 raise TypeError(
                     f'{artefact.artefact_kind} is not supported, maybe the filter '
