@@ -274,7 +274,10 @@ def scan(
 
         for existing in existing_artefact_metadata:
             existing_data = existing.data
-            existing_key = existing_data.get('key') if isinstance(existing_data, dict) else existing_data.key
+            if isinstance(existing_data, dict):
+                existing_key = existing_data.get('key')
+            else:
+                existing_key = existing_data.key
 
             if existing_key not in current_finding_keys:
                 all_stale_metadata.append(existing)
