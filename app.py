@@ -307,6 +307,14 @@ def add_routes(
         path='/auth/configs',
         handler=middleware.auth.OAuthCfgs,
     )
+    app.router.add_view(
+        path='/auth/rbac',
+        handler=middleware.auth.Rbac,
+    )
+    app.router.add_view(
+        path='/auth/user',
+        handler=middleware.auth.User,
+    )
 
     # endpoint according to OpenID provider configuration request
     # https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
