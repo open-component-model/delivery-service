@@ -171,8 +171,6 @@ def add_app_context_vars(
         sprints = []
         sprints_metadata = None
 
-    upr_regex_callback = features.get_feature(features.FeatureUpgradePRs).get_regex
-
     version_filter_callback = features.get_feature(
         feature_type=features.FeatureVersionFilter,
     ).get_version_filter
@@ -205,7 +203,6 @@ def add_app_context_vars(
     app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK] = sprint_date_display_name_callback
     app[consts.APP_SPRINTS] = sprints
     app[consts.APP_SPRINTS_METADATA] = sprints_metadata
-    app[consts.APP_UPR_REGEX_CALLBACK] = upr_regex_callback
     app[consts.APP_VERSION_FILTER_CALLBACK] = version_filter_callback
     app[consts.APP_VERSION_LOOKUP] = version_lookup
 
