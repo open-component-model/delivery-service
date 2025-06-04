@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import argparse
 import atexit
 import collections.abc
 import dataclasses
@@ -7,22 +6,19 @@ import datetime
 import enum
 import logging
 import os
-
-import github3
+import requests
 
 import ci.log
 import cnudie.retrieve
 import delivery.client
+import ocm
 
-import ctx_util
 import k8s.logging
-import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.findings
 import odg.model
 import paths
-import secret_mgmt
 import odg.util
 import util
 
@@ -47,57 +43,78 @@ class SecretLocation:
     line: int | None = None
 
 
-def get_secret_alerts(
-    github_client: github3.GitHub,
-    org: str
-) -> collections.abc.Iterable[dict]:
-    'Fetch open secret scanning alerts using authenticated GitHub client.'
+def github_api_request(
+    url: str,
+) -> list | dict | None:
+    hostname = util.urlparse(url).hostname
+    path_parts = util.urlparse(url).path.strip("/").split("/")
+    if len(path_parts) < 2:
+        logger.error(f"Cannot determine repo/org from URL: {url}")
+        return None
+
+    org = path_parts[3]
+    repo_url = f"{hostname}/{org}"
+
+    token = lookups.github_auth_token_lookup(repo_url)
+    if not token:
+        logger.error(f"No GitHub token found for {repo_url}")
+        return None
+
     try:
-        org_obj = github_client.organization(org)
-        response = org_obj._session.get(f"{org_obj.url}/secret-scanning/alerts?state=open")
+        response = requests.get(
+            url,
+            headers={
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github+json",
+            },
+        )
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"Failed to fetch GitHub secret scanning alerts of orgnization {org}: {e}")
-        return []
+        logger.error(f"GitHub API request failed for {url}: {e}")
+        return None
+
+
+def get_secret_alerts(
+    github_hostname: str,
+    org: str,
+) -> collections.abc.Iterable[dict]:
+    '''
+    Fetch open secret scanning alerts using authenticated GitHub client.
+    '''
+    url = f"https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts?state=open"
+    result = github_api_request(url)
+    return result if isinstance(result, list) else []
 
 
 def get_secret_location(
-    github_client: github3.GitHub,
     location_url: str,
 ) -> SecretLocation:
-    'Fetch location details (path, line) for a secret alert using GitHub client.'
-    try:
-        response = github_client._session.get(location_url)
-        response.raise_for_status()
-        locations = response.json()
-
-        if not locations or not isinstance(locations, list):
-            return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
-
-        for loc in locations:
-            loc_type = loc.get("type", "")
-            if loc_type not in (GitHubSecretLocationType.COMMIT, GitHubSecretLocationType.WIKI_COMMIT):
-                continue
-            details = loc.get("details", {})
-            return SecretLocation(
-                path=details.get("path"),
-                line=details.get("start_line"),
-                location_type=GitHubSecretLocationType(loc_type),
-            )
-
+    result = github_api_request(location_url)
+    if not result or not isinstance(result, list):
         return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
 
-    except Exception as e:
-        logger.error(f"Failed to fetch alert locations: {e}")
-        return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
+    for loc in result:
+        loc_type = loc.get("type", "")
+        if loc_type not in (GitHubSecretLocationType.COMMIT, GitHubSecretLocationType.WIKI_COMMIT):
+            continue
+        details = loc.get("details", {})
+        return SecretLocation(
+            path=details.get("path"),
+            line=details.get("start_line"),
+            location_type=GitHubSecretLocationType(loc_type),
+        )
+
+    return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
 
 
 def as_artefact_metadata(
     artefact: odg.model.ComponentArtefactId,
     ghas_finding: collections.abc.Iterable[odg.model.GitHubSecretFinding],
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
-    'Transform GitHub secret scanning findings into ArtefactMetadata.'
+    '''
+    Transform GitHub secret scanning findings into ArtefactMetadata.
+    '''
     today = datetime.date.today()
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
@@ -114,40 +131,31 @@ def as_artefact_metadata(
     )
 
     # Yield findings metadata
-    meta = odg.model.Metadata(
-        datasource=odg.model.Datasource.GHAS,
-        type=odg.model.Datatype.GHAS_FINDING,
-        creation_date=now,
-        last_update=now,
-    )
-
-    yield odg.model.ArtefactMetadata(
-        artefact=artefact,
-        meta=meta,
-        data=ghas_finding,
-        discovery_date=today,
-    )
+    for finding in ghas_finding:
+        yield odg.model.ArtefactMetadata(
+            artefact=artefact,
+            meta=odg.model.Metadata(
+                datasource=odg.model.Datasource.GHAS,
+                type=odg.model.Datatype.GHAS_FINDING,
+                creation_date=now,
+                last_update=now,
+            ),
+            data=finding,
+            discovery_date=today,
+        )
 
 
 def create_ghas_findings(
     ghas_config: odg.extensions_cfg.GHASConfig,
-    secret_factory: secret_mgmt.SecretFactory,
 ) -> collections.abc.Generator[odg.model.GitHubSecretFinding, None, None]:
-    for github_hostname in ghas_config.github_hostnames:
-        for org in github_hostname.orgs:
-            org_url = f'{github_hostname.github}/{org}'
-            logger.info(f"Fetching GHAS alerts for org '{org}' from {org_url}...")
-
-            github_api = lookups.github_api_lookup(secret_factory=secret_factory)
-            github_client = github_api(org_url)
+    for github_instance in ghas_config.github_instances:
+        for org in github_instance.orgs:
 
             try:
-                alerts = get_secret_alerts(github_client=github_client, org=org)
+                alerts = get_secret_alerts(github_hostname=github_instance.hostname, org=org)
                 for alert in alerts:
-                    locations = get_secret_location(
-                        github_client=github_client,
-                        location_url=alert.get("locations_url", ""),
-                    )
+                    location_url = alert.get("locations_url", "")
+                    locations = get_secret_location(location_url=location_url)
 
                     yield odg.model.GitHubSecretFinding(
                         severity=alert.get("secret_type", ""),
@@ -165,29 +173,53 @@ def create_ghas_findings(
 
 def build_artefact_from_finding(
     finding: odg.model.GitHubSecretFinding,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_service_client: delivery.client.DeliveryServiceClient,
 ) -> odg.model.ComponentArtefactId:
-    'Extract component info from finding and return a ComponentArtefactId.'
-    try:
-        parsed_url = util.urlparse(finding.html_url)
+    '''
+    Extract component info from finding and return a ComponentArtefactId.
+    '''
+    parsed_url = util.urlparse(finding.html_url)
 
-        org, repo = parsed_url.path.strip('/').split('/')
-        component_name = f"github.com/{org}/{repo}"
+    org, repo = parsed_url.path.strip('/').split('/')[:2]
+    possible_component_name = f'{parsed_url.hostname}/{org}/{repo}'
+
+    component_versions = delivery_service_client.greatest_component_versions(
+        component_name=possible_component_name,
+        max_versions=1,
+    )
+
+    # if there is at least one version detected, it is a "real" OCM component
+    if component_versions:
+        component_version = component_versions[0]
+        component_descriptor = component_descriptor_lookup(ocm.ComponentIdentity(
+            name=possible_component_name,
+            version=component_version,
+        ))
+
+        source = ocm.util.main_source(
+            component=component_descriptor,
+            no_source_ok=False,
+        )
 
         return odg.model.ComponentArtefactId(
-            component_name=component_name,
-            component_version="main",  # Use real version if available
-            artefact=odg.model.LocalArtefactId(
-                artefact_name="main-source",
-                artefact_type="git",
-                artefact_version="main",
-                artefact_extra_id={},
-            ),
+            component_name=possible_component_name,
             artefact_kind=odg.model.ArtefactKind.SOURCE,
-            references=[],
+            artefact=odg.model.LocalArtefactId(
+                artefact_name=source.name,
+                artefact_type=source.type,
+            )
         )
-    except Exception as e:
-        logger.warning(f"Failed to extract artefact from finding URL '{finding.html_url}': {e}")
-        raise
+
+    # we still need to discuss this fallback case
+    return odg.model.ComponentArtefactId(
+        component_name='my-umbrella-component-name',
+        artefact_kind=odg.model.ArtefactKind.SOURCE,
+        artefact=odg.model.LocalArtefactId(
+            artefact_name='main-source',
+            artefact_type='git',
+        ),
+    )
 
 
 def scan(
@@ -195,126 +227,78 @@ def scan(
     ghas_finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
-    secret_factory: secret_mgmt.SecretFactory,
 ):
-    logger.info('Starting GHAS scan...')
+    logger.info("Starting GHAS scan...")
 
-    findings_by_artefact: dict[odg.model.ComponentArtefactId, list[odg.model.GitHubSecretFinding]] = collections.defaultdict(list)
+    all_metadata = []
+    all_stale_metadata = []
+    current_finding_keys = []
 
-    for finding in create_ghas_findings(
-        ghas_config=ghas_config,
-        secret_factory=secret_factory,
-    ):
-        artefact = build_artefact_from_finding(finding=finding)
+    for finding in create_ghas_findings(ghas_config=ghas_config):
+        artefact = build_artefact_from_finding(
+            finding=finding,
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_service_client=delivery_client,
+        )
 
         if not ghas_finding_cfg.matches(artefact):
-            logger.debug(f'Finding filtered out for artefact: {artefact}')
             continue
 
         if not ghas_config.is_supported(artefact_kind=artefact.artefact_kind):
+            logger.warning(f"Artefact kind '{artefact.artefact_kind}' is not supported.")
             if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
                 raise TypeError(
                     f"{artefact.artefact_kind} is not supported. Consider adjusting GHAS filter config."
                 )
             continue
 
-        findings_by_artefact[artefact].append(finding)
+        metadata = list(as_artefact_metadata(artefact=artefact, ghas_finding=(finding,)))
 
-    all_metadata = []
-    all_stale_metadata = []
+        if not metadata:
+            logger.error(f"No metadata created from finding: {finding}")
+            continue
 
-    for artefact, findings in findings_by_artefact.items():
-        resource_node = k8s.util.get_ocm_node(
-            component_descriptor_lookup=component_descriptor_lookup,
-            artefact=artefact,
-        )
-
-        metadata = list(as_artefact_metadata(artefact=artefact, ghas_finding=findings))
         all_metadata.extend(metadata)
+        current_finding_keys.append(finding.key)
 
-        # Fetch existing metadata for this artefact
+        # Handle stale findings
         existing_artefact_metadata = (
             odg.model.ArtefactMetadata.from_dict(raw)
             for raw in delivery_client.query_metadata(
                 artefacts=(artefact,),
                 type=(odg.model.Datatype.GHAS_FINDING,),
-            ) if raw['meta']['datasource'] == odg.model.Datasource.GHAS
+            )
+            if raw['meta']['datasource'] == odg.model.Datasource.GHAS
         )
 
-        current_keys = {finding.key for finding in findings}
         for existing in existing_artefact_metadata:
-            if existing.data.key not in current_keys:
+            existing_data = existing.data
+            existing_key = existing_data.get("key") if isinstance(existing_data, dict) else existing_data.key
+
+            if existing_key not in current_finding_keys:
                 all_stale_metadata.append(existing)
 
+    # Delete stale metadata
     if all_stale_metadata:
         delivery_client.delete_metadata(data=all_stale_metadata)
         logger.info(f"Deleted {len(all_stale_metadata)} obsolete GHAS metadata entries.")
 
+    # Deliver new metadata
     if all_metadata:
         delivery_client.update_metadata(data=all_metadata)
-        logger.info("GHAS metadata successfully delivered.")
+        logger.info(f"GHAS metadata successfully delivered: {len(all_metadata)} entries.")
     else:
         logger.info("No artefact metadata was created from findings.")
 
     logger.info("Finished GHAS scan.")
 
 
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        '--k8s-cfg-name',
-        help='kubernetes cluster to use',
-        default=os.environ.get('K8S_CFG_NAME'),
-    )
-    parser.add_argument(
-        '--kubeconfig',
-        help='''
-            specify kubernetes cluster to interact with extensions (and logs); if both
-            `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
-        ''',
-    )
-    parser.add_argument(
-        '--k8s-namespace',
-        help='specify kubernetes cluster namespace to interact with',
-        default=os.environ.get('K8S_TARGET_NAMESPACE'),
-    )
-    parser.add_argument(
-        '--extensions-cfg-path',
-        help='path to the `extensions_cfg.yaml` file that should be used',
-    )
-    parser.add_argument(
-        '--findings-cfg-path',
-        help='path to the `findings.yaml` file that should be used',
-    )
-    parser.add_argument(
-        '--delivery-service-url',
-        help='''
-            specify the url of the delivery service to use instead of the one configured in the
-            respective extensions configuration
-        ''',
-    )
-    parser.add_argument('--cache-dir', default=default_cache_dir)
-
-    parsed_arguments = parser.parse_args()
-
-    if not parsed_arguments.k8s_namespace:
-        raise ValueError(
-            'k8s namespace must be set, either via argument "--k8s-namespace" '
-            'or via environment variable "K8S_TARGET_NAMESPACE"'
-        )
-
-    return parsed_arguments
-
-
 def main():
 
     parsed_arguments = odg.util.parse_args()
 
-    secret_factory = ctx_util.secret_factory()
-
-    namespace = parsed_arguments.namespace
+    namespace = parsed_arguments.k8s_namespace
+    delivery_service_url = parsed_arguments.delivery_service_url
     kubernetes_api = odg.util.kubernetes_api(parsed_arguments)
 
     k8s.logging.init_logging_thread(
@@ -367,7 +351,6 @@ def main():
         ghas_finding_cfg=ghas_finding_config,
         component_descriptor_lookup=component_descriptor_lookup,
         delivery_client=delivery_client,
-        secret_factory=secret_factory,
     )
 
 

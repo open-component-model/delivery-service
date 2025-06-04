@@ -770,8 +770,8 @@ class GitHubInstance:
     orgs: list[str]
 
 
-@dataclasses.dataclass
-class GHASConfig(BacklogItemMixins):
+@dataclasses.dataclass(kw_only=True)
+class GHASConfig(ExtensionCfgMixins):
     '''
     :param str delivery_service_url
     :param int interval:
@@ -780,6 +780,7 @@ class GHASConfig(BacklogItemMixins):
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
     '''
+    service: Services = Services.GHAS
     delivery_service_url: str
     interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
@@ -792,7 +793,7 @@ class GHASConfig(BacklogItemMixins):
         artefact_kind: odg.model.ArtefactKind | None=None,
     ) -> bool:
         supported_artefact_kinds = (
-            odg.model.ArtefactKind.RESOURCE,
+            odg.model.ArtefactKind.SOURCE,
         )
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:

@@ -161,11 +161,10 @@
       value: 4
       allowed_processing_time: 30
 
-# need to confirm the content !!!!
 - type: finding/ghas
   filter:
     - semantics: include
-      artefact_kind: runtime
+      artefact_kind: source
   issues:
     title_template: '[{meta.type}] - {artefact.component_name}:{artefact.artefact.artefact_name} - {data.key}'
     enable_assignees: False
