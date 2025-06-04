@@ -764,6 +764,7 @@ class SASTConfig(BacklogItemMixins):
 
         return True
 
+
 @dataclasses.dataclass
 class GitHubInstance:
     hostname: str
@@ -786,7 +787,6 @@ class GHASConfig(ExtensionCfgMixins):
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     schedule: str = '0 0 * * *' # every day at 12:00 AM
     github_instances: list[GitHubInstance] = dataclasses.field(default_factory=list)
-    
 
     def is_supported(
         self,
@@ -804,6 +804,7 @@ class GHASConfig(ExtensionCfgMixins):
             return False
 
         return True
+
 
 @dataclasses.dataclass(kw_only=True)
 class OsId(BacklogItemMixins):

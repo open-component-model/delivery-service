@@ -47,31 +47,31 @@ def github_api_request(
     url: str,
 ) -> list | dict | None:
     hostname = util.urlparse(url).hostname
-    path_parts = util.urlparse(url).path.strip("/").split("/")
+    path_parts = util.urlparse(url).path.strip('/').split('/')
     if len(path_parts) < 2:
-        logger.error(f"Cannot determine repo/org from URL: {url}")
+        logger.error(f'Cannot determine repo/org from URL: {url}')
         return None
 
     org = path_parts[3]
-    repo_url = f"{hostname}/{org}"
+    repo_url = f'{hostname}/{org}'
 
     token = lookups.github_auth_token_lookup(repo_url)
     if not token:
-        logger.error(f"No GitHub token found for {repo_url}")
+        logger.error(f'No GitHub token found for {repo_url}')
         return None
 
     try:
         response = requests.get(
             url,
             headers={
-                "Authorization": f"token {token}",
-                "Accept": "application/vnd.github+json",
+                'Authorization': f'token {token}',
+                'Accept': 'application/vnd.github+json',
             },
         )
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        logger.error(f"GitHub API request failed for {url}: {e}")
+        logger.error(f'GitHub API request failed for {url}: {e}')
         return None
 
 
@@ -82,7 +82,7 @@ def get_secret_alerts(
     '''
     Fetch open secret scanning alerts using authenticated GitHub client.
     '''
-    url = f"https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts?state=open"
+    url = f'https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts?state=open'
     result = github_api_request(url)
     return result if isinstance(result, list) else []
 
@@ -95,13 +95,13 @@ def get_secret_location(
         return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
 
     for loc in result:
-        loc_type = loc.get("type", "")
+        loc_type = loc.get('type', '')
         if loc_type not in (GitHubSecretLocationType.COMMIT, GitHubSecretLocationType.WIKI_COMMIT):
             continue
-        details = loc.get("details", {})
+        details = loc.get('details', {})
         return SecretLocation(
-            path=details.get("path"),
-            line=details.get("start_line"),
+            path=details.get('path'),
+            line=details.get('start_line'),
             location_type=GitHubSecretLocationType(loc_type),
         )
 
@@ -154,21 +154,21 @@ def create_ghas_findings(
             try:
                 alerts = get_secret_alerts(github_hostname=github_instance.hostname, org=org)
                 for alert in alerts:
-                    location_url = alert.get("locations_url", "")
+                    location_url = alert.get('locations_url', '')
                     locations = get_secret_location(location_url=location_url)
 
                     yield odg.model.GitHubSecretFinding(
-                        severity=alert.get("secret_type", ""),
-                        html_url=alert.get("html_url"),
-                        secret_type=alert.get("secret_type", ""),
-                        secret="REDACTED",
-                        secret_type_display_name=alert.get("secret_type_display_name", ""),
+                        severity=alert.get('secret_type', ''),
+                        html_url=alert.get('html_url'),
+                        secret_type=alert.get('secret_type', ''),
+                        secret='REDACTED',
+                        secret_type_display_name=alert.get('secret_type_display_name', ''),
                         path=locations.path,
                         line=locations.line,
                         location_type=locations.location_type.value,
                     )
             except Exception as e:
-                logger.error(f"Error fetching GHAS alerts for org '{org}': {str(e)}")
+                logger.error(f'Error fetching GHAS alerts for org '{org}': {str(e)}')
 
 
 def build_artefact_from_finding(
@@ -189,7 +189,7 @@ def build_artefact_from_finding(
         max_versions=1,
     )
 
-    # if there is at least one version detected, it is a "real" OCM component
+    # if there is at least one version detected, it is a 'real' OCM component
     if component_versions:
         component_version = component_versions[0]
         component_descriptor = component_descriptor_lookup(ocm.ComponentIdentity(
@@ -228,7 +228,7 @@ def scan(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
 ):
-    logger.info("Starting GHAS scan...")
+    logger.info('Starting GHAS scan...')
 
     all_metadata = []
     all_stale_metadata = []
@@ -245,17 +245,18 @@ def scan(
             continue
 
         if not ghas_config.is_supported(artefact_kind=artefact.artefact_kind):
-            logger.warning(f"Artefact kind '{artefact.artefact_kind}' is not supported.")
+            logger.warning(f'Artefact kind '{artefact.artefact_kind}' is not supported.')
             if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
                 raise TypeError(
-                    f"{artefact.artefact_kind} is not supported. Consider adjusting GHAS filter config."
+                    f'{artefact.artefact_kind} is not supported, maybe the filter '
+                    'configurations have to be adjusted to filter out this artefact kind'
                 )
             continue
 
         metadata = list(as_artefact_metadata(artefact=artefact, ghas_finding=(finding,)))
 
         if not metadata:
-            logger.error(f"No metadata created from finding: {finding}")
+            logger.error(f'No metadata created from finding: {finding}')
             continue
 
         all_metadata.extend(metadata)
@@ -273,7 +274,7 @@ def scan(
 
         for existing in existing_artefact_metadata:
             existing_data = existing.data
-            existing_key = existing_data.get("key") if isinstance(existing_data, dict) else existing_data.key
+            existing_key = existing_data.get('key') if isinstance(existing_data, dict) else existing_data.key
 
             if existing_key not in current_finding_keys:
                 all_stale_metadata.append(existing)
@@ -281,16 +282,16 @@ def scan(
     # Delete stale metadata
     if all_stale_metadata:
         delivery_client.delete_metadata(data=all_stale_metadata)
-        logger.info(f"Deleted {len(all_stale_metadata)} obsolete GHAS metadata entries.")
+        logger.info(f'Deleted {len(all_stale_metadata)} obsolete GHAS metadata entries.')
 
     # Deliver new metadata
     if all_metadata:
         delivery_client.update_metadata(data=all_metadata)
-        logger.info(f"GHAS metadata successfully delivered: {len(all_metadata)} entries.")
+        logger.info(f'GHAS metadata successfully delivered: {len(all_metadata)} entries.')
     else:
-        logger.info("No artefact metadata was created from findings.")
+        logger.info('No artefact metadata was created from findings.')
 
-    logger.info("Finished GHAS scan.")
+    logger.info('Finished GHAS scan.')
 
 
 def main():
