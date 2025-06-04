@@ -2,8 +2,8 @@
 
 [![REUSE status](https://api.reuse.software/badge/github.com/open-component-model/delivery-service)](https://api.reuse.software/info/github.com/open-component-model/delivery-service)
 
-![tests](https://concourse.ci.gardener.cloud/api/v1/teams/ocm/pipelines/delivery-service-master/jobs/master-head-update-job/badge?title=tests)
-![release](https://concourse.ci.gardener.cloud/api/v1/teams/ocm/pipelines/delivery-service-master/jobs/master-manual-release-job/badge?title=build)
+![tests](https://github.com/open-component-model/delivery-service/actions/workflows/non-release.yaml/badge.svg)
+![release](https://github.com/open-component-model/delivery-service/actions/workflows/release.yaml/badge.svg)
 
 This repository is used for developing the `Delivery Service` + Extensions, which are part of the
 OCM (Delivery) Gear. It exposes a RESTful API useful for delivery- and compliance-related tasks
