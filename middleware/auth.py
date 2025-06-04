@@ -593,6 +593,7 @@ def auth_middleware(
             username=subject,
             github_hostname=decoded_jwt['github_oAuth']['host'],
         )
+        request[consts.REQUEST_USER_ROLES] = user_role_names
 
         return await handler(request)
 
@@ -648,6 +649,155 @@ def _raise_on_missing_permissions(
     raise aiohttp.web.HTTPForbidden(
         text=f'User is not allowed to perform the {method=} for {route=}',
     )
+
+
+class Rbac(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        description:
+          Returns a list of all available roles and permissions.
+        tags:
+        - Authentication
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - roles
+              - permissions
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - permissions
+                    properties:
+                      name:
+                        type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                permissions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - routes
+                    - methods
+                    properties:
+                      name:
+                        type: string
+                      routes:
+                        type: array
+                        items:
+                          type: string
+                      methods:
+                        type: array
+                        items:
+                          type: string
+        '''
+        secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
+
+        try:
+            rbac_cfgs = secret_factory.rbac()
+            if len(rbac_cfgs) != 1:
+                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
+            role_bindings = rbac_cfgs[0]
+        except secret_mgmt.SecretTypeNotFound:
+            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+
+        return aiohttp.web.json_response(
+            data=role_bindings,
+            dumps=util.dict_to_json_factory,
+        )
+
+
+class User(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        description:
+          Returns a list of the assigned roles and granted permissions for the authenticated user.
+        tags:
+        - Authentication
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - roles
+              - permissions
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - permissions
+                    properties:
+                      name:
+                        type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                permissions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - routes
+                    - methods
+                    properties:
+                      name:
+                        type: string
+                      routes:
+                        type: array
+                        items:
+                          type: string
+                      methods:
+                        type: array
+                        items:
+                          type: string
+        '''
+        secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
+        user_role_names = self.request[consts.REQUEST_USER_ROLES]
+
+        try:
+            rbac_cfgs = secret_factory.rbac()
+            if len(rbac_cfgs) != 1:
+                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
+            role_bindings = rbac_cfgs[0]
+        except secret_mgmt.SecretTypeNotFound:
+            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+
+        user_roles = role_bindings.filter_roles(names=user_role_names)
+
+        user_permissions = _iter_user_permissions(
+            user_role_names=user_role_names,
+            role_bindings=role_bindings,
+        )
+
+        return aiohttp.web.json_response(
+            data={
+                'roles': user_roles,
+                'permissions': user_permissions,
+            },
+            dumps=util.dict_to_json_factory,
+        )
 
 
 def get_signing_cfg_for_key(
