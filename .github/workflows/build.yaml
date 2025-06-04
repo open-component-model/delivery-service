@@ -454,8 +454,8 @@ jobs:
         mkdir documentation-out.d
         docker run -v $PWD:/src \
           -e GH_PAGES_PATH=/src/documentation-out.d \
-          ${image_ref} \
-          /src/.ci/generate_documentation
+          --entrypoint /src/.ci/generate_documentation \
+          ${image_ref}
         ls documentation-out.d
     - uses: actions/upload-artifact@v4
       with:
