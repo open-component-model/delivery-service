@@ -24,6 +24,4 @@ sprints:
     displayName: End Date
   - dateName: rtc
     displayName: Release To Customer
-upgradePRs:
-  identificationMethod: title
-  titleRegex: ^\[ci:(\S*):(\S*):(\S*)->(\S*)\]$
+upgradePRs: True
