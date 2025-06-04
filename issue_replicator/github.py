@@ -799,6 +799,12 @@ def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -
     }
 
 
+def _falco_template_vars(finding_groups: list[FindingGroup], summary: str) -> dict[str, str]:
+    return {
+        'summary': "hello world",
+    }
+
+
 def _template_vars(
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
@@ -1016,6 +1022,11 @@ def _template_vars(
         )
     elif finding_cfg.type is odg.model.Datatype.INVENTORY_FINDING:
         template_variables |= _inventory_template_vars(
+            finding_groups=finding_groups,
+            summary=summary,
+        )
+    elif finding_cfg.type is odg.model.Datatype.FALCO_FINDING:
+        template_variables |= _falco_template_vars(
             finding_groups=finding_groups,
             summary=summary,
         )
