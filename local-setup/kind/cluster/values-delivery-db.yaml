@@ -1,9 +1,34 @@
 fullnameOverride: delivery-db
 
-postgresqlPassword: password-123
+auth:
+  postgresPassword: password-123
 
 image:
-  tag: 16.0.0
+  registry: europe-docker.pkg.dev/gardener-project/releases
+  repository: ocm-gear/postgres
+  tag: 16.8.0
+
+global:
+  security:
+    allowInsecureImages: True
+# data-dir overwrite required to use official postgres images with bitnami provided helmcharts
+# see: https://github.com/bitnami/charts/tree/1765929fa8cf37819309ff975ebf0a8dfcf7824d/bitnami/postgresql#deploy-chart-using-docker-official-postgresql-image
+postgresqlDataDir: /data/pgdata
+primary:
+  persistence:
+    mountPath: /data/
+  containerSecurityContext:
+    # this is an intermediate workaround to restore behaviour from previously used helmchart version 10.12.4
+    # see: https://github.com/bitnami/charts/tree/main/bitnami/postgresql#to-1500
+    # if true, postgres cannot create lock files (at least on alpine-based image)
+    # "could not create lock file "/var/run/postgresql/.s.PGSQL.5432.lock": Read-only file system"
+    #
+    # TODO: make root filesystem read-only again and rather use config means to overwrite lock-file path
+    readOnlyRootFilesystem: false
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
 
 # configuration of custom persistent volume claim (pvc) required to ensure a stable pvc name across
 # cluster re-creations (-> this allows using a stable host file mount on the host)
