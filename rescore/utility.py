@@ -59,47 +59,27 @@ def _iter_rescorings_for_finding(
         ):
             continue
 
-        if (
-            finding.meta.type == odg.model.Datatype.VULNERABILITY_FINDING
-            and (
+        if finding.meta.type == odg.model.Datatype.VULNERABILITY_FINDING:
+            if (
                 rescoring.data.finding.cve != finding.data.cve
                 or rescoring.data.finding.package_name != finding.data.package_name
-            )
-        ):
-            continue
+            ):
+                continue
 
-        if (
-            finding.meta.type == odg.model.Datatype.LICENSE_FINDING
-            and (
+        elif finding.meta.type == odg.model.Datatype.LICENSE_FINDING:
+            if (
                 rescoring.data.finding.license.name != finding.data.license.name
                 or rescoring.data.finding.package_name != finding.data.package_name
-            )
-        ):
-            continue
+            ):
+                continue
 
-        if (
-            finding.meta.type == odg.model.Datatype.MALWARE_FINDING
-            and rescoring.data.finding.key != finding.data.finding.key
-        ):
-            continue
+        elif finding.meta.type == odg.model.Datatype.MALWARE_FINDING:
+            if rescoring.data.finding.key != finding.data.finding.key:
+                continue
 
-        if (
-            finding.meta.type == odg.model.Datatype.SAST_FINDING
-            and rescoring.data.finding.key != finding.data.key
-        ):
-            continue
-
-        if (
-            finding.meta.type == odg.model.Datatype.CRYPTO_FINDING
-            and rescoring.data.finding.key != finding.data.key
-        ):
-            continue
-
-        if (
-            finding.meta.type == odg.model.Datatype.OSID_FINDING
-            and rescoring.data.finding.key != finding.data.key
-        ):
-            continue
+        else:
+            if rescoring.data.finding.key != finding.data.key:
+                continue
 
         yield rescoring
 
