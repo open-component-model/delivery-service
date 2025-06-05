@@ -257,6 +257,33 @@ ocm_repo_mappings:
   - prefix: ''
     repository: europe-docker.pkg.dev/gardener-project/snapshots
 
+features_cfg:
+  specialComponents:
+    - id: f7e84fdb-69fe-4837-b1c2-58cf4e58e5c7
+      name: ocm.software/ocm-gear
+      displayName: OCM Gear
+      type: OCM Gear
+      version: greatest
+      icon: home
+      dependencies: []
+    - id: 8ca887cf-0d09-4f28-bc88-727aa3e30a26
+      name: ocm.software/ocmcli
+      displayName: OCM Cli
+      type: OCM Core
+      version: greatest
+      icon: home
+      dependencies: []
+  addressbook:
+    addressbookRelpath: ./../../../../addressbook/addressbook
+    githubMappingsRelpath: ./../../../../github_mappings/github_mappings
+  sprints:
+    sprintsRelpath: ./../../../../sprints/sprints
+    sprintDateNameMappings:
+      - dateName: release_decision
+        displayName: Release Decision
+      - dateName: end_date
+        displayName: End Date
+
 profiles:
   - name: default
     finding_types:
