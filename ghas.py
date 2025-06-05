@@ -110,7 +110,7 @@ def get_secret_location(
 
 def as_artefact_metadata(
     artefact: odg.model.ComponentArtefactId,
-    ghas_finding: collections.abc.Iterable[odg.model.GitHubSecretFinding],
+    ghas_finding: odg.model.GitHubSecretFinding,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     '''
     Transform GitHub secret scanning findings into ArtefactMetadata.
@@ -130,19 +130,18 @@ def as_artefact_metadata(
         data={},
     )
 
-    # Yield findings metadata
-    for finding in ghas_finding:
-        yield odg.model.ArtefactMetadata(
-            artefact=artefact,
-            meta=odg.model.Metadata(
-                datasource=odg.model.Datasource.GHAS,
-                type=odg.model.Datatype.GHAS_FINDING,
-                creation_date=now,
-                last_update=now,
+    # Yield finding metadata
+    yield odg.model.ArtefactMetadata(
+        artefact=artefact,
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.GHAS,
+            type=odg.model.Datatype.GHAS_FINDING,
+            creation_date=now,
+            last_update=now,
             ),
-            data=finding,
-            discovery_date=today,
-        )
+        data=ghas_finding,
+        discovery_date=today,
+    )
 
 
 def create_ghas_findings(
@@ -150,7 +149,6 @@ def create_ghas_findings(
 ) -> collections.abc.Generator[odg.model.GitHubSecretFinding, None, None]:
     for github_instance in ghas_config.github_instances:
         for org in github_instance.orgs:
-
             try:
                 alerts = get_secret_alerts(github_hostname=github_instance.hostname, org=org)
                 for alert in alerts:
@@ -231,8 +229,8 @@ def scan(
     logger.info('Starting GHAS scan...')
 
     all_metadata = []
-    all_stale_metadata = []
-    current_finding_keys = []
+    all_metadata_keys = set()
+    all_existing_metadata = []
 
     for finding in create_ghas_findings(ghas_config=ghas_config):
         artefact = build_artefact_from_finding(
@@ -245,7 +243,6 @@ def scan(
             continue
 
         if not ghas_config.is_supported(artefact_kind=artefact.artefact_kind):
-            logger.warning(f"Artefact kind '{artefact.artefact_kind}' is not supported.")
             if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
                 raise TypeError(
                     f'{artefact.artefact_kind} is not supported, maybe the filter '
@@ -253,36 +250,25 @@ def scan(
                 )
             continue
 
-        metadata = list(as_artefact_metadata(artefact=artefact, ghas_finding=(finding,)))
-
-        if not metadata:
-            logger.error(f'No metadata created from finding: {finding}')
-            continue
+        metadata = list(as_artefact_metadata(artefact=artefact, ghas_finding=finding))
 
         all_metadata.extend(metadata)
-        current_finding_keys.append(finding.key)
+        all_metadata_keys.update([metadatum.key for metadatum in metadata])
 
-        # Handle stale findings
-        existing_artefact_metadata = (
+        all_existing_metadata.extend((
             odg.model.ArtefactMetadata.from_dict(raw)
             for raw in delivery_client.query_metadata(
                 artefacts=(artefact,),
-                type=(odg.model.Datatype.GHAS_FINDING,),
+                type=odg.model.Datatype.GHAS_FINDING,
             )
             if raw['meta']['datasource'] == odg.model.Datasource.GHAS
-        )
+        ))
 
-        for existing in existing_artefact_metadata:
-            existing_data = existing.data
-            if isinstance(existing_data, dict):
-                existing_key = existing_data.get('key')
-            else:
-                existing_key = existing_data.key
-
-            if existing_key not in current_finding_keys:
-                all_stale_metadata.append(existing)
-
-    # Delete stale metadata
+    # Delete stale metadata (if there is any)
+    all_stale_metadata = [
+        metadatum for metadatum in all_existing_metadata
+        if metadatum.key not in all_metadata_keys
+    ]
     if all_stale_metadata:
         delivery_client.delete_metadata(data=all_stale_metadata)
         logger.info(f'Deleted {len(all_stale_metadata)} obsolete GHAS metadata entries.')

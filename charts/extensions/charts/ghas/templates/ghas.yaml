@@ -33,8 +33,6 @@ spec:
             - name: K8S_TARGET_NAMESPACE
               value: {{ .Values.target_namespace | default .Release.Namespace }}
             volumeMounts:
-            - name: delivery-db
-              mountPath: /secrets/delivery-db
             - name: github
               mountPath: /secrets/github
             - name: kubernetes
@@ -44,9 +42,6 @@ spec:
             - name: extensions-cfg
               mountPath: /extensions_cfg
           volumes:
-            - name: delivery-db
-              secret:
-                secretName: secret-factory-delivery-db
             - name: github
               secret:
                 secretName: secret-factory-github
