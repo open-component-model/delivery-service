@@ -5,6 +5,7 @@ dacite
 gardener-cicd-libs==1.2644.0
 github3.py
 kubernetes
+mdutils
 requests
 urllib3
 watchdog

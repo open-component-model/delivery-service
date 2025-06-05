@@ -11,6 +11,7 @@ import re
 import textwrap
 import time
 import urllib.parse
+import mdutils.mdutils
 
 import github3
 import github3.issues.issue
@@ -799,6 +800,84 @@ def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -
     }
 
 
+def _falco_template_vars(finding_groups: list[FindingGroup], summary: str) -> dict[str, str]:
+    for finding_group in finding_groups:
+        finding_group: FindingGroup
+        for aggregated_finding in finding_group.findings:
+            aggregated_finding: AggregatedFinding
+            am: odg.model.ArtefactMetadata = aggregated_finding.finding
+            finding: odg.model.FalcoFinding = am.data
+            content = _falco_process_event(finding)
+
+    return {
+        "summary": content,
+    }
+
+
+def _falco_process_event(finding: odg.model.FalcoFinding) -> str:
+    content = ""
+    if finding.subtype == odg.model.FalcoFindingSubType.EVENT_GROUP:
+        content = _falco_gen_event_content(finding)
+    elif finding.subtype == odg.model.FalcoFindingSubType.INTERACTIVE_EVENT_GROUP:
+        content = _falco_gen_interactive_content(finding)
+
+    return content
+
+
+def _falco_gen_interactive_content(finding: odg.model.FalcoFinding) -> str:
+    TITLE = "Falco Interactive Event Group Detected"
+    TEXT = """
+An interactive session was detected on the cluster. This may be a legitimate action
+(e.g., an interactive debug session) or could indicate suspicious activity.
+
+**Actions required:**
+- Confirm the session was initiated by you by reviewing the event stream.
+- Check the time and activity to ensure they match your actions.
+- If the session was legitimate, triage this ticket using the available methods.
+- If the session was not initiated by you, or the activity does not match, notify the
+Gardener security team.
+
+**Do not close this ticket manually; it will be updated automatically.**
+"""
+    finding_content: odg.model.FalcoInteractiveEventGroup = finding.finding
+
+    mdfile = mdutils.mdutils.MdUtils(file_name="test")
+    mdfile.new_header(level=1, title=TITLE)
+    mdfile.new_paragraph(TEXT)
+    mdfile.new_header(level=2, title=f"Interactive session on {finding_content.cluster}")
+    return mdfile.file_data_text
+
+
+def _falco_gen_event_content(finding: odg.model.FalcoFinding) -> str:
+    TITLE = "Falco Event Group Detected"
+    TEXT = """One or more Falco events were detected in the landscape. These events may
+be false positives or could indicate an
+attack.
+
+**Please take the following actions:**
+- Review the event stream to determine if the events are false positives.
+- If they are false positives, triage this ticket using the available methods.
+- Implement a Falco exception as suggested in this ticket.
+- If you cannot confirm the events are false positives, inform the Gardener security team.
+
+If you triage this ticket, no new tickets for similar events will be created for the next 30 days.
+
+**Do not close this ticket manually; it will be updated automatically.**
+"""
+
+    finding_content: odg.model.FalcoEventGroup = finding.finding
+
+    mdfile = mdutils.mdutils.MdUtils(file_name="test")
+    mdfile.new_header(level=1, title=TITLE)
+    mdfile.new_paragraph(TEXT)
+    mdfile.new_header(level=2, title=finding_content.rule)
+    return mdfile.file_data_text
+
+
+def markdown_collapsible_section(summary: str, details_markdown: str) -> str:
+    return f"<details>\n" f"<summary>{summary}</summary>\n\n" f"{details_markdown}\n" f"</details>\n"
+
+
 def _template_vars(
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
@@ -1016,6 +1095,11 @@ def _template_vars(
         )
     elif finding_cfg.type is odg.model.Datatype.INVENTORY_FINDING:
         template_variables |= _inventory_template_vars(
+            finding_groups=finding_groups,
+            summary=summary,
+        )
+    elif finding_cfg.type is odg.model.Datatype.FALCO_FINDING:
+        template_variables |= _falco_template_vars(
             finding_groups=finding_groups,
             summary=summary,
         )
