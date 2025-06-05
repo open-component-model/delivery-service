@@ -444,6 +444,15 @@ class RescoringVulnerabilityFinding:
 
 
 @dataclasses.dataclass
+class RescoringFalcoFinding:
+    group_hash: str
+
+    @property
+    def key(self) -> str:
+        return self.group_hash
+
+
+@dataclasses.dataclass
 class RescoringLicenseFinding:
     package_name: str
     license: License
