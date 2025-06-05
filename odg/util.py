@@ -1,6 +1,7 @@
 import argparse
 import atexit
 import collections.abc
+import dataclasses
 import logging
 import os
 import signal
@@ -138,6 +139,7 @@ def process_backlog_items(
         oci.client.Client,
         secret_mgmt.SecretFactory,
     ], None],
+    local_debug_artefact: odg.model.ComponentArtefactId | dict | None=None,
 ):
     '''
     Infinitely process backlog items until `SIGTERM` or `SIGINT` signal is retrieved, then try to
@@ -156,26 +158,33 @@ def process_backlog_items(
 
     Also, for convenience, this function will initialise loggers which will periodically write the
     logs to the Kubernetes custom resource `LogCollection` for monitoring via the Delivery-Dashboard.
+
+    If a `local_debug_artefact` is passed, the interaction with backlog items from a Kubernetes
+    cluster will be shortcut and instead the passed-in artefact will be used for a dummy backlog
+    item. This is useful for local development scenarios.
     '''
-    signal.signal(signal.SIGTERM, handle_termination_signal)
-    signal.signal(signal.SIGINT, handle_termination_signal)
+    if not local_debug_artefact:
+        signal.signal(signal.SIGTERM, handle_termination_signal)
+        signal.signal(signal.SIGINT, handle_termination_signal)
 
     secret_factory = ctx_util.secret_factory()
 
     namespace = parsed_arguments.k8s_namespace
-    _kubernetes_api = kubernetes_api(parsed_arguments, secret_factory=secret_factory)
 
-    k8s.logging.init_logging_thread(
-        service=service,
-        namespace=namespace,
-        kubernetes_api=_kubernetes_api,
-    )
-    atexit.register(
-        k8s.logging.log_to_crd,
-        service=service,
-        namespace=namespace,
-        kubernetes_api=_kubernetes_api,
-    )
+    if not local_debug_artefact:
+        _kubernetes_api = kubernetes_api(parsed_arguments, secret_factory=secret_factory)
+
+        k8s.logging.init_logging_thread(
+            service=service,
+            namespace=namespace,
+            kubernetes_api=_kubernetes_api,
+        )
+        atexit.register(
+            k8s.logging.log_to_crd,
+            service=service,
+            namespace=namespace,
+            kubernetes_api=_kubernetes_api,
+        )
 
     if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
         extensions_cfg_path = paths.extensions_cfg_path()
@@ -213,11 +222,27 @@ def process_backlog_items(
     while not wants_to_terminate:
         ready_to_terminate = False
 
-        backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
-            service=service,
-            namespace=namespace,
-            kubernetes_api=_kubernetes_api,
-        )
+        if local_debug_artefact:
+            backlog_crd = {
+                'metadata': {
+                    'name': 'local-backlog-item-abcde',
+                },
+                'spec': {
+                    'timestamp': '2025-01-01T00:00:00.000000',
+                    'artefact': (
+                        dataclasses.asdict(local_debug_artefact)
+                        if dataclasses.is_dataclass(local_debug_artefact)
+                        else local_debug_artefact
+                    ),
+                    'priority': 8,
+                },
+            }
+        else:
+            backlog_crd = k8s.backlog.get_backlog_crd_and_claim(
+                service=service,
+                namespace=namespace,
+                kubernetes_api=_kubernetes_api,
+            )
 
         if not backlog_crd:
             ready_to_terminate = True
@@ -242,10 +267,14 @@ def process_backlog_items(
             secret_factory=secret_factory,
         )
 
-        k8s.util.delete_custom_resource(
-            crd=k8s.model.BacklogItemCrd,
-            name=name,
-            namespace=namespace,
-            kubernetes_api=_kubernetes_api,
-        )
-        logger.info(f'processed and deleted backlog item {name}')
+        if local_debug_artefact:
+            logger.info(f'processed local backlog item {name}')
+            return
+        else:
+            k8s.util.delete_custom_resource(
+                crd=k8s.model.BacklogItemCrd,
+                name=name,
+                namespace=namespace,
+                kubernetes_api=_kubernetes_api,
+            )
+            logger.info(f'processed and deleted backlog item {name}')
