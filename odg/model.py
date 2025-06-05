@@ -768,6 +768,7 @@ class CustomRescoring:
         | RescoreSastFinding
         | RescoringCryptoFinding
         | RescoreOsIdFinding
+        | RescoringFalcoFinding
     )
     referenced_type: str
     severity: str
