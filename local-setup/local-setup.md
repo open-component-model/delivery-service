@@ -119,7 +119,7 @@ To set up the SAST scanner, you need to set the `sast.enabled` flag and add
 configuration (if desired) via `extensions_cfg.sast`.
 
 ### GHAS
-> Requires: Artefact Enumerator, Backlog Controller
+> Requires: Artefact Enumerator
 
 To set up the GitHub Advanced Security secret scanner, you need to set the `ghas.enabled` flag and add
 configuration (if desired) via `extensions_cfg.ghas`.
