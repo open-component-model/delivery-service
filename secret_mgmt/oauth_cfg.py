@@ -18,14 +18,10 @@ class Subject:
     name: str
 
 
-class Role(enum.StrEnum):
-    ADMIN = 'admin'
-
-
 @dataclasses.dataclass
 class RoleBinding:
     subjects: list[Subject]
-    roles: list[Role]
+    roles: list[str]
 
 
 @dataclasses.dataclass
