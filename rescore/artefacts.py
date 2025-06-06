@@ -694,6 +694,7 @@ class Rescore(aiohttp.web.View):
             ),
         )
 
+        cve_categorisation = None
         if odg.model.Datatype.VULNERABILITY_FINDING in type_filter:
             artefact_node = await ocm_util.find_artefact_node_async(
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
@@ -701,15 +702,8 @@ class Rescore(aiohttp.web.View):
                 absent_ok=True,
             )
 
-            if not artefact_node:
-                raise aiohttp.web.HTTPNotFound(
-                    reason='Artefact not found in component descriptor',
-                    text=f'{artefact=}',
-                )
-
-            cve_categorisation = rescore.utility.find_cve_categorisation(artefact_node)
-        else:
-            cve_categorisation = None
+            if artefact_node:
+                cve_categorisation = rescore.utility.find_cve_categorisation(artefact_node)
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
