@@ -64,9 +64,7 @@ class RescoringProposal:
         LicenseFinding
         | VulnerabilityFinding
         | MalwareFinding
-        | odg.model.SastFinding
-        | odg.model.CryptoFinding
-        | odg.model.OsIdFinding
+        | odg.model.FindingModels
     )
     finding_type: odg.model.Datatype
     severity: str
@@ -329,25 +327,6 @@ async def _iter_rescoring_proposals(
                 },
             )
 
-        elif finding_cfg.type is odg.model.Datatype.SAST_FINDING:
-            yield dacite.from_dict(
-                data_class=RescoringProposal,
-                data={
-                    'finding': {
-                        'sast_status': am.data.sast_status,
-                        'sub_type': am.data.sub_type,
-                        'severity': severity,
-                    },
-                    'finding_type': finding_cfg.type,
-                    'severity': current_severity,
-                    'matching_rules': matching_rule_names,
-                    'applicable_rescorings': serialised_current_rescorings,
-                    'discovery_date': am.discovery_date.isoformat(),
-                    'due_date': due_date,
-                    'sprint': sprint,
-                },
-            )
-
         elif finding_cfg.type in (
             odg.model.Datatype.VULNERABILITY_FINDING,
             odg.model.Datatype.LICENSE_FINDING,
@@ -481,7 +460,7 @@ async def _iter_rescoring_proposals(
                     },
                 )
 
-        elif finding_cfg.type is odg.model.Datatype.CRYPTO_FINDING:
+        else:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
                 data={
@@ -497,20 +476,6 @@ async def _iter_rescoring_proposals(
                 config=dacite.Config(
                     strict=True,
                 ),
-            )
-        elif finding_cfg.type is odg.model.Datatype.OSID_FINDING:
-            yield dacite.from_dict(
-                data_class=RescoringProposal,
-                data={
-                    'finding': dataclasses.asdict(am.data),
-                    'finding_type': finding_cfg.type,
-                    'severity': current_severity,
-                    'matching_rules': matching_rule_names,
-                    'applicable_rescorings': serialised_current_rescorings,
-                    'discovery_date': am.discovery_date.isoformat(),
-                    'due_date': due_date,
-                    'sprint': sprint,
-                },
             )
 
         seen_ids.add(am.id)
