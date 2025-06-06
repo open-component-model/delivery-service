@@ -78,7 +78,7 @@ def github_api_request(
 def get_secret_alerts(
     github_hostname: str,
     org: str,
-) -> collections.abc.Iterable[dict]:
+) -> list[dict]:
     '''
     Fetch open secret scanning alerts using authenticated GitHub client.
     '''
@@ -108,15 +108,35 @@ def get_secret_location(
     return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
 
 
+def categorise_ghas_finding(
+    finding_cfg: odg.findings.Finding,
+    html_url: str,
+) -> odg.findings.FindingCategorisation | None:
+    '''
+    Categorise a GHAS finding based on its HTML URL and the configured finding rules.
+    Returns the categorisation or None if no match is found.
+    '''
+    return odg.findings.categorise_finding(
+        finding_cfg=finding_cfg,
+        finding_property=html_url,
+    )
+
+
 def as_artefact_metadata(
     artefact: odg.model.ComponentArtefactId,
     ghas_finding: odg.model.GitHubSecretFinding,
+    ghas_finding_cfg: odg.findings.Finding,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     '''
     Transform GitHub secret scanning findings into ArtefactMetadata.
     '''
     today = datetime.date.today()
     now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    categorisation = categorise_ghas_finding(
+        finding_cfg=ghas_finding_cfg,
+        html_url=ghas_finding.html_url,
+    )
 
     # Yield scan info metadata
     yield odg.model.ArtefactMetadata(
@@ -141,11 +161,13 @@ def as_artefact_metadata(
             ),
         data=ghas_finding,
         discovery_date=today,
+        allowed_processing_time=categorisation.allowed_processing_time_raw,
     )
 
 
 def create_ghas_findings(
     ghas_config: odg.extensions_cfg.GHASConfig,
+    ghas_finding_cfg: odg.findings.Finding,
 ) -> collections.abc.Generator[odg.model.GitHubSecretFinding, None, None]:
     for github_instance in ghas_config.github_instances:
         for org in github_instance.orgs:
@@ -155,11 +177,18 @@ def create_ghas_findings(
                     location_url = alert.get('locations_url', '')
                     locations = get_secret_location(location_url=location_url)
 
+                    categorisation = categorise_ghas_finding(
+                        finding_cfg=ghas_finding_cfg,
+                        html_url=alert.get('html_url', '')
+                    )
+                    if not categorisation:
+                        continue
+
                     yield odg.model.GitHubSecretFinding(
-                        severity=alert.get('secret_type', ''),
+                        severity=categorisation.id,
                         html_url=alert.get('html_url'),
                         secret_type=alert.get('secret_type', ''),
-                        secret='REDACTED',
+                        secret=alert.get('secret', ''),
                         secret_type_display_name=alert.get('secret_type_display_name', ''),
                         path=locations.path,
                         line=locations.line,
@@ -232,7 +261,7 @@ def scan(
     all_metadata_keys = set()
     all_existing_metadata = []
 
-    for finding in create_ghas_findings(ghas_config=ghas_config):
+    for finding in create_ghas_findings(ghas_config=ghas_config, ghas_finding_cfg=ghas_finding_cfg):
         artefact = build_artefact_from_finding(
             finding=finding,
             component_descriptor_lookup=component_descriptor_lookup,
@@ -250,7 +279,7 @@ def scan(
                 )
             continue
 
-        metadata = list(as_artefact_metadata(artefact=artefact, ghas_finding=finding))
+        metadata = list(as_artefact_metadata(artefact=artefact, ghas_finding=finding, ghas_finding_cfg=ghas_finding_cfg))
 
         all_metadata.extend(metadata)
         all_metadata_keys.update([metadatum.key for metadatum in metadata])

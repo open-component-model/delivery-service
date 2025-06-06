@@ -174,14 +174,16 @@
       display_name: NONE
       value: 0
       allowed_processing_time: ~
+      rescoring: manual
     - id: MEDIUM
       display_name: MEDIUM
       value: 2
       allowed_processing_time: 90
-    - id: HIGH
-      display_name: HIGH
-      value: 4
-      allowed_processing_time: 30
+      rescoring: manual
+      selector:
+        html_url:
+          - .*
+
 - type: finding/osid
   issues:
     enable_assignees: False
