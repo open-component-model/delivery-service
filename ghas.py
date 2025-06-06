@@ -67,6 +67,7 @@ def github_api_request(
                 'Authorization': f'token {token}',
                 'Accept': 'application/vnd.github+json',
             },
+            timeout=30
         )
         response.raise_for_status()
         return response.json()
