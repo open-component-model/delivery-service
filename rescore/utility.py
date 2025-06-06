@@ -73,10 +73,6 @@ def _iter_rescorings_for_finding(
             ):
                 continue
 
-        elif finding.meta.type == odg.model.Datatype.MALWARE_FINDING:
-            if rescoring.data.finding.key != finding.data.finding.key:
-                continue
-
         else:
             if rescoring.data.finding.key != finding.data.key:
                 continue

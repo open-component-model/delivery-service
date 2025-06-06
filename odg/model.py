@@ -975,6 +975,29 @@ class ResponsibleInfo:
         return _as_key(self.referenced_type)
 
 
+FindingModels = (
+    ClamAVMalwareFinding
+    | CryptoFinding
+    | DikiFinding
+    | FalcoFinding
+    | InventoryFinding
+    | LicenseFinding
+    | OsIdFinding
+    | SastFinding
+    | VulnerabilityFinding
+)
+InformationalModels = (
+    StructureInfo
+    | CryptoAsset
+    | ResponsibleInfo
+)
+MetaModels = (
+    CustomRescoring
+    | ComplianceSnapshot
+    | dict
+)
+
+
 @dataclasses.dataclass
 class ArtefactMetadata:
     '''
@@ -993,23 +1016,7 @@ class ArtefactMetadata:
     '''
     artefact: ComponentArtefactId
     meta: Metadata
-    data: (
-        StructureInfo
-        | LicenseFinding
-        | VulnerabilityFinding
-        | ClamAVMalwareFinding
-        | SastFinding
-        | DikiFinding
-        | OsIdFinding
-        | CustomRescoring
-        | ComplianceSnapshot
-        | CryptoAsset
-        | CryptoFinding
-        | FalcoFinding
-        | InventoryFinding
-        | ResponsibleInfo
-        | dict # fallback, there should be a type
-    )
+    data: FindingModels | InformationalModels | MetaModels
     discovery_date: datetime.date | None = None # required for finding specific SLA tracking
     allowed_processing_time: str | None = None
 
