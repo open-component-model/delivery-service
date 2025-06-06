@@ -783,7 +783,6 @@ class GHASConfig(ExtensionCfgMixins):
     '''
     service: Services = Services.GHAS
     delivery_service_url: str
-    interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     schedule: str = '0 0 * * *' # every day at 12:00 AM
     github_instances: list[GitHubInstance] = dataclasses.field(default_factory=list)

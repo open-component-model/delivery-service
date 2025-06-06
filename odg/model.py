@@ -559,7 +559,7 @@ class GitHubSecretFinding(Finding):
         return _as_key(self.html_url)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class DikiCheck:
     message: str
     targets: list[dict] | dict

@@ -176,22 +176,19 @@ findings:
       enable_assignees: False
   - type: finding/ghas
     categorisations:
-      - id: scan-exists
-        display_name: scan exists
-        value: 0
-        rescoring: manual
-      - id: scan-not-required
-        display_name: not required
-        value: 0
-        rescoring: manual
-      - id: missing-scan
-        display_name: missing-scan
-        value: 16
-        allowed_processing_time: 0
-        rescoring: automatic
-        selector:
-          html_url:
-            - .*
+    - id: NONE
+      display_name: NONE
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+    - id: MEDIUM
+      display_name: MEDIUM
+      value: 2
+      allowed_processing_time: 90
+      rescoring: manual
+      selector:
+        html_url:
+          - .*
     issues:
       enable_assignees: False
   - type: finding/osid

@@ -108,20 +108,6 @@ def get_secret_location(
     return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
 
 
-def categorise_ghas_finding(
-    finding_cfg: odg.findings.Finding,
-    html_url: str,
-) -> odg.findings.FindingCategorisation | None:
-    '''
-    Categorise a GHAS finding based on its HTML URL and the configured finding rules.
-    Returns the categorisation or None if no match is found.
-    '''
-    return odg.findings.categorise_finding(
-        finding_cfg=finding_cfg,
-        finding_property=html_url,
-    )
-
-
 def as_artefact_metadata(
     artefact: odg.model.ComponentArtefactId,
     ghas_finding: odg.model.GitHubSecretFinding,
@@ -133,9 +119,9 @@ def as_artefact_metadata(
     today = datetime.date.today()
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
-    categorisation = categorise_ghas_finding(
+    categorisation = odg.findings.categorise_finding(
         finding_cfg=ghas_finding_cfg,
-        html_url=ghas_finding.html_url,
+        finding_property=ghas_finding.html_url,
     )
 
     # Yield scan info metadata
@@ -177,9 +163,9 @@ def create_ghas_findings(
                     location_url = alert.get('locations_url', '')
                     locations = get_secret_location(location_url=location_url)
 
-                    categorisation = categorise_ghas_finding(
+                    categorisation = odg.findings.categorise_finding(
                         finding_cfg=ghas_finding_cfg,
-                        html_url=alert.get('html_url', '')
+                        finding_property=alert.get('html_url', '')
                     )
                     if not categorisation:
                         continue
