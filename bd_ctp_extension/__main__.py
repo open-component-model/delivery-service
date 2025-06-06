@@ -59,6 +59,7 @@ def scan(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
     secret_factory: secret_mgmt.SecretFactory,
+    **kwargs: dict #do not crash on unexpected args
 ):
     logger.info(f'processing {artefact}')
 
@@ -95,6 +96,8 @@ def scan(
         token=bdba_secret.token,
         tls_verify=bdba_secret.tls_verify,
     )
+
+    print(bdba_secret.api_url)
 
     # init Black Duck
     logger.info(f'using BD secret element "{mapping.bd_secret_name}"')

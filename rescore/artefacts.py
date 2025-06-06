@@ -67,6 +67,7 @@ class RescoringProposal:
         | odg.model.SastFinding
         | odg.model.CryptoFinding
         | odg.model.OsIdFinding
+        | odg.model.CtpFinding
     )
     finding_type: odg.model.Datatype
     severity: str
@@ -351,6 +352,7 @@ async def _iter_rescoring_proposals(
         elif finding_cfg.type in (
             odg.model.Datatype.VULNERABILITY_FINDING,
             odg.model.Datatype.LICENSE_FINDING,
+            odg.model.Datatype.CTP_FINDING
         ):
             artefact_metadata_with_same_ocm = tuple(
                 matching_am for matching_am in artefact_metadata
@@ -480,6 +482,50 @@ async def _iter_rescoring_proposals(
                         'sprint': sprint,
                     },
                 )
+
+            elif finding_cfg.type is odg.model.Datatype.CTP_FINDING:
+                ctp_license = am.data.ctp_license
+
+                am_across_package_versions = tuple(
+                    matching_am for matching_am in artefact_metadata_with_same_ocm
+                    if (
+                        matching_am.data.ctp_license.name == ctp_license.name and
+                        matching_am.data.package_name == package_name
+                    )
+                )
+                seen_ids.update(
+                    tuple(
+                        local_am.id for local_am
+                        in am_across_package_versions
+                    )
+                )
+
+                package_versions, filesystem_paths = _package_versions_and_filesystem_paths(
+                    artefact_metadata_across_package_version=am_across_package_versions,
+                    artefact_metadata=artefact_metadata,
+                    finding=am,
+                )
+
+                yield dacite.from_dict(
+                    data_class=RescoringProposal,
+                    data={
+                        'finding': {
+                            'package_name': package_name,
+                            'package_versions': package_versions,
+                            'severity': severity,
+                            'license': ctp_license,
+                            'filesystem_paths': filesystem_paths,
+                        },
+                        'finding_type': finding_cfg.type,
+                        'severity': current_severity,
+                        'matching_rules': matching_rule_names,
+                        'applicable_rescorings': serialised_current_rescorings,
+                        'discovery_date': am.discovery_date.isoformat(),
+                        'due_date': due_date,
+                        'sprint': sprint,
+                    },
+                )
+            
 
         elif finding_cfg.type is odg.model.Datatype.CRYPTO_FINDING:
             yield dacite.from_dict(

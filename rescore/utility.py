@@ -78,6 +78,15 @@ def _iter_rescorings_for_finding(
             continue
 
         if (
+            finding.meta.type == odg.model.Datatype.CTP_FINDING
+            and (
+                rescoring.data.finding.ctp_license.name != finding.data.ctp_license.name
+                or rescoring.data.finding.package_name != finding.data.package_name
+            )
+        ):
+            continue
+
+        if (
             finding.meta.type == odg.model.Datatype.MALWARE_FINDING
             and rescoring.data.finding.key != finding.data.finding.key
         ):

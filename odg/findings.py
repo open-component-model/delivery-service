@@ -127,6 +127,13 @@ class VulnerabilityFindingSelector:
     '''
     cve_score_range: MinMaxRange
 
+@dataclasses.dataclass
+class CTPFindingSelector:
+    '''
+    :param list[str] license_names:
+        List of regexes to determine matching missing CTP findings.
+    '''
+    ctp_license_names: list[str]
 
 class MetaAllowedProcessingTimes(enum.StrEnum):
     INPUT = 'input'
@@ -177,6 +184,7 @@ class FindingCategorisation:
         | SASTFindingSelector
         | VulnerabilityFindingSelector
         | OsIdFindingSelector
+        | CTPFindingSelector
         | None
     )
 
@@ -574,6 +582,8 @@ class Finding:
 
     def _validate(self):
         match self.type:
+            case odg.model.Datatype.CTP_FINDING:
+                self._validate_ctp()
             case odg.model.Datatype.OSID_FINDING:
                 self._validate_osid()
             case odg.model.Datatype.CRYPTO_FINDING:
@@ -592,6 +602,17 @@ class Finding:
                 self._validate_inventory()
             case _:
                 pass
+
+    def _validate_ctp(self):
+        violations = self._validate_categorisations(
+            expected_selector=CTPFindingSelector,
+        )
+
+        if not violations:
+            return
+        e = ModelValidationError('ctp finding model violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
 
     def _validate_osid(self):
         violations = self._validate_categorisations(
@@ -877,6 +898,11 @@ def categorise_finding(
         if isinstance(selector, CryptoFindingSelector):
             for rating in selector.ratings:
                 if re.fullmatch(rating, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, CTPFindingSelector):
+            for ctp_license_name in selector.ctp_license_names:
+                if re.fullmatch(ctp_license_name, finding_property, re.IGNORECASE):
                     return categorisation
 
         elif isinstance(selector, LicenseFindingSelector):

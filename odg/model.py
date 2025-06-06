@@ -27,6 +27,7 @@ class Datatype(enum.StrEnum):
     RESPONSIBLES = 'meta/responsibles'
 
     # finding types
+    CTP_FINDING = 'finding/ctp'
     CRYPTO_FINDING = 'finding/crypto'
     DIKI_FINDING = 'finding/diki'
     FALCO_FINDING = 'finding/falco'
@@ -44,6 +45,7 @@ class Datatype(enum.StrEnum):
 
     def datasource(self) -> 'Datasource':
         return {
+            Datatype.CTP_FINDING: Datasource.CTP,
             Datatype.CRYPTO_FINDING: Datasource.CRYPTO,
             Datatype.DIKI_FINDING: Datasource.DIKI,
             Datatype.FALCO_FINDING: Datasource.FALCO,
@@ -59,6 +61,7 @@ class Datatype(enum.StrEnum):
 class Datasource(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefact-enumerator'
     BDBA = 'bdba'
+    CTP = 'ctp'
     CLAMAV = 'clamav'
     CRYPTO = 'crypto'
     DELIVERY_DASHBOARD = 'delivery-dashboard'
@@ -75,6 +78,9 @@ class Datasource(enum.StrEnum):
                 Datatype.LICENSE_FINDING,
                 Datatype.STRUCTURE_INFO,
                 Datatype.VULNERABILITY_FINDING,
+            ),
+            Datasource.CTP: (
+                Datatype.CTP_FINDING,
             ),
             Datasource.CLAMAV: (
                 Datatype.MALWARE_FINDING,
@@ -382,6 +388,11 @@ class License:
 
 
 @dataclasses.dataclass
+class Ctp:
+    name: str
+
+
+@dataclasses.dataclass
 class FilesystemPathEntry:
     path: str
     type: str
@@ -419,6 +430,25 @@ class LicenseFinding(Finding, BDBAMixin):
     @property
     def key(self) -> str:
         return _as_key(self.package_name, self.package_version, self.license.name)
+
+
+@dataclasses.dataclass
+class CtpFinding(Finding, BDBAMixin):
+    ctp_license: Ctp
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.package_name, self.package_version, self.ctp_license.name)
+
+
+@dataclasses.dataclass
+class RescoreCtpFinding:
+    package_name: str
+    ctp_license: Ctp
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.package_name, self.ctp_license.name)
 
 
 @dataclasses.dataclass
@@ -754,6 +784,7 @@ class CustomRescoring:
     '''
     finding: (
         RescoringVulnerabilityFinding
+        | RescoreCtpFinding
         | RescoringLicenseFinding
         | MalwareFindingDetails
         | RescoreSastFinding
@@ -988,6 +1019,7 @@ class ArtefactMetadata:
         | LicenseFinding
         | VulnerabilityFinding
         | ClamAVMalwareFinding
+        | CtpFinding
         | SastFinding
         | DikiFinding
         | OsIdFinding
