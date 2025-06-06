@@ -279,7 +279,10 @@ def scan(
                 )
             continue
 
-        metadata = list(as_artefact_metadata(artefact=artefact, ghas_finding=finding, ghas_finding_cfg=ghas_finding_cfg))
+        metadata = list(as_artefact_metadata(
+            artefact=artefact,
+            ghas_finding=finding,
+            ghas_finding_cfg=ghas_finding_cfg))
 
         all_metadata.extend(metadata)
         all_metadata_keys.update([metadatum.key for metadatum in metadata])
