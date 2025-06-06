@@ -143,7 +143,7 @@ class SecretFactory:
                         secrets_dict['oauth-cfg'][f'{delivery_cfg._name}{idx}'] = secret_mgmt.oauth_cfg.OAuthCfg( # noqa: E501
                             name=oauth_cfg['name'],
                             type=secret_mgmt.oauth_cfg.OAuthCfgTypes(oauth_cfg['type']),
-                            github_secret_name=oauth_cfg['github_cfg'],
+                            api_url=oauth_cfg['api_url'],
                             oauth_url=oauth_cfg['oauth_url'],
                             token_url=oauth_cfg['token_url'],
                             client_id=oauth_cfg['client_id'],
