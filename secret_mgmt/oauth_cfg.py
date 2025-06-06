@@ -32,7 +32,7 @@ class RoleBinding:
 class OAuthCfg:
     name: str
     type: OAuthCfgTypes
-    github_secret_name: str
+    api_url: str
     oauth_url: str
     token_url: str
     client_id: str
