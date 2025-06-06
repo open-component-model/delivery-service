@@ -319,7 +319,7 @@ secrets:
     local:
       client_id: ...
       client_secret: ...
-      github_secret_name: github_com
+      api_url: https://api.github.com
       type: github
       name: GitHub
       oauth_url: https://github.com/login/oauth/authorize

@@ -138,9 +138,7 @@ class OAuthCfgs(aiohttp.web.View):
               $ref: '#/definitions/AuthConfig'
         '''
         def oauth_cfg_to_dict(oauth_cfg: secret_mgmt.oauth_cfg.OAuthCfg):
-            secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
-            github_cfg = secret_factory.github(oauth_cfg.github_secret_name)
-            github_host = urllib.parse.urlparse(github_cfg.api_url).hostname.lower()
+            github_host = urllib.parse.urlparse(oauth_cfg.api_url).hostname.lower()
 
             redirect_uri = util.urljoin(
                 self.request.app[consts.APP_BASE_URL],
@@ -157,9 +155,8 @@ class OAuthCfgs(aiohttp.web.View):
 
             return {
                 'name': oauth_cfg.name,
-                'github_name': oauth_cfg.github_secret_name,
                 'github_host': github_host,
-                'api_url': github_cfg.api_url,
+                'api_url': oauth_cfg.api_url,
                 'oauth_url': oauth_cfg.oauth_url,
                 'client_id': oauth_cfg.client_id,
                 'scope': oauth_cfg.scope,
@@ -271,12 +268,10 @@ class OAuthLogin(aiohttp.web.View):
 
             access_token = access_token[0]
 
-            github_cfg = secret_factory.github(oauth_cfg.github_secret_name)
-            api_url = github_cfg.api_url
+            api_url = oauth_cfg.api_url
         else:
             for oauth_cfg in feature_authentication.oauth_cfgs:
-                github_cfg = secret_factory.github(oauth_cfg.github_secret_name)
-                if github_cfg.api_url == api_url:
+                if oauth_cfg.api_url == api_url:
                     break
 
             else:
