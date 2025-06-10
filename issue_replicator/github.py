@@ -11,7 +11,6 @@ import re
 import textwrap
 import time
 import urllib.parse
-import mdutils.mdutils
 
 import github3
 import github3.issues.issue
@@ -809,12 +808,10 @@ def _falco_template_vars(finding_groups: list[FindingGroup], summary: str) -> di
             finding: odg.model.FalcoFinding = am.data
             content = _falco_process_event(finding)
 
-    return {
-        "summary": content,
-    }
+    return content
 
 
-def _falco_process_event(finding: odg.model.FalcoFinding) -> str:
+def _falco_process_event(finding: odg.model.FalcoFinding) -> dict[str, str]:
     content = ""
     if finding.subtype == odg.model.FalcoFindingSubType.EVENT_GROUP:
         content = _falco_gen_event_content(finding)
@@ -824,9 +821,9 @@ def _falco_process_event(finding: odg.model.FalcoFinding) -> str:
     return content
 
 
-def _falco_gen_interactive_content(finding: odg.model.FalcoFinding) -> str:
-    TITLE = "Falco Interactive Event Group Detected"
-    TEXT = """
+def _falco_gen_interactive_content(finding: odg.model.FalcoFinding) -> dict[str, str]:
+    title = "# Falco Interactive Event Group Detected"
+    text = """
 An interactive session was detected on the cluster. This may be a legitimate action
 (e.g., an interactive debug session) or could indicate suspicious activity.
 
@@ -835,22 +832,32 @@ An interactive session was detected on the cluster. This may be a legitimate act
 - Check the time and activity to ensure they match your actions.
 - If the session was legitimate, triage this ticket using the available methods.
 - If the session was not initiated by you, or the activity does not match, notify the
-Gardener security team.
+security team.
 
 **Do not close this ticket manually; it will be updated automatically.**
 """
+
+    info = (
+        "### Summary:\n"
+        "\n"
+        f"- **Landscape:** {finding.finding.landscape}\n"
+        f"- **Project:** {finding.finding.project}\n"
+        f"- **Cluster:** {finding.finding.cluster}\n"
+        f"- **Hostname:** {finding.finding.hostname}\n"
+        f"- **Event count:** {finding.finding.count}\n"
+        f"- **Hash:** `{finding.finding.group_hash}`\n"
+    )
+
     finding_content: odg.model.FalcoInteractiveEventGroup = finding.finding
+    events = _build_falco_interactive_event_content(finding_content)
 
-    mdfile = mdutils.mdutils.MdUtils(file_name="test")
-    mdfile.new_header(level=1, title=TITLE)
-    mdfile.new_paragraph(TEXT)
-    mdfile.new_header(level=2, title=f"Interactive session on {finding_content.cluster}")
-    return mdfile.file_data_text
+    content = {"title": title, "text": text, "info": info, "events": events}
+    return content
 
 
-def _falco_gen_event_content(finding: odg.model.FalcoFinding) -> str:
-    TITLE = "Falco Event Group Detected"
-    TEXT = """One or more Falco events were detected in the landscape. These events may
+def _falco_gen_event_content(finding: odg.model.FalcoFinding) -> dict[str, str]:
+    title = "# Falco Event Group Detected"
+    text = """One or more Falco events were detected in the landscape. These events may
 be false positives or could indicate an
 attack.
 
@@ -858,24 +865,47 @@ attack.
 - Review the event stream to determine if the events are false positives.
 - If they are false positives, triage this ticket using the available methods.
 - Implement a Falco exception as suggested in this ticket.
-- If you cannot confirm the events are false positives, inform the Gardener security team.
+- If you cannot confirm the events are false positives, inform the security team.
 
 If you triage this ticket, no new tickets for similar events will be created for the next 30 days.
 
 **Do not close this ticket manually; it will be updated automatically.**
 """
 
-    finding_content: odg.model.FalcoEventGroup = finding.finding
+    # finding_content: odg.model.FalcoEventGroup = finding.finding
+    content = {"title": title, "text": text}
 
-    mdfile = mdutils.mdutils.MdUtils(file_name="test")
-    mdfile.new_header(level=1, title=TITLE)
-    mdfile.new_paragraph(TEXT)
-    mdfile.new_header(level=2, title=finding_content.rule)
-    return mdfile.file_data_text
+    return content
 
 
-def markdown_collapsible_section(summary: str, details_markdown: str) -> str:
-    return f"<details>\n" f"<summary>{summary}</summary>\n\n" f"{details_markdown}\n" f"</details>\n"
+def _build_falco_interactive_event_content(finding_content: odg.model.FalcoEventGroup) -> str:
+    events = "### Events:\n\n"
+    for i, event in enumerate(finding_content.events):
+        output_lines = [f"{k}: {v}" for k, v in event.output.items()]
+        output_block = "```\n" + "\n".join(output_lines) + "\n```"
+
+        event_str = (
+            f"- **Rule:** {event.rule}\n"
+            f"- **Time:** {event.time}\n"
+            f"- **Message:** `{event.message}`\n"
+            + "<blockquote>\n"
+            + _markdown_collapsible_section(summary="Output Fields", details_markdown=output_block)
+            + "</blockquote>\n"
+        )
+
+        events += (
+            _markdown_collapsible_section(summary=f"Event {i}", details_markdown=event_str) + "\n\n"
+        )
+    return events
+
+
+def _markdown_collapsible_section(summary: str, details_markdown: str) -> str:
+    return (
+        "<details>\n"
+        f"<summary><strong>{summary}</strong></summary>\n\n"
+        f"{details_markdown}\n"
+        "</details>\n"
+    )
 
 
 def _template_vars(
