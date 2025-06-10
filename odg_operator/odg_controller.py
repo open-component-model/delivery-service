@@ -384,9 +384,10 @@ def create_or_update_odg(
                     ).decode(),
                 },
             )
+            core_api = kubernetes_api.core_kubernetes_api
             create_or_update_resource(
-                create_namespaced_resource=custom_api.create_namespaced_secret,
-                patch_namespaced_resource=custom_api.patch_namespaced_secret,
+                create_namespaced_resource=core_api.create_namespaced_secret,
+                patch_namespaced_resource=core_api.patch_namespaced_secret,
                 data=secret_body.to_dict(),
                 name=extension_artefact_name,
                 namespace=odg.namespace,
