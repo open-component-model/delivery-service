@@ -890,6 +890,7 @@ If you triage this ticket, no new tickets for similar events will be created for
     content = {"title": title, "text": text, "info": info, "events": events}
     return content
 
+
 def _build_falco_event_section(finding_content: odg.model.FalcoEventGroup) -> str:
     events = "### Events:\n"
     sorted_events = sorted(
