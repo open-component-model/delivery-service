@@ -822,12 +822,11 @@ def _falco_process_event(finding: odg.model.FalcoFinding) -> dict[str, str]:
 
 
 def _falco_gen_interactive_content(finding: odg.model.FalcoFinding) -> dict[str, str]:
-    title = "# Falco Interactive Event Group Detected"
-    text = """
-An interactive session was detected on the cluster. This may be a legitimate action
+    title = "# Falco Interactive Event Group Detected\n"
+    text = """An interactive session was detected on the cluster. This may be a legitimate action
 (e.g., an interactive debug session) or could indicate suspicious activity.
 
-**Actions required:**
+### Please take the following actions:
 - Confirm the session was initiated by you by reviewing the event stream.
 - Check the time and activity to ensure they match your actions.
 - If the session was legitimate, triage this ticket using the available methods.
@@ -837,31 +836,32 @@ security team.
 **Do not close this ticket manually; it will be updated automatically.**
 """
 
+    finding_interactive: odg.model.FalcoInteractiveEventGroup = finding.finding
+
     info = (
         "### Summary:\n"
         "\n"
-        f"- **Landscape:** {finding.finding.landscape}\n"
-        f"- **Project:** {finding.finding.project}\n"
-        f"- **Cluster:** {finding.finding.cluster}\n"
-        f"- **Hostname:** {finding.finding.hostname}\n"
-        f"- **Event count:** {finding.finding.count}\n"
-        f"- **Hash:** `{finding.finding.group_hash}`\n"
+        f"- **Landscape:** {finding_interactive.landscape}\n"
+        f"- **Project:** {finding_interactive.project}\n"
+        f"- **Cluster:** {finding_interactive.cluster}\n"
+        f"- **Hostname:** {finding_interactive.hostname}\n"
+        f"- **Event count:** {finding_interactive.count}\n"
+        f"- **Hash:** `{finding_interactive.group_hash}`\n"
     )
 
-    finding_content: odg.model.FalcoInteractiveEventGroup = finding.finding
-    events = _build_falco_interactive_event_content(finding_content)
+    events = _build_falco_event_section(finding_interactive)
 
     content = {"title": title, "text": text, "info": info, "events": events}
     return content
 
 
 def _falco_gen_event_content(finding: odg.model.FalcoFinding) -> dict[str, str]:
-    title = "# Falco Event Group Detected"
+    title = "# Falco Event Group Detected\n"
     text = """One or more Falco events were detected in the landscape. These events may
 be false positives or could indicate an
 attack.
 
-**Please take the following actions:**
+### Please take the following actions:
 - Review the event stream to determine if the events are false positives.
 - If they are false positives, triage this ticket using the available methods.
 - Implement a Falco exception as suggested in this ticket.
@@ -872,15 +872,36 @@ If you triage this ticket, no new tickets for similar events will be created for
 **Do not close this ticket manually; it will be updated automatically.**
 """
 
-    # finding_content: odg.model.FalcoEventGroup = finding.finding
-    content = {"title": title, "text": text}
+    finding_group: odg.model.FalcoEventGroup = finding.finding
 
+    info = (
+        "### Summary:\n"
+        "\n"
+        f"- **Landscape:** {finding_group.landscape}\n"
+        f"- **Project:** {finding_group.project}\n"
+        f"- **Rule:** {finding_group.rule}\n"
+        f"- **Event count:** {finding_group.count}\n"
+        f"- **Hash:** `{finding_group.group_hash}`\n"
+    )
+
+    info += _list_falco_clusters(finding_group)
+    events = _build_falco_event_section(finding_group)
+
+    content = {"title": title, "text": text, "info": info, "events": events}
     return content
 
+def _build_falco_event_section(finding_content: odg.model.FalcoEventGroup) -> str:
+    events = "### Events:\n"
+    sorted_events = sorted(
+        finding_content.events,
+        key=lambda event: (event.time),
+        reverse=True,
+    )
 
-def _build_falco_interactive_event_content(finding_content: odg.model.FalcoEventGroup) -> str:
-    events = "### Events:\n\n"
-    for i, event in enumerate(finding_content.events):
+    events += f"- **Start Time:** {sorted_events[0].time if sorted_events else 'N/A'}\n"
+    events += f"- **End Time:** {sorted_events[-1].time if sorted_events else 'N/A'}\n"
+
+    for i, event in enumerate(sorted_events, start=1):
         output_lines = [f"{k}: {v}" for k, v in event.output.items()]
         output_block = "```\n" + "\n".join(output_lines) + "\n```"
 
@@ -897,6 +918,22 @@ def _build_falco_interactive_event_content(finding_content: odg.model.FalcoEvent
             _markdown_collapsible_section(summary=f"Event {i}", details_markdown=event_str) + "\n\n"
         )
     return events
+
+
+def _list_falco_clusters(finding_group: odg.model.FalcoEventGroup) -> str:
+    clusters = collections.defaultdict(set)
+    for event in finding_group.events:
+        clusters[event.cluster].add(event.hostname)
+
+    section = "### Clusters:\n"
+    for cluster, hostnames in sorted(clusters.items()):
+        hostnames_md = "\n".join(f"- {hostname}" for hostname in sorted(hostnames))
+        md = _markdown_collapsible_section(
+            summary=f"{cluster} ({len(hostnames)} host(s))",
+            details_markdown=hostnames_md,
+        )
+        section += md + "\n"
+    return section + "\n"
 
 
 def _markdown_collapsible_section(summary: str, details_markdown: str) -> str:
