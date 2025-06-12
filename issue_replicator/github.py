@@ -812,7 +812,7 @@ def _falco_template_vars(finding_groups: list[FindingGroup], summary: str) -> di
 
 
 def _falco_process_event(finding: odg.model.FalcoFinding) -> dict[str, str]:
-    content = ""
+    content = {}
     if finding.subtype == odg.model.FalcoFindingSubType.EVENT_GROUP:
         content = _falco_gen_event_content(finding)
     elif finding.subtype == odg.model.FalcoFindingSubType.INTERACTIVE_EVENT_GROUP:
