@@ -1,4 +1,5 @@
 import collections.abc
+import dataclasses
 import enum
 import os
 import typing
@@ -8,6 +9,21 @@ import dacite.exceptions
 import yaml
 
 import util
+
+
+@dataclasses.dataclass
+class GenericModelElement:
+    name: str
+    raw: dict
+    type_name: str = None
+
+    def __getattr__(self, attr):
+        if attr in self.raw:
+            return self.raw[attr]
+        raise AttributeError(f'class has no attribute {attr}')
+
+    def __str__(self):
+        return f'{self.name}: {self.raw}'
 
 
 class SecretTypeNotFound(ValueError):
@@ -45,7 +61,7 @@ def default_secret_type_to_class(secret_type: str) -> object:
             import secret_mgmt.signing_cfg
             return secret_mgmt.signing_cfg.SigningCfg
         case _:
-            raise SecretTypeNotFound(secret_type)
+            return GenericModelElement
 
 
 class SecretFactory:
@@ -61,129 +77,104 @@ class SecretFactory:
         deployment pipelines), this function takes assumptions about the structure of the previous
         model classes to convert them to the models utilised by this `SecretFactory`.
         '''
-        secrets_dict: dict[str, dict[str, object]] = {}
+        secrets_dict = collections.defaultdict(dict)
 
         if not cfg_factory:
             import ci.util
             cfg_factory = ci.util.ctx().cfg_factory()
 
-        if aws_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='aws')):
-            import secret_mgmt.aws
-            secrets_dict['aws'] = {}
+        for cfg_type in cfg_factory._cfg_types():
+            elements = list(cfg_factory._cfg_elements(cfg_type_name=cfg_type))
+            key = cfg_type.replace('_', '-')
 
-            for aws_cfg in aws_cfgs:
-                secrets_dict['aws'][aws_cfg._name] = secret_mgmt.aws.AWS(
-                    access_key_id=aws_cfg.access_key_id(),
-                    secret_access_key=aws_cfg.secret_access_key(),
-                    region=aws_cfg.region(),
-                )
+            for element in elements:
+                if cfg_type == 'aws':
+                    import secret_mgmt.aws
+                    secrets_dict[key][element._name] = secret_mgmt.aws.AWS(
+                        access_key_id=element.access_key_id(),
+                        secret_access_key=element.secret_access_key(),
+                        region=element.region(),
+                    )
+                elif cfg_type == 'bdba':
+                    import secret_mgmt.bdba
+                    secrets_dict[key][element._name] = secret_mgmt.bdba.BDBA(
+                        api_url=element.api_url(),
+                        group_ids=element.group_ids(),
+                        token=element.credentials().token(),
+                        tls_verify=element.tls_verify(),
+                    )
+                elif cfg_type == 'delivery_db':
+                    import secret_mgmt.delivery_db
+                    secrets_dict[key][element._name] = secret_mgmt.delivery_db.DeliveryDB(
+                        username=element.credentials().username(),
+                        password=element.credentials().password(),
+                    )
+                elif cfg_type == 'github':
+                    import secret_mgmt.github
+                    creds = element.credentials_with_most_remaining_quota()
+                    secrets_dict[key][element._name] = secret_mgmt.github.GitHub(
+                        api_url=element.api_url(),
+                        http_url=element.http_url(),
+                        username=creds.username(),
+                        auth_token=creds.auth_token(),
+                        repo_urls=element.repo_urls(),
+                        tls_verify=element.tls_validation(),
+                    )
+                elif cfg_type == 'kubernetes':
+                    import secret_mgmt.kubernetes
+                    secrets_dict[key][element._name] = secret_mgmt.kubernetes.Kubernetes(
+                        kubeconfig=element.kubeconfig(),
+                    )
+                elif cfg_type == 'delivery':
+                    if oauth_cfgs := element.oauth_cfgs():
+                        import secret_mgmt.oauth_cfg
 
-        if (
-            'bdba' in cfg_factory._cfg_types()
-            and (bdba_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='bdba')))
-        ):
-            import secret_mgmt.bdba
-            secrets_dict['bdba'] = {}
+                        for idx, oauth_cfg in enumerate(oauth_cfgs):
+                            secrets_dict[key][f'{element._name}{idx}'] = secret_mgmt.oauth_cfg.OAuthCfg( # noqa: E501
+                                name=oauth_cfg['name'],
+                                type=secret_mgmt.oauth_cfg.OAuthCfgTypes(oauth_cfg['type']),
+                                api_url=oauth_cfg['api_url'],
+                                oauth_url=oauth_cfg['oauth_url'],
+                                token_url=oauth_cfg['token_url'],
+                                client_id=oauth_cfg['client_id'],
+                                client_secret=oauth_cfg['client_secret'],
+                                scope=oauth_cfg.get('scope'),
+                                role_bindings=[
+                                    dacite.from_dict(
+                                        data_class=secret_mgmt.oauth_cfg.RoleBinding,
+                                        data=role_binding_raw,
+                                        config=dacite.Config(
+                                            cast=[enum.Enum],
+                                        ),
+                                    ) for role_binding_raw in oauth_cfg.get('role_bindings', [])
+                                ],
+                            )
+                    if signing_cfgs := element.signing_cfgs():
+                        import secret_mgmt.signing_cfg
 
-            for bdba_cfg in bdba_cfgs:
-                secrets_dict['bdba'][bdba_cfg._name] = secret_mgmt.bdba.BDBA(
-                    api_url=bdba_cfg.api_url(),
-                    group_ids=bdba_cfg.group_ids(),
-                    token=bdba_cfg.credentials().token(),
-                    tls_verify=bdba_cfg.tls_verify(),
-                )
+                        for idx, signing_cfg in enumerate(signing_cfgs):
+                            secrets_dict[key][f'{element._name}{idx}'] = secret_mgmt.signing_cfg.SigningCfg( # noqa: E501
+                                id=signing_cfg['id'],
+                                private_key=signing_cfg['private_key'],
+                                public_key=signing_cfg['public_key'],
+                                algorithm=signing_cfg['algorithm'],
+                                priority=signing_cfg.get('priority', 0),
+                            )
 
-        if (
-            'delivery_db' in cfg_factory._cfg_types()
-            and (delivery_db_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='delivery_db')))
-        ):
-            import secret_mgmt.delivery_db
-            secrets_dict['delivery-db'] = {}
-
-            for delivery_db_cfg in delivery_db_cfgs:
-                secrets_dict['delivery-db'][delivery_db_cfg._name] = secret_mgmt.delivery_db.DeliveryDB( # noqa: E501
-                    username=delivery_db_cfg.credentials().username(),
-                    password=delivery_db_cfg.credentials().password(),
-                )
-
-        if github_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='github')):
-            import secret_mgmt.github
-            secrets_dict['github'] = {}
-
-            for github_cfg in github_cfgs:
-                credentials = github_cfg.credentials_with_most_remaining_quota()
-                secrets_dict['github'][github_cfg._name] = secret_mgmt.github.GitHub(
-                    api_url=github_cfg.api_url(),
-                    http_url=github_cfg.http_url(),
-                    username=credentials.username(),
-                    auth_token=credentials.auth_token(),
-                    repo_urls=github_cfg.repo_urls(),
-                    tls_verify=github_cfg.tls_validation(),
-                )
-
-        if kubernetes_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='kubernetes')):
-            import secret_mgmt.kubernetes
-            secrets_dict['kubernetes'] = {}
-
-            for kubernetes_cfg in kubernetes_cfgs:
-                secrets_dict['kubernetes'][kubernetes_cfg._name] = secret_mgmt.kubernetes.Kubernetes(
-                    kubeconfig=kubernetes_cfg.kubeconfig(),
-                )
-
-        if (
-            'delivery' in cfg_factory._cfg_types()
-            and (delivery_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='delivery')))
-        ):
-            for delivery_cfg in delivery_cfgs:
-                if oauth_cfgs := delivery_cfg.oauth_cfgs():
-                    import secret_mgmt.oauth_cfg
-                    secrets_dict['oauth-cfg'] = secrets_dict.get('oauth-cfg', {})
-
-                    for idx, oauth_cfg in enumerate(oauth_cfgs):
-                        secrets_dict['oauth-cfg'][f'{delivery_cfg._name}{idx}'] = secret_mgmt.oauth_cfg.OAuthCfg( # noqa: E501
-                            name=oauth_cfg['name'],
-                            type=secret_mgmt.oauth_cfg.OAuthCfgTypes(oauth_cfg['type']),
-                            api_url=oauth_cfg['api_url'],
-                            oauth_url=oauth_cfg['oauth_url'],
-                            token_url=oauth_cfg['token_url'],
-                            client_id=oauth_cfg['client_id'],
-                            client_secret=oauth_cfg['client_secret'],
-                            scope=oauth_cfg.get('scope'),
-                            role_bindings=[
-                                dacite.from_dict(
-                                    data_class=secret_mgmt.oauth_cfg.RoleBinding,
-                                    data=role_binding_raw,
-                                    config=dacite.Config(
-                                        cast=[enum.Enum],
-                                    ),
-                                ) for role_binding_raw in oauth_cfg.get('role_bindings', [])
-                            ],
-                        )
-
-                if signing_cfgs := delivery_cfg.signing_cfgs():
-                    import secret_mgmt.signing_cfg
-                    secrets_dict['signing-cfg'] = secrets_dict.get('signing-cfg', {})
-
-                    for idx, signing_cfg in enumerate(signing_cfgs):
-                        secrets_dict['signing-cfg'][f'{delivery_cfg._name}{idx}'] = secret_mgmt.signing_cfg.SigningCfg( # noqa: E501
-                            id=signing_cfg['id'],
-                            private_key=signing_cfg['private_key'],
-                            public_key=signing_cfg['public_key'],
-                            algorithm=signing_cfg['algorithm'],
-                            priority=signing_cfg.get('priority', 0),
-                        )
-
-        if oci_registry_cfgs := list(cfg_factory._cfg_elements(cfg_type_name='container_registry')):
-            import secret_mgmt.oci_registry
-            secrets_dict['oci-registry'] = {}
-
-            for oci_registry_cfg in oci_registry_cfgs:
-                secrets_dict['oci-registry'][oci_registry_cfg._name] = secret_mgmt.oci_registry.OciRegistry( # noqa: E501
-                    username=oci_registry_cfg.credentials().username(),
-                    password=oci_registry_cfg.credentials().passwd(),
-                    image_reference_prefixes=oci_registry_cfg.image_reference_prefixes(),
-                    privileges=oci_registry_cfg.privileges(),
-                )
+                elif cfg_type == 'container_registry':
+                    import secret_mgmt.oci_registry
+                    secrets_dict[key][element._name] = secret_mgmt.oci_registry.OciRegistry(
+                        username=element.credentials().username(),
+                        password=element.credentials().passwd(),
+                        image_reference_prefixes=element.image_reference_prefixes(),
+                        privileges=element.privileges(),
+                    )
+                else:
+                    secrets_dict[key][element._name] = GenericModelElement(
+                        name=element._name,
+                        raw=element.raw,
+                        type_name=key,
+                    )
 
         return SecretFactory(
             secrets_dict=secrets_dict,
