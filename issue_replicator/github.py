@@ -830,18 +830,21 @@ def _falco_gen_interactive_content(
     finding: odg.model.FalcoFinding,
 ) -> dict[str, str]:
     title = "# Falco Interactive Event Group Detected\n"
-    text = """An interactive session was detected on the cluster. This may be a legitimate action
-(e.g., an interactive debug session) or could indicate suspicious activity.
+    text = textwrap.dedent(
+        """\
+        An interactive session was detected on the cluster. This may be a legitimate action
+        (e.g., an interactive debug session) or could indicate suspicious activity.
 
-### Please take the following actions:
-- Confirm the session was initiated by you by reviewing the event stream.
-- Check the time and activity to ensure they match your actions.
-- If the session was legitimate, triage this ticket using the available methods.
-- If the session was not initiated by you, or the activity does not match, notify the
-security team.
+        ### Please take the following actions:
+        - Confirm the session was initiated by you by reviewing the event stream.
+        - Check the time and activity to ensure they match your actions.
+        - If the session was legitimate, triage this ticket using the available methods.
+        - If the session was not initiated by you, or the activity does not match, notify the
+        security team.
 
-**Do not close this ticket manually; it will be updated automatically.**
-"""
+        **Do not close this ticket manually; it will be updated automatically.**
+    """
+    )
 
     finding_interactive: odg.model.FalcoInteractiveEventGroup = finding.finding
 
@@ -866,20 +869,23 @@ def _falco_gen_event_content(
     finding: odg.model.FalcoFinding,
 ) -> dict[str, str]:
     title = "# Falco Event Group Detected\n"
-    text = """One or more Falco events were detected in the landscape. These events may
-be false positives or could indicate an
-attack.
+    text = textwrap.dedent(
+        """\
+        One or more Falco events were detected in the landscape. These events may
+        be false positives or could indicate an
+        attack.
 
-### Please take the following actions:
-- Review the event stream to determine if the events are false positives.
-- If they are false positives, triage this ticket using the available methods.
-- Implement a Falco exception as suggested in this ticket.
-- If you cannot confirm the events are false positives, inform the security team.
+        ### Please take the following actions:
+        - Review the event stream to determine if the events are false positives.
+        - If they are false positives, triage this ticket using the available methods.
+        - Implement a Falco exception as suggested in this ticket.
+        - If you cannot confirm the events are false positives, inform the security team.
 
-If you triage this ticket, no new tickets for similar events will be created for the next 30 days.
+        If you triage this ticket, no new tickets for similar events will be created for the next 30 days.
 
-**Do not close this ticket manually; it will be updated automatically.**
-"""
+        **Do not close this ticket manually; it will be updated automatically.**
+    """
+    )
 
     finding_group: odg.model.FalcoEventGroup = finding.finding
 
