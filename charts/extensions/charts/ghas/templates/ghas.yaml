@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ghas
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  schedule: {{ default "0 0 * * *" .Values.schedule | quote }} # Default: Every day at 12:00 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ default 1 .Values.successful_jobs_history_limit }}
+  failedJobsHistoryLimit: {{ default 1 .Values.failed_jobs_history_limit }}
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: {{ default 43200 .Values.ttl_seconds_after_finished }} # 43200 -> 12h
+      backoffLimit: {{ default 6 .Values.backoff_limit }}
+      template:
+        metadata:
+          labels:
+            app: ghas
+        spec:
+          containers:
+          - name: ghas
+            image: {{ include "image" .Values.image }}
+            imagePullPolicy: IfNotPresent
+            command:
+            - python3
+            - -m
+            - ghas
+            env:
+            - name: SECRET_FACTORY_PATH
+              value: /secrets
+            - name: EXTENSIONS_CFG_PATH
+              value: /extensions_cfg/extensions_cfg
+            - name: K8S_TARGET_NAMESPACE
+              value: {{ .Values.target_namespace | default .Release.Namespace }}
+            volumeMounts:
+            - name: github
+              mountPath: /secrets/github
+            - name: kubernetes
+              mountPath: /secrets/kubernetes
+            - name: oci-registry
+              mountPath: /secrets/oci-registry
+            - name: extensions-cfg
+              mountPath: /extensions_cfg
+          volumes:
+            - name: github
+              secret:
+                secretName: secret-factory-github
+            - name: kubernetes
+              secret:
+                secretName: secret-factory-kubernetes
+                optional: true # might use incluster config
+            - name: oci-registry
+              secret:
+                secretName: secret-factory-oci-registry
+            - name: extensions-cfg
+              configMap:
+                name: extensions-cfg
+          restartPolicy: Never

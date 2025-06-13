@@ -32,9 +32,10 @@ class Services(enum.StrEnum):
     CRYPTO = 'crypto'
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
     ISSUE_REPLICATOR = 'issueReplicator'
+    SAST = 'sast'
+    GHAS = 'ghas'
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
-    SAST = 'sast'
 
 
 class VersionAliases(enum.StrEnum):
@@ -764,6 +765,46 @@ class SASTConfig(BacklogItemMixins):
         return True
 
 
+@dataclasses.dataclass
+class GitHubInstance:
+    hostname: str
+    orgs: list[str]
+
+
+@dataclasses.dataclass(kw_only=True)
+class GHASConfig(ExtensionCfgMixins):
+    '''
+    :param str delivery_service_url
+    :param int interval:
+        Time after which an artefact must be re-scanned at latest.
+    :param WarningVerbosities on_unsupported
+        Defines the handling if a backlog item should be processed which contains unsupported
+        properties, e.g. an unsupported access type.
+    '''
+    service: Services = Services.GHAS
+    delivery_service_url: str
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+    schedule: str = '0 0 * * *' # every day at 12:00 AM
+    github_instances: list[GitHubInstance] = dataclasses.field(default_factory=list)
+
+    def is_supported(
+        self,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.SOURCE,
+        )
+
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for GHAS scans, {supported_artefact_kinds=}'
+                )
+            return False
+
+        return True
+
+
 @dataclasses.dataclass(kw_only=True)
 class OsId(BacklogItemMixins):
     '''
@@ -806,9 +847,10 @@ class ExtensionsConfiguration:
     crypto: CryptoConfig | None
     delivery_db_backup: DeliveryDBBackup | None
     issue_replicator: IssueReplicatorConfig | None
+    sast: SASTConfig | None
+    ghas: GHASConfig | None
     osid: OsId | None
     responsibles: ResponsiblesConfig | None
-    sast: SASTConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod
