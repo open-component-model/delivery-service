@@ -881,7 +881,8 @@ def _falco_gen_event_content(
         - Implement a Falco exception as suggested in this ticket.
         - If you cannot confirm the events are false positives, inform the security team.
 
-        If you triage this ticket, no new tickets for similar events will be created for the next 30 days.
+        If you triage this ticket, no new tickets for similar events will be created for the next
+        30 days.
 
         **Do not close this ticket manually; it will be updated automatically.**
     """
