@@ -7,7 +7,9 @@ import collections.abc
 import dataclasses
 import datetime
 import enum
+import json
 import logging
+import typing
 
 import dacite
 import dateutil.parser
@@ -244,6 +246,26 @@ class AnalysisResult(Result):
     fail_reason: str | None
     components: list[Component] = dataclasses.field(default_factory=list)
     custom_data: dict[str, str] = dataclasses.field(default_factory=dict)
+
+
+@dataclasses.dataclass
+class BDIO:
+    id: str
+    name: str
+    publisher: str
+    publisher_version: str
+    creation_datetime: str
+    entries: list[dict[str, typing.Any]]
+
+    def as_blackduck_bytes(self) -> bytes:
+        return json.dumps({
+            '@id': self.id,
+            'name': self.name,
+            'publisher': self.publisher,
+            'publisherVersion': self.publisher_version,
+            'creationDateTime': self.creation_datetime,
+            '@graph': self.entries,
+        }, indent=2).encode('utf-8')
 
 
 #############################################################################

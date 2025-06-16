@@ -54,19 +54,11 @@ class VulnerabilityFinding(odg.model.Finding):
 
 
 @dataclasses.dataclass
-class MalwareFinding(odg.model.Finding):
-    finding: odg.model.MalwareFindingDetails
-
-
-@dataclasses.dataclass
 class RescoringProposal:
     finding: (
         LicenseFinding
         | VulnerabilityFinding
-        | MalwareFinding
-        | odg.model.SastFinding
-        | odg.model.CryptoFinding
-        | odg.model.OsIdFinding
+        | odg.model.FindingModels
     )
     finding_type: odg.model.Datatype
     severity: str
@@ -307,48 +299,7 @@ async def _iter_rescoring_proposals(
             } for rescoring in current_rescorings
         )
 
-        if finding_cfg.type is odg.model.Datatype.MALWARE_FINDING:
-            yield dacite.from_dict(
-                data_class=RescoringProposal,
-                data={
-                    'finding': {
-                        'finding': {
-                            'filename': am.data.finding.filename,
-                            'content_digest': am.data.finding.content_digest,
-                            'malware': am.data.finding.malware,
-                        },
-                        'severity': severity,
-                    },
-                    'finding_type': finding_cfg.type,
-                    'severity': current_severity,
-                    'matching_rules': matching_rule_names,
-                    'applicable_rescorings': serialised_current_rescorings,
-                    'discovery_date': am.discovery_date.isoformat(),
-                    'due_date': due_date,
-                    'sprint': sprint,
-                },
-            )
-
-        elif finding_cfg.type is odg.model.Datatype.SAST_FINDING:
-            yield dacite.from_dict(
-                data_class=RescoringProposal,
-                data={
-                    'finding': {
-                        'sast_status': am.data.sast_status,
-                        'sub_type': am.data.sub_type,
-                        'severity': severity,
-                    },
-                    'finding_type': finding_cfg.type,
-                    'severity': current_severity,
-                    'matching_rules': matching_rule_names,
-                    'applicable_rescorings': serialised_current_rescorings,
-                    'discovery_date': am.discovery_date.isoformat(),
-                    'due_date': due_date,
-                    'sprint': sprint,
-                },
-            )
-
-        elif finding_cfg.type in (
+        if finding_cfg.type in (
             odg.model.Datatype.VULNERABILITY_FINDING,
             odg.model.Datatype.LICENSE_FINDING,
         ):
@@ -481,7 +432,7 @@ async def _iter_rescoring_proposals(
                     },
                 )
 
-        elif finding_cfg.type is odg.model.Datatype.CRYPTO_FINDING:
+        else:
             yield dacite.from_dict(
                 data_class=RescoringProposal,
                 data={
@@ -497,20 +448,6 @@ async def _iter_rescoring_proposals(
                 config=dacite.Config(
                     strict=True,
                 ),
-            )
-        elif finding_cfg.type is odg.model.Datatype.OSID_FINDING:
-            yield dacite.from_dict(
-                data_class=RescoringProposal,
-                data={
-                    'finding': dataclasses.asdict(am.data),
-                    'finding_type': finding_cfg.type,
-                    'severity': current_severity,
-                    'matching_rules': matching_rule_names,
-                    'applicable_rescorings': serialised_current_rescorings,
-                    'discovery_date': am.discovery_date.isoformat(),
-                    'due_date': due_date,
-                    'sprint': sprint,
-                },
             )
 
         seen_ids.add(am.id)
@@ -757,6 +694,7 @@ class Rescore(aiohttp.web.View):
             ),
         )
 
+        cve_categorisation = None
         if odg.model.Datatype.VULNERABILITY_FINDING in type_filter:
             artefact_node = await ocm_util.find_artefact_node_async(
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
@@ -764,15 +702,8 @@ class Rescore(aiohttp.web.View):
                 absent_ok=True,
             )
 
-            if not artefact_node:
-                raise aiohttp.web.HTTPNotFound(
-                    reason='Artefact not found in component descriptor',
-                    text=f'{artefact=}',
-                )
-
-            cve_categorisation = rescore.utility.find_cve_categorisation(artefact_node)
-        else:
-            cve_categorisation = None
+            if artefact_node:
+                cve_categorisation = rescore.utility.find_cve_categorisation(artefact_node)
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 

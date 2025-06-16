@@ -25,7 +25,6 @@ APP_SPECIAL_COMPONENT_CALLBACK = 'special_component_callback'
 APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK = 'sprint_date_display_name_callback'
 APP_SPRINTS = 'sprints'
 APP_SPRINTS_METADATA = 'sprints_metadata'
-APP_UPR_REGEX_CALLBACK = 'upr_regex_callback'
 APP_VERSION_FILTER_CALLBACK = 'version_filter_callback'
 APP_VERSION_LOOKUP = 'version_lookup'
 

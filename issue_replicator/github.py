@@ -1327,7 +1327,7 @@ def _create_or_update_issue(
     assignees_statuses: set[delivery.model.Status] | None,
     assignee_mode: odg.model.ResponsibleAssigneeModes,
     labels: set[str],
-):
+) -> github3.issues.issue.ShortIssue | None:
     def labels_to_preserve(
         issue: github3.issues.issue.ShortIssue,
     ) -> collections.abc.Generator[str, None, None]:
@@ -1426,6 +1426,8 @@ def _create_or_update_or_close_issue_per_finding(
     labels: set[str],
 ):
     processed_issues = set()
+    created_issues = set()
+
     for finding in findings:
         data = finding.finding.data
 
@@ -1445,12 +1447,12 @@ def _create_or_update_or_close_issue_per_finding(
             labels_for_filtering = (issue_id, finding_cfg.type, data_digest)
 
         finding_issues = filter_issues_for_labels(
-            issues=issues,
+            issues=set(issues) | created_issues,
             labels=labels_for_filtering,
         )
         processed_issues.update(finding_issues)
 
-        _create_or_update_issue(
+        if created_issue := _create_or_update_issue(
             mapping=mapping,
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
@@ -1468,9 +1470,10 @@ def _create_or_update_or_close_issue_per_finding(
             assignees_statuses=assignees_statuses,
             assignee_mode=assignee_mode,
             labels=finding_labels,
-        )
+        ):
+            created_issues.add(created_issue)
 
-    for issue in issues:
+    for issue in set(issues) | created_issues:
         if issue not in processed_issues and issue.state == 'open':
             close_issue_if_present(
                 mapping=mapping,
