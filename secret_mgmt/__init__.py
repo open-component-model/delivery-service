@@ -130,7 +130,7 @@ class SecretFactory:
                         import secret_mgmt.oauth_cfg
 
                         for idx, oauth_cfg in enumerate(oauth_cfgs):
-                            secrets_dict[key][f'{element._name}{idx}'] = secret_mgmt.oauth_cfg.OAuthCfg( # noqa: E501
+                            secrets_dict['oauth-cfg'][f'{element._name}{idx}'] = secret_mgmt.oauth_cfg.OAuthCfg( # noqa: E501
                                 name=oauth_cfg['name'],
                                 type=secret_mgmt.oauth_cfg.OAuthCfgTypes(oauth_cfg['type']),
                                 api_url=oauth_cfg['api_url'],
@@ -153,7 +153,7 @@ class SecretFactory:
                         import secret_mgmt.signing_cfg
 
                         for idx, signing_cfg in enumerate(signing_cfgs):
-                            secrets_dict[key][f'{element._name}{idx}'] = secret_mgmt.signing_cfg.SigningCfg( # noqa: E501
+                            secrets_dict['signing-cfg'][f'{element._name}{idx}'] = secret_mgmt.signing_cfg.SigningCfg( # noqa: E501
                                 id=signing_cfg['id'],
                                 private_key=signing_cfg['private_key'],
                                 public_key=signing_cfg['public_key'],
@@ -163,7 +163,7 @@ class SecretFactory:
 
                 elif cfg_type == 'container_registry':
                     import secret_mgmt.oci_registry
-                    secrets_dict[key][element._name] = secret_mgmt.oci_registry.OciRegistry(
+                    secrets_dict['oci-registry'][element._name] = secret_mgmt.oci_registry.OciRegistry( # noqa: E501
                         username=element.credentials().username(),
                         password=element.credentials().passwd(),
                         image_reference_prefixes=element.image_reference_prefixes(),
