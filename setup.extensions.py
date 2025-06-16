@@ -26,6 +26,7 @@ def modules():
         'backlog_controller',
         'delivery_db_backup',
         'sast',
+        'ghas',
     ]
 
 

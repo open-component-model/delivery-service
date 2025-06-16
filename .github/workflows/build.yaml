@@ -422,6 +422,10 @@ jobs:
               - ref: ocm-resource:extensions.tag
                 attribute: osid.image.tag
               - ref: ocm-resource:extensions.repository
+                attribute: ghas.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: ghas.image.tag
+              - ref: ocm-resource:extensions.repository
                 attribute: responsibles.image.repository
               - ref: ocm-resource:extensions.tag
                 attribute: responsibles.image.tag
