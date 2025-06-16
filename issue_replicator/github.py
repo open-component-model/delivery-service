@@ -799,6 +799,176 @@ def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -
     }
 
 
+def _falco_template_vars(
+    finding_groups: list[FindingGroup],
+    summary: str
+) -> dict[str, str]:
+    for finding_group in finding_groups:
+        finding_group: FindingGroup
+        for aggregated_finding in finding_group.findings:
+            aggregated_finding: AggregatedFinding
+            am: odg.model.ArtefactMetadata = aggregated_finding.finding
+            finding: odg.model.FalcoFinding = am.data
+            content = _falco_process_event(finding)
+
+    return content
+
+
+def _falco_process_event(
+    finding: odg.model.FalcoFinding,
+) -> dict[str, str]:
+    content = {}
+    if finding.subtype == odg.model.FalcoFindingSubType.EVENT_GROUP:
+        content = _falco_gen_event_content(finding)
+    elif finding.subtype == odg.model.FalcoFindingSubType.INTERACTIVE_EVENT_GROUP:
+        content = _falco_gen_interactive_content(finding)
+
+    return content
+
+
+def _falco_gen_interactive_content(
+    finding: odg.model.FalcoFinding,
+) -> dict[str, str]:
+    title = "# Falco Interactive Event Group Detected\n"
+    text = textwrap.dedent(
+        """\
+        An interactive session was detected on the cluster. This may be a legitimate action
+        (e.g., an interactive debug session) or could indicate suspicious activity.
+
+        ### Please take the following actions:
+        - Confirm the session was initiated by you by reviewing the event stream.
+        - Check the time and activity to ensure they match your actions.
+        - If the session was legitimate, triage this ticket using the available methods.
+        - If the session was not initiated by you, or the activity does not match, notify the
+        security team.
+
+        **Do not close this ticket manually; it will be updated automatically.**
+    """
+    )
+
+    finding_interactive: odg.model.FalcoInteractiveEventGroup = finding.finding
+
+    info = (
+        "### Summary:\n"
+        "\n"
+        f"- **Landscape:** {finding_interactive.landscape}\n"
+        f"- **Project:** {finding_interactive.project}\n"
+        f"- **Cluster:** {finding_interactive.cluster}\n"
+        f"- **Hostname:** {finding_interactive.hostname}\n"
+        f"- **Event count:** {finding_interactive.count}\n"
+        f"- **Hash:** `{finding_interactive.group_hash}`\n"
+    )
+
+    events = _build_falco_event_section(finding_interactive)
+
+    content = {"title": title, "text": text, "info": info, "events": events}
+    return content
+
+
+def _falco_gen_event_content(
+    finding: odg.model.FalcoFinding,
+) -> dict[str, str]:
+    title = "# Falco Event Group Detected\n"
+    text = textwrap.dedent(
+        """\
+        One or more Falco events were detected in the landscape. These events may
+        be false positives or could indicate an
+        attack.
+
+        ### Please take the following actions:
+        - Review the event stream to determine if the events are false positives.
+        - If they are false positives, triage this ticket using the available methods.
+        - Implement a Falco exception as suggested in this ticket.
+        - If you cannot confirm the events are false positives, inform the security team.
+
+        If you triage this ticket, no new tickets for similar events will be created for the next
+        30 days.
+
+        **Do not close this ticket manually; it will be updated automatically.**
+    """
+    )
+
+    finding_group: odg.model.FalcoEventGroup = finding.finding
+
+    info = (
+        "### Summary:\n"
+        "\n"
+        f"- **Landscape:** {finding_group.landscape}\n"
+        f"- **Project:** {finding_group.project}\n"
+        f"- **Rule:** {finding_group.rule}\n"
+        f"- **Event count:** {finding_group.count}\n"
+        f"- **Hash:** `{finding_group.group_hash}`\n"
+    )
+
+    info += _list_falco_clusters(finding_group)
+    events = _build_falco_event_section(finding_group)
+
+    content = {"title": title, "text": text, "info": info, "events": events}
+    return content
+
+
+def _build_falco_event_section(
+    finding_content: odg.model.FalcoEventGroup,
+) -> str:
+    events = "### Events:\n"
+    sorted_events = sorted(
+        finding_content.events,
+        key=lambda event: (event.time),
+        reverse=True,
+    )
+
+    events += f"- **Start Time:** {sorted_events[0].time if sorted_events else 'N/A'}\n"
+    events += f"- **End Time:** {sorted_events[-1].time if sorted_events else 'N/A'}\n"
+
+    for i, event in enumerate(sorted_events, start=1):
+        output_lines = [f"{k}: {v}" for k, v in event.output.items()]
+        output_block = "```\n" + "\n".join(output_lines) + "\n```"
+
+        event_str = (
+            f"- **Rule:** {event.rule}\n"
+            f"- **Time:** {event.time}\n"
+            f"- **Message:** `{event.message}`\n"
+            + "<blockquote>\n"
+            + _markdown_collapsible_section(summary="Output Fields", details_markdown=output_block)
+            + "</blockquote>\n"
+        )
+
+        events += (
+            _markdown_collapsible_section(summary=f"Event {i}", details_markdown=event_str) + "\n\n"
+        )
+    return events
+
+
+def _list_falco_clusters(
+    finding_group: odg.model.FalcoEventGroup,
+) -> str:
+    clusters = collections.defaultdict(set)
+    for event in finding_group.events:
+        clusters[event.cluster].add(event.hostname)
+
+    section = "### Clusters:\n"
+    for cluster, hostnames in sorted(clusters.items()):
+        hostnames_md = "\n".join(f"- {hostname}" for hostname in sorted(hostnames))
+        md = _markdown_collapsible_section(
+            summary=f"{cluster} ({len(hostnames)} host(s))",
+            details_markdown=hostnames_md,
+        )
+        section += md + "\n"
+    return section + "\n"
+
+
+def _markdown_collapsible_section(
+    summary: str,
+    details_markdown: str,
+) -> str:
+    return (
+        "<details>\n"
+        f"<summary><strong>{summary}</strong></summary>\n\n"
+        f"{details_markdown}\n"
+        "</details>\n"
+    )
+
+
 def _template_vars(
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
@@ -1016,6 +1186,11 @@ def _template_vars(
         )
     elif finding_cfg.type is odg.model.Datatype.INVENTORY_FINDING:
         template_variables |= _inventory_template_vars(
+            finding_groups=finding_groups,
+            summary=summary,
+        )
+    elif finding_cfg.type is odg.model.Datatype.FALCO_FINDING:
+        template_variables |= _falco_template_vars(
             finding_groups=finding_groups,
             summary=summary,
         )
