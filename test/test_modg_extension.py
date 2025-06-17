@@ -1,3 +1,4 @@
+import enum
 import os
 
 import dacite
@@ -33,6 +34,9 @@ def test_extensions(extension_definitions):
         dacite.from_dict(
             data=raw,
             data_class=odgm.ExtensionDefinition,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
         )
         for raw in extension_definitions
     ]
@@ -55,28 +59,30 @@ def test_extensions(extension_definitions):
 
     ds_outputs = outputs['delivery-service']
     assert ds_outputs[0].name == 'delivery-service-url'
-    assert ds_outputs[0].value == 'delivery-service.my-domain.com'
+    assert ds_outputs[0].value == 'https://delivery-service.my-domain.com'
 
     outputs = odgc.outputs_as_jsonpath(outputs)
     path = jsonpath_ng.parse('dependencies.delivery-service.outputs.delivery-service-url')
-    assert path.find(outputs)[0].value == 'delivery-service.my-domain.com'
+    assert path.find(outputs)[0].value == 'https://delivery-service.my-domain.com'
 
     patched_values = [
         odgu.template_and_resolve_jsonpath(
-            value=value_ref.value,
+            value=value_template.value,
             jsonpaths=outputs,
             substitution_context=context,
+            value_type=value_template.value_type,
         )
-        for value_ref in dd.installation.values
+        for value_template in dd.installation.value_templates
     ]
     assert patched_values[0] == 'my-target-namespace'
     assert patched_values[1] == ['delivery-dashboard.my-domain.com']
-    assert patched_values[2] == 'delivery-service.my-domain.com'
+    assert patched_values[2] == 'https://delivery-service.my-domain.com'
 
     assert odgu.template_and_resolve_jsonpath(
         value={'foo': 'bar.${base_url}'},
-            jsonpaths=outputs,
-            substitution_context=context,
+        jsonpaths=outputs,
+        substitution_context=context,
+        value_type=odgm.ValueType.PYTHON_STRING_TEMPLATE,
     ) == {
         'foo': 'bar.my-domain.com',
     }

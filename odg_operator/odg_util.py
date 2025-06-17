@@ -6,6 +6,7 @@ import jsonpath_ng
 import oci.model
 import ocm
 
+import odg_operator.odg_model as odgm
 import ocm_util
 
 
@@ -91,48 +92,80 @@ def patch_jsonpath_into_dict(
 
 
 def template_and_resolve_jsonpath(
-    value: str | list[str] | dict[str, str],
+    value: str | bool | list | dict,
+    value_type: odgm.ValueType,
     substitution_context: dict,
     jsonpaths: dict,
-) -> str:
+) -> str | bool | list | dict:
     '''
-    Substitute placeholders in the input value(s) using the provided context,
-    then resolve JSONPath expressions against a dictionary.
+    Processes provided value according to its type.
+    - `literal` is returned as-is
+    - `template` is substituted via `substituion_context`
+    - `jsonpath` is replaced using JSONPath semantics and provided `jsonpaths` dict
+
+    list and dicts are recursively processed, for dicts both key and values are processed.
 
     Args:
         `value`: string value(s) containing placeholders and/or JSONPath expressions.
+        `value_type`: defining how to process the value
         `substitution_context`: dictionary for placeholder substitution.
         `jsonpaths`: dictionary to replace using JSONPath semantics after substitution.
-
-    Returns:
-        Substituted value(s) with resolved JSONPath expressions.
-        Returns a single string if `value` is a string, or a list if `value` is a list.
-
-    Note:
-        If no matches are found for a JSONPath expression, the substituted string is returned as-is.
     '''
-    def process_single(entry: str) -> str:
-        templated = string.Template(entry).substitute(substitution_context)
-        parsed = jsonpath_ng.parse(templated)
-        replacements = parsed.find(jsonpaths)
 
-        if len(replacements) == 0:
+    if isinstance(value, str):
+        templated = string.Template(value).substitute(substitution_context)
+
+        if value_type is odgm.ValueType.LITERAL:
+            return value
+
+        elif value_type is odgm.ValueType.PYTHON_STRING_TEMPLATE:
             return templated
 
-        return replacements[0].value
+        elif value_type is odgm.ValueType.JSONPATH:
+            parsed = jsonpath_ng.parse(templated)
+            replacements = parsed.find(jsonpaths)
 
-    def process(input: str | list[str] | dict[str, str]) -> str | list[str] | dict[str, str]:
-        if isinstance(input, str):
-            return process_single(input)
+            if len(replacements) != 1:
+                raise ValueError(f'do not know how to replace {value=}')
 
-        elif isinstance(input, list):
-            return [process_single(entry) for entry in input]
+            # we know there is exactly one replacement
+            return replacements[0].value
 
-        elif isinstance(input, dict):
-            res = {}
-            pairs = input.items()
-            for key, _value in pairs:
-                res[process_single(key)] = process(_value)
-            return res
+        else:
+            raise ValueError(f'do not know how to handle {value_type=}')
 
-    return process(value)
+    elif isinstance(value, bool):
+        return value
+
+    elif isinstance(value, dict):
+        return dict([
+            (
+                template_and_resolve_jsonpath(
+                    value=key,
+                    substitution_context=substitution_context,
+                    jsonpaths=jsonpaths,
+                    value_type=value_type,
+                ),
+                template_and_resolve_jsonpath(
+                    value=value,
+                    substitution_context=substitution_context,
+                    jsonpaths=jsonpaths,
+                    value_type=value_type,
+                )
+            )
+            for key, value in value.items()
+        ])
+
+    elif isinstance(value, list):
+        return [
+            template_and_resolve_jsonpath(
+                value=entry,
+                substitution_context=substitution_context,
+                jsonpaths=jsonpaths,
+                value_type=value_type,
+            )
+            for entry in value
+        ]
+
+    else:
+        raise ValueError(f'do not know how to process {value=} of {type(value)=}')
