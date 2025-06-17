@@ -2,7 +2,7 @@ import argparse
 import base64
 import collections
 import collections.abc
-import dataclasses
+import enum
 import http
 import io
 import logging
@@ -233,15 +233,17 @@ def create_or_update_odg(
             component_descriptor_lookup=component_descriptor_lookup,
             oci_client=oci_client,
             templated_values=[
-                dataclasses.replace(
-                    value_ref,
+                odgm.ExtensionInstanceValue(
+                    helm_chart_name=value_template.helm_chart_name,
+                    helm_attribute=value_template.helm_attribute,
                     value=odgu.template_and_resolve_jsonpath(
-                        value=value_ref.value,
+                        value=value_template.value,
                         jsonpaths=outputs_jsonpath,
                         substitution_context=odg.context,
-                    ),
+                        value_type=value_template.value_type,
+                    )
                 )
-                for value_ref in extension_definition.installation.values
+                for value_template in extension_definition.installation.value_templates
             ],
         )
         for extension_definition in requested_extension_definitions
@@ -699,6 +701,9 @@ if __name__ == '__main__':
                 dacite.from_dict(
                     data=extension_raw,
                     data_class=odgm.ExtensionDefinition,
+                    config=dacite.Config(
+                        cast=[enum.Enum],
+                    ),
                 )
                 for extension_raw in extensions_raw
             ])

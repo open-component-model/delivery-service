@@ -11,21 +11,24 @@ installation:
     - name: delivery-service
       version: 0.1142.0
       artefact_type: helmchart-imagemap
-  values:
+  value_templates:
   - helm_chart_name: delivery-service
     helm_attribute: ingress.hosts
     value:
     - delivery-service.${base_url}
+    value_type: python-string-template
   - helm_chart_name: delivery-service
     helm_attribute: target_namespace
     value: ${target_namespace}
+    value_type: python-string-template
   - helm_chart_name: delivery-service
     # prevents resource-manager from rolling back scaling changes
     helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+    value_type: literal
     value: '"true"'
 outputs:
 - name: delivery-service-url
-  value: delivery-service.${base_url}
+  value: https://delivery-service.${base_url}
 dependencies:
 - delivery-db
 ---
@@ -42,16 +45,19 @@ installation:
     - name: delivery-dashboard
       version: 0.386.0
       artefact_type: helmchart-imagemap
-  values:
+  value_templates:
   - helm_chart_name: delivery-dashboard
     helm_attribute: target_namespace
     value: ${target_namespace}
+    value_type: python-string-template
   - helm_chart_name: delivery-dashboard
     helm_attribute: ingress.hosts
     value:
     - delivery-dashboard.${base_url}
+    value_type: python-string-template
   - helm_chart_name: delivery-dashboard
     helm_attribute: envVars.REACT_APP_DELIVERY_SERVICE_API_URL
+    value_type: jsonpath
     value: dependencies.delivery-service.outputs.delivery-service-url
 outputs: []
 dependencies:
@@ -67,15 +73,60 @@ installation:
       name: postgresql
       version: 16.6.1
     mappings: []
-  values:
+  value_templates:
   - helm_chart_name: postgresql
     helm_attribute: fullnameOverride
+    value_type: literal
     value: delivery-db
   - helm_chart_name: postgresql
     helm_attribute: namespaceOverride
     value: ${target_namespace}
-  - helm_chart_name: postgresql # TODO: replace once delivery-database ocm also publishes helm mappings
+    value_type: python-string-template
+  - helm_chart_name: postgresql
+    helm_attribute: image.registry
+    value: 'europe-docker.pkg.dev/gardener-project/releases' # TODO: replace once delivery-database ocm also publishes helm mappings
+    value_type: literal
+  - helm_chart_name: postgresql
+    helm_attribute: image.repository
+    value: 'ocm-gear/postgres' # TODO: replace once delivery-database ocm also publishes helm mappings
+    value_type: literal
+  - helm_chart_name: postgresql
     helm_attribute: image.tag
-    value: '"europe-docker.pkg.dev/gardener-project/releases/ocm-gear/postgres:16.8.0"'
+    value_type: literal
+    value: '16.8.0' # TODO: replace once delivery-database ocm also publishes helm mappings
+  - helm_chart_name: postgresql
+    helm_attribute: global.security.allowInsecureImages
+    value: True
+    value_type: literal
+  - helm_chart_name: postgresql
+    helm_attribute: postgresqlDataDir
+    value: '/data/pgdata'
+    value_type: literal
+  - helm_chart_name: postgresql
+    helm_attribute: primary.persistence.mountPath
+    value: '/data/'
+    value_type: literal
+  - helm_chart_name: postgresql
+    helm_attribute: primary.containerSecurityContext.readOnlyRootFilesystem
+    value: False
+    value_type: literal
+  - helm_chart_name: postgresql
+    helm_attribute: primary.extraEnvVars
+    value:
+    - name: POSTGRESQL_MAX_CONNECTIONS
+      value: '200'
+    value_type: literal
+  - helm_chart_name: postgresql
+    helm_attribute: primary.resources.requests.cpu
+    value: '250m'
+    value_type: literal
+  - helm_chart_name: postgresql
+    helm_attribute: primary.resources.requests.memory
+    value: '256Mi'
+    value_type: literal
+  - helm_chart_name: postgresql
+    helm_attribute: auth.postgresPassword
+    value: ${postgres_password}
+    value_type: python-string-template
 outputs: []
 dependencies: []

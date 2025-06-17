@@ -7,13 +7,18 @@ import oci
 import oci.client
 import ocm
 
-import odg_operator.odg_util as odgu
 import ocm_util
 
 
 class ManagedResourceClasses(enum.StrEnum):
     INTERNAL = 'internal'
     EXTERNAL = 'external'
+
+
+class ValueType(enum.StrEnum):
+    JSONPATH = 'jsonpath'
+    LITERAL = 'literal'
+    PYTHON_STRING_TEMPLATE = 'python-string-template'
 
 
 @dataclasses.dataclass
@@ -82,16 +87,21 @@ class InstallationOcmReference:
 
 
 @dataclasses.dataclass
-class InstallationValues:
+class ExtensionInstanceValue:
     helm_chart_name: str
     helm_attribute: str
-    value: str | list[str] | dict[str, str]
+    value: str | bool | list | dict
+
+
+@dataclasses.dataclass
+class ValueTemplate(ExtensionInstanceValue):
+    value_type: ValueType
 
 
 @dataclasses.dataclass
 class ExtensionInstallation:
     ocm_references: list[InstallationOcmReference]
-    values: list[InstallationValues] = dataclasses.field(default_factory=list)
+    value_templates: list[ValueTemplate] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -130,12 +140,12 @@ class ExtensionInstallationArtefact:
 class ExtensionInstance:
     name: str
     installation_artefacts: list[ExtensionInstallationArtefact]
-    values: list[InstallationValues]
+    values: list[ExtensionInstanceValue]
 
     @staticmethod
     def from_definition(
         extension_definition: ExtensionDefinition,
-        templated_values: list[InstallationValues],
+        templated_values: list[ExtensionInstanceValue],
         component_descriptor_lookup,
         oci_client: oci.client.Client,
     ) -> 'ExtensionInstance':
@@ -145,6 +155,9 @@ class ExtensionInstance:
         '''
         extension_installation_resources = []
         installation_values = []
+
+        # late import to avoid circular dependency conflict
+        import odg_operator.odg_util as odgu
 
         for ocm_ref in extension_definition.installation.ocm_references:
             component_descriptor = component_descriptor_lookup(f'{ocm_ref.name}:{ocm_ref.version}')
@@ -193,7 +206,7 @@ class ExtensionInstance:
                 )
 
                 for path, value in image_mappings.items():
-                    installation_values.append(InstallationValues(
+                    installation_values.append(ExtensionInstanceValue(
                         helm_chart_name=mapping.name,
                         helm_attribute=path,
                         value=value,
