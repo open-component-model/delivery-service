@@ -328,8 +328,8 @@ def create_or_update_odg(
 
             manifests = _helm_template(
                 values=util.merge_dicts(
+                    default_values,
                     merged_installation_values,
-                    default_values
                 ),
                 helm_path=helm_chart_path,
             )
