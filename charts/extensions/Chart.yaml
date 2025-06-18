@@ -14,6 +14,9 @@ dependencies:
   - name: bdba
     repository: file://charts/bdba
     condition: bdba.enabled
+  - name: blackduck
+    repository: file://charts/blackduck
+    condition: blackduck.enabled
   - name: cache-manager
     repository: file://charts/cache-manager
     condition: cache-manager.enabled
