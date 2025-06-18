@@ -19,12 +19,12 @@ import deliverydb.model as dm
 import deliverydb.util as du
 import k8s.backlog
 import k8s.util
-import middleware.auth
 import ocm_util
 import odg.cvss
 import odg.extensions_cfg
 import odg.findings
 import odg.model
+import secret_mgmt.oauth_cfg
 import rescore.utility
 import util
 import yp
@@ -545,14 +545,26 @@ class Rescore(aiohttp.web.View):
         rescorings_raw: list[dict] = body.get('entries')
 
         extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
-        user: middleware.auth.GithubUser = self.request[consts.REQUEST_GITHUB_USER]
+        user_id = self.request[consts.REQUEST_USER_ID]
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+
+        user = await db_session.get(dm.User, user_id)
+
+        # XXX don't just use first entry here once mulitple IDPs (per user) are possible
+        github_user_identifier = (await db_session.execute(sa.select(dm.UserIdentifiers).where(
+            dm.UserIdentifiers.user_id == user.id,
+            dm.UserIdentifiers.type == secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB,
+        ))).first()[0]
+        github_user = odg.model.GitHubUser(
+            username=github_user_identifier.deserialised_identifier.username,
+            github_hostname=github_user_identifier.deserialised_identifier.hostname,
+        )
 
         def iter_rescorings(
             rescorings_raw: list[dict],
         ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
             for rescoring_raw in rescorings_raw:
-                rescoring_raw['data']['user'] = dataclasses.asdict(user)
+                rescoring_raw['data']['user'] = dataclasses.asdict(github_user)
 
                 rescoring = odg.model.ArtefactMetadata.from_dict(rescoring_raw)
 
