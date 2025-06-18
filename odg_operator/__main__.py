@@ -111,7 +111,7 @@ def outputs_as_jsonpath(
 def _helm_template(
     helm_path: str,
     values: dict,
-) -> list[dict]:
+) -> collections.abc.Generator[dict, None, None]:
     values_path = os.path.join(helm_path, 'values-merged.yaml')
     with open (values_path, 'w') as f:
         f.write(yaml.safe_dump(values))
@@ -132,8 +132,12 @@ def _helm_template(
         check=True,
     )
 
-    manifests_raw = completed_process.stdout
-    return list(yaml.safe_load_all(manifests_raw))
+    for manifest in yaml.safe_load_all(completed_process.stdout):
+        if manifest is None:
+            # gardener-resource-manager cannot process empty manifests
+            continue
+
+        yield manifest
 
 
 def create_or_update_resource(
@@ -336,8 +340,6 @@ def create_or_update_odg(
                 helm_path=helm_chart_path,
             )
 
-            helm_charts_path.cleanup()
-
             data = {
                 'apiVersion': odgm.ManagedResourceMeta.apiVersion,
                 'kind': odgm.ManagedResourceMeta.kind,
@@ -394,6 +396,8 @@ def create_or_update_odg(
                 name=extension_artefact_name,
                 namespace=odg.namespace,
             )
+
+            helm_charts_path.cleanup()
 
     return status_for_extension, encountered_error
 
