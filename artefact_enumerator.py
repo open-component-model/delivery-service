@@ -359,6 +359,25 @@ def _process_compliance_snapshot_of_artefact(
             kubernetes_api=kubernetes_api,
             now=now,
         )
+    if (
+        extensions_cfg.blackduck
+        and extensions_cfg.blackduck.enabled
+        and extensions_cfg.blackduck.is_supported(artefact_kind=artefact.artefact_kind)
+    ):
+        compliance_snapshot = _create_backlog_item_for_extension(
+            finding_cfgs=finding_cfgs,
+            finding_types=(
+                odg.model.Datatype.VULNERABILITY_FINDING,
+                odg.model.Datatype.LICENSE_FINDING,
+            ),
+            artefact=artefact,
+            compliance_snapshot=compliance_snapshot,
+            service=odg.extensions_cfg.Services.BlackDuck,
+            interval_seconds=extensions_cfg.bdba.interval,
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+            now=now,
+        )
 
     delivery_client.update_metadata(data=[compliance_snapshot])
     logger.info(f'updated compliance snapshot in delivery-db ({artefact=})')

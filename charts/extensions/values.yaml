@@ -13,6 +13,11 @@ bdba:
   image:
     repository: null
     tag: null
+blackduck:
+  enabled: false
+  image:
+    repository: null
+    tag: null
 cache-manager:
   enabled: false
   image:
