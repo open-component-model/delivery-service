@@ -119,7 +119,6 @@ def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication':
     if feature_authentication.state == features.FeatureStates.AVAILABLE:
         return feature_authentication
 
-    import util
     raise aiohttp.web.HTTPBadRequest(
         reason='Feature is inactive',
         text=util.dict_to_json_factory({
@@ -655,7 +654,6 @@ class OpenIDJwks(aiohttp.web.View):
         '''
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
 
-        import util
         return aiohttp.web.json_response(
             data={
                 'keys': [
