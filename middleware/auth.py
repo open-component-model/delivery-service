@@ -1,10 +1,11 @@
 import collections.abc
-import dataclasses
 import datetime
 import enum
 import functools
 import logging
+import re
 import urllib.parse
+import uuid
 
 import aiohttp
 import aiohttp.typedefs
@@ -13,25 +14,28 @@ import Crypto.PublicKey.RSA
 import jsonschema
 import jsonschema.exceptions
 import jwt
+import sqlalchemy as sa
+import sqlalchemy.orm
+import sqlalchemy.ext.asyncio as sqlasync
 import yaml
 
 import delivery.jwt
 
 import consts
+import ctx_util
+import deliverydb.model as dm
+import lookups
 import paths
 import secret_mgmt.oauth_cfg
+import secret_mgmt.rbac
 import secret_mgmt.signing_cfg
 import util
 
 
 logger = logging.getLogger(__name__)
 
-
-@dataclasses.dataclass(frozen=True)
-class GithubUser():
-    username: str
-    github_hostname: str
-    type: str = 'github-user'
+SESSION_TOKEN_MAX_AGE = datetime.timedelta(minutes=5)
+REFRESH_TOKEN_MAX_AGE = datetime.timedelta(days=183)
 
 
 class GithubRoutes:
@@ -55,16 +59,20 @@ class GithubRoutes:
 
 
 class GithubApi:
-    def __init__(self, routes: GithubRoutes, oauth_token: str):
-        self._routes = routes
-        self._oauth_token = oauth_token
+    def __init__(
+        self,
+        api_url: str,
+        access_token: str,
+    ):
+        self._routes = GithubRoutes(api_url=api_url)
+        self._access_token = access_token
         self.session = aiohttp.ClientSession()
 
     async def _get(self, *args, **kwargs):
         if 'headers' not in kwargs:
             kwargs['headers'] = {}
         headers = kwargs['headers']
-        headers['Authorization'] = f'token {self._oauth_token}'
+        headers['Authorization'] = f'token {self._access_token}'
 
         async with self.session.get(*args, **kwargs) as res:
             res.raise_for_status()
@@ -111,7 +119,6 @@ def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication':
     if feature_authentication.state == features.FeatureStates.AVAILABLE:
         return feature_authentication
 
-    import util
     raise aiohttp.web.HTTPBadRequest(
         reason='Feature is inactive',
         text=util.dict_to_json_factory({
@@ -174,6 +181,240 @@ class OAuthCfgs(aiohttp.web.View):
         )
 
 
+def find_github_oauth_cfg(
+    oauth_cfgs: collections.abc.Iterable[secret_mgmt.oauth_cfg.OAuthCfg],
+    api_url: str | None=None,
+    client_id: str | None=None,
+) -> secret_mgmt.oauth_cfg.OAuthCfg:
+    if not (bool(api_url) ^ bool(client_id)):
+        raise ValueError('exactly one of `api_url` and `client_id` must be provided')
+
+    filtered_oauth_cfgs = [
+        oauth_cfg for oauth_cfg in oauth_cfgs
+        if oauth_cfg.type is secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB
+    ]
+
+    if api_url:
+        for oauth_cfg in filtered_oauth_cfgs:
+            if oauth_cfg.api_url == api_url:
+                return oauth_cfg
+
+        api_urls = [oauth_cfg.api_url for oauth_cfg in filtered_oauth_cfgs]
+        raise aiohttp.web.HTTPUnauthorized(
+            headers={
+                'WWW-Authenticate': f'no such api-url: {api_url}; available api-urls: {api_urls}',
+            },
+        )
+
+    for oauth_cfg in filtered_oauth_cfgs:
+        if oauth_cfg.client_id == client_id:
+            return oauth_cfg
+
+    client_ids = [oauth_cfg.client_id for oauth_cfg in filtered_oauth_cfgs]
+    raise aiohttp.web.HTTPUnauthorized(
+        headers={
+            'WWW-Authenticate': f'no such client: {client_id}; available clients: {client_ids}',
+        },
+    )
+
+
+def find_signing_cfg(
+    signing_cfgs: collections.abc.Iterable[secret_mgmt.signing_cfg.SigningCfg],
+) -> secret_mgmt.signing_cfg.SigningCfg:
+    if not signing_cfgs:
+        raise aiohttp.web.HTTPInternalServerError(text='could not retrieve signing cfgs')
+
+    return sorted(
+        signing_cfgs,
+        key=lambda cfg: cfg.priority,
+        reverse=True,
+    )[0]
+
+
+async def find_github_user_identifier(
+    oauth_cfg: secret_mgmt.oauth_cfg.OAuthCfg,
+    github_access_token: str | None=None,
+    github_code: str | None=None,
+) -> dm.GitHubUserIdentifier:
+    if github_code:
+        github_token_url = oauth_cfg.token_url + '?' + urllib.parse.urlencode({
+            'client_id': oauth_cfg.client_id,
+            'client_secret': oauth_cfg.client_secret,
+            'code': github_code,
+        })
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url=github_token_url) as res:
+                res.raise_for_status()
+
+                parsed = urllib.parse.parse_qs(await res.text())
+                github_access_token = parsed['access_token'][0]
+
+    elif not github_access_token:
+        raise ValueError('either a `github_code` or an `github_access_token` must be provided')
+
+    gh_api = GithubApi(
+        api_url=oauth_cfg.api_url,
+        access_token=github_access_token,
+    )
+
+    try:
+        user = await gh_api.current_user()
+    except Exception as e:
+        logger.warning(f'failed to retrieve user info for {oauth_cfg.api_url=}: {e}')
+        raise aiohttp.web.HTTPUnauthorized
+    finally:
+        await gh_api.close_connection()
+
+    return dm.GitHubUserIdentifier(
+        username=user['login'],
+        email_address=user['email'],
+        hostname=urllib.parse.urlparse(oauth_cfg.api_url).hostname.lower(),
+    )
+
+
+def find_role_bindings(
+    oauth_cfg: secret_mgmt.oauth_cfg.OAuthCfg,
+    username: str,
+) -> collections.abc.Iterable[dm.RoleBinding]:
+    if oauth_cfg.type is secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB:
+        github_api_lookup = lookups.github_api_lookup()
+        github_host = urllib.parse.urlparse(oauth_cfg.api_url).hostname.lower()
+
+        def find_github_subject(
+            subjects: list[secret_mgmt.oauth_cfg.Subject],
+        ) -> secret_mgmt.oauth_cfg.Subject | None:
+            for subject in subjects:
+                if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_USER:
+                    if subject.name == username:
+                        return subject
+
+                elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_ORG:
+                    github_org = util.urljoin(github_host, subject.name)
+                    github_api = github_api_lookup(github_org)
+
+                    organisation = github_api.organization(subject.name)
+                    for member in organisation.members():
+                        if member.login == username:
+                            return subject
+
+                elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_TEAM:
+                    org_name, team_name = subject.name.split('/')
+                    github_org = util.urljoin(github_host, org_name)
+                    github_api = github_api_lookup(github_org)
+
+                    organisation = github_api.organization(org_name)
+                    team = organisation.team_by_name(team_name)
+                    for member in team.members():
+                        if member.login == username:
+                            return subject
+
+        for role_binding in oauth_cfg.role_bindings:
+            if not find_github_subject(subjects=role_binding.subjects):
+                continue
+
+            yield from (
+                dm.RoleBinding(
+                    name=role,
+                    origin=dm.RoleBindingOrigin.GITHUB,
+                ) for role in role_binding.roles
+            )
+
+    else:
+        raise ValueError(f'unsupported {oauth_cfg.type=}')
+
+
+async def set_session_and_refresh_token(
+    user_id: str,
+    issuer: str,
+    db_session: sqlasync.session.AsyncSession,
+    existing_refresh_token_identifier: str | None=None,
+    signing_cfg: secret_mgmt.signing_cfg.SigningCfg | None=None,
+) -> aiohttp.web.Response:
+    if not signing_cfg:
+        secret_factory = ctx_util.secret_factory()
+        signing_cfg = find_signing_cfg(
+            signing_cfgs=secret_factory.signing_cfg(),
+        )
+
+    user = (await db_session.execute(sa.select(dm.User).where(
+        dm.User.id == user_id,
+    ))).one()[0]
+
+    if not (role_bindings := user.role_bindings):
+        raise aiohttp.web.HTTPUnauthorized(text='User is not authorised to access this service')
+
+    refresh_tokens = list(user.refresh_tokens)
+
+    if existing_refresh_token_identifier is not None:
+        # check if provided refresh token is valid and if so, remove it from list of persisted tokens
+        # -> user will get a new refresh token
+        for refresh_token in refresh_tokens:
+            if refresh_token['identifier'] == existing_refresh_token_identifier:
+                refresh_tokens.remove(refresh_token)
+                break
+        else:
+            raise aiohttp.web.HTTPUnauthorized(text='The provided refresh token is not valid')
+
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    refresh_token_identifier = str(uuid.uuid4())
+
+    refresh_tokens.append({
+        'identifier': refresh_token_identifier,
+        'exp': int((now + REFRESH_TOKEN_MAX_AGE).timestamp()),
+    })
+
+    # remove already expired refresh tokens
+    user.refresh_tokens = [
+        refresh_token for refresh_token in refresh_tokens
+        if datetime.datetime.fromtimestamp(
+            timestamp=refresh_token.get('exp'),
+            tz=datetime.timezone.utc,
+        ) > now
+    ]
+
+    db_session.add(user)
+    await db_session.commit()
+
+    session_token = {
+        'version': 'v1',
+        'iss': issuer,
+        'iat': int(now.timestamp()),
+        'exp': int((now + SESSION_TOKEN_MAX_AGE).timestamp()),
+        'key_id': signing_cfg.id,
+        'sub': user_id,
+        'roles': list({
+            role_binding['name'] for role_binding in role_bindings
+        }),
+    }
+
+    response = aiohttp.web.json_response(
+        data=session_token,
+    )
+
+    response.set_cookie(
+        name=delivery.jwt.JWT_KEY,
+        value=jwt.encode(
+            session_token,
+            signing_cfg.private_key,
+            algorithm=signing_cfg.algorithm,
+        ),
+        httponly=True,
+        samesite='Lax',
+        max_age=int(SESSION_TOKEN_MAX_AGE.total_seconds()),
+    )
+
+    response.set_cookie(
+        name=delivery.jwt.REFRESH_JWT_KEY,
+        value=f'{user_id}|{refresh_token_identifier}',
+        httponly=True,
+        samesite='Lax',
+        max_age=int(REFRESH_TOKEN_MAX_AGE.total_seconds()),
+    )
+
+    return response
+
+
 @noauth
 class OAuthLogin(aiohttp.web.View):
     async def get(self):
@@ -210,14 +451,19 @@ class OAuthLogin(aiohttp.web.View):
         '''
         feature_authentication = _check_if_oauth_feature_available()
 
-        import util
+        issuer = self.request.app[consts.APP_BASE_URL]
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+
         params = self.request.rel_url.query
         code = util.param(params, 'code')
         client_id = util.param(params, 'client_id')
         access_token = util.param(params, 'access_token')
         api_url = util.param(params, 'api_url')
 
-        if not ((access_token and api_url) or (client_id and code)):
+        if (access_token and api_url) or (client_id and code):
+            idp_type = secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB
+
+        else:
             raise aiohttp.web.HTTPUnauthorized(
                 headers={
                     'WWW-Authenticate': (
@@ -227,164 +473,82 @@ class OAuthLogin(aiohttp.web.View):
                 },
             )
 
-        secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
+        if idp_type is secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB:
+            oauth_cfg = find_github_oauth_cfg(
+                oauth_cfgs=feature_authentication.oauth_cfgs,
+                api_url=api_url,
+                client_id=client_id,
+            )
 
-        if not access_token:
-            for oauth_cfg in feature_authentication.oauth_cfgs:
-                if oauth_cfg.client_id == client_id:
-                    break
-            else:
-                client_ids = [
-                    oauth_cfg.client_id for oauth_cfg in feature_authentication.oauth_cfgs
-                ]
-                raise aiohttp.web.HTTPUnauthorized(
-                    headers={
-                        'WWW-Authenticate': (
-                            f'no such client: {client_id}; available clients: {client_ids}'
-                        ),
-                    },
-                )
+            user_identifier = await find_github_user_identifier(
+                oauth_cfg=oauth_cfg,
+                github_access_token=access_token,
+                github_code=code,
+            )
 
-            # exchange code for bearer token
-            github_oauth_url = oauth_cfg.token_url + '?' + \
-                urllib.parse.urlencode({
-                    'client_id': oauth_cfg.client_id,
-                    'client_secret': oauth_cfg.client_secret,
-                    'code': code,
-                })
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url=github_oauth_url) as res:
-                    res.raise_for_status()
-
-                    parsed = urllib.parse.parse_qs(await res.text())
-
-            access_token = parsed.get('access_token')
-
-            if not access_token:
-                raise aiohttp.web.HTTPInternalServerError(
-                    text=f'GitHub api did not return an access token. {parsed}',
-                )
-
-            access_token = access_token[0]
-
-            api_url = oauth_cfg.api_url
         else:
-            for oauth_cfg in feature_authentication.oauth_cfgs:
-                if oauth_cfg.api_url == api_url:
-                    break
+            raise ValueError(f'unsupported {idp_type=}')
 
-            else:
-                raise aiohttp.web.HTTPUnauthorized
+        user_idp = (await db_session.execute(sa.select(dm.UserIdentifiers).where(
+            dm.UserIdentifiers.type == idp_type,
+            dm.UserIdentifiers.identifier_normalised_digest == user_identifier.normalised_digest,
+        ))).one_or_none()
 
-        gh_routes = GithubRoutes(api_url=api_url)
-        gh_api = GithubApi(
-            routes=gh_routes,
-            oauth_token=access_token,
+        if user_idp:
+            user_id = user_idp[0].user_id
+        else:
+            user_id = str(uuid.uuid4())
+
+            role_bindings = set(find_role_bindings(
+                oauth_cfg=oauth_cfg,
+                username=user_identifier.username,
+            ))
+
+            try:
+                db_session.add(dm.User(
+                    id=user_id,
+                    role_bindings=util.dict_serialisation(role_bindings),
+                    refresh_tokens=[],
+                ))
+                db_session.add(dm.UserIdentifiers(
+                    user_id=user_id,
+                    type=idp_type,
+                    identifier=util.dict_serialisation(user_identifier),
+                    identifier_normalised_digest=user_identifier.normalised_digest,
+                ))
+                await db_session.commit()
+            except:
+                await db_session.rollback()
+                raise
+
+        return await set_session_and_refresh_token(
+            user_id=user_id,
+            issuer=issuer,
+            db_session=db_session,
         )
-        github_host = urllib.parse.urlparse(api_url).hostname.lower()
 
-        try:
-            github_orgs = [
-                org['login']
-                for org in await gh_api.current_user_orgs()
-            ]
 
-            github_teams = [
-                '/'.join((team['organization']['login'], team['name']))
-                for team in await gh_api.current_user_teams()
-            ]
+@noauth
+class OAuthRefresh(aiohttp.web.View):
+    async def post(self):
+        issuer = self.request.app[consts.APP_BASE_URL]
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
-            user = await gh_api.current_user()
-            username = user['login']
+        refresh_token = self.request.cookies.get(delivery.jwt.REFRESH_JWT_KEY)
 
-        except Exception as e:
-            logger.warning(f'failed to retrieve user info for {api_url=}: {e}')
-            raise aiohttp.web.HTTPUnauthorized
-        finally:
-            await gh_api.close_connection()
-
-        def find_subject(
-            subjects: list[secret_mgmt.oauth_cfg.Subject],
-            username: str,
-            github_orgs: list[str],
-            github_teams: list[str],
-        ) -> secret_mgmt.oauth_cfg.Subject | None:
-            for subject in subjects:
-                if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_USER:
-                    if subject.name == username:
-                        return subject
-
-                elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_ORG:
-                    if subject.name in github_orgs:
-                        return subject
-
-                elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_TEAM:
-                    if subject.name in github_teams:
-                        return subject
-
-        roles = set()
-
-        for role_binding in oauth_cfg.role_bindings:
-            if find_subject(
-                subjects=role_binding.subjects,
-                username=username,
-                github_orgs=github_orgs,
-                github_teams=github_teams,
-            ):
-                roles.update(role_binding.roles)
-
-        if secret_mgmt.oauth_cfg.Role.ADMIN not in roles:
+        if not refresh_token:
             raise aiohttp.web.HTTPUnauthorized(
-                text='user is not authorised to access this service',
+                text='Please provide a refresh token in your cookie',
             )
 
-        if not (signing_cfgs := secret_factory.signing_cfg()):
-            raise aiohttp.web.HTTPInternalServerError(
-                text='could not retrieve matching signing cfgs',
-            )
+        user_id, refresh_token_identifier = refresh_token.split('|')
 
-        signing_cfg = sorted(
-            signing_cfgs,
-            key=lambda cfg: cfg.priority,
-            reverse=True,
-        )[0]
-
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
-        time_delta = datetime.timedelta(days=730) # 2 years
-
-        token = {
-            'version': 'v1',
-            'sub': username,
-            'iss': self.request.app[consts.APP_BASE_URL],
-            'iat': int(now.timestamp()),
-            'github_oAuth': {
-                'host': github_host,
-                'team_names': github_teams,
-                'org_names': github_orgs,
-                'email_address': user.get('email'),
-            },
-            'exp': int((now + time_delta).timestamp()),
-            'key_id': signing_cfg.id,
-        }
-
-        response = aiohttp.web.json_response(
-            data=token,
+        return await set_session_and_refresh_token(
+            user_id=user_id,
+            issuer=issuer,
+            db_session=db_session,
+            existing_refresh_token_identifier=refresh_token_identifier,
         )
-
-        response.set_cookie(
-            name=delivery.jwt.JWT_KEY,
-            value=jwt.encode(
-                token,
-                signing_cfg.private_key,
-                algorithm=signing_cfg.algorithm,
-            ),
-            httponly=True,
-            samesite='Lax',
-            max_age=int(time_delta.total_seconds()),
-        )
-
-        return response
 
 
 @noauth
@@ -400,8 +564,29 @@ class OAuthLogout(aiohttp.web.View):
         '''
         _check_if_oauth_feature_available()
 
+        refresh_token = self.request.cookies.get(delivery.jwt.REFRESH_JWT_KEY)
+
         response = aiohttp.web.Response()
         response.del_cookie(name=delivery.jwt.JWT_KEY, path='/')
+        response.del_cookie(name=delivery.jwt.REFRESH_JWT_KEY, path='/')
+
+        if not refresh_token:
+            return response
+
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+
+        user_id, refresh_token_identifier = refresh_token.split('|')
+
+        user = (await db_session.execute(sa.select(dm.User).where(
+            dm.User.id == user_id,
+        ))).one()[0]
+
+        user.refresh_tokens = [
+            refresh_token for refresh_token in user.refresh_tokens
+            if refresh_token['identifier'] != refresh_token_identifier
+        ]
+        db_session.add(user)
+        await db_session.commit()
 
         return response
 
@@ -469,7 +654,6 @@ class OpenIDJwks(aiohttp.web.View):
         '''
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
 
-        import util
         return aiohttp.web.json_response(
             data={
                 'keys': [
@@ -557,15 +741,272 @@ def auth_middleware(
 
         validate_jwt_payload(decoded_jwt)
 
-        subject = decoded_jwt['sub']
-        request[consts.REQUEST_GITHUB_USER] = GithubUser(
-            username=subject,
-            github_hostname=decoded_jwt['github_oAuth']['host'],
+        secret_factory = request.app[consts.APP_SECRET_FACTORY]
+
+        try:
+            rbac_cfgs = secret_factory.rbac()
+            if len(rbac_cfgs) != 1:
+                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
+            role_bindings = rbac_cfgs[0]
+        except secret_mgmt.SecretTypeNotFound:
+            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+
+        user_role_names = decoded_jwt.get('roles', [])
+
+        user_permissions = _iter_user_permissions(
+            user_role_names=user_role_names,
+            role_bindings=role_bindings,
         )
+
+        _raise_on_missing_permissions(
+            user_permissions=user_permissions,
+            route=request.path,
+            method=request.method,
+        )
+
+        request[consts.REQUEST_USER_ID] = decoded_jwt['sub']
+        request[consts.REQUEST_USER_ROLES] = user_role_names
 
         return await handler(request)
 
     return middleware
+
+
+def _iter_user_permissions(
+    user_role_names: collections.abc.Sequence[str],
+    role_bindings: secret_mgmt.rbac.RoleBindings,
+) -> collections.abc.Generator[secret_mgmt.rbac.Permission, None, None]:
+    for role in role_bindings.filter_roles(names=user_role_names):
+        for permission_name in role.permissions:
+            if permission := role_bindings.find_permission(
+                name=permission_name,
+                absent_ok=True,
+            ):
+                yield permission
+                continue
+
+            # raise 401 -> delivery-dashboard will require the user to re-authenticate
+            raise aiohttp.web.HTTPUnauthorized(
+                text=(
+                    f'did not find permission with {permission_name=}, this means there is a '
+                    'configuration error, please check the role definitions or contact an admin'
+                ),
+            )
+
+
+def _raise_on_missing_permissions(
+    user_permissions: collections.abc.Iterable[secret_mgmt.rbac.Permission],
+    route: str,
+    method: str,
+):
+    '''
+    If the `user_permissions` do not grant the necessary permissions to use the `method` for the
+    `route`, this function will raise a HTTP 403 forbidden exception.
+    '''
+    for user_permission in user_permissions:
+        for permission_route in user_permission.routes:
+            if re.fullmatch(permission_route, route):
+                break
+        else:
+            continue # `user_permission` does not grant access to `route`
+
+        for permission_method in user_permission.methods:
+            if re.fullmatch(permission_method, method, re.IGNORECASE):
+                break
+        else:
+            continue # `user_permission` does not grant access to `route` via `method`
+
+        return # user has required permissions
+
+    raise aiohttp.web.HTTPForbidden(
+        text=f'User is not allowed to perform the {method=} for {route=}',
+    )
+
+
+class Rbac(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        description:
+          Returns a list of all available roles and permissions.
+        tags:
+        - Authentication
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - roles
+              - permissions
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - permissions
+                    properties:
+                      name:
+                        type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                permissions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - routes
+                    - methods
+                    properties:
+                      name:
+                        type: string
+                      routes:
+                        type: array
+                        items:
+                          type: string
+                      methods:
+                        type: array
+                        items:
+                          type: string
+        '''
+        secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
+
+        try:
+            rbac_cfgs = secret_factory.rbac()
+            if len(rbac_cfgs) != 1:
+                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
+            role_bindings = rbac_cfgs[0]
+        except secret_mgmt.SecretTypeNotFound:
+            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+
+        return aiohttp.web.json_response(
+            data=role_bindings,
+            dumps=util.dict_to_json_factory,
+        )
+
+
+class User(aiohttp.web.View):
+    async def get(self):
+        '''
+        ---
+        description:
+          Returns information for the authenticated user, e.g. a list of the assigned roles and
+          granted permissions.
+        tags:
+        - Authentication
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: Successful operation.
+            schema:
+              type: object
+              required:
+              - roles
+              - permissions
+              properties:
+                id:
+                  type: string
+                identifiers:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - type
+                    - identifier
+                    properties:
+                      type:
+                        type: string
+                      identifier:
+                        type: object
+                        required:
+                        - username
+                        properties:
+                          username:
+                            type: string
+                          email_address:
+                            type: string
+                          hostname:
+                            type: string
+                roles:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - permissions
+                    properties:
+                      name:
+                        type: string
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                permissions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - routes
+                    - methods
+                    properties:
+                      name:
+                        type: string
+                      routes:
+                        type: array
+                        items:
+                          type: string
+                      methods:
+                        type: array
+                        items:
+                          type: string
+        '''
+        secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        user_id = self.request[consts.REQUEST_USER_ID]
+        user_role_names = self.request[consts.REQUEST_USER_ROLES]
+
+        try:
+            rbac_cfgs = secret_factory.rbac()
+            if len(rbac_cfgs) != 1:
+                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
+            role_bindings = rbac_cfgs[0]
+        except secret_mgmt.SecretTypeNotFound:
+            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+
+        user_roles = role_bindings.filter_roles(names=user_role_names)
+
+        user_permissions = _iter_user_permissions(
+            user_role_names=user_role_names,
+            role_bindings=role_bindings,
+        )
+
+        user = (await db_session.execute(sa.select(dm.User).where(
+            dm.User.id == user_id,
+        ).options(sqlalchemy.orm.selectinload(dm.User.identifiers)))).one()[0]
+
+        return aiohttp.web.json_response(
+            data={
+                'id': user.id,
+                'identifiers': [
+                    {
+                        'type': user_identifier.type,
+                        'identifier': user_identifier.identifier,
+                    } for user_identifier in user.identifiers
+                ],
+                'roles': user_roles,
+                'permissions': user_permissions,
+            },
+            dumps=util.dict_to_json_factory,
+        )
 
 
 def get_signing_cfg_for_key(

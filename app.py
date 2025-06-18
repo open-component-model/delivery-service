@@ -296,12 +296,24 @@ def add_routes(
         handler=middleware.auth.OAuthLogin,
     )
     app.router.add_view(
+        path='/auth/refresh',
+        handler=middleware.auth.OAuthRefresh,
+    )
+    app.router.add_view(
         path='/auth/logout',
         handler=middleware.auth.OAuthLogout,
     )
     app.router.add_view(
         path='/auth/configs',
         handler=middleware.auth.OAuthCfgs,
+    )
+    app.router.add_view(
+        path='/auth/rbac',
+        handler=middleware.auth.Rbac,
+    )
+    app.router.add_view(
+        path='/auth/user',
+        handler=middleware.auth.User,
     )
 
     # endpoint according to OpenID provider configuration request
