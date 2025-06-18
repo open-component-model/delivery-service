@@ -1,6 +1,7 @@
 import atexit
 import collections
 import collections.abc
+import dataclasses
 import datetime
 import logging
 
@@ -25,6 +26,18 @@ import paths
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
+
+
+@dataclasses.dataclass
+class UncommittedBacklogItem:
+    '''
+    To prevent backlog items from being created too early, i.e. when the compliance snapshots have
+    not been updated yet in the delivery-db, all to-be-created backlog items are collected and
+    created at the very end, once all compliance snapshots have been updated.
+    '''
+    artefact: odg.model.ComponentArtefactId
+    priority: k8s.backlog.BacklogPriorities
+    service: odg.extensions_cfg.Services
 
 
 def create_compliance_snapshot(
@@ -145,15 +158,13 @@ def _calculate_backlog_item_priority(
 
 
 def _create_backlog_item(
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
     artefact: odg.model.ComponentArtefactId,
     compliance_snapshot: odg.model.ArtefactMetadata,
     service: odg.extensions_cfg.Services,
     interval_seconds: int,
     now: datetime.datetime=datetime.datetime.now(),
     status: int | None=None,
-) -> odg.model.ArtefactMetadata:
+) -> tuple[odg.model.ArtefactMetadata, UncommittedBacklogItem | None]:
     priority = _calculate_backlog_item_priority(
         service=service,
         compliance_snapshot=compliance_snapshot,
@@ -164,7 +175,7 @@ def _create_backlog_item(
 
     if not priority:
         # no need to create a backlog item for this artefact
-        return compliance_snapshot
+        return compliance_snapshot, None
 
     # there is a need to create a new backlog item, thus update the state of the compliance snapshot
     # of this artefact so that the configured interval can be acknowledged correctly
@@ -174,17 +185,13 @@ def _create_backlog_item(
         service=service,
     ))
 
-    was_created = k8s.backlog.create_unique_backlog_item(
-        service=service,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
+    uncommitted_backlog_item = UncommittedBacklogItem(
         artefact=artefact,
         priority=priority,
+        service=service,
     )
-    if was_created:
-        logger.info(f'created {service} backlog item with {priority=} for {artefact=}')
 
-    return compliance_snapshot
+    return compliance_snapshot, uncommitted_backlog_item
 
 
 def _create_backlog_item_for_extension(
@@ -194,10 +201,8 @@ def _create_backlog_item_for_extension(
     compliance_snapshot: odg.model.ArtefactMetadata,
     service: odg.extensions_cfg.Services,
     interval_seconds: int,
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
     now: datetime.datetime=datetime.datetime.now(),
-) -> odg.model.ArtefactMetadata:
+) -> tuple[odg.model.ArtefactMetadata, UncommittedBacklogItem | None]:
     if not any(
         finding_cfg for finding_cfg in finding_cfgs
         if (
@@ -206,11 +211,9 @@ def _create_backlog_item_for_extension(
         )
     ):
         # findings are filtered out for this artefact anyways -> no need to create a BLI
-        return compliance_snapshot
+        return compliance_snapshot, None
 
     return _create_backlog_item(
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
         artefact=artefact,
         compliance_snapshot=compliance_snapshot,
         service=service,
@@ -222,27 +225,26 @@ def _create_backlog_item_for_extension(
 def _process_compliance_snapshot_of_artefact(
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
     delivery_client: delivery.client.DeliveryServiceClient,
     artefact: odg.model.ComponentArtefactId,
     compliance_snapshot: odg.model.ArtefactMetadata | None,
     now: datetime.datetime=datetime.datetime.now(),
     today: datetime.date=datetime.date.today(),
-):
+) -> tuple[odg.model.ArtefactMetadata, list[UncommittedBacklogItem]]:
     compliance_snapshot = _create_or_update_compliance_snapshot_of_artefact(
         artefact=artefact,
         compliance_snapshot=compliance_snapshot,
         now=now,
         today=today,
     )
+    uncommitted_backlog_items = []
 
     if (
         extensions_cfg.bdba
         and extensions_cfg.bdba.enabled
         and extensions_cfg.bdba.is_supported(artefact_kind=artefact.artefact_kind)
     ):
-        compliance_snapshot = _create_backlog_item_for_extension(
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
             finding_types=(
                 odg.model.Datatype.VULNERABILITY_FINDING,
@@ -252,44 +254,44 @@ def _process_compliance_snapshot_of_artefact(
             compliance_snapshot=compliance_snapshot,
             service=odg.extensions_cfg.Services.BDBA,
             interval_seconds=extensions_cfg.bdba.interval,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
             now=now,
         )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     if (
         extensions_cfg.clamav
         and extensions_cfg.clamav.enabled
         and extensions_cfg.clamav.is_supported(artefact_kind=artefact.artefact_kind)
     ):
-        compliance_snapshot = _create_backlog_item_for_extension(
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
             finding_types=(odg.model.Datatype.MALWARE_FINDING,),
             artefact=artefact,
             compliance_snapshot=compliance_snapshot,
             service=odg.extensions_cfg.Services.CLAMAV,
             interval_seconds=extensions_cfg.clamav.interval,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
             now=now,
         )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     if (
         extensions_cfg.crypto
         and extensions_cfg.crypto.enabled
         and extensions_cfg.crypto.is_supported(artefact_kind=artefact.artefact_kind)
     ):
-        compliance_snapshot = _create_backlog_item_for_extension(
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
             finding_types=(odg.model.Datatype.CRYPTO_FINDING,),
             artefact=artefact,
             compliance_snapshot=compliance_snapshot,
             service=odg.extensions_cfg.Services.CRYPTO,
             interval_seconds=extensions_cfg.crypto.interval,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
             now=now,
         )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     if (
         extensions_cfg.issue_replicator
@@ -301,9 +303,7 @@ def _process_compliance_snapshot_of_artefact(
             type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
         ))
 
-        compliance_snapshot = _create_backlog_item(
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item(
             artefact=artefact,
             compliance_snapshot=compliance_snapshot,
             service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
@@ -311,67 +311,71 @@ def _process_compliance_snapshot_of_artefact(
             now=now,
             status=scan_count,
         )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     if (
         extensions_cfg.responsibles
         and extensions_cfg.responsibles.enabled
     ):
-        compliance_snapshot = _create_backlog_item(
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item(
             artefact=artefact,
             compliance_snapshot=compliance_snapshot,
             service=odg.extensions_cfg.Services.RESPONSIBLES,
             interval_seconds=extensions_cfg.responsibles.interval,
             now=now,
         )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     if (
         extensions_cfg.sast
         and extensions_cfg.sast.enabled
         and extensions_cfg.sast.is_supported(artefact_kind=artefact.artefact_kind)
     ):
-        compliance_snapshot = _create_backlog_item_for_extension(
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
             finding_types=(odg.model.Datatype.SAST_FINDING,),
             artefact=artefact,
             compliance_snapshot=compliance_snapshot,
             service=odg.extensions_cfg.Services.SAST,
             interval_seconds=extensions_cfg.sast.interval,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
             now=now,
         )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     if (
         extensions_cfg.osid
         and extensions_cfg.osid.enabled
         and extensions_cfg.osid.is_supported(artefact_kind=artefact.artefact_kind)
     ):
-        compliance_snapshot = _create_backlog_item_for_extension(
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item_for_extension(
             finding_cfgs=finding_cfgs,
             finding_types=(odg.model.Datatype.OSID_FINDING,),
             artefact=artefact,
             compliance_snapshot=compliance_snapshot,
             service=odg.extensions_cfg.Services.OSID,
             interval_seconds=extensions_cfg.osid.interval,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
             now=now,
         )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
 
-    delivery_client.update_metadata(data=[compliance_snapshot])
-    logger.info(f'updated compliance snapshot in delivery-db ({artefact=})')
+    logger.info(f'updated compliance snapshot ({artefact=})')
+    return compliance_snapshot, uncommitted_backlog_items
 
 
 def _process_inactive_compliance_snapshots(
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration,
-    namespace: str,
-    kubernetes_api: k8s.util.KubernetesApi,
     delivery_client: delivery.client.DeliveryServiceClient,
     compliance_snapshots: list[odg.model.ArtefactMetadata],
     now: datetime.datetime=datetime.datetime.now(),
-):
+) -> collections.abc.Generator[
+    tuple[
+        odg.model.ArtefactMetadata,
+        UncommittedBacklogItem | None,
+], None, None]:
     cs_by_artefact: dict[odg.model.ComponentArtefactId, odg.model.ArtefactMetadata] = {}
     deletable_compliance_snapshots: list[odg.model.ArtefactMetadata] = []
 
@@ -379,34 +383,31 @@ def _process_inactive_compliance_snapshots(
         cs_by_artefact[compliance_snapshot.artefact] = compliance_snapshot
 
     for artefact, compliance_snapshot in cs_by_artefact.items():
+        updated_compliance_snapshot = None
+        uncommitted_backlog_item = None
+
         if compliance_snapshot.data.is_active:
             compliance_snapshot.data.update_state(odg.model.ComplianceSnapshotState(
                 timestamp=now,
                 status=odg.model.ComplianceSnapshotStatuses.INACTIVE,
             ))
-
-            delivery_client.update_metadata(data=[compliance_snapshot])
-            logger.info(f'updated inactive compliance snapshot in delivery-db ({artefact=})')
+            updated_compliance_snapshot = compliance_snapshot
+            logger.info(f'updated inactive compliance snapshot ({artefact=})')
 
             if extensions_cfg.issue_replicator:
-                priority = k8s.backlog.BacklogPriorities.HIGH
-                was_created = k8s.backlog.create_unique_backlog_item(
-                    service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
-                    namespace=namespace,
-                    kubernetes_api=kubernetes_api,
+                uncommitted_backlog_item = UncommittedBacklogItem(
                     artefact=artefact,
-                    priority=priority,
+                    priority=k8s.backlog.BacklogPriorities.HIGH,
+                    service=odg.extensions_cfg.Services.ISSUE_REPLICATOR,
                 )
-                if was_created:
-                    logger.info(
-                        f'created issue replicator backlog item with {priority=} for inactive '
-                        f'{artefact=}'
-                    )
 
         if now - compliance_snapshot.data.current_state().timestamp >= datetime.timedelta(
             seconds=extensions_cfg.artefact_enumerator.compliance_snapshot_grace_period,
         ):
             deletable_compliance_snapshots.append(compliance_snapshot)
+
+        elif updated_compliance_snapshot:
+            yield updated_compliance_snapshot, uncommitted_backlog_item
 
     if not deletable_compliance_snapshots:
         return
@@ -483,27 +484,49 @@ def enumerate_artefacts(
     for compliance_snapshot in active_compliance_snapshots:
         active_cs_by_artefact[compliance_snapshot.artefact] = compliance_snapshot
 
+    updated_compliance_snapshots = []
+    all_uncommitted_backlog_items = []
+
     for artefact in artefacts:
-        _process_compliance_snapshot_of_artefact(
+        compliance_snapshot, uncommitted_backlog_items = _process_compliance_snapshot_of_artefact(
             extensions_cfg=extensions_cfg,
             finding_cfgs=finding_cfgs,
-            namespace=namespace,
-            kubernetes_api=kubernetes_api,
             delivery_client=delivery_client,
             artefact=artefact,
             compliance_snapshot=active_cs_by_artefact.get(artefact),
             now=now,
             today=today,
         )
+        updated_compliance_snapshots.append(compliance_snapshot)
+        all_uncommitted_backlog_items.extend(uncommitted_backlog_items)
 
-    _process_inactive_compliance_snapshots(
+    for compliance_snapshot, uncommitted_backlog_item in _process_inactive_compliance_snapshots(
         extensions_cfg=extensions_cfg,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
         delivery_client=delivery_client,
         compliance_snapshots=inactive_compliance_snapshots,
         now=now,
-    )
+    ):
+        updated_compliance_snapshots.append(compliance_snapshot)
+        if uncommitted_backlog_item:
+            all_uncommitted_backlog_items.append(uncommitted_backlog_item)
+
+    logger.info(f'updating {len(updated_compliance_snapshots)} compliance snapshots in delivery-db')
+    delivery_client.update_metadata(data=updated_compliance_snapshots)
+
+    for uncommitted_backlog_item in all_uncommitted_backlog_items:
+        service = uncommitted_backlog_item.service
+        priority = uncommitted_backlog_item.priority
+        artefact = uncommitted_backlog_item.artefact
+
+        was_created = k8s.backlog.create_unique_backlog_item(
+            service=service,
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+            artefact=artefact,
+            priority=priority,
+        )
+        if was_created:
+            logger.info(f'created {service} backlog item with {priority=} for {artefact=}')
 
 
 def main():
