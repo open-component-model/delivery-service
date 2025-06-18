@@ -1,5 +1,4 @@
 import collections.abc
-import dataclasses
 import datetime
 import enum
 import functools
@@ -36,13 +35,6 @@ logger = logging.getLogger(__name__)
 
 SESSION_TOKEN_MAX_AGE = datetime.timedelta(minutes=5)
 REFRESH_TOKEN_MAX_AGE = datetime.timedelta(days=183)
-
-
-@dataclasses.dataclass(frozen=True)
-class GithubUser():
-    username: str
-    github_hostname: str
-    type: str = 'github-user'
 
 
 class GithubRoutes:
@@ -802,11 +794,7 @@ def auth_middleware(
             method=request.method,
         )
 
-        subject = decoded_jwt['sub']
-        request[consts.REQUEST_GITHUB_USER] = GithubUser(
-            username=subject,
-            github_hostname=decoded_jwt['github_oAuth']['host'],
-        )
+        request[consts.REQUEST_USER_ID] = decoded_jwt['sub']
         request[consts.REQUEST_USER_ROLES] = user_role_names
 
         return await handler(request)

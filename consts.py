@@ -32,7 +32,7 @@ APP_VERSION_LOOKUP = 'version_lookup'
 REQUEST_DB_SESSION = 'db_session'
 # `db_session_low_prio` has a small connection pool with a long timeout for low prio tasks
 REQUEST_DB_SESSION_LOW_PRIO = 'db_session_low_prio'
-REQUEST_GITHUB_USER = 'github_user'
+REQUEST_USER_ID = 'user_id'
 REQUEST_USER_ROLES = 'user_roles'
 
 BACKLOG_ITEM_SLEEP_INTERVAL_SECONDS = 60
