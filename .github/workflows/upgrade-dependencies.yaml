@@ -2,6 +2,7 @@ name: Create Upgrade-Pull-Requests
 on:
   schedule:
     - cron: '*/10 * * * *'
+  workflow_dispatch:
 
 jobs:
   upgrade-pullrequests:
