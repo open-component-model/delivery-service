@@ -27,6 +27,8 @@ clamav:
   image:
     repository: null
     tag: null
+  deployment:
+    annotations: []
 crypto:
   enabled: false
   image:
