@@ -1002,9 +1002,10 @@ class UpgradePRs(aiohttp.web.View):
         ) -> list[dict]:
             github_repo_lookup = self.request.app[consts.APP_GITHUB_REPO_LOOKUP]
 
-            try:
-                repo = github_repo_lookup(repo_url)
-            except ValueError:
+            if not (repo := github_repo_lookup(
+                repo_url,
+                absent_ok=True,
+            )):
                 logger.warning(f'no github-cfg found for {repo_url=}')
                 return [] # matching github-cfg is optional
 
