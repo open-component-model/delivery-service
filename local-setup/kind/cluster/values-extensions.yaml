@@ -1,3 +1,5 @@
+access-manager:
+  enabled: True
 artefact-enumerator:
   enabled: True
 backlog-controller:

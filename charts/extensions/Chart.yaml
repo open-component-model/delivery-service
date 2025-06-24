@@ -2,6 +2,9 @@ apiVersion: v2
 name: extensions
 version: 0.1.0
 dependencies:
+  - name: access-manager
+    repository: file://charts/access-manager
+    condition: access-manager.enabled
   - name: artefact-enumerator
     repository: file://charts/artefact-enumerator
     condition: artefact-enumerator.enabled

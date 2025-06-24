@@ -61,6 +61,12 @@ work properly. The basic configuration of the extensions is done via `extensions
 in [`values-bootstrapping.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-bootstrapping.yaml)
 as well as the enablement in [`values-extensions.yaml`](https://github.com/open-component-model/delivery-service/blob/master/local-setup/kind/cluster/values-extensions.yaml).
 
+### Access Manager
+> Requires: -
+
+To set up the access manager, you just need to set the `access-manager.enabled` flag
+and add configuration (if desired) via `extensions_cfg.access_manager`.
+
 ### Artefact Enumerator
 > Requires: -
 
@@ -86,7 +92,7 @@ the `bdba.enabled` flag.
 ### Cache Manager
 > Requires: -
 
-To set up the cache manger, you just need to set the `cache-manager.enabled` flag
+To set up the cache manager, you just need to set the `cache-manager.enabled` flag
 and add configuration (if desired) via `extensions_cfg.cache_manager`.
 
 ### ClamAV

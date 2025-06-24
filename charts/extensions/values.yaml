@@ -1,3 +1,8 @@
+access-manager:
+  enabled: false
+  image:
+    repository: null
+    tag: null
 artefact-enumerator:
   enabled: false
   image:

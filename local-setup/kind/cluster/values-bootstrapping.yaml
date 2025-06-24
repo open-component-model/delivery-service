@@ -2,6 +2,8 @@ extensions_cfg:
   defaults:
     delivery_dashboard_url: http://localhost
     delivery_service_url: http://delivery-service.delivery.svc.cluster.local:8080
+  access_manager:
+    enabled: True
   artefact_enumerator:
     components:
       - component_name: ocm.software/ocm-gear
