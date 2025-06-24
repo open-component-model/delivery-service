@@ -24,4 +24,4 @@ jobs:
     secrets: inherit
     with:
       release-commit-target: branch
-      next-version: bump-minor
+      next-version: bump-patch
