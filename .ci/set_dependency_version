@@ -5,7 +5,7 @@ import os
 import yaml
 
 
-repo_dir = os.path.abspath(os.environ['MAIN_REPO_DIR'])
+repo_dir = os.path.abspath(os.environ['REPO_DIR'])
 CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
 FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
 BDBA_VERSIONFILE = os.path.join(repo_dir, 'BDBA_DEPENDENCY_VERSION')
