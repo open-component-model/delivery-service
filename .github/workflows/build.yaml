@@ -381,6 +381,10 @@ jobs:
             dir: charts/extensions
             repository: charts/odg
             mappings:
+              - ref: ocm-resource:extension-db-manager.repository
+                attribute: access-manager.image.repository
+              - ref: ocm-resource:extension-db-manager.tag
+                attribute: access-manager.image.tag
               - ref: ocm-resource:extensions.repository
                 attribute: artefact-enumerator.image.repository
               - ref: ocm-resource:extensions.tag

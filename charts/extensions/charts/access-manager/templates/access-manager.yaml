@@ -1,0 +1,68 @@
+{{- $podName := "access-manager" }}
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $podName }}
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  schedule: {{ default "*/10 * * * *" .Values.schedule | quote }} # schedule contains asterisks, quote to avoid yaml parser errors
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ default 1 .Values.successful_jobs_history_limit }}
+  failedJobsHistoryLimit: {{ default 1 .Values.failed_jobs_history_limit }}
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: {{ default 43200 .Values.ttl_seconds_after_finished }} # 43200 -> 12h
+      template:
+        metadata:
+          labels:
+            app: {{ $podName }}
+        spec:
+          containers:
+            - name: {{ $podName }}
+              image: {{ include "image" .Values.image }}
+              imagePullPolicy: IfNotPresent
+              command:
+                - python3
+                - -m
+                - access_manager_extension
+              securityContext:
+                allowPrivilegeEscalation: false
+              env:
+                - name: SECRET_FACTORY_PATH
+                  value: /secrets
+                - name: K8S_TARGET_NAMESPACE
+                  value: {{ .Values.target_namespace | default .Release.Namespace }}
+              volumeMounts:
+                - name: delivery-db
+                  mountPath: /secrets/delivery-db
+                - name: github
+                  mountPath: /secrets/github
+                - name: kubernetes
+                  mountPath: /secrets/kubernetes
+          volumes:
+            - name: delivery-db
+              secret:
+                secretName: secret-factory-delivery-db
+            - name: github
+              secret:
+                secretName: secret-factory-github
+            - name: kubernetes
+              secret:
+                secretName: secret-factory-kubernetes
+                optional: true # might use incluster config
+          restartPolicy: Never
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-access-manager
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $podName }}
+  policyTypes:
+    - Egress
+  egress:
+    - {}  # Allows all egress traffic to any destination and port

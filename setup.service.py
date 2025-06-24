@@ -22,6 +22,7 @@ def requirements():
 
 def modules():
     return [
+        'access_manager_extension',
         'app',
         'artefacts',
         'cache_manager',
