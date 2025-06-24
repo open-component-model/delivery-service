@@ -434,7 +434,9 @@ def github_repo_lookup(
     github_api_lookup,
 ):
     def github_repo_lookup(
-        repo_url: str, /,
+        repo_url: str,
+        /,
+        absent_ok: bool=False,
     ):
         if not '://' in repo_url:
             repo_url = f'x://{repo_url}'
@@ -442,7 +444,13 @@ def github_repo_lookup(
         parsed = urllib.parse.urlparse(repo_url)
         org, repo = parsed.path.strip('/').split('/')[:2]
 
-        gh_api = github_api_lookup(repo_url)
+        gh_api = github_api_lookup(
+            repo_url,
+            absent_ok=absent_ok,
+        )
+
+        if not gh_api and absent_ok:
+            return None
 
         return gh_api.repository(org, repo)
 
