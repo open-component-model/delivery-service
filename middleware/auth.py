@@ -424,7 +424,7 @@ async def set_session_and_refresh_token(
             algorithm=signing_cfg.algorithm,
         ),
         httponly=True,
-        samesite='Lax',
+        samesite='strict',
         max_age=int(SESSION_TOKEN_MAX_AGE.total_seconds()),
     )
 
@@ -437,7 +437,7 @@ async def set_session_and_refresh_token(
         name=delivery.jwt.REFRESH_TOKEN_KEY,
         value=refresh_token_payload,
         httponly=True,
-        samesite='Lax',
+        samesite='strict',
         max_age=int(REFRESH_TOKEN_MAX_AGE.total_seconds()),
     )
 
