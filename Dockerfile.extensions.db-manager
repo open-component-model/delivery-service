@@ -15,5 +15,3 @@ RUN --mount=type=bind,source=/dist,target=/dist \
     libc-dev \
     libffi-dev \
     python3-dev
-
-ENTRYPOINT ["python3", "-m", "cache_manager"]

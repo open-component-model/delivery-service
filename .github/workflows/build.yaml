@@ -300,9 +300,9 @@ jobs:
                 confidentiality_requirement: high
                 integrity_requirement: high
                 availability_requirement: low
-          - name: extension-cache-manager
-            dockerfile: Dockerfile.extensions.cache-manager
-            oci-repository: odg/extension-cache-manager
+          - name: extension-db-manager
+            dockerfile: Dockerfile.extensions.db-manager
+            oci-repository: odg/extension-db-manager
             build-ctx-artefact: distribution-packages
             untar-build-ctx-artefact: distribution-packages.tar.gz
             ocm-labels:
@@ -401,9 +401,9 @@ jobs:
                 attribute: issue-replicator.image.repository
               - ref: ocm-resource:extensions.tag
                 attribute: issue-replicator.image.tag
-              - ref: ocm-resource:extension-cache-manager.repository
+              - ref: ocm-resource:extension-db-manager.repository
                 attribute: cache-manager.image.repository
-              - ref: ocm-resource:extension-cache-manager.tag
+              - ref: ocm-resource:extension-db-manager.tag
                 attribute: cache-manager.image.tag
               - ref: ocm-resource:extensions.repository
                 attribute: delivery-db-backup.image.repository
