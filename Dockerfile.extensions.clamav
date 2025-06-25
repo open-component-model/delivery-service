@@ -13,7 +13,6 @@ RUN --mount=type=bind,source=/dist,target=/dist \
     libc-dev \
     libffi-dev \
     python3-dev \
-&& apk add --no-cache --upgrade libcrypto3 \
 && CFLAGS='-Wno-int-conversion' \
     pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-extensions \
 && apk del --no-cache \
