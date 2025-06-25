@@ -19,6 +19,8 @@ import oci.client
 import oci.client_async
 import ocm
 
+import bdba.client
+import blackduck.client
 import ctx_util
 import deliverydb_cache.model as dcm
 import deliverydb_cache.util as dcu
@@ -472,3 +474,30 @@ def github_auth_token_lookup(url: str, /) -> str | None:
         return None
 
     return github_cfg.auth_token
+
+
+def bdba_client_lookup(
+    secret_factory: secret_mgmt.SecretFactory,
+    group_id: int
+) -> bdba.client.BDBAApi:
+    for secret in secret_factory.bdba():
+        if group_id in secret.group_ids:
+            return bdba.client.BDBAApi(
+                api_routes=bdba.client.BDBAApiRoutes(base_url=secret.api_url),
+                token=secret.token,
+                tls_verify=secret.tls_verify,
+            )
+    raise RuntimeError(f'No matching BDBA secret found for {group_id=}')
+
+
+def blackduck_client_lookup(
+    secret_factory: secret_mgmt.SecretFactory,
+    group_id: str
+) -> blackduck.client.BlackDuckClient:
+    for secret in secret_factory.blackduck():
+        if group_id == secret.group_id:
+            return blackduck.client.BlackDuckClient(
+                base_url=secret.api_url,
+                token=secret.token,
+            )
+    raise RuntimeError(f'No matching BlackDuck secret found for {group_id=}')
