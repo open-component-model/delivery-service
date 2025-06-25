@@ -1,0 +1,102 @@
+{{- $podName := "odg-operator" }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $podName }}
+  namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $podName }}
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      {{- if default dict (.Values.pod).annotations }}
+      annotations:
+      {{- range $annotation, $value := .Values.pod.annotations }}
+        {{ $annotation }}: {{ $value }}
+      {{- end }}
+      {{- end }}
+      labels:
+        app: {{ $podName }}
+      {{- if default dict (.Values.pod).labels }}
+      {{- range $annotation, $value := .Values.pod.labels }}
+        {{ $annotation }}: {{ $value }}
+      {{- end }}
+      {{- end }}
+    spec:
+      serviceAccountName: odg-operator
+      containers:
+        - name: {{ $podName }}
+          image: {{ include "image" .Values.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - odg_operator
+          {{- if .Values.extensionDefinitions }}
+            - --extension-definition-file
+            - /extension-definitions/extension_definitions.yaml
+          {{- end}}
+          securityContext:
+            allowPrivilegeEscalation: false
+          args:
+          {{- range $arg := default list .Values.args }}
+            - {{ $arg }}
+          {{- end }}
+          env:
+          - name: OCM_REPO_MAPPINGS_PATH
+            value: /ocm_repo_mappings/ocm_repo_mappings
+          - name: SECRET_FACTORY_PATH
+            value: /secrets
+          {{- if default dict .Values.envVars }}
+          {{- range $key, $value := .Values.envVars }}
+          - name: {{ $key }}
+            value: {{ $value }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: ocm-repo-mappings
+              mountPath: /ocm_repo_mappings
+            - name: oci-registry
+              mountPath: /secrets/oci-registry
+          {{- if .Values.extensionDefinitions }}
+            - name: extension-definitions
+              mountPath: /extension-definitions/
+          {{- end}}
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 32m
+            limits:
+              memory: 1024Mi
+              cpu: 256m
+      volumes:
+        - name: ocm-repo-mappings
+          configMap:
+            name: ocm-repo-mappings
+        - name: oci-registry
+          secret:
+            secretName: secret-factory-oci-registry
+      {{- if .Values.extensionDefinitions }}
+        - name: extension-definitions
+          configMap:
+            name: extension-definitions
+      {{- end}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-odg-operator
+  namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $podName }}
+  policyTypes:
+    - Egress
+  egress:
+    - {}  # Allows all egress traffic to any destination and port

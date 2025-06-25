@@ -1,0 +1,50 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: odg-operator
+rules:
+  - apiGroups:
+    - 'open-delivery-gear.ocm.software'
+    resources:
+    - 'odgs'
+    - 'odgs/status'
+    verbs:
+    - 'watch'
+    - 'patch'
+  - apiGroups:
+    - 'resources.gardener.cloud'
+    resources:
+    - 'managedresources'
+    verbs:
+    - 'create'
+    - 'patch'
+    - 'list'
+    - 'delete'
+  - apiGroups:
+    - ''
+    resources:
+    - 'secrets'
+    verbs:
+    - 'create'
+    - 'patch'
+    - 'list'
+    - 'delete'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: odg-operator
+  namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: odg-operator-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: odg-operator
+subjects:
+  - kind: ServiceAccount
+    name: odg-operator
+    namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
