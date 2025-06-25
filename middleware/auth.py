@@ -263,7 +263,7 @@ async def find_github_user_identifier(
 
     return dm.GitHubUserIdentifier(
         username=user['login'],
-        email_address=user['email'],
+        email_address=user.get('email'),
         hostname=urllib.parse.urlparse(oauth_cfg.api_url).hostname.lower(),
     )
 

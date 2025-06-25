@@ -176,7 +176,7 @@ class UserIdentifier:
 
 @dataclasses.dataclass
 class GitHubUserIdentifier(UserIdentifier):
-    email_address: str
+    email_address: str | None
     hostname: str
 
     @property
