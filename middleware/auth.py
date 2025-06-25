@@ -401,7 +401,7 @@ async def set_session_and_refresh_token(
     await db_session.commit()
 
     session_token = {
-        'version': 'v1',
+        'version': 'v2',
         'iss': issuer,
         'iat': int(now.timestamp()),
         'exp': int((now + SESSION_TOKEN_MAX_AGE).timestamp()),
@@ -1132,7 +1132,7 @@ def validate_jwt_payload(decoded_jwt: dict):
     except jsonschema.exceptions.ValidationError as e:
         raise aiohttp.web.HTTPUnauthorized(text=e.message)
 
-    if (version := decoded_jwt.get('version')) and version != 'v1':
+    if (version := decoded_jwt.get('version')) and version != 'v2':
         raise aiohttp.web.HTTPUnauthorized(text='Token version does not match')
 
 
