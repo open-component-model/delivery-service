@@ -5,19 +5,25 @@ import botocore.exceptions
 import requests
 
 import ci.log
+import cnudie.access
 import cnudie.iter
 import delivery.client
+import oci
+import oci.client
 import ocm
+import tarutil
 
 import bdba.client
 import bdba.model as bm
-import bdba_extension.assessments
-import bdba_extension.rescore
-import bdba_extension.util
-import bdba_extension.model
+import bdba_utils.assessments
+import bdba_utils.rescore
+import bdba_utils.util
+import bdba_utils.model
 import odg.findings
 import odg.labels
 import odg.model
+import ocm_util
+import secret_mgmt
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +44,7 @@ class ResourceGroupProcessor:
         resource_node: cnudie.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_artifact_scans: collections.abc.Iterable[bm.Product],
-    ) -> bdba_extension.model.ScanRequest:
+    ) -> bdba_utils.model.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
         display_name = f'{resource.name}_{resource.version}_{component.name}_{resource.type}'.replace('/', '_') # noqa: E501
@@ -47,11 +53,11 @@ class ResourceGroupProcessor:
             # peers are not required here as version is considered anyways
             display_name += f'_{resource.identity(peers=())}'.replace('/', '_')
 
-        component_artifact_metadata = bdba_extension.util.component_artifact_metadata(
+        component_artifact_metadata = bdba_utils.util.component_artifact_metadata(
             resource_node=resource_node,
         )
 
-        target_product_id = bdba_extension.util._matching_analysis_result_id(
+        target_product_id = bdba_utils.util._matching_analysis_result_id(
             component_artifact_metadata=component_artifact_metadata,
             analysis_results=known_artifact_scans,
         )
@@ -61,7 +67,7 @@ class ResourceGroupProcessor:
         else:
             logger.info(f'{display_name=}: did not find old scan')
 
-        return bdba_extension.model.ScanRequest(
+        return bdba_utils.model.ScanRequest(
             component=component,
             artefact=resource,
             scan_content=content_iterator,
@@ -72,11 +78,11 @@ class ResourceGroupProcessor:
 
     def process_scan_request(
         self,
-        scan_request: bdba_extension.model.ScanRequest,
+        scan_request: bdba_utils.model.ScanRequest,
         processing_mode: bm.ProcessingMode,
     ) -> bm.Result:
         def raise_on_error(exception):
-            raise bdba_extension.model.BdbaScanError(
+            raise bdba_utils.model.BdbaScanError(
                 scan_request=scan_request,
                 component=scan_request.component,
                 artefact=scan_request.artefact,
@@ -193,7 +199,7 @@ class ResourceGroupProcessor:
             )
             scan_result = self.bdba_client.wait_for_scan_result(result.product_id)
             scan_failed = False
-        except bdba_extension.model.BdbaScanError as bse:
+        except bdba_utils.model.BdbaScanError as bse:
             scan_result = bse
             scan_failed = True
             logger.warning(bse.print_stacktrace())
@@ -213,7 +219,7 @@ class ResourceGroupProcessor:
 
         if version_hints := _package_version_hints(resource=resource_node.resource):
             logger.info(f'uploading package-version-hints for {scan_result.display_name}')
-            scan_result = bdba_extension.assessments.upload_version_hints(
+            scan_result = bdba_utils.assessments.upload_version_hints(
                 scan_result=scan_result,
                 hints=version_hints,
                 bdba_client=self.bdba_client,
@@ -224,7 +230,7 @@ class ResourceGroupProcessor:
             vulnerability_cfg = None
 
         if vulnerability_cfg:
-            refetching_required = bdba_extension.rescore.rescore(
+            refetching_required = bdba_utils.rescore.rescore(
                 bdba_client=self.bdba_client,
                 scan_result=scan_result,
                 scanned_element=scanned_element,
@@ -239,7 +245,7 @@ class ResourceGroupProcessor:
 
         logger.info(f'post-processing of {scan_result.display_name} done')
 
-        yield from bdba_extension.util.iter_artefact_metadata(
+        yield from bdba_utils.util.iter_artefact_metadata(
             scanned_element=scanned_element,
             scan_result=scan_result,
             delivery_client=delivery_client,
@@ -269,7 +275,7 @@ def retrieve_existing_scan_results(
     group_id: int,
     resource_node: cnudie.iter.ResourceNode,
 ) -> list[bm.Product]:
-    query_data = bdba_extension.util.component_artifact_metadata(
+    query_data = bdba_utils.util.component_artifact_metadata(
         resource_node=resource_node,
         omit_resource_strict_id=True,
     )
@@ -278,3 +284,83 @@ def retrieve_existing_scan_results(
         group_id=group_id,
         custom_attribs=query_data,
     ))
+
+
+def run_scan(
+    aws_secret_name: str,
+    bdba_client: bdba.client.BDBAApi,
+    group_id: str | int,
+    oci_client: oci.client.Client,
+    processing_mode: str,
+    resource_node: cnudie.iter.ResourceNode,
+    secret_factory: secret_mgmt.SecretFactory,
+    vulnerability_cfg: odg.findings.Finding | None,
+    license_cfg: odg.findings.Finding | None,
+    delivery_client: delivery.client.DeliveryServiceClient | None = None,
+) -> collections.abc.Iterator[odg.model.ArtefactMetadata]:
+    access = resource_node.resource.access
+
+    if access.type is ocm.AccessType.OCI_REGISTRY:
+        content_iterator = oci.image_layers_as_tarfile_generator(
+            image_reference=access.imageReference,
+            oci_client=oci_client,
+            include_config_blob=False,
+            fallback_to_first_subimage_if_index=True,
+        )
+
+    elif access.type is ocm.AccessType.S3:
+        if not aws_secret_name:
+            raise ValueError('"aws_secret_name" must be configured for resources stored in S3')
+
+        aws_secret = secret_factory.aws(aws_secret_name)
+        s3_client = aws_secret.session.client('s3')
+
+        content_iterator = tarutil.concat_blobs_as_tarstream(
+            blobs=[
+                cnudie.access.s3_access_as_blob_descriptor(
+                    s3_client=s3_client,
+                    s3_access=access,
+                ),
+            ]
+        )
+
+    elif access.type is ocm.AccessType.LOCAL_BLOB:
+        ocm_repo = resource_node.component.current_ocm_repo
+        image_reference = ocm_repo.component_version_oci_ref(
+            name=resource_node.component.name,
+            version=resource_node.component.version,
+        )
+
+        content_iterator = tarutil.concat_blobs_as_tarstream(
+            blobs=[
+                ocm_util.local_blob_access_as_blob_descriptor(
+                    access=access,
+                    oci_client=oci_client,
+                    image_reference=image_reference,
+                ),
+            ]
+        )
+    else:
+        # we filtered supported access types already earlier
+        raise RuntimeError('this is a bug, this line should never be reached')
+
+    known_scan_results = retrieve_existing_scan_results(
+        bdba_client=bdba_client,
+        group_id=group_id,
+        resource_node=resource_node,
+    )
+
+    processor = ResourceGroupProcessor(
+        bdba_client=bdba_client,
+        group_id=group_id,
+    )
+
+    return processor.process(
+        resource_node=resource_node,
+        content_iterator=content_iterator,
+        known_scan_results=known_scan_results,
+        processing_mode=bm.ProcessingMode(processing_mode),
+        delivery_client=delivery_client,
+        vulnerability_cfg=vulnerability_cfg,
+        license_cfg=license_cfg
+    )
