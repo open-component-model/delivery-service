@@ -38,3 +38,6 @@ dependencies:
   - name: responsibles
     repository: file://charts/responsibles
     condition: responsibles.enabled
+  - name: odg-operator
+    repository: file://charts/odg-operator
+    condition: odg-operator.enabled

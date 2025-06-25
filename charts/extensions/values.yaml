@@ -64,3 +64,10 @@ responsibles:
   image:
     repository: null
     tag: null
+odg-operator:
+  enabled: false
+  image:
+    repository: null
+    tag: null
+  namespaceOverride: ~
+  extensionDefinitions: ~
