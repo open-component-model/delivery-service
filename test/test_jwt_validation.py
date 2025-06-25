@@ -16,7 +16,7 @@ JWT_ALGORITHM = 'HS256'
 def gen_jwt_payload():
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     return {
-        'version': 'v1',
+        'version': 'v2',
         'sub': 'service_user',
         'iss': ISSUER,
         'iat': int((now-datetime.timedelta(minutes=10)).timestamp()),
