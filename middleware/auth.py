@@ -355,6 +355,7 @@ async def set_session_and_refresh_token(
     db_session: sqlasync.session.AsyncSession,
     existing_refresh_token_identifier: str | None=None,
     signing_cfg: secret_mgmt.signing_cfg.SigningCfg | None=None,
+    use_refresh_token: bool=True,
 ) -> aiohttp.web.Response:
     if not signing_cfg:
         secret_factory = ctx_util.secret_factory()
@@ -383,10 +384,11 @@ async def set_session_and_refresh_token(
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     refresh_token_identifier = str(uuid.uuid4())
 
-    refresh_tokens.append({
-        'identifier': refresh_token_identifier,
-        'exp': int((now + REFRESH_TOKEN_MAX_AGE).timestamp()),
-    })
+    if use_refresh_token:
+        refresh_tokens.append({
+            'identifier': refresh_token_identifier,
+            'exp': int((now + REFRESH_TOKEN_MAX_AGE).timestamp()),
+        })
 
     # remove already expired refresh tokens
     user.refresh_tokens = [
@@ -427,6 +429,9 @@ async def set_session_and_refresh_token(
         samesite='strict',
         max_age=int(SESSION_TOKEN_MAX_AGE.total_seconds()),
     )
+
+    if not use_refresh_token:
+        return response
 
     refresh_token_payload = build_refresh_token_payload(
         user_id=user_id,
@@ -488,6 +493,11 @@ class OAuthLogin(aiohttp.web.View):
         client_id = util.param(params, 'client_id')
         access_token = util.param(params, 'access_token')
         api_url = util.param(params, 'api_url')
+        use_refresh_token = util.param_as_bool(
+            params=params,
+            name='use_refresh_token',
+            default=not bool(access_token), # if login via access-token, don't use refresh tokens
+        )
 
         if (access_token and api_url) or (client_id and code):
             idp_type = secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB
@@ -554,6 +564,7 @@ class OAuthLogin(aiohttp.web.View):
             user_id=user_id,
             issuer=issuer,
             db_session=db_session,
+            use_refresh_token=use_refresh_token,
         )
 
 
