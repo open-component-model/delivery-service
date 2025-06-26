@@ -24,6 +24,7 @@ import cnudie.iter
 import oci.client
 import ocm
 
+import ctx_util
 import k8s.util
 import lookups
 import ocm_util
@@ -692,7 +693,8 @@ if __name__ == '__main__':
             force=True,
         )
 
-    oci_client = lookups.semver_sanitising_oci_client()
+    secret_factory = ctx_util.secret_factory()
+    oci_client = lookups.semver_sanitising_oci_client(secret_factory)
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
         cache_dir=parsed.ocm_cache_path,
         oci_client=oci_client,
