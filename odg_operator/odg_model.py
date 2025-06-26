@@ -101,7 +101,7 @@ class ValueTemplate(ExtensionInstanceValue):
 @dataclasses.dataclass
 class ExtensionInstallation:
     ocm_references: list[InstallationOcmReference]
-    value_templates: list[ValueTemplate] = dataclasses.field(default_factory=list)
+    value_templates: list[ValueTemplate]
 
 
 @dataclasses.dataclass
