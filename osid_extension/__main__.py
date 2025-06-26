@@ -84,15 +84,7 @@ def determine_os_status(
     if not update_available:
         return odg.model.OsStatus.UP_TO_DATE, greatest_version, eol_date
 
-    more_than_one_patchlevel_behind = osidutil.update_available(
-        osid=osid,
-        os_infos=release_infos,
-        ignore_if_patchlevel_is_next_to_greatest=True,
-    )
-    if more_than_one_patchlevel_behind:
-        return odg.model.OsStatus.MORE_THAN_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
-    # otherwise, it's exaclty one patch behind
-    return odg.model.OsStatus.AT_MOST_ONE_PATCHLEVEL_BEHIND, greatest_version, eol_date
+    return odg.model.OsStatus.PATCHLEVEL_BEHIND, greatest_version, eol_date
 
 
 def determine_osid(
