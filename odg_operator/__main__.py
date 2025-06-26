@@ -627,6 +627,8 @@ def reconcile(
                         kubernetes_api=kubernetes_api,
                     )
                 except Exception as e:
+                    import traceback
+                    traceback.print_exc()
                     raise ODGException(e)
 
                 set_odg_state(
