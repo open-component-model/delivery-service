@@ -44,6 +44,8 @@ def packages():
         'odg',
         'secret_mgmt',
         'osinfo',
+        'bdba_utils',
+        'blackduck',
     ]
 
 
