@@ -48,6 +48,14 @@ class ODGException(Exception):
     pass
 
 
+def _managed_resource_name(
+    odg_name: str,
+    extension_name: str,
+    artefact_name: str,
+) -> str:
+    return f'{odg_name}-{extension_name}-{artefact_name}'
+
+
 def find_extension_definition(
     extension_definitions: list[odgm.ExtensionDefinition],
     extension_name: str,
@@ -205,30 +213,12 @@ def create_or_update_odg(
         status_for_extension[extension_name].append(error_msg)
         encountered_error = True
 
-    # only support "known" extensions for now
-    # for third-party extensions, find-function has to be extend
-    # (e.g. lookup via OCM or as CRD in cluster)
-    requested_extension_definitions = [
-        find_extension_definition(
-            extension_definitions=extension_definitions,
-            extension_name=extension_name,
-        )
-        for extension_name in odg.extensions
-    ]
-
-    requested_extension_definitions.extend(list(
-        iter_missing_dependencies(
-            requested=requested_extension_definitions,
-            known=extension_definitions,
-        )
-    ))
-
     outputs_for_extension = dict([
         (
             extension_definition.name,
             extension_definition.templated_outputs(odg.context),
         )
-        for extension_definition in requested_extension_definitions
+        for extension_definition in extension_definitions
     ])
     outputs_jsonpath = outputs_as_jsonpath(outputs_for_extension)
 
@@ -251,7 +241,7 @@ def create_or_update_odg(
                 for value_template in extension_definition.installation.value_templates
             ],
         )
-        for extension_definition in requested_extension_definitions
+        for extension_definition in extension_definitions
     ]
 
     for extension_instance in extension_instances:
@@ -259,8 +249,11 @@ def create_or_update_odg(
         for installation_artefact in extension_instance.installation_artefacts:
             artefact = installation_artefact.artefact
 
-            # must be unique per odg installation
-            extension_artefact_name = f'{odg.name}-{extension_instance.name}-{artefact.name}'
+            extension_artefact_name = _managed_resource_name(
+                odg_name=odg.name,
+                extension_name=extension_instance.name,
+                artefact_name=artefact.name,
+            )
 
             if artefact.access.type is ocm.AccessType.LOCAL_BLOB:
                 content_iterator = ocm_util.local_blob_access_as_blob_descriptor(
@@ -620,13 +613,72 @@ def reconcile(
                     phase=odgm.ODGPhase.RUNNING,
                 )
                 try:
+                    # only support "known" extensions for now
+                    # for third-party extensions, find-function has to be extend
+                    # (e.g. lookup via OCM or as CRD in cluster)
+                    requested_extension_definitions = [
+                        find_extension_definition(
+                            extension_definitions=extension_definitions,
+                            extension_name=extension_name,
+                        )
+                        for extension_name in odg.extensions
+                    ]
+
+                    requested_extension_definitions.extend(list(
+                        iter_missing_dependencies(
+                            requested=requested_extension_definitions,
+                            known=extension_definitions,
+                        )
+                    ))
+
                     status_for_extension, has_error = create_or_update_odg(
                         odg=odg,
-                        extension_definitions=extension_definitions,
+                        extension_definitions=requested_extension_definitions,
                         component_descriptor_lookup=component_descriptor_lookup,
                         oci_client=oci_client,
                         kubernetes_api=kubernetes_api,
                     )
+
+                    desired_managed_resource_names = [
+                        _managed_resource_name(
+                            odg_name=odg.name,
+                            extension_name=extension_definition.name,
+                            artefact_name=ocm_ref.artefact.name,
+                        )
+                        for extension_definition in requested_extension_definitions
+                        for ocm_ref in extension_definition.installation.ocm_references
+                    ]
+
+                    for managed_resource in kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object( # noqa: E501
+                        group=odgm.ManagedResourceMeta.group,
+                        version=odgm.ManagedResourceMeta.version,
+                        plural=odgm.ManagedResourceMeta.plural,
+                        namespace=odg.namespace,
+                        label_selector=f'{ODG_NAME_LABEL}={odg.name}',
+                    ).get('items', []):
+
+                        name = managed_resource['metadata']['name']
+                        if name in desired_managed_resource_names:
+                            continue
+
+                        # we know managed resource is no longer requested
+
+                        for secret_ref in managed_resource['spec']['secretRefs']:
+                            secret_name = secret_ref['name']
+
+                            kubernetes_api.core_kubernetes_api.delete_namespaced_secret(
+                                name=secret_name,
+                                namespace=odg.namespace,
+                            )
+
+                        kubernetes_api.custom_kubernetes_api.delete_namespaced_custom_object(
+                            group=odgm.ManagedResourceMeta.group,
+                            version=odgm.ManagedResourceMeta.version,
+                            plural=odgm.ManagedResourceMeta.plural,
+                            namespace=odg.namespace,
+                            name=name,
+                        )
+
                 except Exception as e:
                     import traceback
                     traceback.print_exc()
