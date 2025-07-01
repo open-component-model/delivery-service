@@ -396,41 +396,26 @@ def create_or_update_odg(
     return status_for_extension, encountered_error
 
 
-def delete_managed_resources(
+def delete_managed_resource(
     kubernetes_api: k8s.util.KubernetesApi,
-    odg_name: str,
-    odg_namespace: str,
+    managed_resource: dict,
+    namespace: str,
 ):
-    managed_resources = kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(
+    for secret_ref in managed_resource['spec']['secretRefs']:
+        secret_name = secret_ref['name']
+
+        kubernetes_api.core_kubernetes_api.delete_namespaced_secret(
+            name=secret_name,
+            namespace=namespace,
+        )
+
+    kubernetes_api.custom_kubernetes_api.delete_namespaced_custom_object(
         group=odgm.ManagedResourceMeta.group,
         version=odgm.ManagedResourceMeta.version,
         plural=odgm.ManagedResourceMeta.plural,
-        namespace=odg_namespace,
-        label_selector=f'{ODG_NAME_LABEL}={odg_name}',
-    ).get('items', [])
-
-    for managed_resource in managed_resources:
-        resource_name = managed_resource['metadata']['name']
-        kubernetes_api.custom_kubernetes_api.delete_namespaced_custom_object(
-            group=odgm.ManagedResourceMeta.group,
-            version=odgm.ManagedResourceMeta.version,
-            plural=odgm.ManagedResourceMeta.plural,
-            namespace=odg_namespace,
-            name=resource_name,
-        )
-
-    core_api = kubernetes_api.core_kubernetes_api
-    secrets: kubernetes.client.V1SecretList = core_api.list_namespaced_secret(
-        namespace=odg_namespace,
-        label_selector=f'{ODG_NAME_LABEL}={odg_name}',
+        namespace=namespace,
+        name=managed_resource['metadata']['name'],
     )
-
-    for secret in secrets.items:
-        secret: kubernetes.client.V1Secret
-        kubernetes_api.core_kubernetes_api.delete_namespaced_secret(
-            name=secret.metadata.name,
-            namespace=odg_namespace,
-        )
 
 
 '''
@@ -574,11 +559,27 @@ def reconcile(
                     state=odgm.ODGState.DELETING,
                     phase=odgm.ODGPhase.RUNNING,
                 )
-                delete_managed_resources(
-                    kubernetes_api=kubernetes_api,
-                    odg_name=odg.name,
-                    odg_namespace=odg.namespace,
-                )
+                for managed_resource in kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object( # noqa: E501
+                    group=odgm.ManagedResourceMeta.group,
+                    version=odgm.ManagedResourceMeta.version,
+                    plural=odgm.ManagedResourceMeta.plural,
+                    namespace=odg.namespace,
+                    label_selector=f'{ODG_NAME_LABEL}={odg.name}',
+                ).get('items', []):
+
+                    kubernetes_api.custom_kubernetes_api.delete_namespaced_custom_object(
+                        group=odgm.ManagedResourceMeta.group,
+                        version=odgm.ManagedResourceMeta.version,
+                        plural=odgm.ManagedResourceMeta.plural,
+                        namespace=odg.namespace,
+                        name=managed_resource['metadata']['name'],
+                    )
+
+                    delete_managed_resource(
+                        kubernetes_api=kubernetes_api,
+                        managed_resource=managed_resource,
+                        namespace=odg.namespace,
+                    )
 
                 # remove our finaliser to finally delete
                 kubernetes_api.custom_kubernetes_api.patch_namespaced_custom_object(
@@ -663,20 +664,10 @@ def reconcile(
 
                         # we know managed resource is no longer requested
 
-                        for secret_ref in managed_resource['spec']['secretRefs']:
-                            secret_name = secret_ref['name']
-
-                            kubernetes_api.core_kubernetes_api.delete_namespaced_secret(
-                                name=secret_name,
-                                namespace=odg.namespace,
-                            )
-
-                        kubernetes_api.custom_kubernetes_api.delete_namespaced_custom_object(
-                            group=odgm.ManagedResourceMeta.group,
-                            version=odgm.ManagedResourceMeta.version,
-                            plural=odgm.ManagedResourceMeta.plural,
+                        delete_managed_resource(
+                            kubernetes_api=kubernetes_api,
+                            managed_resource=managed_resource,
                             namespace=odg.namespace,
-                            name=name,
                         )
 
                 except Exception as e:
