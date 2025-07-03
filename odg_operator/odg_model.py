@@ -200,10 +200,10 @@ class ExtensionInstance:
                     stream=False,
                 ).json()['imageMapping']
 
-                image_mappings = odgu.resolved_image_mappings(
+                image_mappings = dict(odgu.resolve_image_mappings(
                     image_mappings=image_mappings,
                     component=component,
-                )
+                ))
 
                 for path, value in image_mappings.items():
                     installation_values.append(ExtensionInstanceValue(

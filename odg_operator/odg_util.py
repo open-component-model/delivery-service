@@ -1,3 +1,4 @@
+import collections.abc
 import string
 import re
 
@@ -10,19 +11,36 @@ import odg_operator.odg_model as odgm
 import ocm_util
 
 
-def resolved_image_mappings(
+def resolve_image_mappings(
     image_mappings: list[dict],
     component: ocm.Component,
-) -> dict:
-    for image_mapping in image_mappings:
-        resource_name = image_mapping['resource']['name']
-        for resource in component.resources:
+) -> collections.abc.Generator[tuple[str, str], None, None]:
+    '''
+    A generator yielding key, value pairs for all image mappings.
+    For each image mapping a key, value pair for both image repository and image tag
+    is created.
+    The key is taken from the image mapping itself, whereas the value is derived by
+    looking up the referenced resource's oci-access in the provided component descriptor.
+    '''
+    def find_oci_resource(
+        resource_name: str,
+        resources: collections.abc.Iterable[ocm.Resource],
+    ) -> ocm.Resource | None:
+        for resource in resources:
             if resource.name != resource_name:
                 continue
             if not resource.type is ocm.ArtefactType.OCI_IMAGE:
                 continue
-            break # found it
-        else:
+            return resource
+
+    for image_mapping in image_mappings:
+        resource_name = image_mapping['resource']['name']
+        resource = find_oci_resource(
+            resource_name=resource_name,
+            resources=component.resources,
+        )
+
+        if not resource:
             raise ValueError(f'did not find oci-image w/ {resource_name=} in {component=}')
 
         resource.access = ocm_util.to_absolute_oci_access(
@@ -39,10 +57,8 @@ def resolved_image_mappings(
         else:
             tag = image_ref.tag
 
-        return {
-            image_mapping['repository']: image_ref.ref_without_tag,
-            image_mapping['tag']: tag,
-        }
+        yield image_mapping['repository'], image_ref.ref_without_tag
+        yield image_mapping['tag'], tag
 
 
 def patch_jsonpath_into_dict(
