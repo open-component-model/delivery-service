@@ -18,6 +18,8 @@ bdba:
   image:
     repository: null
     tag: null
+  deployment:
+    annotations: []
 cache-manager:
   enabled: false
   image:
@@ -39,6 +41,8 @@ crypto:
   image:
     repository: null
     tag: null
+  deployment:
+    annotations: []
 delivery-db-backup:
   enabled: false
   image:
@@ -54,16 +58,22 @@ sast:
   image:
     repository: null
     tag: null
+  deployment:
+    annotations: []
 osid:
   enabled: false
   image:
     repository: null
     tag: null
+  deployment:
+    annotations: []
 responsibles:
   enabled: false
   image:
     repository: null
     tag: null
+  deployment:
+    annotations: []
 odg-operator:
   enabled: false
   image:

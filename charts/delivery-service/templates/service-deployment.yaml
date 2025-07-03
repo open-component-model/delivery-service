@@ -5,6 +5,12 @@ kind: Deployment
 metadata:
   name: {{ $podName }}
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+  {{- if default dict (.Values.deployment).annotations }}
+  annotations:
+  {{- range $annotation, $value := .Values.deployment.annotations }}
+    {{ $annotation }}: {{ $value }}
+  {{- end }}
+  {{- end }}
 spec:
   selector:
     matchLabels:
