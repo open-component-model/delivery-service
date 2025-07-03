@@ -1,6 +1,7 @@
 import collections.abc
 import dataclasses
 import enum
+import logging
 import os
 import typing
 
@@ -9,6 +10,8 @@ import dacite.exceptions
 import yaml
 
 import util
+
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -87,7 +90,16 @@ class SecretFactory:
             cfg_factory = ci.util.ctx().cfg_factory()
 
         for cfg_type in cfg_factory._cfg_types():
-            elements = list(cfg_factory._cfg_elements(cfg_type_name=cfg_type))
+            elements = []
+            for element_name in cfg_factory._cfg_element_names(cfg_type_name=cfg_type):
+                try:
+                    elements.append(cfg_factory._cfg_element(
+                        cfg_type_name=cfg_type,
+                        cfg_name=element_name,
+                    ))
+                except:
+                    logger.warning(f'could not retrieve {element_name=} for {cfg_type=}')
+
             key = cfg_type.replace('_', '-')
 
             for element in elements:
