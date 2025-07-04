@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+read -r next_version && export next_version
+
+echo "$next_version" > "$(dirname "$0")/../VERSION"
+
+extension_definitions="$(dirname "$0")/../extension-definitions.yaml"
+yq -i '
+    .installation.ocm_references[].version = strenv(next_version) |
+    .installation.ocm_references[].artefact.version = strenv(next_version) |
+    .installation.ocm_references[].mappings[].version = strenv(next_version)
+' "${extension_definitions}"
