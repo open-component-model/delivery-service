@@ -145,6 +145,37 @@ jobs:
           name: distribution-packages
           path: distribution-packages.tar.gz
 
+  odg-extension-definitions:
+    runs-on: ubuntu-latest
+    needs:
+    - prepare
+    steps:
+    - uses: actions/checkout@v4
+    - name: Export odg-extension-definitions
+      run: |
+        export version=${{ needs.prepare.outputs.version }}
+        blobs_dir=blobs.d
+        mkdir $blobs_dir
+        extension_definitions="extension-definitions.yaml"
+
+        yq -i '
+          .installation.ocm_references[].version = strenv(version) |
+          .installation.ocm_references[].artefact.version = strenv(version) |
+          .installation.ocm_references[].mappings[].version = strenv(version)
+        ' ${extension_definitions}
+
+        tar czf ${blobs_dir}/extension_definitions.tar.gz ${extension_definitions}
+
+    - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+      with:
+        ocm-resources: |
+          name: odg-extension-definitions
+          relation: local
+          access:
+            type: localBlob
+            localReference: extension_definitions.tar.gz
+        blobs-directory: blobs.d
+
   lint:
     runs-on: ubuntu-latest
     container:
