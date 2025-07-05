@@ -24,7 +24,10 @@ def finalize_version():
 
 setuptools.setup(
     name='bdba',
-    version=finalize_version(),
+    version=os.environ.get(
+        'BDBA_PACKAGE_VERSION',
+        finalize_version(),
+    ),
     py_modules=[],
     packages=['bdba'],
     install_requires=list(requirements()),

@@ -1,0 +1,59 @@
+name: Release (BDBA)
+on:
+  workflow_dispatch:
+    inputs:
+      next-version:
+        type: choice
+        options:
+          - bump-minor
+          - bump-patch
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-bdba.yaml
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      mode: release
+
+  release-to-github-and-bump:
+    uses: gardener/cc-utils/.github/workflows/release.yaml@master
+    needs:
+      - build
+    secrets: inherit
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    with:
+      release-commit-target: branch
+      next-version: ${{ inputs.next-version }}
+      release-on-github: false
+      github-tag-template: bdba-${version}
+
+  pypi:
+    runs-on: ubuntu-latest
+    name: Publish to PyPI
+    needs:
+      - build
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Retrieve Distribution Packages
+        uses: actions/download-artifact@v4
+        with:
+          name: distribution-packages
+          path: /tmp/dist
+      - name: Prepare Build-Filesystem
+        id: prepare
+        run: |
+          ls -lta /tmp/dist
+          mv /tmp/dist/distribution-packages.tar.gz .
+          tar xf distribution-packages.tar.gz
+          ls -lta dist/
+          rm -rf dist/blobs.d dist/ocm_resources.yaml
+          ls -lta dist/
+      - name: publish to pypi
+        uses: pypa/gh-action-pypi-publish@release/v1 # assumes package to be located in `dist/`
