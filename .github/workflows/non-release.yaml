@@ -6,10 +6,10 @@ on:
 jobs:
   build:
     uses: ./.github/workflows/build.yaml
+    secrets: inherit
     permissions:
       contents: read
       packages: write
       id-token: write
-    secrets: inherit
     with:
       mode: snapshot
