@@ -1,0 +1,7 @@
+name: ocm.software/ocm-gear/bdba-client
+labels:
+  - name: cloud.gardener.cnudie/responsibles
+    value:
+      - type: githubTeam
+        github_hostname: github.com
+        teamname: open-component-model/odg-maintainers

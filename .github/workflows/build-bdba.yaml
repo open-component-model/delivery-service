@@ -1,0 +1,181 @@
+name: Build and Test (BDBA)
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+        description:
+          mode as expected by `cc-util/.github/workflows/prepare`
+          either of
+          - snapshot
+          - release
+
+jobs:
+  prepare:
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
+    permissions:
+      contents: read
+    with:
+      mode: ${{ inputs.mode }}
+      versionfile: BDBA_VERSION
+      base-component-file: .ocm/base-component-bdba.yaml
+
+  setuptools-version:
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+    permissions: {}
+    outputs:
+      setuptools-version: ${{ steps.version-setuptools.outputs.setuptools-version }}
+    steps:
+      - name: version-setuptools
+        id: version-setuptools
+        run: |
+          set -eu
+          version=${{ needs.prepare.outputs.version }}
+          if [[ "${version}" == *-* ]]; then
+            # version was non-final - add suffix compliant w/ pep-440
+            version="${version%%-*}-dev0"
+          fi
+          echo "setuptools-version=${version}" >> ${GITHUB_OUTPUT}
+
+  packages:
+    runs-on: ubuntu-latest
+    needs:
+      - setuptools-version
+      - prepare
+    permissions:
+      contents: read
+    steps:
+      - name: install setuptools
+        run: |
+          pip3 install --root-user-action ignore \
+            setuptools
+      - uses: actions/checkout@v4
+      - uses: gardener/cc-utils/.github/actions/install-gardener-gha-libs@master
+      - name: create distribution packages
+        run: |
+          set -eu
+
+          version=${{ needs.setuptools-version.outputs.setuptools-version }}
+          echo "version: ${version}"
+
+          # pass finalised version to setup
+          export BDBA_PACKAGE_VERSION=${version}
+
+          pkg_dir=dist
+          mkdir -p ${pkg_dir}
+          pkg_dir="$(readlink -f dist)"
+
+          python3 setup.bdba.py bdist_wheel --dist-dir ${pkg_dir}
+          rm -rf build
+
+          echo "Built package"
+          ls "${pkg_dir}"
+
+          blobs_dir="${pkg_dir}/blobs.d"
+          mkdir ${blobs_dir}
+          resources_file=resources.yaml
+
+          outf="${pkg_dir}/bdba.tar.gz"
+          tar cJf ${outf} -C ${pkg_dir} $(cd ${pkg_dir}; ls bdba-*)
+          mimetype=$(file -i ${outf} | cut -d: -f2 | cut -d' ' -f2-)
+          leng=$(stat -c"%s" ${outf})
+          digest="$(sha256sum ${outf} | cut -d' ' -f1)"
+          echo "\
+          - name: bdba
+            version: ${{ needs.prepare.outputs.version }}
+            type: ${mimetype}
+            relation: local
+            access:
+              type: localBlob
+              localReference: sha256:${digest}
+              size: ${leng}
+              mediaType: ${mimetype}" \
+            >> ${resources_file}
+          mv ${outf} ${blobs_dir}/${digest}
+
+          cp "${resources_file}" dist/ocm_resources.yaml
+          tar czf distribution-packages.tar.gz dist
+      - name: export-ocm-fragments
+        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        with:
+          ocm-resources-file: dist/ocm_resources.yaml
+          blobs-directory: dist/blobs.d
+      - name: upload python-packages as artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-packages
+          path: distribution-packages.tar.gz
+
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-alpine
+    needs:
+      - packages
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve Distribution Packages
+        uses: actions/download-artifact@v4
+        with:
+          name: distribution-packages
+      - name: lint
+        run: |
+          echo "install dependencies for python-packages"
+
+          if ! apk add --no-cache $(cat apk-packages) >/tmp/apk.log; then
+            echo "error while trying to install apk-packages:"
+            cat /tmp/apk.log
+            exit 1
+          fi
+
+          tar xf distribution-packages.tar.gz -C /tmp
+
+          echo "installing linters"
+          if ! pip3 install --pre --upgrade --break-system-packages \
+            --find-links /tmp/dist \
+            -r requirements.bdba.txt \
+            bandit \
+            flake8 \
+            pylama \
+            pylint \
+              > /tmp/pip3-install.log; then
+            echo "error while trying to install packages:"
+            cat /tmp/pip3-install.log
+          fi
+
+          echo "running linters"
+          blobs_dir=blobs.d
+          mkdir $blobs_dir
+          bandit_logfile=bandit.log
+          bandit_evidence="${blobs_dir}/bandit.tar.gz"
+
+          bandit_extra_args="-f txt -o ${bandit_logfile}" \
+            .ci/lint_bdba
+
+          # pass bandit.log + used cfg (pyproject.toml) as evidence
+          tar czf $bandit_evidence $bandit_logfile pyproject.toml
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        with:
+          ocm-resources: |
+            name: sast-linting-evidence
+            relation: local
+            access:
+              type: localBlob
+              localReference: bandit.tar.gz
+            labels:
+              - name: gardener.cloud/purposes
+                value:
+                  - lint
+                  - sast
+                  - pybandit
+              - name: gardener.cloud/comment
+                value: |
+                  we use bandit (linter) for SAST-Scans.
+                  See: https://bandit.readthedocs.io/en/latest/
+          blobs-directory: blobs.d
