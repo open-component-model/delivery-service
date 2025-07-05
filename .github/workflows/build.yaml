@@ -66,8 +66,8 @@ jobs:
           pkg_dir="$(readlink -f dist)"
 
           ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
-          cc_utils_version="$(cat "CC_UTILS_VERSION")"
-          bdba_version="$(cat "BDBA_DEPENDENCY_VERSION")"
+          cc_utils_version=$(cat .ocm/base-component.yaml | yq eval '.componentReferences[] | select (.name == "cc-utils") | .version')
+          bdba_version=$(cat .ocm/base-component.yaml | yq eval '.componentReferences[] | select (.name == "bdba") | .version')
 
           for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
             echo "downloading ${resource}:${cc_utils_version}"
