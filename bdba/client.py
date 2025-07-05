@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-
-import cachecontrol
 import collections.abc
 import datetime
 import enum
@@ -14,6 +12,7 @@ import traceback
 import urllib.parse
 import urllib3.util.retry
 
+import cachecontrol
 import dacite
 import dateutil.parser
 import requests
