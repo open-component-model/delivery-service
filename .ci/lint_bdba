@@ -5,12 +5,6 @@ set -eu
 
 src_dir="${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}"
 
-if [ -n "${CC_ROOT_DIR:-}" ]; then
-    # running in pipeline
-    pip3 install --no-cache --upgrade \
-        -r "${src_dir}/requirements.bdba.txt"
-fi
-
 error=0
 
 export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
@@ -34,6 +28,16 @@ export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
         ((error|=1))
     fi
 
+    echo 'running bandit (sast-linter) for bdba module'
+    if bandit \
+        --configfile "${src_dir}/pyproject.toml" \
+        --recursive \
+        "${src_dir}/bdba" ${bandit_extra_args:-}; then
+        echo "bandit succeeded"
+    else
+        ((error|=1))
+    fi
+
     if [ $error -eq 0 ]; then
         exit 0
     elif [ $error -gt 0 ]; then
@@ -41,12 +45,5 @@ export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
     fi
     popd
 )
-
-if ! which bandit &>/dev/null; then
-    pip3 install bandit &>/dev/null
-fi
-
-echo 'running bandit (sast-linter) for bdba module'
-bandit --recursive "${src_dir}/bdba"
 
 exit $?
