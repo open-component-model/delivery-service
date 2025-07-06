@@ -87,6 +87,7 @@ def iter_artefact_metadata(
         datasource=datasource,
         data={
             'report_url': scan_result.report_url,
+            'product_id': scan_result.product_id,
         },
     )
 
