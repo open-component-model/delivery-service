@@ -122,10 +122,10 @@ class SASTFindingSelector:
 @dataclasses.dataclass
 class GHASFindingSelector:
     '''
-    :param list[str] html_url:
+    :param list[str] resolution:
         List of regexes to determine matching github secret findings.
     '''
-    html_url: list[str]
+    resolution: list[str | None]
 
 
 @dataclasses.dataclass
@@ -930,6 +930,9 @@ def categorise_finding(
                 if re.fullmatch(status, finding_property, re.IGNORECASE):
                     return categorisation
         elif isinstance(selector, GHASFindingSelector):
-            for html_url in selector.html_url:
-                if re.fullmatch(html_url, finding_property, re.IGNORECASE):
+            for resolution in selector.resolutions:
+                if resolution is None or finding_property is None:
+                    if resolution == finding_property:
+                        return categorisation
+                elif re.fullmatch(resolution, finding_property, re.IGNORECASE):
                     return categorisation

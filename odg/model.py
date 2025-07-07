@@ -550,9 +550,20 @@ class GitHubSecretFinding(Finding):
     secret: str
     secret_type: str
     secret_type_display_name: str
+    resolution: str | None
     path: str
     line: int
     location_type: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.html_url)
+
+
+@dataclasses.dataclass
+class RescoreGitHubSecretFinding:
+    html_url: str
+    resolution: str
 
     @property
     def key(self) -> str:

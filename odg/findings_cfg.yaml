@@ -170,19 +170,46 @@
     enable_assignees: False
     enable_per_finding: True
   categorisations:
-    - id: NONE
-      display_name: NONE
+    - id: false-positive
+      display_name: False Positive
       value: 0
       allowed_processing_time: ~
       rescoring: manual
+      selector:
+        resolutions:
+          - false_positive
+    - id: revoked
+      display_name: Revoked
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+      selector:
+        resolutions:
+          - revoked
+    - id: wont fix
+      display_name: Won't Fix
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+      selector:
+        resolutions:
+          - wont_fix
+    - id: used-in-tests
+      display_name: Used In Tests
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+      selector:
+        resolutions:
+          - used_in_tests
     - id: MEDIUM
       display_name: MEDIUM
       value: 2
       allowed_processing_time: 90
       rescoring: manual
       selector:
-        html_url:
-          - .*
+        resolutions:
+          - null
 
 - type: finding/osid
   issues:

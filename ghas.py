@@ -43,6 +43,27 @@ class SecretLocation:
     line: int | None = None
 
 
+@dataclasses.dataclass
+class SecretAlert:
+    html_url: str
+    secret_type: str
+    secret: str
+    secret_type_display_name: str
+    resolution: str
+    locations_url: str
+
+    @staticmethod
+    def from_dict(alert: dict) -> 'SecretAlert':
+        return SecretAlert(
+            html_url=alert.get('html_url', ''),
+            secret_type=alert.get('secret_type', ''),
+            secret=alert.get('secret', ''),
+            secret_type_display_name=alert.get('secret_type_display_name', ''),
+            resolution=alert.get('resolution', ''),
+            locations_url=alert.get('locations_url'),
+        )
+
+
 def github_api_request(
     url: str,
 ) -> list | dict | None:
@@ -122,10 +143,9 @@ def as_artefact_metadata(
 
     categorisation = odg.findings.categorise_finding(
         finding_cfg=ghas_finding_cfg,
-        finding_property=ghas_finding.html_url,
+        finding_property=ghas_finding.resolution,
     )
 
-    # Yield scan info metadata
     yield odg.model.ArtefactMetadata(
         artefact=artefact,
         meta=odg.model.Metadata(
@@ -137,7 +157,6 @@ def as_artefact_metadata(
         data={},
     )
 
-    # Yield finding metadata
     yield odg.model.ArtefactMetadata(
         artefact=artefact,
         meta=odg.model.Metadata(
@@ -159,24 +178,25 @@ def create_ghas_findings(
     for github_instance in ghas_config.github_instances:
         for org in github_instance.orgs:
             try:
-                alerts = get_secret_alerts(github_hostname=github_instance.hostname, org=org)
+                alerts_raw = get_secret_alerts(github_hostname=github_instance.hostname, org=org)
+                alerts = [SecretAlert.from_dict(a) for a in alerts_raw]
                 for alert in alerts:
-                    location_url = alert.get('locations_url', '')
-                    locations = get_secret_location(location_url=location_url)
+                    locations = get_secret_location(location_url=alert.locations_url)
 
                     categorisation = odg.findings.categorise_finding(
                         finding_cfg=ghas_finding_cfg,
-                        finding_property=alert.get('html_url', '')
+                        finding_property=alert.resolution
                     )
                     if not categorisation:
                         continue
 
                     yield odg.model.GitHubSecretFinding(
                         severity=categorisation.id,
-                        html_url=alert.get('html_url'),
-                        secret_type=alert.get('secret_type', ''),
-                        secret=alert.get('secret', ''),
-                        secret_type_display_name=alert.get('secret_type_display_name', ''),
+                        html_url=alert.html_url,
+                        secret_type=alert.secret_type,
+                        secret=alert.secret,
+                        secret_type_display_name=alert.secret_type_display_name,
+                        resolution=alert.resolution,
                         path=locations.path,
                         line=locations.line,
                         location_type=locations.location_type.value,
@@ -247,8 +267,10 @@ def scan(
     all_metadata = []
     all_metadata_keys = set()
     all_existing_metadata = []
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
 
-    for finding in create_ghas_findings(ghas_config=ghas_config, ghas_finding_cfg=ghas_finding_cfg):
+    for finding in create_ghas_findings(ghas_config=ghas_config,
+                                        ghas_finding_cfg=ghas_finding_cfg):
         artefact = build_artefact_from_finding(
             finding=finding,
             component_descriptor_lookup=component_descriptor_lookup,
@@ -283,14 +305,45 @@ def scan(
             if raw['meta']['datasource'] == odg.model.Datasource.GHAS
         ))
 
-    # Delete stale metadata (if there is any)
     all_stale_metadata = [
         metadatum for metadatum in all_existing_metadata
         if metadatum.key not in all_metadata_keys
     ]
-    if all_stale_metadata:
-        delivery_client.delete_metadata(data=all_stale_metadata)
-        logger.info(f'Deleted {len(all_stale_metadata)} obsolete GHAS metadata entries.')
+
+    for stale_finding in all_stale_metadata:
+
+        html_url = stale_finding.data.html_url
+        resolution = stale_finding.data.resolution
+
+        rescore_categorisation = odg.findings.categorise_finding(
+            finding_cfg=ghas_finding_cfg,
+            finding_property=resolution,
+        )
+
+        rescored_metadata = odg.model.ArtefactMetadata(
+            artefact=stale_finding.artefact,
+            meta=odg.model.Metadata(
+                datasource=stale_finding.meta.datasource,
+                type=odg.model.Datatype.RESCORING,
+                creation_date=now,
+                last_update=now,
+            ),
+            data=odg.model.CustomRescoring(
+                finding=odg.model.RescoreGitHubSecretFinding(
+                    html_url=html_url,
+                    resolution=resolution,
+                ),
+                referenced_type=odg.model.Datatype.GHAS_FINDING,
+                severity=rescore_categorisation.id,
+                user=odg.model.User(
+                    username='ghas-extension-auto-rescoring',
+                    type='ghas-extension-user',
+                ),
+                comment='Automatically rescored due to closed GitHub alert.',
+                allowed_processing_time=rescore_categorisation.allowed_processing_time_raw
+            )
+        )
+        all_metadata.append(rescored_metadata)
 
     # Deliver new metadata
     if all_metadata:
