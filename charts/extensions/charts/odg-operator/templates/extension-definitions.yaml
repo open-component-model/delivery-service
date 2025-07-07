@@ -1,0 +1,10 @@
+{{- if .Values.extensionDefinitions }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: extension-definitions
+  namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
+data:
+  extension_definitions.yaml:
+    {{- toYaml .Values.extensionDefinitions | nindent 4 }}
+{{- end }}

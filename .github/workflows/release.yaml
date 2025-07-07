@@ -1,15 +1,21 @@
 name: Release (ODG)
 on:
   workflow_dispatch:
+    inputs:
+      next-version:
+        type: choice
+        options:
+          - bump-minor
+          - bump-patch
 
 jobs:
   build:
     uses: ./.github/workflows/build.yaml
+    secrets: inherit
     permissions:
-      contents: write
+      contents: read
       packages: write
       id-token: write
-    secrets: inherit
     with:
       mode: release
 
@@ -17,11 +23,11 @@ jobs:
     uses: gardener/cc-utils/.github/workflows/release.yaml@master
     needs:
       - build
+    secrets: inherit
     permissions:
       contents: write
       packages: write
       id-token: write
-    secrets: inherit
     with:
       release-commit-target: branch
-      next-version: bump-minor
+      next-version: ${{ inputs.next-version }}

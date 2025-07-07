@@ -5,7 +5,6 @@ import dataclasses_json
 import http
 import io
 import logging
-import re
 import tarfile
 
 import aiohttp.web
@@ -18,7 +17,7 @@ import cnudie.iter_async
 import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
-import github.util
+import github.pullrequest
 import oci.client_async
 import oci.model as om
 import ocm
@@ -970,10 +969,10 @@ class UpgradePRs(aiohttp.web.View):
             repo_url = source.access.repoUrl if source else component_name
 
         def upgrade_pr_to_dict(
-            upgrade_pr: github.util.UpgradePullRequest,
+            upgrade_pr: github.pullrequest.UpgradePullRequest,
         ) -> dict:
-            from_ref: ocm.ComponentReference = upgrade_pr.from_ref
-            to_ref: ocm.ComponentReference = upgrade_pr.to_ref
+            from_ref: ocm.ComponentIdentity = upgrade_pr.upgrade_vector.whence
+            to_ref: ocm.ComponentIdentity = upgrade_pr.upgrade_vector.whither
             pr = upgrade_pr.pull_request
 
             return {
@@ -999,33 +998,20 @@ class UpgradePRs(aiohttp.web.View):
         async def retrieve_upgrade_prs(
             repo_url: str,
             state: str,
-            pattern: re.Pattern,
             db_session: sqlasync.session.AsyncSession, # required for db-cache
         ) -> list[dict]:
-            gh_api = self.request.app[consts.APP_GITHUB_API_LOOKUP](
+            github_repo_lookup = self.request.app[consts.APP_GITHUB_REPO_LOOKUP]
+
+            if not (repo := github_repo_lookup(
                 repo_url,
                 absent_ok=True,
-            )
-            if not gh_api:
+            )):
                 logger.warning(f'no github-cfg found for {repo_url=}')
                 return [] # matching github-cfg is optional
 
-            parsed_url = util.urlparse(repo_url)
-            org, repo = parsed_url.path.strip('/').split('/')
-
-            try:
-                pr_helper = github.util.PullRequestUtil(
-                    owner=org,
-                    name=repo,
-                    github_api=gh_api,
-                )
-            except RuntimeError:
-                # Component source repository not found
-                return []
-
-            upgrade_prs = pr_helper.enumerate_upgrade_pull_requests(
+            upgrade_prs = github.pullrequest.iter_upgrade_pullrequests(
+                repository=repo,
                 state=state,
-                pattern=pattern,
             )
 
             return [
@@ -1036,7 +1022,6 @@ class UpgradePRs(aiohttp.web.View):
         upgrade_prs = await retrieve_upgrade_prs(
             repo_url=repo_url,
             state=pr_state,
-            pattern=self.request.app[consts.APP_UPR_REGEX_CALLBACK](),
             db_session=self.request.get(consts.REQUEST_DB_SESSION),
         )
 

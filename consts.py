@@ -25,7 +25,6 @@ APP_SPECIAL_COMPONENT_CALLBACK = 'special_component_callback'
 APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK = 'sprint_date_display_name_callback'
 APP_SPRINTS = 'sprints'
 APP_SPRINTS_METADATA = 'sprints_metadata'
-APP_UPR_REGEX_CALLBACK = 'upr_regex_callback'
 APP_VERSION_FILTER_CALLBACK = 'version_filter_callback'
 APP_VERSION_LOOKUP = 'version_lookup'
 
@@ -33,7 +32,8 @@ APP_VERSION_LOOKUP = 'version_lookup'
 REQUEST_DB_SESSION = 'db_session'
 # `db_session_low_prio` has a small connection pool with a long timeout for low prio tasks
 REQUEST_DB_SESSION_LOW_PRIO = 'db_session_low_prio'
-REQUEST_GITHUB_USER = 'github_user'
+REQUEST_USER_ID = 'user_id'
+REQUEST_USER_ROLES = 'user_roles'
 
 BACKLOG_ITEM_SLEEP_INTERVAL_SECONDS = 60
 RESCORING_OPERATOR_SET_TO_PREFIX = 'set-to-'

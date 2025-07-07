@@ -350,7 +350,7 @@ class FindingIssues:
         digest = hashlib.shake_128(
             digest_str.encode(),
             usedforsecurity=False,
-        ).hexdigest(length=23)
+        ).hexdigest(23)
 
         return f'{version}/{digest}'
 

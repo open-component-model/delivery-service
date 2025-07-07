@@ -450,6 +450,15 @@ class RescoringVulnerabilityFinding:
 
 
 @dataclasses.dataclass
+class RescoringFalcoFinding:
+    group_hash: str
+
+    @property
+    def key(self) -> str:
+        return self.group_hash
+
+
+@dataclasses.dataclass
 class RescoringLicenseFinding:
     package_name: str
     license: License
@@ -791,6 +800,7 @@ class CustomRescoring:
         | RescoreSastFinding
         | RescoringCryptoFinding
         | RescoreOsIdFinding
+        | RescoringFalcoFinding
     )
     referenced_type: str
     severity: str
@@ -997,6 +1007,29 @@ class ResponsibleInfo:
         return _as_key(self.referenced_type)
 
 
+FindingModels = (
+    ClamAVMalwareFinding
+    | CryptoFinding
+    | DikiFinding
+    | FalcoFinding
+    | InventoryFinding
+    | LicenseFinding
+    | OsIdFinding
+    | SastFinding
+    | VulnerabilityFinding
+)
+InformationalModels = (
+    StructureInfo
+    | CryptoAsset
+    | ResponsibleInfo
+)
+MetaModels = (
+    CustomRescoring
+    | ComplianceSnapshot
+    | dict
+)
+
+
 @dataclasses.dataclass
 class ArtefactMetadata:
     '''
@@ -1033,6 +1066,7 @@ class ArtefactMetadata:
         | ResponsibleInfo
         | dict # fallback, there should be a type
     )
+    data: FindingModels | InformationalModels | MetaModels
     discovery_date: datetime.date | None = None # required for finding specific SLA tracking
     allowed_processing_time: str | None = None
 

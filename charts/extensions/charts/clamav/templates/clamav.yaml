@@ -1,18 +1,26 @@
+{{- $podName := "clamav" }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: clamav
+  name: {{ $podName }}
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+  {{- if default dict (.Values.deployment).annotations }}
+  annotations:
+  {{- range $annotation, $value := .Values.deployment.annotations }}
+    {{ $annotation }}: {{ $value }}
+  {{- end }}
+  {{- end }}
 spec:
   replicas: 0 # will be scaled automatically by backlog-controller
   selector:
     matchLabels:
-      app: clamav
+      app: {{ $podName }}
       delivery-gear.gardener.cloud/service: clamav
   template:
     metadata:
       labels:
-        app: clamav
+        app: {{ $podName }}
         delivery-gear.gardener.cloud/service: clamav
     spec:
       topologySpreadConstraints:
@@ -21,12 +29,14 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: clamav
+              app: {{ $podName }}
       terminationGracePeriodSeconds: 1800 # 30 min
       containers:
-        - name: clamav
+        - name: {{ $podName }}
           image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
           env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
@@ -97,3 +107,17 @@ spec:
         - name: freshclam-config
           configMap:
             name: clamav-freshclam-config
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-clamav
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $podName }}
+  policyTypes:
+    - Egress
+  egress:
+    - {}  # Allows all egress traffic to any destination and port

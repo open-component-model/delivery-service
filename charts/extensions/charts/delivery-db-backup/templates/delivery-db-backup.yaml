@@ -1,7 +1,9 @@
+{{- $podName := "delivery-db-backup" }}
+
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: delivery-db-backup
+  name: {{ $podName }}
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   schedule: {{ default "0 0 * * *" .Values.schedule | quote }} # schedule contains asterisks, quote to avoid yaml parser errors
@@ -15,16 +17,18 @@ spec:
       template:
         metadata:
           labels:
-            app: delivery-db-backup
+            app: {{ $podName }}
         spec:
           containers:
-          - name: delivery-db-backup
+          - name: {{ $podName }}
             image: {{ include "image" .Values.image }}
             imagePullPolicy: IfNotPresent
             command:
             - python3
             - -m
             - delivery_db_backup
+            securityContext:
+              allowPrivilegeEscalation: false
             env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
@@ -61,3 +65,17 @@ spec:
               configMap:
                 name: extensions-cfg
           restartPolicy: Never
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-delivery-db-backup
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $podName }}
+  policyTypes:
+    - Egress
+  egress:
+    - {}  # Allows all egress traffic to any destination and port

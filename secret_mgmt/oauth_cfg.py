@@ -2,6 +2,9 @@ import dataclasses
 import enum
 
 
+RoleName = str
+
+
 class OAuthCfgTypes(enum.StrEnum):
    GITHUB = 'github'
 
@@ -18,21 +21,17 @@ class Subject:
     name: str
 
 
-class Role(enum.StrEnum):
-    ADMIN = 'admin'
-
-
 @dataclasses.dataclass
 class RoleBinding:
     subjects: list[Subject]
-    roles: list[Role]
+    roles: list[RoleName]
 
 
 @dataclasses.dataclass
 class OAuthCfg:
     name: str
     type: OAuthCfgTypes
-    github_secret_name: str
+    api_url: str
     oauth_url: str
     token_url: str
     client_id: str

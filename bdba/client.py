@@ -109,6 +109,9 @@ class BDBAApiRoutes:
     def api_key(self):
         return self._api_url('key/')
 
+    def export_product(self, product_id: int | str, format: str = 'bdio'):
+        return self._api_url('product', str(product_id), f'?format={format}')
+
     # ---- "rest" routes (undocumented API)
 
     def scans(self, product_id: int):
@@ -588,4 +591,24 @@ class BDBAApi:
             url=self._routes.api_key(),
             json={'validity': validity_seconds},
             timeout=timeout,
+        )
+
+    def bdio_export(
+        self,
+        product_id: int | str
+    ) -> bm.BDIO:
+        url = self._routes.bdio_export(product_id)
+        response = self._get(url=url)
+        response.raise_for_status()
+
+        raw_data = response.json()
+        return dacite.from_dict(
+            data_class=bm.BDIO,
+            data=dict(
+                **raw_data,
+                id=raw_data.get('@id'),
+                publisher_version=raw_data.get('publisherVersion'),
+                creation_datetime=raw_data.get('creationDateTime'),
+                entries=raw_data.get('@graph'),
+            ),
         )

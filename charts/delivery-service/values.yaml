@@ -2,3 +2,5 @@
 image:
   repository: ~
   tag: ~
+deployment:
+  annotations: []

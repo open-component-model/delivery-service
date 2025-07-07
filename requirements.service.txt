@@ -1,6 +1,5 @@
 aiohttp-swagger
 awesomeversion
-bdba==0.4.0
 dataclasses-json
 htmllistparse
 jsonpath-ng

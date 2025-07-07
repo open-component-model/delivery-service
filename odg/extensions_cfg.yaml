@@ -2,6 +2,9 @@ defaults:
   delivery_service_url: http://localhost:5000
   delivery_dashboard_url: http://localhost:3000
 
+access_manager:
+  enabled: False
+
 artefact_enumerator:
   enabled: False
   components:

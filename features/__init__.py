@@ -5,7 +5,6 @@ import enum
 import functools
 import logging
 import os
-import re
 import watchdog.events
 import watchdog.observers.polling
 
@@ -528,23 +527,9 @@ class FeatureSprints(FeatureBase):
         }
 
 
-class UPRIdentificationMethods(enum.Enum):
-    TITLE = 'title'
-
-
 @dataclasses.dataclass(frozen=True)
 class FeatureUpgradePRs(FeatureBase):
     name: str = 'upgrade-prs'
-    regex: re.Pattern = None,
-
-    def get_regex(self) -> re.Pattern | None:
-        return self.regex
-
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
-        return {
-            'state': self.state,
-            'name': self.name,
-        }
 
 
 @dataclasses.dataclass(frozen=True)
@@ -701,21 +686,6 @@ def deserialise_tests(tests_raw: dict) -> FeatureTests:
     )
 
 
-def deserialise_upgrade_prs(upgrade_prs_raw: dict) -> FeatureUpgradePRs:
-    # If no further configuration is provided, fallback to default configuration
-    # which is identification via Gardener's UPR title pattern
-    if not upgrade_prs_raw:
-        return FeatureUpgradePRs(FeatureStates.AVAILABLE, regex=None)
-
-    identification_method = UPRIdentificationMethods(upgrade_prs_raw['identificationMethod'])
-    if identification_method == UPRIdentificationMethods.TITLE:
-        regex = re.compile(r'' + upgrade_prs_raw['titleRegex'])
-        return FeatureUpgradePRs(
-            FeatureStates.AVAILABLE,
-            regex=regex,
-        )
-
-
 def deserialise_authentication(
     secret_factory: secret_mgmt.SecretFactory,
 ) -> FeatureAuthentication:
@@ -770,14 +740,10 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
     else:
         yield deserialise_tests(tests)
 
-    upgrade_prs = raw.get(
-        'upgradePRs',
-        FeatureUpgradePRs(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(upgrade_prs, FeatureUpgradePRs):
-        yield upgrade_prs
+    if raw.get('upgradePRs'):
+        yield FeatureUpgradePRs(FeatureStates.AVAILABLE)
     else:
-        yield deserialise_upgrade_prs(upgrade_prs)
+        yield FeatureUpgradePRs(FeatureStates.UNAVAILABLE)
 
     # if no custom config is provided, fallback to default config of feature
     version_filter = raw.get(

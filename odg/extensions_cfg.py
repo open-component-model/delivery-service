@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class Services(enum.StrEnum):
+    ACCESS_MANAGER = 'accessManager'
     ARTEFACT_ENUMERATOR = 'artefactEnumerator'
     BACKLOG_CONTROLLER = 'backlogController'
     BDBA = 'bdba'
@@ -94,6 +95,14 @@ class Component:
         return ocm.OciOcmRepository(
             baseUrl=self.ocm_repo_url,
         )
+
+
+@dataclasses.dataclass(kw_only=True)
+class AccessManagerConfig(ExtensionCfgMixins):
+    service: Services = Services.ACCESS_MANAGER
+    schedule: str = '*/10 * * * *' # every 10 minutes
+    successful_jobs_history_limit: int = 1
+    failed_jobs_history_limit: int = 1
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -840,6 +849,7 @@ class OsId(BacklogItemMixins):
 
 @dataclasses.dataclass
 class ExtensionsConfiguration:
+    access_manager: AccessManagerConfig | None
     artefact_enumerator: ArtefactEnumeratorConfig | None
     bdba: BDBAConfig | None
     cache_manager: CacheManagerConfig | None

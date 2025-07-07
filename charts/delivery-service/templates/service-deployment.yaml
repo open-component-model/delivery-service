@@ -1,12 +1,20 @@
+{{- $podName := "delivery-service" }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: delivery-service
+  name: {{ $podName }}
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+  {{- if default dict (.Values.deployment).annotations }}
+  annotations:
+  {{- range $annotation, $value := .Values.deployment.annotations }}
+    {{ $annotation }}: {{ $value }}
+  {{- end }}
+  {{- end }}
 spec:
   selector:
     matchLabels:
-      app: delivery-service
+      app: {{ $podName }}
   strategy:
     type: RollingUpdate
   template:
@@ -18,7 +26,7 @@ spec:
       {{- end }}
       {{- end }}
       labels:
-        app: delivery-service
+        app: {{ $podName }}
       {{- if default dict (.Values.pod).labels }}
       {{- range $annotation, $value := .Values.pod.labels }}
         {{ $annotation }}: {{ $value }}
@@ -31,11 +39,13 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: delivery-service
+              app: {{ $podName }}
       containers:
-        - name: delivery-service
+        - name: {{ $podName }}
           image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
           args:
             - --productive
           {{- range $arg := default list .Values.args }}
@@ -152,3 +162,35 @@ spec:
       {{- if .Values.additionalVolumes }}
         {{- toYaml .Values.additionalVolumes | nindent 8 }}
       {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-delivery-service
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $podName }}
+  policyTypes:
+    - Egress
+  egress:
+    - {}  # Allows all egress traffic to any destination and port
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-delivery-service
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $podName }}
+  policyTypes:
+    - Ingress
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 5000

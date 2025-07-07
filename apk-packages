@@ -1,5 +1,6 @@
 bash
 gcc
+git
 libc-dev
 libffi-dev
 libmagic

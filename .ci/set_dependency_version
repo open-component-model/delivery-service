@@ -5,22 +5,13 @@ import os
 import yaml
 
 
-repo_dir = os.path.abspath(os.environ['MAIN_REPO_DIR'])
-CC_UTILS_VERSIONFILE = os.path.join(repo_dir, 'CC_UTILS_VERSION')
-FRESHCLAM_VERSIONFILE = os.path.join(repo_dir, 'FRESHCLAM_VERSION')
-BDBA_VERSIONFILE = os.path.join(repo_dir, 'BDBA_DEPENDENCY_VERSION')
+repo_dir = os.path.abspath(os.environ['REPO_DIR'])
 REQUIREMENTS_EXTENSIONS_FILE = os.path.join(repo_dir, 'requirements.extensions.txt')
-REQUIREMENTS_SERVICE_FILE = os.path.join(repo_dir, 'requirements.service.txt')
 REQUIREMENTS_UTILS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
 EXTENSIONS_CHART_DIR = os.path.join(repo_dir, 'charts', 'extensions')
 
 dependency_name = os.environ['DEPENDENCY_NAME']
 dependency_version = os.environ['DEPENDENCY_VERSION']
-
-
-def write_component_version_to_file(file_path: str):
-    with open(file_path, 'w') as version_file:
-        version_file.write(dependency_version.strip())
 
 
 def add_package_version(
@@ -52,25 +43,17 @@ def main():
     if dependency_name == 'github.com/gardener/cc-utils':
         package_name = 'gardener-cicd-libs'
 
-        write_component_version_to_file(CC_UTILS_VERSIONFILE)
         write_package_version_to_requirements_file(package_name, REQUIREMENTS_UTILS_FILE)
 
     elif dependency_name == 'ocm.software/ocm-gear/bdba-client':
         python_distribution_package_name = 'bdba'
 
-        write_component_version_to_file(BDBA_VERSIONFILE)
         write_package_version_to_requirements_file(
             package_name=python_distribution_package_name,
             file_path=REQUIREMENTS_EXTENSIONS_FILE,
         )
-        write_package_version_to_requirements_file(
-            package_name=python_distribution_package_name,
-            file_path=REQUIREMENTS_SERVICE_FILE,
-        )
 
     elif dependency_name == 'ocm.software/ocm-gear/freshclam':
-        write_component_version_to_file(FRESHCLAM_VERSIONFILE)
-
         with open(os.path.join(EXTENSIONS_CHART_DIR, 'values.yaml'), 'r+') as values_file:
             values = yaml.safe_load(values_file)
             values['clamav']['freshclam']['image']['tag'] = dependency_version.strip()

@@ -14,6 +14,5 @@ RUN --mount=type=bind,source=/dist,target=/dist \
 && apk del --no-cache \
     libc-dev \
     libffi-dev \
-    python3-dev
-
-ENTRYPOINT ["python3", "-m", "cache_manager"]
+    python3-dev \
+&& ln -sf /etc/ssl/certs/ca-certificates.crt "$(python3 -m certifi)"

@@ -16,12 +16,13 @@ JWT_ALGORITHM = 'HS256'
 def gen_jwt_payload():
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     return {
-        'version': 'v1',
+        'version': 'v2',
         'sub': 'service_user',
         'iss': ISSUER,
         'iat': int((now-datetime.timedelta(minutes=10)).timestamp()),
         'exp': int((now+datetime.timedelta(minutes=5)).timestamp()),
         'key_id': '1',
+        'roles': [],
     }
 
 
@@ -168,3 +169,11 @@ def test_nbf_in_future(signing_cfg):
             signing_cfg=signing_cfg,
             verify_signature=True,
         )
+
+
+def test_no_roles():
+    payload = gen_jwt_payload()
+    payload.pop('roles')
+
+    with pytest.raises(aiohttp.web.HTTPUnauthorized):
+        middleware.auth.validate_jwt_payload(payload)
