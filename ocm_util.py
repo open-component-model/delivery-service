@@ -120,18 +120,21 @@ async def find_artefact_node_async(
 
 def to_absolute_oci_access(
     access: ocm.OciAccess | ocm.RelativeOciAccess,
-    ocm_repo: ocm.OciOcmRepository=None,
+    ocm_repo: ocm.OciOcmRepository | None=None,
 ) -> ocm.OciAccess:
     if access.type is ocm.AccessType.OCI_REGISTRY:
-        return access
+        pass
 
-    if access.type is ocm.AccessType.RELATIVE_OCI_REFERENCE:
-        base_url = util.urlparse(ocm_repo.baseUrl)
-        return ocm.OciAccess(
+    elif access.type is ocm.AccessType.RELATIVE_OCI_REFERENCE:
+        base_url = util.urlparse(ocm_repo.baseUrl).netloc
+        access = ocm.OciAccess(
             imageReference=util.urljoin(base_url, access.reference),
         )
 
-    raise ValueError(f'{access.type=} is not supported for conversion to absolute oci access')
+    else:
+        raise ValueError(f'{access.type=} is not supported for conversion to absolute oci access')
+
+    return access
 
 
 def find_artefact_node(
