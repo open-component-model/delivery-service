@@ -715,6 +715,48 @@ def reconcile(
             logger.error(e)
 
 
+def _iter_extension_definitions_from_resource_node(
+    resource_node: cnudie.iter.ResourceNode,
+) -> collections.abc.Generator[odgm.ExtensionDefinition, None, None]:
+    odg_extension_tar_stream = oci_client.blob(
+        image_reference=resource_node.component.current_ocm_repo.component_version_oci_ref(
+            name=resource_node.component.name,
+            version=resource_node.component.version,
+        ),
+        digest=resource_node.resource.access.localReference,
+        stream=True,
+    ).iter_content(chunk_size=tarfile.RECORDSIZE)
+
+    extension_definitions_path = tempfile.TemporaryDirectory()
+
+    with tarfile.open(
+        fileobj=io.BytesIO(b''.join(odg_extension_tar_stream)),
+        mode='r:gz',
+        bufsize=tarfile.RECORDSIZE,
+    ) as tf:
+        tf.extractall(
+            path=extension_definitions_path.name,
+            filter='tar',
+        )
+
+    for root, _, files in os.walk(extension_definitions_path.name):
+        for file in files:
+            # assume all top level files are extension definition yaml documents
+            extension_definition_file_path = os.path.join(root, file)
+
+            with open(extension_definition_file_path) as f:
+                for odg_extension_raw in yaml.safe_load_all(f):
+                    yield dacite.from_dict(
+                        data=odg_extension_raw,
+                        data_class=odgm.ExtensionDefinition,
+                        config=dacite.Config(
+                            cast=[enum.Enum],
+                        )
+                    )
+
+    extension_definitions_path.cleanup()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--kubeconfig')
@@ -761,6 +803,7 @@ if __name__ == '__main__':
 
     for extension in parsed.extensions:
         extension: str
+
         component_id, artefact_name = extension.rsplit(':', 1)
         component = component_descriptor_lookup(component_id).component
         for resource_node in cnudie.iter.iter(
@@ -774,20 +817,10 @@ if __name__ == '__main__':
             ):
                 break
         else:
-            raise ValueError(f'no odg-extension found in {extension}')
+            raise ValueError(f'no odg-extension found in {component_id} with {artefact_name=}')
 
-        resource_node: cnudie.iter.ResourceNode
-        odg_extension_raw = oci_client.blob(
-            image_reference=resource_node.component.current_ocm_repo.component_version_oci_ref(
-                name=resource_node.component.name,
-                version=resource_node.component.version,
-            ),
-            digest=resource_node.resource.access.localReference,
-            stream=False,
-        ).json()
-        extension_definitions.append(dacite.from_dict(
-            data=odg_extension_raw,
-            data_class=odgm.ExtensionDefinition,
+        extension_definitions.extend(_iter_extension_definitions_from_resource_node(
+            resource_node=resource_node,
         ))
 
     logger.info(f'known extension definitions: {[e.name for e in extension_definitions]}')
