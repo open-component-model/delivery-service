@@ -42,6 +42,21 @@ class SecretLocation:
     path: str | None = None
     line: int | None = None
 
+    @staticmethod
+    def from_dict(location: dict) -> 'SecretLocation':
+        loc_type = location.get('type', 'unknown')
+        try:
+            location_type = GitHubSecretLocationType(loc_type)
+        except ValueError:
+            location_type = GitHubSecretLocationType.UNKNOWN
+
+        details = location.get('details', {})
+        return SecretLocation(
+            location_type=location_type,
+            path=details.get('path'),
+            line=details.get('start_line'),
+        )
+
 
 @dataclasses.dataclass
 class SecretAlert:
@@ -117,15 +132,9 @@ def get_secret_location(
         return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
 
     for loc in result:
-        loc_type = loc.get('type', '')
-        if loc_type not in (GitHubSecretLocationType.COMMIT, GitHubSecretLocationType.WIKI_COMMIT):
-            continue
-        details = loc.get('details', {})
-        return SecretLocation(
-            path=details.get('path'),
-            line=details.get('start_line'),
-            location_type=GitHubSecretLocationType(loc_type),
-        )
+        secret_location = SecretLocation.from_dict(loc)
+        if secret_location.location_type in (GitHubSecretLocationType.COMMIT, GitHubSecretLocationType.WIKI_COMMIT):
+            return secret_location
 
     return SecretLocation(location_type=GitHubSecretLocationType.UNKNOWN)
 
