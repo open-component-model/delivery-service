@@ -1,0 +1,13 @@
+name: CI (non-release) (BDBA)
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-bdba.yaml
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      mode: snapshot

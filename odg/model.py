@@ -183,8 +183,7 @@ class OsStatus(enum.StrEnum):
     BRANCH_REACHED_EOL = 'branchReachedEol'
     UPDATE_AVAILABLE_FOR_BRANCH = 'updateAvailableForBranch'
     EMPTY_OS_ID = 'emptyOsId'
-    AT_MOST_ONE_PATCHLEVEL_BEHIND = 'atMostOnePatchlevelBehind'
-    MORE_THAN_ONE_PATCHLEVEL_BEHIND = 'moreThanOnePatchlevelBehind'
+    PATCHLEVEL_BEHIND = 'patchlevelBehind'
     UP_TO_DATE = 'upToDate'
     DISTROLESS = 'distroless'
 
@@ -529,10 +528,8 @@ class OsIdFinding(Finding):
     def status_description(self) -> str:
         if self.os_status is OsStatus.BRANCH_REACHED_EOL:
             return 'Branch has reached end-of-life'
-        elif self.os_status is OsStatus.MORE_THAN_ONE_PATCHLEVEL_BEHIND:
-            return 'Image is more than one patchlevel behind'
-        elif self.os_status is OsStatus.AT_MOST_ONE_PATCHLEVEL_BEHIND:
-            return 'Image is at most one patchlevel behind'
+        elif self.os_status is OsStatus.PATCHLEVEL_BEHIND:
+            return 'Image is one or more patchlevel behind'
         elif self.os_status in (
             OsStatus.EMPTY_OS_ID,
             OsStatus.NO_BRANCH_INFO,

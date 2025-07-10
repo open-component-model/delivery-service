@@ -1,0 +1,403 @@
+name: delivery-service
+installation:
+  ocm_references:
+    - helm_chart_name: delivery-service
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: delivery-service
+        version: ""
+      mappings:
+        - name: delivery-service
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.hosts
+      value:
+        - delivery-service.${base_url}
+      value_type: python-string-template
+    - helm_chart_name: delivery-service
+      helm_attribute: target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: delivery-service
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.annotations."cert.gardener.cloud/purpose"
+      value: 'managed'
+      value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.annotations."dns.gardener.cloud/class"
+      value: 'garden'
+      value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.annotations."dns.gardener.cloud/dnsnames"
+      value: '"*"'
+      value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-body-size"
+      value: '16m'
+      value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-read-timeout"
+      value: '"900"'
+      value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-next-upstream"
+      value: 'error timeout http_503'
+      value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-next-upstream-timeout"
+      value: '"0"'
+      value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-next-upstream-tries"
+      value: '"0"'
+      value_type: literal
+outputs:
+  - name: delivery-service-url
+    value: https://delivery-service.${base_url}
+dependencies:
+  - access-manager
+  - artefact-enumerator
+  - backlog-controller
+  - cache-manager
+  - delivery-db
+---
+name: malware-scanner
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: clamav.enabled
+      value: True
+      value_type: literal
+    - helm_chart_name: extensions
+      helm_attribute: clamav.freshclam.image.repository
+      value: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/freshclam
+      value_type: literal
+    - helm_chart_name: extensions
+      helm_attribute: clamav.freshclam.image.tag
+      value: 1.9.0 # use image-mapping once helm-chart and oci-image are included in the same ocm component
+      value_type: literal
+    - helm_chart_name: extensions
+      helm_attribute: clamav.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: clamav.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-service
+  - backlog-controller
+---
+name: backlog-controller
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: backlog-controller.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: backlog-controller.enabled
+      value: True
+      value_type: literal
+outputs: []
+dependencies: []
+---
+name: artefact-enumerator
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: artefact-enumerator.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: artefact-enumerator.enabled
+      value: True
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-db
+---
+name: cache-manager
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: cache-manager.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: cache-manager.enabled
+      value: True
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-db
+---
+name: access-manager
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: access-manager.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: access-manager.enabled
+      value: True
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-db
+---
+name: bdba
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: bdba.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: bdba.enabled
+      value: True
+      value_type: literal
+    - helm_chart_name: extensions
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-service
+  - delivery-db
+---
+name: crypto
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: crypto.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: crypto.enabled
+      value: True
+      value_type: literal
+    - helm_chart_name: extensions
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-service
+  - delivery-db
+---
+name: issue-replicator
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: issue-replicator.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: issue-replicator.enabled
+      value: True
+      value_type: literal
+    - helm_chart_name: extensions
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
+outputs: []
+dependencies:
+  - artefact-enumerator
+---
+name: osid
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: osid.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: osid.enabled
+      value: True
+      value_type: literal
+    - helm_chart_name: extensions
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-service
+  - delivery-db
+---
+name: responsibles
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: responsibles.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: responsibles.enabled
+      value: True
+      value_type: literal
+    - helm_chart_name: extensions
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-service
+  - delivery-db
+---
+name: sast
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: ""
+      artefact:
+        name: extensions
+        version: ""
+      mappings:
+        - name: extensions
+          version: ""
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: sast.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: sast.enabled
+      value: True
+      value_type: literal
+    - helm_chart_name: extensions
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-service
+  - delivery-db
