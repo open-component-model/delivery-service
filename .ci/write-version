@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
-read -r next_version && export next_version
+read -r next_version
 
 echo "$next_version" > "$(dirname "$0")/../VERSION"
 
 extension_definitions="$(dirname "$0")/../extension-definitions.yaml"
-yq -i '
-    .installation.ocm_references[].version = strenv(next_version) |
-    .installation.ocm_references[].artefact.version = strenv(next_version) |
-    .installation.ocm_references[].mappings[].version = strenv(next_version)
+
+# pass env-var inline to make it available in yq subprocess
+NEXT_VERSION="$next_version" yq -i '
+    .installation.ocm_references[].version = strenv(NEXT_VERSION) |
+    .installation.ocm_references[].artefact.version = strenv(NEXT_VERSION) |
+    .installation.ocm_references[].mappings[].version = strenv(NEXT_VERSION)
 ' "${extension_definitions}"
