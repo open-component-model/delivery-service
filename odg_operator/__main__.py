@@ -310,7 +310,8 @@ def create_or_update_odg(
             )
 
             default_values_path = os.path.join(helm_chart_path, 'values.yaml')
-            default_values = yaml.safe_load(open(default_values_path))
+            with open(default_values_path) as f:
+                default_values = yaml.safe_load(f)
 
             installation_values_for_artefact = [
                 iv
