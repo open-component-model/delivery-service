@@ -418,6 +418,10 @@ jobs:
                 attribute: bdba.image.repository
               - ref: ocm-resource:extensions.tag
                 attribute: bdba.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: blackduck.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: blackduck.image.tag
               - ref: ocm-resource:extension-clamav.repository
                 attribute: clamav.image.repository
               - ref: ocm-resource:extension-clamav.tag
