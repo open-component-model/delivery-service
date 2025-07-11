@@ -2,7 +2,7 @@ aiohttp
 boto3
 cachetools
 dacite
-gardener-cicd-libs==1.2665.0
+gardener-cicd-libs==1.2666.0
 github3.py
 kubernetes
 requests
