@@ -596,7 +596,7 @@ class BDBAApi:
         self,
         product_id: int | str
     ) -> bm.BDIO:
-        url = self._routes.bdio_export(product_id)
+        url = self._routes.export_product(product_id)
         response = self._get(url=url)
         response.raise_for_status()
 
