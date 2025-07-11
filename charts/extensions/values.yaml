@@ -65,6 +65,11 @@ osid:
   image:
     repository: null
     tag: null
+ghas:
+  enabled: false
+  image:
+    repository: null
+    tag: null
   deployment:
     annotations: []
 responsibles:

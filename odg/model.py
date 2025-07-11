@@ -36,6 +36,7 @@ class Datatype(enum.StrEnum):
     OSID_FINDING = 'finding/osid'
     SAST_FINDING = 'finding/sast'
     VULNERABILITY_FINDING = 'finding/vulnerability'
+    GHAS_FINDING = 'finding/ghas'
 
     # informational datatypes
     CRYPTO_ASSET = 'crypto_asset'
@@ -53,6 +54,7 @@ class Datatype(enum.StrEnum):
             Datatype.OSID_FINDING: Datasource.OSID,
             Datatype.SAST_FINDING: Datasource.SAST,
             Datatype.VULNERABILITY_FINDING: Datasource.BDBA,
+            Datatype.GHAS_FINDING: Datasource.GHAS,
         }[self]
 
 
@@ -68,6 +70,7 @@ class Datasource(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    GHAS = 'ghas'
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
@@ -101,6 +104,9 @@ class Datasource(enum.StrEnum):
             ),
             Datasource.SAST: (
                 Datatype.SAST_FINDING,
+            ),
+            Datasource.GHAS: (
+                Datatype.GHAS_FINDING,
             ),
         }.get(self, tuple())
 
@@ -545,6 +551,33 @@ class RescoreOsIdFinding:
 
 
 @dataclasses.dataclass
+class GitHubSecretFinding(Finding):
+    html_url: str
+    secret: str
+    secret_type: str
+    secret_type_display_name: str
+    resolution: str | None
+    path: str
+    line: int
+    location_type: str
+    url: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.html_url)
+
+
+@dataclasses.dataclass
+class RescoreGitHubSecretFinding:
+    html_url: str
+    resolution: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.html_url)
+
+
+@dataclasses.dataclass
 class DikiCheck:
     message: str
     targets: list[dict] | dict
@@ -982,6 +1015,7 @@ FindingModels = (
     | OsIdFinding
     | SastFinding
     | VulnerabilityFinding
+    | GitHubSecretFinding
 )
 InformationalModels = (
     StructureInfo
@@ -1013,6 +1047,23 @@ class ArtefactMetadata:
     '''
     artefact: ComponentArtefactId
     meta: Metadata
+    data: (
+        StructureInfo
+        | LicenseFinding
+        | VulnerabilityFinding
+        | ClamAVMalwareFinding
+        | SastFinding
+        | DikiFinding
+        | OsIdFinding
+        | CustomRescoring
+        | ComplianceSnapshot
+        | CryptoAsset
+        | CryptoFinding
+        | FalcoFinding
+        | InventoryFinding
+        | ResponsibleInfo
+        | dict # fallback, there should be a type
+    )
     data: FindingModels | InformationalModels | MetaModels
     discovery_date: datetime.date | None = None # required for finding specific SLA tracking
     allowed_processing_time: str | None = None

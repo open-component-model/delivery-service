@@ -71,3 +71,6 @@ responsibles:
 
 sast:
   enabled: False
+
+ghas:
+  enabled: False

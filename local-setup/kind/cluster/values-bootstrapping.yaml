@@ -50,6 +50,8 @@ extensions_cfg:
     enabled: True
   sast:
     enabled: True
+  ghas:
+    enabled: False
   issue_replicator:
     enabled: False # disable in default because of missing `github_repository`
     mappings:
@@ -174,6 +176,50 @@ findings:
             - not-compliant
     issues:
       enable_assignees: False
+  - type: finding/ghas
+    categorisations:
+      - id: false-positive
+        display_name: False Positive
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+        selector:
+          resolutions:
+            - false_positive
+      - id: revoked
+        display_name: Revoked
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+        selector:
+          resolutions:
+            - revoked
+      - id: wont fix
+        display_name: Won't Fix
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+        selector:
+          resolutions:
+            - wont_fix
+      - id: used-in-tests
+        display_name: Used In Tests
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+        selector:
+          resolutions:
+            - used_in_tests
+      - id: MEDIUM
+        display_name: MEDIUM
+        value: 2
+        allowed_processing_time: 90
+        rescoring: manual
+        selector:
+          resolutions:
+            - null
+    issues:
+      enable_assignees: False
   - type: finding/osid
     categorisations:
       - id: empty-os-id
@@ -294,6 +340,7 @@ profiles:
       - finding/malware
       - finding/sast
       - finding/crypto
+      - finding/ghas
       - finding/osid
     special_component_ids:
       - f7e84fdb-69fe-4837-b1c2-58cf4e58e5c7
