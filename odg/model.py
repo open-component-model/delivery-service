@@ -560,6 +560,7 @@ class GitHubSecretFinding(Finding):
     path: str
     line: int
     location_type: str
+    url: str
 
     @property
     def key(self) -> str:
@@ -1014,6 +1015,7 @@ FindingModels = (
     | OsIdFinding
     | SastFinding
     | VulnerabilityFinding
+    | GitHubSecretFinding
 )
 InformationalModels = (
     StructureInfo
@@ -1059,7 +1061,6 @@ class ArtefactMetadata:
         | CryptoFinding
         | FalcoFinding
         | InventoryFinding
-        | GitHubSecretFinding
         | ResponsibleInfo
         | dict # fallback, there should be a type
     )

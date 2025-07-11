@@ -5,8 +5,8 @@ import dataclasses
 import datetime
 import enum
 import logging
-import os
 import requests
+import dacite
 
 import ci.log
 import cnudie.retrieve
@@ -26,8 +26,6 @@ logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
 
-own_dir = os.path.abspath(os.path.dirname(__file__))
-default_cache_dir = os.path.join(own_dir, '.cache')
 
 
 class GitHubSecretLocationType(enum.StrEnum):
@@ -60,23 +58,13 @@ class SecretLocation:
 
 @dataclasses.dataclass
 class SecretAlert:
-    html_url: str
-    secret_type: str
-    secret: str
-    secret_type_display_name: str
-    resolution: str
-    locations_url: str
-
-    @staticmethod
-    def from_dict(alert: dict) -> 'SecretAlert':
-        return SecretAlert(
-            html_url=alert.get('html_url', ''),
-            secret_type=alert.get('secret_type', ''),
-            secret=alert.get('secret', ''),
-            secret_type_display_name=alert.get('secret_type_display_name', ''),
-            resolution=alert.get('resolution', ''),
-            locations_url=alert.get('locations_url'),
-        )
+    html_url: str | None
+    secret_type: str | None
+    secret: str | None
+    secret_type_display_name: str | None
+    resolution: str | None
+    locations_url: str | None
+    url: str | None
 
 
 def github_api_request(
@@ -115,13 +103,14 @@ def github_api_request(
 def get_secret_alerts(
     github_hostname: str,
     org: str,
-) -> list[dict]:
+) -> list[SecretAlert]:
     '''
     Fetch open secret scanning alerts using authenticated GitHub client.
     '''
     url = f'https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts?state=open'
     result = github_api_request(url)
-    return result if isinstance(result, list) else []
+    alerts_raw = result if isinstance(result, list) else []
+    return [dacite.from_dict(SecretAlert, alert) for alert in alerts_raw]
 
 
 def get_secret_location(
@@ -187,10 +176,9 @@ def create_ghas_findings(
     for github_instance in ghas_config.github_instances:
         for org in github_instance.orgs:
             try:
-                alerts_raw = get_secret_alerts(github_hostname=github_instance.hostname, org=org)
-                alerts = [SecretAlert.from_dict(a) for a in alerts_raw]
+                alerts = get_secret_alerts(github_hostname=github_instance.hostname, org=org)
                 for alert in alerts:
-                    locations = get_secret_location(location_url=alert.locations_url)
+                    location = get_secret_location(location_url=alert.locations_url)
 
                     categorisation = odg.findings.categorise_finding(
                         finding_cfg=ghas_finding_cfg,
@@ -206,9 +194,10 @@ def create_ghas_findings(
                         secret=alert.secret,
                         secret_type_display_name=alert.secret_type_display_name,
                         resolution=alert.resolution,
-                        path=locations.path,
-                        line=locations.line,
-                        location_type=locations.location_type.value,
+                        path=location.path,
+                        line=location.line,
+                        location_type=location.location_type.value,
+                        url=alert.url,
                     )
             except Exception as e:
                 logger.error(f"Error fetching GHAS alerts for org '{org}': {str(e)}")
@@ -275,8 +264,16 @@ def scan(
 
     all_metadata = []
     all_metadata_keys = set()
-    all_existing_metadata = []
+
     now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    all_existing_metadata = [
+        odg.model.ArtefactMetadata.from_dict(raw)
+        for raw in delivery_client.query_metadata(
+            type=odg.model.Datatype.GHAS_FINDING,
+        )
+        if raw['meta']['datasource'] == odg.model.Datasource.GHAS
+    ]
 
     for finding in create_ghas_findings(ghas_config=ghas_config,
                                         ghas_finding_cfg=ghas_finding_cfg):
@@ -305,15 +302,6 @@ def scan(
         all_metadata.extend(metadata)
         all_metadata_keys.update([metadatum.key for metadatum in metadata])
 
-        all_existing_metadata.extend((
-            odg.model.ArtefactMetadata.from_dict(raw)
-            for raw in delivery_client.query_metadata(
-                artefacts=(artefact,),
-                type=odg.model.Datatype.GHAS_FINDING,
-            )
-            if raw['meta']['datasource'] == odg.model.Datasource.GHAS
-        ))
-
     all_stale_metadata = [
         metadatum for metadatum in all_existing_metadata
         if metadatum.key not in all_metadata_keys
@@ -321,8 +309,11 @@ def scan(
 
     for stale_finding in all_stale_metadata:
 
-        html_url = stale_finding.data.html_url
-        resolution = stale_finding.data.resolution
+        html_url = stale_finding.data.get('html_url')
+        api_url = stale_finding.data.get('url')
+
+        stale_alert_data = github_api_request(url=api_url)
+        resolution =  stale_alert_data.get('resolution')
 
         rescore_categorisation = odg.findings.categorise_finding(
             finding_cfg=ghas_finding_cfg,
