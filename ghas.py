@@ -27,7 +27,6 @@ ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
 
 
-
 class GitHubSecretLocationType(enum.StrEnum):
     COMMIT = 'commit'
     WIKI_COMMIT = 'wiki_commit'
