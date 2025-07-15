@@ -6,6 +6,8 @@ import datetime
 import enum
 import logging
 import requests
+import urllib3.util.retry
+import requests.adapters
 import dacite
 
 import ci.log
@@ -39,8 +41,8 @@ class SecretLocation:
     path: str | None = None
     line: int | None = None
 
-    @staticmethod
-    def from_dict(location: dict) -> 'SecretLocation':
+    @classmethod
+    def from_dict(cls, location: dict) -> 'SecretLocation':
         loc_type = location.get('type', 'unknown')
         try:
             location_type = GitHubSecretLocationType(loc_type)
@@ -48,7 +50,7 @@ class SecretLocation:
             location_type = GitHubSecretLocationType.UNKNOWN
 
         details = location.get('details', {})
-        return SecretLocation(
+        return cls(
             location_type=location_type,
             path=details.get('path'),
             line=details.get('start_line'),
@@ -82,9 +84,18 @@ def github_api_request(
     if not token:
         logger.error(f'No GitHub token found for {repo_url}')
         return None
+    # setup session with retry configuration
+    session = requests.Session()
+    retries = urllib3.util.retry.Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=['GET'],
+    )
+    session.mount('https://', requests.adapters.HTTPAdapter(max_retries=retries))
 
     try:
-        response = requests.get(
+        response = session.get(
             url,
             headers={
                 'Authorization': f'token {token}',
@@ -109,7 +120,10 @@ def get_secret_alerts(
     url = f'https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts?state=open'
     result = github_api_request(url)
     alerts_raw = result if isinstance(result, list) else []
-    return [dacite.from_dict(SecretAlert, alert) for alert in alerts_raw]
+    return (
+        dacite.from_dict(SecretAlert, alert)
+        for alert in alerts_raw
+    )
 
 
 def get_secret_location(
@@ -274,8 +288,10 @@ def scan(
         if raw['meta']['datasource'] == odg.model.Datasource.GHAS
     ]
 
-    for finding in create_ghas_findings(ghas_config=ghas_config,
-                                        ghas_finding_cfg=ghas_finding_cfg):
+    for finding in create_ghas_findings(
+        ghas_config=ghas_config,
+        ghas_finding_cfg=ghas_finding_cfg
+        ):
         artefact = build_artefact_from_finding(
             finding=finding,
             component_descriptor_lookup=component_descriptor_lookup,

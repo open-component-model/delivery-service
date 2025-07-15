@@ -1,3 +1,5 @@
+{{- $podName := "ghas" }}
+
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -25,6 +27,8 @@ spec:
             - python3
             - -m
             - ghas
+            securityContext:
+              allowPrivilegeEscalation: false
             env:
             - name: SECRET_FACTORY_PATH
               value: /secrets
@@ -56,3 +60,17 @@ spec:
               configMap:
                 name: extensions-cfg
           restartPolicy: Never
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-from-ghas
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $podName }}
+  policyTypes:
+    - Egress
+  egress:
+    - {}  # Allows all egress traffic to any destination and port
