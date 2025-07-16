@@ -93,6 +93,15 @@ class CryptoFindingSelector:
 
 
 @dataclasses.dataclass
+class GHASFindingSelector:
+    '''
+    :param list[str] resolution:
+        List of regexes to determine matching github secret findings.
+    '''
+    resolution: list[str | None]
+
+
+@dataclasses.dataclass
 class LicenseFindingSelector:
     '''
     :param list[str] license_names:
@@ -172,6 +181,7 @@ class FindingCategorisation:
     rescoring: RescoringModes | list[RescoringModes] | None
     selector: (
         CryptoFindingSelector
+        | GHASFindingSelector
         | LicenseFindingSelector
         | MalwareFindingSelector
         | SASTFindingSelector
@@ -580,6 +590,8 @@ class Finding:
                 self._validate_crypto()
             case odg.model.Datatype.DIKI_FINDING:
                 self._validate_diki()
+            case odg.model.Datatype.GHAS_FINDING:
+                self._validate_ghas()
             case odg.model.Datatype.LICENSE_FINDING:
                 self._validate_license()
             case odg.model.Datatype.MALWARE_FINDING:
@@ -623,6 +635,18 @@ class Finding:
             return
 
         e = ModelValidationError('diki finding model violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
+
+    def _validate_ghas(self):
+        violations = self._validate_categorisations(
+            expected_selector=GHASFindingSelector,
+        )
+
+        if not violations:
+            return
+
+        e = ModelValidationError('ghas finding model violations found:')
         e.add_note('\n'.join(violations))
         raise e
 
@@ -877,6 +901,14 @@ def categorise_finding(
         if isinstance(selector, CryptoFindingSelector):
             for rating in selector.ratings:
                 if re.fullmatch(rating, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, GHASFindingSelector):
+            for resolution in selector.resolutions:
+                if resolution is None or finding_property is None:
+                    if resolution == finding_property:
+                        return categorisation
+                elif re.fullmatch(resolution, finding_property, re.IGNORECASE):
                     return categorisation
 
         elif isinstance(selector, LicenseFindingSelector):

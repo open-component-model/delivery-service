@@ -32,6 +32,7 @@ class Services(enum.StrEnum):
     CLAMAV = 'clamav'
     CRYPTO = 'crypto'
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
+    GHAS = 'ghas'
     ISSUE_REPLICATOR = 'issueReplicator'
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
@@ -594,6 +595,40 @@ class DeliveryDBBackup(ExtensionCfgMixins):
 
 
 @dataclasses.dataclass
+class GitHubInstance:
+    hostname: str
+    orgs: list[str]
+
+
+@dataclasses.dataclass(kw_only=True)
+class GHASConfig(ExtensionCfgMixins):
+    service: Services = Services.GHAS
+    delivery_service_url: str
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+    github_instances: list[GitHubInstance] = dataclasses.field(default_factory=list)
+    schedule: str = '0 0 * * *' # every day at 12:00 AM
+    successful_jobs_history_limit: int = 1
+    failed_jobs_history_limit: int = 1
+
+    def is_supported(
+        self,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.SOURCE,
+        )
+
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for GHAS scans, {supported_artefact_kinds=}'
+                )
+            return False
+
+        return True
+
+
+@dataclasses.dataclass
 class IssueReplicatorMapping(Mapping):
     '''
     :param str github_repository
@@ -815,6 +850,7 @@ class ExtensionsConfiguration:
     clamav: ClamAVConfig | None
     crypto: CryptoConfig | None
     delivery_db_backup: DeliveryDBBackup | None
+    ghas: GHASConfig | None
     issue_replicator: IssueReplicatorConfig | None
     osid: OsId | None
     responsibles: ResponsiblesConfig | None

@@ -26,6 +26,9 @@ dependencies:
   - name: delivery-db-backup
     repository: file://charts/delivery-db-backup
     condition: delivery-db-backup.enabled
+  - name: ghas
+    repository: file://charts/ghas
+    condition: ghas.enabled
   - name: issue-replicator
     repository: file://charts/issue-replicator
     condition: issue-replicator.enabled

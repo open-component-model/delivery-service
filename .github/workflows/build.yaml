@@ -450,6 +450,10 @@ jobs:
                 attribute: responsibles.image.repository
               - ref: ocm-resource:extensions.tag
                 attribute: responsibles.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: ghas.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: ghas.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             mappings: []

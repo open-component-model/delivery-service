@@ -129,3 +129,9 @@ configuration (if desired) via `extensions_cfg.sast`.
 
 To set up the responsibles extension, you have to set the `responsibles.enabled` flag
 and add configuration (if desired) via `extensions_cfg.responsibles`.
+
+### GHAS
+> Requires: -
+
+To set up the GitHub Advanced Security secret scanner, you need to set the `ghas.enabled` flag and add
+configuration (if desired) via `extensions_cfg.ghas`.

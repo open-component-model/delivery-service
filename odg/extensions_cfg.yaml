@@ -51,6 +51,9 @@ delivery_db_backup:
   component_name: my-component # <str> must be set
   ocm_repo_url: my-ocm-repo # <str> must be set
 
+ghas:
+  enabled: False
+
 issue_replicator:
   enabled: False
   mappings:
