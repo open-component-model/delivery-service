@@ -98,7 +98,7 @@ class GHASFindingSelector:
     :param list[str] resolution:
         List of regexes to determine matching github secret findings.
     '''
-    resolution: list[str | None]
+    resolutions: list[str | None]
 
 
 @dataclasses.dataclass
