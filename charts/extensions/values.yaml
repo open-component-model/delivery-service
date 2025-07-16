@@ -20,6 +20,13 @@ bdba:
     tag: null
   deployment:
     annotations: []
+blackduck:
+  enabled: false
+  image:
+    repository: null
+    tag: null
+  deployment:
+    annotations: []
 cache-manager:
   enabled: false
   image:

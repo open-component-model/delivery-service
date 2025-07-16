@@ -39,11 +39,13 @@ def modules():
 
 def packages():
     return [
+        'bdba_utils',
+        'blackduck',
         'deliverydb_cache',
         'k8s',
         'odg',
-        'secret_mgmt',
         'osinfo',
+        'secret_mgmt',
     ]
 
 

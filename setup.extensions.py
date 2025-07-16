@@ -33,6 +33,7 @@ def modules():
 def packages():
     return [
         'bdba_extension',
+        'blackduck_extension',
         'crypto_extension',
         'issue_replicator',
         'malware',
