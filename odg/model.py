@@ -30,6 +30,7 @@ class Datatype(enum.StrEnum):
     CRYPTO_FINDING = 'finding/crypto'
     DIKI_FINDING = 'finding/diki'
     FALCO_FINDING = 'finding/falco'
+    GHAS_FINDING = 'finding/ghas'
     INVENTORY_FINDING = 'finding/inventory'
     LICENSE_FINDING = 'finding/license'
     MALWARE_FINDING = 'finding/malware'
@@ -47,6 +48,7 @@ class Datatype(enum.StrEnum):
             Datatype.CRYPTO_FINDING: Datasource.CRYPTO,
             Datatype.DIKI_FINDING: Datasource.DIKI,
             Datatype.FALCO_FINDING: Datasource.FALCO,
+            Datatype.GHAS_FINDING: Datasource.GHAS,
             Datatype.INVENTORY_FINDING: Datasource.INVENTORY,
             Datatype.LICENSE_FINDING: Datasource.BDBA,
             Datatype.MALWARE_FINDING: Datasource.CLAMAV,
@@ -64,6 +66,7 @@ class Datasource(enum.StrEnum):
     DELIVERY_DASHBOARD = 'delivery-dashboard'
     DIKI = 'diki'
     FALCO = 'falco'
+    GHAS = 'ghas'
     INVENTORY = 'inventory'
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
@@ -88,6 +91,9 @@ class Datasource(enum.StrEnum):
             ),
             Datasource.FALCO: (
                 Datatype.FALCO_FINDING,
+            ),
+            Datasource.GHAS: (
+                Datatype.GHAS_FINDING,
             ),
             Datasource.INVENTORY: (
                 Datatype.INVENTORY_FINDING,
@@ -545,6 +551,33 @@ class RescoreOsIdFinding:
 
 
 @dataclasses.dataclass
+class GitHubSecretFinding(Finding):
+    html_url: str
+    secret: str
+    secret_type: str
+    secret_type_display_name: str
+    resolution: str | None
+    path: str
+    line: int
+    location_type: str
+    url: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.html_url)
+
+
+@dataclasses.dataclass
+class RescoreGitHubSecretFinding:
+    html_url: str
+    resolution: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.html_url)
+
+
+@dataclasses.dataclass
 class DikiCheck:
     message: str
     targets: list[dict] | dict
@@ -766,6 +799,7 @@ class CustomRescoring:
         | RescoringCryptoFinding
         | RescoreOsIdFinding
         | RescoringFalcoFinding
+        | RescoreGitHubSecretFinding
     )
     referenced_type: str
     severity: str
@@ -977,6 +1011,7 @@ FindingModels = (
     | CryptoFinding
     | DikiFinding
     | FalcoFinding
+    | GitHubSecretFinding
     | InventoryFinding
     | LicenseFinding
     | OsIdFinding

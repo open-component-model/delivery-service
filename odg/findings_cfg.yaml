@@ -237,3 +237,52 @@
       selector:
         status:
           - branchReachedEol
+- type: finding/ghas
+  filter:
+    - semantics: include
+      artefact_kind: source
+  issues:
+    title_template: '[{meta.type}] - {artefact.component_name}:{artefact.artefact.artefact_name} - {data.key}'
+    enable_assignees: False
+    enable_per_finding: True
+  categorisations:
+    - id: false-positive
+      display_name: False Positive
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+      selector:
+        resolutions:
+          - false_positive
+    - id: revoked
+      display_name: Revoked
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+      selector:
+        resolutions:
+          - revoked
+    - id: wont-fix
+      display_name: Won't Fix
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+      selector:
+        resolutions:
+          - wont_fix
+    - id: used-in-tests
+      display_name: Used In Tests
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+      selector:
+        resolutions:
+          - used_in_tests
+    - id: MEDIUM
+      display_name: MEDIUM
+      value: 2
+      allowed_processing_time: 90
+      rescoring: manual
+      selector:
+        resolutions:
+          - null

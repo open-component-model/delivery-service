@@ -171,6 +171,7 @@ definitions:
       - delivery-dashboard
       - diki
       - falco
+      - ghas
       - inventory
       - osid
       - responsibles
@@ -186,6 +187,7 @@ definitions:
       - finding/crypto
       - finding/diki
       - finding/falco
+      - finding/ghas
       - finding/inventory
       - finding/license
       - finding/malware

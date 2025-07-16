@@ -780,6 +780,55 @@ def _osid_template_vars(
     }
 
 
+def _ghas_template_vars(
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    summary: str,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str,
+    sprint_name: str | None=None,
+) -> dict[str, str]:
+    summary += '# Summary of found secret scanning alert'
+
+    def iter_findings(
+        aggregated_findings: tuple[AggregatedFinding],
+    ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
+        for af in aggregated_findings:
+            ghas_finding: odg.model.GitHubSecretFinding = af.finding.data
+            secret = ghas_finding.secret
+            secret_type = ghas_finding.secret_type
+            path = ghas_finding.path
+            line = ghas_finding.line
+            display_name = ghas_finding.secret_type_display_name
+
+            yield secret, secret_type, path, line, display_name
+
+    for finding_group in finding_groups:
+        summary += '\n' + finding_group.summary(
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
+            finding_cfg=finding_cfg,
+            sprint_name=sprint_name,
+        )
+
+        summary += (
+            '\n| Secret Type | Secret | Path | Line | Display Name |'
+            '\n| --- | --- | --- | --- | --- |'
+        )
+        for secret_type, secret, path, line, display_name in iter_findings(
+            aggregated_findings=finding_group.findings
+        ):
+            summary += (
+                f'\n| {secret_type} | {secret} | {path} | {line} | {display_name} |'
+            )
+
+        summary += '\n---'
+
+    return {
+        'summary': summary,
+    }
+
+
 def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -> dict[str, str]:
     findings: list[AggregatedFinding] = []
     for finding_group in finding_groups:
@@ -1193,6 +1242,15 @@ def _template_vars(
         template_variables |= _falco_template_vars(
             finding_groups=finding_groups,
             summary=summary,
+        )
+    elif finding_cfg.type is odg.model.Datatype.GHAS_FINDING:
+        template_variables |= _ghas_template_vars(
+            finding_cfg=finding_cfg,
+            finding_groups=finding_groups,
+            summary=summary,
+            component_descriptor_lookup=component_descriptor_lookup,
+            delivery_dashboard_url=delivery_dashboard_url,
+            sprint_name=sprint_name,
         )
     else:
         template_variables |= {

@@ -14,6 +14,8 @@ crypto:
   enabled: False
 delivery-db-backup:
   enabled: False
+ghas:
+  enabled: False
 issue-replicator:
   enabled: False
 osid:
