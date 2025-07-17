@@ -1535,7 +1535,7 @@ def _create_or_update_or_close_issue_per_finding(
         ):
             created_issues.add(created_issue)
 
-    for issue in set(issues) | created_issues:
+    for issue in set(issues):
         if issue not in processed_issues and issue.state == 'open':
             close_issue_if_present(
                 mapping=mapping,
