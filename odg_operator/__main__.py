@@ -30,6 +30,9 @@ import lookups
 import ocm_util
 import odg_operator.odg_model as odgm
 import odg_operator.odg_util as odgu
+import odg.extensions_cfg
+import odg.util
+import paths
 import util
 
 
@@ -483,6 +486,7 @@ def set_odg_state(
 
 def reconcile(
     extension_definitions: list[odgm.ExtensionDefinition],
+    required_extensions: list[str],
     component_descriptor_lookup,
     kubernetes_api: k8s.util.KubernetesApi,
     oci_client: oci.client.Client,
@@ -627,12 +631,23 @@ def reconcile(
                         for extension_name in odg.extensions
                     ]
 
+                    requested_extension_definitions.extend([
+                        find_extension_definition(
+                            extension_definitions=extension_definitions,
+                            extension_name=extension_name,
+                        )
+                        for extension_name in required_extensions
+                    ])
+
                     requested_extension_definitions.extend(list(
                         iter_missing_dependencies(
                             requested=requested_extension_definitions,
                             known=extension_definitions,
                         )
                     ))
+
+                    # make sure there are no duplicates
+                    requested_extension_definitions = set(requested_extension_definitions)
 
                     status_for_extension, has_error = create_or_update_odg(
                         odg=odg,
@@ -779,12 +794,30 @@ if __name__ == '__main__':
         action='store_true',
         help='resolve odg-extension-definitions also from component references, recursively.',
     )
+    argument = odg.util.Arguments.EXTENSIONS_CFG_PATH
+    parser.add_argument(
+        argument.pop('name'),
+        **argument,
+    )
     parsed = parser.parse_args()
+
     if parsed.debug:
         ci.log.configure_default_logging(
             stdout_level=logging.DEBUG,
             force=True,
         )
+
+    if not (extensions_cfg_path := parsed.extensions_cfg_path):
+        extensions_cfg_path = paths.extensions_cfg_path()
+
+    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    odg_operator_cfg: odg.extensions_cfg.OdgOperatorConfig = extensions_cfg.odg_operator
+
+    if not odg_operator_cfg:
+        logger.warning('Did not find odg-operator cfg in extension-cfg, exiting...')
+        exit(1)
+
+    logger.info(f'{odg_operator_cfg.required_extension_names=}')
 
     secret_factory = ctx_util.secret_factory()
     oci_client = lookups.semver_sanitising_oci_client(secret_factory)
@@ -810,7 +843,7 @@ if __name__ == '__main__':
             ])
 
     recursion_depth = -1 if parsed.recursive else 0
-    resource_nodes = set()
+    resource_nodes = []
 
     for extension in parsed.extensions:
         extension: str
@@ -827,7 +860,7 @@ if __name__ == '__main__':
                 resource_node.resource.type == ODG_EXTENSION_ARTEFACT_TYPE
                 and resource_node.resource.name == artefact_name
             ):
-                resource_nodes.add(resource_node)
+                resource_nodes.append(resource_node)
 
     for resource_node in resource_nodes:
         extension_definitions.extend(_iter_extension_definitions_from_resource_node(
@@ -841,6 +874,7 @@ if __name__ == '__main__':
     while True:
         reconcile(
             extension_definitions=extension_definitions,
+            required_extensions=odg_operator_cfg.required_extension_names,
             component_descriptor_lookup=component_descriptor_lookup,
             oci_client=oci_client,
             kubernetes_api=kubernetes_api,
