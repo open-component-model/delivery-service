@@ -37,6 +37,7 @@ class Services(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    ODG_OPERATOR = 'odg-operator'
 
 
 class VersionAliases(enum.StrEnum):
@@ -628,6 +629,12 @@ class GHASConfig(ExtensionCfgMixins):
         return True
 
 
+@dataclasses.dataclass(kw_only=True)
+class OdgOperatorConfig(ExtensionCfgMixins):
+    service: Services = Services.ODG_OPERATOR
+    required_extension_names: list[str]
+
+
 @dataclasses.dataclass
 class IssueReplicatorMapping(Mapping):
     '''
@@ -852,6 +859,7 @@ class ExtensionsConfiguration:
     delivery_db_backup: DeliveryDBBackup | None
     ghas: GHASConfig | None
     issue_replicator: IssueReplicatorConfig | None
+    odg_operator: OdgOperatorConfig | None
     osid: OsId | None
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
