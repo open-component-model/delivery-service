@@ -211,7 +211,10 @@ class ResourceGroupProcessor:
             f'scan of {scan_result.display_name} succeeded, going to post-process results'
         )
 
-        if version_hints := _package_version_hints(resource=resource_node.resource):
+        if version_hints := _package_version_hints(
+            component=resource_node.component,
+            resource=resource_node.resource,
+        ):
             logger.info(f'uploading package-version-hints for {scan_result.display_name}')
             scan_result = bdba_extension.assessments.upload_version_hints(
                 scan_result=scan_result,
@@ -249,12 +252,16 @@ class ResourceGroupProcessor:
 
 
 def _package_version_hints(
+    component: ocm.Component,
     resource: ocm.Resource,
 ) -> list[odg.labels.PackageVersionHint] | None:
     package_hints_label = resource.find_label(name=odg.labels.PackageVersionHintLabel.name)
 
     if not package_hints_label:
-        return None
+        package_hints_label = component.find_label(name=odg.labels.PackageVersionHintLabel.name)
+
+        if not package_hints_label:
+            return None
 
     return [
         odg.labels.PackageVersionHint(
