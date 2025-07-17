@@ -805,7 +805,7 @@ def _ghas_template_vars(
             line = ghas_finding.line
             display_name = ghas_finding.secret_type_display_name
 
-            yield secret, secret_type, path, line, display_name
+            yield secret_type, secret, path, line, display_name
 
     for finding_group in finding_groups:
         summary += '\n' + finding_group.summary(
