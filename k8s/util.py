@@ -183,14 +183,23 @@ def scale_replicas(
 def get_ocm_node(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     artefact: odg.model.ComponentArtefactId,
+    absent_ok: bool=False,
 ) -> cnudie.iter.ResourceNode | cnudie.iter.SourceNode | None:
     if not odg.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
-    component: ocm.Component = component_descriptor_lookup(ocm.ComponentIdentity(
-        name=artefact.component_name,
-        version=artefact.component_version,
-    )).component
+    component_descriptor: ocm.ComponentDescriptor = component_descriptor_lookup(
+        ocm.ComponentIdentity(
+            name=artefact.component_name,
+            version=artefact.component_version,
+        ),
+        absent_ok=absent_ok,
+    )
+
+    if not component_descriptor:
+        return None
+
+    component = component_descriptor.component
 
     if artefact.artefact_kind is odg.model.ArtefactKind.RESOURCE:
         artefacts = component.resources
@@ -226,6 +235,9 @@ def get_ocm_node(
         else:
             raise RuntimeError('this line should never be reached')
     else:
+        if absent_ok:
+            return None
+
         logger.error(f'could not find OCM node for {artefact=}')
         raise ValueError(artefact)
 
