@@ -772,6 +772,11 @@ if __name__ == '__main__':
         help='can be specified multiple times, \
             expected format: <component-name>:<component-version>:<artefact-name>'
     )
+    parser.add_argument(
+        '--recursive',
+        action='store_true',
+        help='resolve odg-extension-definitions also from component references, recursively.',
+    )
     parsed = parser.parse_args()
     if parsed.debug:
         ci.log.configure_default_logging(
@@ -802,6 +807,9 @@ if __name__ == '__main__':
                 for extension_raw in extensions_raw
             ])
 
+    recursion_depth = -1 if parsed.recursive else 0
+    resource_nodes = set()
+
     for extension in parsed.extensions:
         extension: str
 
@@ -809,23 +817,22 @@ if __name__ == '__main__':
         component = component_descriptor_lookup(component_id).component
         for resource_node in cnudie.iter.iter(
             component=component,
-            recursion_depth=0,
+            recursion_depth=recursion_depth,
             node_filter=cnudie.iter.Filter.resources,
+            lookup=component_descriptor_lookup,
         ):
             if (
                 resource_node.resource.type == ODG_EXTENSION_ARTEFACT_TYPE
                 and resource_node.resource.name == artefact_name
             ):
-                break
-        else:
-            raise ValueError(f'no odg-extension found in {component_id} with {artefact_name=}')
+                resource_nodes.add(resource_node)
 
+    for resource_node in resource_nodes:
         extension_definitions.extend(_iter_extension_definitions_from_resource_node(
             resource_node=resource_node,
         ))
 
     logger.info(f'known extension definitions: {[e.name for e in extension_definitions]}')
-
     kubernetes_api = k8s.util.kubernetes_api(kubeconfig_path=parsed.kubeconfig)
 
     while True:
