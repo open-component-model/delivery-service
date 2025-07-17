@@ -484,6 +484,7 @@ def set_odg_state(
 def reconcile(
     extension_definitions: list[odgm.ExtensionDefinition],
     component_descriptor_lookup,
+    kubernetes_api: k8s.util.KubernetesApi,
     oci_client: oci.client.Client,
     group: str= odgm.ODGMeta.group,
     plural: str = odgm.ODGMeta.plural,
@@ -718,6 +719,7 @@ def reconcile(
 
 def _iter_extension_definitions_from_resource_node(
     resource_node: cnudie.iter.ResourceNode,
+    oci_client: oci.client.Client,
 ) -> collections.abc.Generator[odgm.ExtensionDefinition, None, None]:
     odg_extension_tar_stream = oci_client.blob(
         image_reference=resource_node.component.current_ocm_repo.component_version_oci_ref(
@@ -830,6 +832,7 @@ if __name__ == '__main__':
     for resource_node in resource_nodes:
         extension_definitions.extend(_iter_extension_definitions_from_resource_node(
             resource_node=resource_node,
+            oci_client=oci_client,
         ))
 
     logger.info(f'known extension definitions: {[e.name for e in extension_definitions]}')
@@ -840,4 +843,5 @@ if __name__ == '__main__':
             extension_definitions=extension_definitions,
             component_descriptor_lookup=component_descriptor_lookup,
             oci_client=oci_client,
+            kubernetes_api=kubernetes_api,
         )
