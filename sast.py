@@ -154,7 +154,13 @@ def iter_artefact_metadata(
     source_node = k8s.util.get_ocm_node(
         component_descriptor_lookup=component_descriptor_lookup,
         artefact=artefact,
+        absent_ok=True,
     )
+
+    if not source_node:
+        logger.info(f'did not find source node for {artefact=}, skipping...')
+        return
+
     if len(source_node.component.sources) == 1:
         resources = source_node.component.resources
     else:

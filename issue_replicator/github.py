@@ -77,6 +77,7 @@ class FindingGroup:
         ocm_node = k8s.util.get_ocm_node(
             component_descriptor_lookup=component_descriptor_lookup,
             artefact=self.artefact,
+            absent_ok=True,
         )
 
         artefact_non_group_properties = finding_cfg.issues.strip_artefact(
@@ -194,8 +195,11 @@ def _artefact_to_str(
 
 
 def _artefact_url(
-    ocm_node: cnudie.iter.ArtefactNode,
+    ocm_node: cnudie.iter.ArtefactNode | None,
 ) -> str:
+    if not ocm_node:
+        return ''
+
     artefact_url = ocm.util.artifact_url(
         component=ocm_node.component,
         artifact=ocm_node.artefact,
