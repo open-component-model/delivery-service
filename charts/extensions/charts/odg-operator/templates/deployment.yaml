@@ -52,6 +52,8 @@ spec:
             value: /ocm_repo_mappings/ocm_repo_mappings
           - name: SECRET_FACTORY_PATH
             value: /secrets
+          - name: EXTENSIONS_CFG_PATH
+            value: /extensions_cfg/extensions_cfg
           {{- if default dict .Values.envVars }}
           {{- range $key, $value := .Values.envVars }}
           - name: {{ $key }}
@@ -63,6 +65,8 @@ spec:
               mountPath: /ocm_repo_mappings
             - name: oci-registry
               mountPath: /secrets/oci-registry
+            - name: extensions-cfg
+              mountPath: /extensions_cfg
           {{- if .Values.extensionDefinitions }}
             - name: extension-definitions
               mountPath: /extension-definitions/
@@ -81,6 +85,9 @@ spec:
         - name: oci-registry
           secret:
             secretName: secret-factory-oci-registry
+        - name: extensions-cfg
+          configMap:
+            name: extensions-cfg
       {{- if .Values.extensionDefinitions }}
         - name: extension-definitions
           configMap:
