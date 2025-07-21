@@ -845,10 +845,16 @@ if __name__ == '__main__':
     recursion_depth = -1 if parsed.recursive else 0
     resource_nodes = []
 
-    for extension in parsed.extensions:
-        extension: str
+    for extension_ref in [
+        odg.extensions_cfg.ExtensionDefinitionOcmReference(
+            component_name=extension[0],
+            component_version=extension[1],
+            artefact_name=extension[2],
+        )
+        for extension in [e.split(':') for e in parsed.extensions]
+    ] + odg_operator_cfg.extension_ocm_references:
 
-        component_id, artefact_name = extension.rsplit(':', 1)
+        component_id = f'{extension_ref.component_name}:{extension_ref.component_version}'
         component = component_descriptor_lookup(component_id).component
         for resource_node in cnudie.iter.iter(
             component=component,
@@ -858,7 +864,7 @@ if __name__ == '__main__':
         ):
             if (
                 resource_node.resource.type == ODG_EXTENSION_ARTEFACT_TYPE
-                and resource_node.resource.name == artefact_name
+                and resource_node.resource.name == extension_ref.artefact_name
             ):
                 resource_nodes.append(resource_node)
 
