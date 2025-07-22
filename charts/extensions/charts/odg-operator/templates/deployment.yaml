@@ -37,6 +37,7 @@ spec:
             - python3
             - -m
             - odg_operator
+            - --recursive
           {{- if .Values.extensionDefinitions }}
             - --extension-definition-file
             - /extension-definitions/extension_definitions.yaml
