@@ -23,7 +23,7 @@ installation:
       value_type: python-string-template
     - helm_chart_name: delivery-service
       # prevents resource-manager from rolling back scaling changes
-      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      helm_attribute: deployment.annotations."resources.gardener.cloud/preserve-replicas"
       value: '"true"'
       value_type: literal
     - helm_chart_name: delivery-service
@@ -235,7 +235,7 @@ installation:
       value_type: literal
     - helm_chart_name: extensions
       # prevents resource-manager from rolling back scaling changes
-      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      helm_attribute: bdba.deployment.annotations."resources.gardener.cloud/preserve-replicas"
       value: '"true"'
       value_type: literal
 outputs: []
@@ -267,7 +267,7 @@ installation:
       value_type: literal
     - helm_chart_name: extensions
       # prevents resource-manager from rolling back scaling changes
-      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      helm_attribute: crypto.deployment.annotations."resources.gardener.cloud/preserve-replicas"
       value: '"true"'
       value_type: literal
 outputs: []
@@ -299,7 +299,7 @@ installation:
       value_type: literal
     - helm_chart_name: extensions
       # prevents resource-manager from rolling back scaling changes
-      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      helm_attribute: issue-replicator.deployment.annotations."resources.gardener.cloud/preserve-replicas"
       value: '"true"'
       value_type: literal
 outputs: []
@@ -330,7 +330,7 @@ installation:
       value_type: literal
     - helm_chart_name: extensions
       # prevents resource-manager from rolling back scaling changes
-      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      helm_attribute: osid.deployment.annotations."resources.gardener.cloud/preserve-replicas"
       value: '"true"'
       value_type: literal
 outputs: []
@@ -362,7 +362,7 @@ installation:
       value_type: literal
     - helm_chart_name: extensions
       # prevents resource-manager from rolling back scaling changes
-      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      helm_attribute: responsibles.deployment.annotations."resources.gardener.cloud/preserve-replicas"
       value: '"true"'
       value_type: literal
 outputs: []
@@ -394,7 +394,7 @@ installation:
       value_type: literal
     - helm_chart_name: extensions
       # prevents resource-manager from rolling back scaling changes
-      helm_attribute: pod.annotations."resources.gardener.cloud/preserve-replicas"
+      helm_attribute: sast.deployment.annotations."resources.gardener.cloud/preserve-replicas"
       value: '"true"'
       value_type: literal
 outputs: []
