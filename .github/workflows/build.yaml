@@ -422,6 +422,10 @@ jobs:
                 attribute: clamav.image.repository
               - ref: ocm-resource:extension-clamav.tag
                 attribute: clamav.image.tag
+              - ref: ocm-component-resource:ocm.software/ocm-gear/freshclam.freshclam.repository
+                attribute: clamav.freshclam.image.repository
+              - ref: ocm-component-resource:ocm.software/ocm-gear/freshclam.freshclam.tag
+                attribute: clamav.freshclam.image.tag
               - ref: ocm-resource:extensions.repository
                 attribute: issue-replicator.image.repository
               - ref: ocm-resource:extensions.tag
@@ -464,6 +468,7 @@ jobs:
     with:
       name: ${{ matrix.args.name }}
       dir: ${{ matrix.args.dir }}
+      ocm-repository: ${{ needs.prepare.outputs.ocm-releases-repository }}
       oci-registry: ${{ needs.prepare.outputs.oci-registry }}
       oci-repository: charts/odg
       ocm-mappings: ${{ toJSON(matrix.args.mappings) }}
