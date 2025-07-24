@@ -639,7 +639,7 @@ class ExtensionDefinitionOcmReference:
 @dataclasses.dataclass(kw_only=True)
 class OdgOperatorConfig(ExtensionCfgMixins):
     service: Services = Services.ODG_OPERATOR
-    required_extension_names: list[str]
+    required_extension_names: list[str] = dataclasses.field(default_factory=list)
     extension_ocm_references: list[ExtensionDefinitionOcmReference] = dataclasses.field(default_factory=list) # noqa: E501
 
 
