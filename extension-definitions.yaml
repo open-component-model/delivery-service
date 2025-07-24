@@ -401,3 +401,55 @@ outputs: []
 dependencies:
   - delivery-service
   - delivery-db
+---
+name: delivery-db-backup
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: "0.1198.0-dev"
+      artefact:
+        name: extensions
+        version: "0.1198.0-dev"
+      mappings:
+        - name: extensions
+          version: "0.1198.0-dev"
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: delivery-db-backup.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: delivery-db-backup.enabled
+      value: True
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-db
+---
+name: ghas
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: "0.1198.0-dev"
+      artefact:
+        name: extensions
+        version: "0.1198.0-dev"
+      mappings:
+        - name: extensions
+          version: "0.1198.0-dev"
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: ghas.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: ghas.enabled
+      value: True
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-service
