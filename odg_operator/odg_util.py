@@ -6,9 +6,9 @@ import jsonpath_ng
 
 import oci.model
 import ocm
+import ocm.util
 
 import odg_operator.odg_model as odgm
-import ocm_util
 
 
 def resolve_image_mappings(
@@ -43,7 +43,7 @@ def resolve_image_mappings(
         if not resource:
             raise ValueError(f'did not find oci-image w/ {resource_name=} in {component=}')
 
-        resource.access = ocm_util.to_absolute_oci_access(
+        resource.access = ocm.util.to_absolute_oci_access(
             access=resource.access,
             ocm_repo=component.current_ocm_repo,
         )
