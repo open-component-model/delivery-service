@@ -9,7 +9,6 @@ import oci.model
 import ocm
 
 import odg.model
-import util
 
 
 logger = logging.getLogger(__name__)
@@ -116,25 +115,6 @@ async def find_artefact_node_async(
 
     if not absent_ok:
         raise ValueError(f'could not find OCM node for {artefact=}')
-
-
-def to_absolute_oci_access(
-    access: ocm.OciAccess | ocm.RelativeOciAccess,
-    ocm_repo: ocm.OciOcmRepository | None=None,
-) -> ocm.OciAccess:
-    if access.type is ocm.AccessType.OCI_REGISTRY:
-        pass
-
-    elif access.type is ocm.AccessType.RELATIVE_OCI_REFERENCE:
-        base_url = util.urlparse(ocm_repo.baseUrl).netloc
-        access = ocm.OciAccess(
-            imageReference=util.urljoin(base_url, access.reference),
-        )
-
-    else:
-        raise ValueError(f'{access.type=} is not supported for conversion to absolute oci access')
-
-    return access
 
 
 def find_artefact_node(
