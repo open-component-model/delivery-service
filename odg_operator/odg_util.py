@@ -6,14 +6,16 @@ import jsonpath_ng
 
 import oci.model
 import ocm
+import ocm.helm
+import ocm.util
 
 import odg_operator.odg_model as odgm
-import ocm_util
 
 
 def resolve_image_mappings(
     image_mappings: list[dict],
     component: ocm.Component,
+    component_descriptor_lookup: ocm.ComponentDescriptorLookup,
 ) -> collections.abc.Generator[tuple[str, str], None, None]:
     '''
     A generator yielding key, value pairs for all image mappings.
@@ -22,28 +24,18 @@ def resolve_image_mappings(
     The key is taken from the image mapping itself, whereas the value is derived by
     looking up the referenced resource's oci-access in the provided component descriptor.
     '''
-    def find_oci_resource(
-        resource_name: str,
-        resources: collections.abc.Iterable[ocm.Resource],
-    ) -> ocm.Resource | None:
-        for resource in resources:
-            if resource.name != resource_name:
-                continue
-            if not resource.type is ocm.ArtefactType.OCI_IMAGE:
-                continue
-            return resource
-
     for image_mapping in image_mappings:
         resource_name = image_mapping['resource']['name']
-        resource = find_oci_resource(
-            resource_name=resource_name,
-            resources=component.resources,
+        component_ref_name = image_mapping.get('component', {}).get('name')
+
+        resource = ocm.helm.find_resource(
+            component=component,
+            component_ref_name=component_ref_name,
+            name=resource_name,
+            component_descriptor_lookup=component_descriptor_lookup,
         )
 
-        if not resource:
-            raise ValueError(f'did not find oci-image w/ {resource_name=} in {component=}')
-
-        resource.access = ocm_util.to_absolute_oci_access(
+        resource.access = ocm.util.to_absolute_oci_access(
             access=resource.access,
             ocm_repo=component.current_ocm_repo,
         )
