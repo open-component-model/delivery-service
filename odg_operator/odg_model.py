@@ -35,7 +35,7 @@ class ManagedResourceMeta:
 class ODGMeta:
     group: str = 'open-delivery-gear.ocm.software'
     version: str = 'v1'
-    plural: str = 'odgs'
+    plural: str = 'opendeliverygears'
     kind: str = 'ODG'
 
     @staticmethod
