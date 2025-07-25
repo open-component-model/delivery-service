@@ -6,8 +6,8 @@ rules:
   - apiGroups:
     - 'open-delivery-gear.ocm.software'
     resources:
-    - 'odgs'
-    - 'odgs/status'
+    - 'opendeliverygears'
+    - 'opendeliverygears/status'
     verbs:
     - 'watch'
     - 'patch'
