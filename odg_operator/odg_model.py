@@ -203,6 +203,7 @@ class ExtensionInstance:
                 image_mappings = dict(odgu.resolve_image_mappings(
                     image_mappings=image_mappings,
                     component=component,
+                    component_descriptor_lookup=component_descriptor_lookup,
                 ))
 
                 for path, value in image_mappings.items():
