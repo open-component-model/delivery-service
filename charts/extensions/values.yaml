@@ -58,6 +58,8 @@ issue-replicator:
   image:
     repository: null
     tag: null
+  deployment:
+    annotations: []
 sast:
   enabled: false
   image:
