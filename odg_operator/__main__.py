@@ -71,7 +71,7 @@ def find_extension_definition(
     if absent_ok:
         return None
 
-    raise ValueError(f'unknown extension-definition for {extension_name=}')
+    raise ValueError(f'unknown {extension_name=}; known: {extension_definitions}')
 
 
 def iter_missing_dependencies(
