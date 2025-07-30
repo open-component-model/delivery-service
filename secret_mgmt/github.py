@@ -84,17 +84,12 @@ def find_cfg(
 
 def github_api(
     secret_factory: secret_mgmt.SecretFactory,
-    github_cfg: GitHub | None=None,
-    repo_url: str=None,
+    repo_url: str,
 ) -> github3.github.GitHub:
-    if not (bool(github_cfg) ^ bool(repo_url)):
-        raise ValueError('exactly one of `github_cfg` or `repo_url` must be passed')
-
-    if repo_url:
-        github_cfg = find_cfg(
-            secret_factory=secret_factory,
-            repo_url=repo_url,
-        )
+    github_cfg = find_cfg(
+        secret_factory=secret_factory,
+        repo_url=repo_url,
+    )
 
     session = http_requests.mount_default_adapter(
         session=github3.session.GitHubSession(),
