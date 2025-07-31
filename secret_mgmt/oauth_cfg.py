@@ -10,6 +10,7 @@ class OAuthCfgTypes(enum.StrEnum):
 
 
 class SubjectType(enum.StrEnum):
+    GITHUB_APP = 'github-app'
     GITHUB_USER = 'github-user'
     GITHUB_ORG = 'github-org'
     GITHUB_TEAM = 'github-team'
