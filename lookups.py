@@ -416,16 +416,11 @@ def github_api_lookup(
         raises ValueError if no configuration (credentials) is found for the given repository url
         unless absent_ok is set to a truthy value, in which case None is returned instead.
         '''
-        try:
-            return secret_mgmt.github.github_api(
-                secret_factory=secret_factory,
-                repo_url=repo_url,
-            )
-        except:
-            if not absent_ok:
-                raise
-            else:
-                return None
+        return secret_mgmt.github.github_api(
+            secret_factory=secret_factory,
+            repo_url=repo_url,
+            absent_ok=absent_ok,
+        )
 
     return github_api_lookup
 
@@ -466,6 +461,7 @@ def github_auth_token_lookup(url: str, /) -> str | None:
     github_cfg = secret_mgmt.github.find_cfg(
         secret_factory=secret_factory,
         repo_url=url,
+        absent_ok=True,
     )
 
     if not github_cfg:

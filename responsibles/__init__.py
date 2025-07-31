@@ -206,6 +206,12 @@ def user_identities_from_source(
     ),
     github_api_lookup=None,
 ) -> tuple[odg.model.UserIdentity, ...] | None:
+    '''
+    Returns user identities retrieved via GitHub contributor statistics (or, optionally via
+    codeowners). If the GitHub statistics are still pending, `None` is returned which means the
+    caller should retry at a later point in time. Otherwise, if no user identities can be retrieved
+    (e.g. because of missing credentials), an empty iterable is returned instead.
+    '''
     if not source:
         return ()
 
@@ -214,7 +220,7 @@ def user_identities_from_source(
 
     repo_url = source.access.repoUrl
 
-    if not rg.repo_contributor_statistics(repo_url=repo_url):
+    if rg.repo_contributor_statistics(repo_url=repo_url) is None:
         # do not cache empty responses
         cache_key = rg.repo_contributor_statistics.cache_key(repo_url=repo_url)
         rg.repo_contributor_statistics.cache.pop(cache_key, None)
@@ -227,7 +233,11 @@ def user_identities_from_source(
         return user_identities
 
     repo_url = source.access.repoUrl
-    github_api = github_api_lookup(repo_url)
+    github_api = github_api_lookup(repo_url, absent_ok=True)
+    if not github_api:
+        logger.warning(f'did not find a GitHub cfg for {repo_url=}, skipping responsibles...')
+        return ()
+
     github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
     github_repo = github_repo_lookup(repo_url)
 
@@ -266,11 +276,17 @@ def user_identifiers_from_responsible(
             gh_hostname = responsible.github_hostname or source.access.hostname()
 
             secret_factory = ctx_util.secret_factory()
+            repo_url = util.urljoin(gh_hostname, org_name)
 
             github_api = secret_mgmt.github.github_api(
                 secret_factory=secret_factory,
-                repo_url=util.urljoin(gh_hostname, org_name),
+                repo_url=repo_url,
+                absent_ok=True,
             )
+
+            if not github_api:
+                logger.warning(f'did not find GitHub cfg for {repo_url=}, skipping responsibles...')
+                return
 
             team = github.codeowners.Team(responsible.teamname)
 
@@ -326,7 +342,14 @@ def user_identities_from_responsibles_label(
         if isinstance(responsible, responsibles.labels.CodeownersResponsible):
             if not (github_api and github_repo):
                 repo_url = source.access.repoUrl
-                github_api = github_api_lookup(repo_url)
+                github_api = github_api_lookup(repo_url, absent_ok=True)
+
+                if not github_api:
+                    logger.warning(
+                        f'did not find a GitHub cfg for {repo_url=}, skipping responsibles...'
+                    )
+                    continue
+
                 github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
                 github_repo = github_repo_lookup(repo_url)
 
