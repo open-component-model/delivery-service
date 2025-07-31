@@ -7,6 +7,7 @@ import logging
 import urllib.parse
 
 import aiohttp
+import github3.apps
 import github3.github
 import github3.repos
 import requests
@@ -459,13 +460,30 @@ def github_auth_token_lookup(url: str, /) -> str | None:
     '''
     secret_factory = ctx_util.secret_factory()
 
-    github_cfg = secret_mgmt.github.find_cfg(
+    github_app_cfg = secret_mgmt.github.find_app_cfg(
         secret_factory=secret_factory,
         repo_url=url,
         absent_ok=True,
     )
 
-    if not github_cfg:
+    if not github_app_cfg:
+        # XXX remove this case eventually when removing support for GitHub service accounts
+        github_cfg = secret_mgmt.github.find_cfg(
+            secret_factory=secret_factory,
+            repo_url=url,
+            absent_ok=True,
+        )
+
+        if not github_cfg:
+            return None
+
+        return github_cfg.auth_token
+
+    if not github_app_cfg:
+        # this conditional branch will become effectively once above legacy branch is removed
         return None
 
-    return github_cfg.auth_token
+    return github3.apps.create_token(
+        private_key_pem=github_app_cfg.private_key.encode('utf-8'),
+        app_id=github_app_cfg.app_id,
+    )
