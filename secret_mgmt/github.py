@@ -59,6 +59,7 @@ class GitHub:
 def find_cfg(
     secret_factory: secret_mgmt.SecretFactory,
     repo_url: str,
+    absent_ok: bool=False,
 ) -> GitHub | None:
     github_cfgs: list[GitHub] = secret_factory.github()
 
@@ -74,7 +75,10 @@ def find_cfg(
     )
 
     if not sorted_matching_cfgs:
-        return None
+        if absent_ok:
+            return None
+
+        raise ValueError(f'did not find a GitHub cfg for {repo_url=}')
 
     github_cfg = sorted_matching_cfgs[-1]
     logger.debug(f'using {github_cfg.username=} for {repo_url=}')
@@ -85,11 +89,19 @@ def find_cfg(
 def github_api(
     secret_factory: secret_mgmt.SecretFactory,
     repo_url: str,
-) -> github3.github.GitHub:
+    absent_ok: bool=False,
+) -> github3.github.GitHub | None:
     github_cfg = find_cfg(
         secret_factory=secret_factory,
         repo_url=repo_url,
+        absent_ok=absent_ok,
     )
+
+    if not github_cfg:
+        if absent_ok:
+            return None
+
+        raise ValueError(f'did not find a GitHub cfg for {repo_url=}')
 
     session = http_requests.mount_default_adapter(
         session=github3.session.GitHubSession(),
