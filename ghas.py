@@ -5,6 +5,7 @@ import collections.abc
 import dataclasses
 import datetime
 import enum
+import functools
 import logging
 
 import dacite
@@ -17,6 +18,7 @@ import cnudie.retrieve
 import delivery.client
 import ocm
 
+import ctx_util
 import k8s.logging
 import lookups
 import odg.extensions_cfg
@@ -24,6 +26,8 @@ import odg.findings
 import odg.model
 import odg.util
 import paths
+import secret_mgmt
+import secret_mgmt.github
 import util
 
 
@@ -70,8 +74,27 @@ class SecretAlert:
     url: str | None
 
 
+@functools.cache
+def find_token_for_repo_url(
+    secret_factory: secret_mgmt.SecretFactory,
+    repo_url: str,
+) -> str | None:
+    github_api = secret_mgmt.github.github_api(
+        secret_factory=secret_factory,
+        repo_url=repo_url,
+        absent_ok=True,
+    )
+
+    if not github_api:
+        logger.error(f'No GitHub token found for {repo_url=}')
+        return None
+
+    return github_api.session.auth.token
+
+
 def github_api_request(
     url: str,
+    secret_factory: secret_mgmt.SecretFactory,
 ) -> list | dict | None:
     hostname = util.urlparse(url).hostname
     path_parts = util.urlparse(url).path.strip('/').split('/')
@@ -82,9 +105,11 @@ def github_api_request(
     org = path_parts[3]
     repo_url = f'{hostname}/{org}'
 
-    token = lookups.github_auth_token_lookup(repo_url)
+    token = find_token_for_repo_url(
+        secret_factory=secret_factory,
+        repo_url=repo_url,
+    )
     if not token:
-        logger.error(f'No GitHub token found for {repo_url}')
         return None
     # setup session with retry configuration
     session = requests.Session()
@@ -115,12 +140,16 @@ def github_api_request(
 def get_secret_alerts(
     github_hostname: str,
     org: str,
+    secret_factory: secret_mgmt.SecretFactory,
 ) -> collections.abc.Generator[SecretAlert]:
     '''
     Fetch open secret scanning alerts using authenticated GitHub client.
     '''
     url = f'https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts?state=open'
-    result = github_api_request(url)
+    result = github_api_request(
+        url=url,
+        secret_factory=secret_factory,
+    )
     alerts_raw = result if isinstance(result, list) else []
 
     return (
@@ -131,8 +160,12 @@ def get_secret_alerts(
 
 def get_secret_location(
     location_url: str,
+    secret_factory: secret_mgmt.SecretFactory,
 ) -> SecretLocation:
-    result = github_api_request(location_url)
+    result = github_api_request(
+        url=location_url,
+        secret_factory=secret_factory,
+    )
     if not result or not isinstance(result, list):
         return SecretLocation(
             location_type=GitHubSecretLocationType.UNKNOWN,
@@ -195,6 +228,7 @@ def as_artefact_metadata(
 def create_ghas_findings(
     ghas_config: odg.extensions_cfg.GHASConfig,
     ghas_finding_cfg: odg.findings.Finding,
+    secret_factory: secret_mgmt.SecretFactory,
 ) -> collections.abc.Generator[odg.model.GitHubSecretFinding, None, None]:
     for github_instance in ghas_config.github_instances:
         for org in github_instance.orgs:
@@ -202,11 +236,13 @@ def create_ghas_findings(
                 alerts = get_secret_alerts(
                     github_hostname=github_instance.hostname,
                     org=org,
+                    secret_factory=secret_factory,
                 )
 
                 for alert in alerts:
                     location = get_secret_location(
                         location_url=alert.locations_url,
+                        secret_factory=secret_factory,
                     )
 
                     categorisation = odg.findings.categorise_finding(
@@ -288,6 +324,7 @@ def scan(
     ghas_finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_client: delivery.client.DeliveryServiceClient,
+    secret_factory: secret_mgmt.SecretFactory,
 ):
     logger.info('Starting GHAS scan...')
 
@@ -305,7 +342,8 @@ def scan(
 
     for finding in create_ghas_findings(
         ghas_config=ghas_config,
-        ghas_finding_cfg=ghas_finding_cfg
+        ghas_finding_cfg=ghas_finding_cfg,
+        secret_factory=secret_factory,
     ):
         artefact = build_artefact_from_finding(
             finding=finding,
@@ -342,7 +380,10 @@ def scan(
         html_url = stale_finding.data.get('html_url')
         api_url = stale_finding.data.get('url')
 
-        stale_alert_data = github_api_request(url=api_url)
+        stale_alert_data = github_api_request(
+            url=api_url,
+            secret_factory=secret_factory,
+        )
         resolution =  stale_alert_data.get('resolution')
 
         rescore_categorisation = odg.findings.categorise_finding(
@@ -437,11 +478,14 @@ def main():
         delivery_client=delivery_client,
     )
 
+    secret_factory = ctx_util.secret_factory()
+
     scan(
         ghas_config=ghas_config,
         ghas_finding_cfg=ghas_finding_config,
         component_descriptor_lookup=component_descriptor_lookup,
         delivery_client=delivery_client,
+        secret_factory=secret_factory,
     )
 
 
