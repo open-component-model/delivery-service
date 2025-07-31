@@ -7,6 +7,8 @@ import logging
 import urllib.parse
 
 import aiohttp
+import github3.github
+import github3.repos
 import requests
 import requests.adapters
 
@@ -14,7 +16,6 @@ import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
 import delivery.client
-import oci.auth
 import oci.client
 import oci.client_async
 import ocm
@@ -396,7 +397,7 @@ def init_version_lookup_async(
 
 def github_api_lookup(
     secret_factory: secret_mgmt.SecretFactory=None
-) -> 'collections.abc.Callable[[str], github3.github.GitHub | None]': # avoid import
+) -> collections.abc.Callable[[str], github3.github.GitHub | None]:
     '''
     creates a github-api-lookup. ideally, this lookup should be created at application launch, and
     passed to consumers.
@@ -408,7 +409,7 @@ def github_api_lookup(
         repo_url: str,
         /,
         absent_ok: bool=False,
-    ) -> 'github3.github.GitHub | None': # avoid import
+    ) -> github3.github.GitHub | None:
         '''
         returns an initialised and authenticated apiclient object suitable for
         the passed repository URL
@@ -427,12 +428,12 @@ def github_api_lookup(
 
 def github_repo_lookup(
     github_api_lookup,
-):
+) -> collections.abc.Callable[[str], github3.repos.Repository | None]:
     def github_repo_lookup(
         repo_url: str,
         /,
         absent_ok: bool=False,
-    ):
+    ) -> github3.repos.Repository | None:
         if not '://' in repo_url:
             repo_url = f'x://{repo_url}'
 
