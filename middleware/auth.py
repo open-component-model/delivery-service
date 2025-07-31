@@ -56,22 +56,30 @@ class GithubRoutes:
     def current_user_orgs(self):
         return self._url('user', 'orgs')
 
+    def current_app(self):
+        return self._url('app')
+
 
 class GithubApi:
     def __init__(
         self,
         api_url: str,
-        access_token: str,
+        access_token: str | None=None,
+        bearer_token: str | None=None,
     ):
         self._routes = GithubRoutes(api_url=api_url)
         self._access_token = access_token
+        self._bearer_token = bearer_token
         self.session = aiohttp.ClientSession()
 
     async def _get(self, *args, **kwargs):
         if 'headers' not in kwargs:
             kwargs['headers'] = {}
         headers = kwargs['headers']
-        headers['Authorization'] = f'token {self._access_token}'
+        if self._bearer_token:
+            headers['Authorization'] = f'Bearer {self._bearer_token}'
+        elif self._access_token:
+            headers['Authorization'] = f'token {self._access_token}'
 
         async with self.session.get(*args, **kwargs) as res:
             res.raise_for_status()
@@ -86,6 +94,9 @@ class GithubApi:
 
     async def current_user_orgs(self):
         return await self._get(self._routes.current_user_orgs())
+
+    async def current_app(self):
+        return await self._get(self._routes.current_app())
 
     async def close_connection(self):
         await self.session.close()
@@ -226,11 +237,11 @@ def find_signing_cfg(
     return max(signing_cfgs, key=lambda cfg: cfg.priority)
 
 
-async def find_github_user_identifier(
+async def find_github_identifier(
     oauth_cfg: secret_mgmt.oauth_cfg.OAuthCfg,
     github_access_token: str | None=None,
     github_code: str | None=None,
-) -> dm.GitHubUserIdentifier:
+) -> dm.GitHubAppIdentifier | dm.GitHubUserIdentifier:
     if github_code:
         github_token_url = oauth_cfg.token_url + '?' + urllib.parse.urlencode({
             'client_id': oauth_cfg.client_id,
@@ -247,6 +258,26 @@ async def find_github_user_identifier(
 
     elif not github_access_token:
         raise ValueError('either a `github_code` or an `github_access_token` must be provided')
+
+    if github_access_token.startswith('ey'):
+        # GitHub App is trying to login using a JWT
+        gh_api = GithubApi(
+            api_url=oauth_cfg.api_url,
+            bearer_token=github_access_token,
+        )
+
+        try:
+            app = await gh_api.current_app()
+        except Exception as e:
+            logger.warning(f'failed to retrieve app info for {oauth_cfg.api_url=}: {e}')
+            raise aiohttp.web.HTTPUnauthorized
+        finally:
+            await gh_api.close_connection()
+
+        return dm.GitHubAppIdentifier(
+            app_name=app['slug'],
+            hostname=urllib.parse.urlparse(oauth_cfg.api_url).hostname.lower(),
+        )
 
     gh_api = GithubApi(
         api_url=oauth_cfg.api_url,
@@ -270,7 +301,7 @@ async def find_github_user_identifier(
 
 def find_role_bindings(
     oauth_cfg: secret_mgmt.oauth_cfg.OAuthCfg,
-    username: str,
+    user_identifier: dm.GitHubAppIdentifier | dm.GitHubUserIdentifier,
 ) -> collections.abc.Iterable[dm.RoleBinding]:
     if oauth_cfg.type is secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB:
         github_api_lookup = lookups.github_api_lookup()
@@ -280,28 +311,34 @@ def find_role_bindings(
             subjects: list[secret_mgmt.oauth_cfg.Subject],
         ) -> secret_mgmt.oauth_cfg.Subject | None:
             for subject in subjects:
-                if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_USER:
-                    if subject.name == username:
-                        return subject
-
-                elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_ORG:
-                    github_org = util.urljoin(github_host, subject.name)
-                    github_api = github_api_lookup(github_org)
-
-                    organisation = github_api.organization(subject.name)
-                    for member in organisation.members():
-                        if member.login == username:
+                if isinstance(user_identifier, dm.GitHubUserIdentifier):
+                    if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_USER:
+                        if subject.name == user_identifier.username:
                             return subject
 
-                elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_TEAM:
-                    org_name, team_name = subject.name.split('/')
-                    github_org = util.urljoin(github_host, org_name)
-                    github_api = github_api_lookup(github_org)
+                    elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_ORG:
+                        github_org = util.urljoin(github_host, subject.name)
+                        github_api = github_api_lookup(github_org)
 
-                    organisation = github_api.organization(org_name)
-                    team = organisation.team_by_name(team_name)
-                    for member in team.members():
-                        if member.login == username:
+                        organisation = github_api.organization(subject.name)
+                        for member in organisation.members():
+                            if member.login == user_identifier.username:
+                                return subject
+
+                    elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_TEAM:
+                        org_name, team_name = subject.name.split('/')
+                        github_org = util.urljoin(github_host, org_name)
+                        github_api = github_api_lookup(github_org)
+
+                        organisation = github_api.organization(org_name)
+                        team = organisation.team_by_name(team_name)
+                        for member in team.members():
+                            if member.login == user_identifier.username:
+                                return subject
+
+                elif isinstance(user_identifier, dm.GitHubAppIdentifier):
+                    if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_APP:
+                        if subject.name == user_identifier.app_name:
                             return subject
 
         for role_binding in oauth_cfg.role_bindings:
@@ -311,12 +348,15 @@ def find_role_bindings(
             github_username = None
             github_organisation = None
             github_team = None
+            github_app = None
             if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_USER:
                 github_username = subject.name
             elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_ORG:
                 github_organisation = subject.name
             elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_TEAM:
                 github_team = subject.name
+            elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_APP:
+                github_app = subject.name
 
             yield from (
                 dm.RoleBinding(
@@ -326,6 +366,7 @@ def find_role_bindings(
                         organisation=github_organisation,
                         team=github_team,
                         username=github_username,
+                        app=github_app,
                     )
                 ) for role in role_binding.roles
             )
@@ -519,7 +560,7 @@ class OAuthLogin(aiohttp.web.View):
                 client_id=client_id,
             )
 
-            user_identifier = await find_github_user_identifier(
+            user_identifier = await find_github_identifier(
                 oauth_cfg=oauth_cfg,
                 github_access_token=access_token,
                 github_code=code,
@@ -540,7 +581,7 @@ class OAuthLogin(aiohttp.web.View):
 
             role_bindings = set(find_role_bindings(
                 oauth_cfg=oauth_cfg,
-                username=user_identifier.username,
+                user_identifier=user_identifier,
             ))
 
             try:
