@@ -51,6 +51,9 @@ def default_secret_type_to_class(secret_type: str) -> object:
         case 'github':
             import secret_mgmt.github
             return secret_mgmt.github.GitHub
+        case 'github-app':
+            import secret_mgmt.github
+            return secret_mgmt.github.GitHubApp
         case 'kubernetes':
             import secret_mgmt.kubernetes
             return secret_mgmt.kubernetes.Kubernetes
@@ -134,6 +137,19 @@ class SecretFactory:
                         auth_token=creds.auth_token(),
                         repo_urls=element.repo_urls(),
                         tls_verify=element.tls_validation(),
+                    )
+                elif cfg_type == 'github_app':
+                    import secret_mgmt.github
+                    secrets_dict[key][element._name] = secret_mgmt.github.GitHubApp(
+                        api_url=element.api_url(),
+                        app_id=element.app_id(),
+                        mappings=[
+                            dacite.from_dict(
+                                data_class=secret_mgmt.github.GitHubAppMapping,
+                                data=mapping,
+                            ) for mapping in element.mappings()
+                        ],
+                        private_key=element.private_key(),
                     )
                 elif cfg_type == 'kubernetes':
                     import secret_mgmt.kubernetes
