@@ -1,7 +1,6 @@
 import collections.abc
 import dataclasses
 import enum
-import functools
 import logging
 import typing
 
@@ -700,14 +699,14 @@ class IssueReplicatorMapping(Mapping):
                 due_date_callback=due_date_callback,
             )
 
-    @functools.cached_property
+    @property
     def repository(self) -> github3.repos.Repository:
         github_api_lookup = lookups.github_api_lookup()
         github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
 
         return github_repo_lookup(self.github_repository)
 
-    @functools.cached_property
+    @property
     def github_api(self) -> github3.github.GitHub:
         github_api_lookup = lookups.github_api_lookup()
 

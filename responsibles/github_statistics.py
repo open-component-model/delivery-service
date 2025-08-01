@@ -411,7 +411,12 @@ def repo_contributor_statistics(
     gh_api = secret_mgmt.github.github_api(
         secret_factory=ctx_util.secret_factory(),
         repo_url=repo_url,
+        absent_ok=True,
     )
+
+    if not gh_api:
+        return []
+
     repo = _repo_from_repo_url(
         gh_api=gh_api,
         repo_url=repo_url,
@@ -432,7 +437,12 @@ def user_identities(
     gh_api = secret_mgmt.github.github_api(
         secret_factory=ctx_util.secret_factory(),
         repo_url=repo_url,
+        absent_ok=True,
     )
+
+    if not gh_api:
+        return ()
+
     repo = _repo_from_repo_url(
         gh_api=gh_api,
         repo_url=repo_url,

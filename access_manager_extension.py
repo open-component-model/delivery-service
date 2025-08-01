@@ -86,7 +86,7 @@ def resolve_github_orgs_and_teams(
     return github_orgs_by_hostname, github_teams_by_hostname
 
 
-def iter_github_role_bindings(
+def iter_github_user_role_bindings(
     identifier: dm.GitHubUserIdentifier,
     oauth_cfgs: collections.abc.Iterable[secret_mgmt.oauth_cfg.OAuthCfg],
     github_orgs_by_hostname: dict[github_host, dict[github_org_name, github_members]],
@@ -116,9 +116,6 @@ def iter_github_role_bindings(
                         if member == identifier.username:
                             return subject
 
-                else:
-                    raise ValueError(subject.type)
-
         for role_binding in oauth_cfg.role_bindings:
             if not (subject := find_github_subject(subjects=role_binding.subjects)):
                 continue
@@ -143,6 +140,39 @@ def iter_github_role_bindings(
                         organisation=github_organisation,
                         team=github_team,
                         username=github_username,
+                    ),
+                ) for role in role_binding.roles
+            )
+
+
+def iter_github_app_role_bindings(
+    identifier: dm.GitHubAppIdentifier,
+    oauth_cfgs: collections.abc.Iterable[secret_mgmt.oauth_cfg.OAuthCfg],
+) -> collections.abc.Iterable[dm.RoleBinding]:
+    for oauth_cfg in oauth_cfgs:
+        github_host = urllib.parse.urlparse(oauth_cfg.api_url).hostname.lower()
+
+        if identifier.hostname != github_host:
+            continue
+
+        def find_github_subject(
+            subjects: list[secret_mgmt.oauth_cfg.Subject],
+        ) -> secret_mgmt.oauth_cfg.Subject | None:
+            for subject in subjects:
+                if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_APP:
+                    if subject.name == identifier.app_name:
+                        return subject
+
+        for role_binding in oauth_cfg.role_bindings:
+            if not (subject := find_github_subject(subjects=role_binding.subjects)):
+                continue
+
+            yield from (
+                dm.RoleBinding(
+                    name=role,
+                    origin=dm.GitHubRoleBindingOrigin(
+                        hostname=github_host,
+                        app=subject.name,
                     ),
                 ) for role in role_binding.roles
             )
@@ -176,12 +206,20 @@ def update_github_role_bindings(
         if identifier.type != secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB:
             continue
 
-        github_role_bindings.update(iter_github_role_bindings(
-            identifier=identifier.deserialised_identifier,
-            oauth_cfgs=github_oauth_cfgs,
-            github_orgs_by_hostname=github_orgs_by_hostname,
-            github_teams_by_hostname=github_teams_by_hostname,
-        ))
+        identifier = identifier.deserialised_identifier
+
+        if isinstance(identifier, dm.GitHubUserIdentifier):
+            github_role_bindings.update(iter_github_user_role_bindings(
+                identifier=identifier,
+                oauth_cfgs=github_oauth_cfgs,
+                github_orgs_by_hostname=github_orgs_by_hostname,
+                github_teams_by_hostname=github_teams_by_hostname,
+            ))
+        elif isinstance(identifier, dm.GitHubAppIdentifier):
+            github_role_bindings.update(iter_github_app_role_bindings(
+                identifier=identifier,
+                oauth_cfgs=github_oauth_cfgs,
+            ))
 
     role_bindings.extend(github_role_bindings)
 

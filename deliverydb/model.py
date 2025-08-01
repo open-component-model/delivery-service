@@ -121,10 +121,13 @@ class GitHubRoleBindingOrigin(RoleBindingOrigin):
     organisation: str | None = None
     team: str | None = None
     username: str | None = None
+    app: str | None = None
 
     @property
     def key(self) -> str:
-        return f'{self.type}|{self.hostname}|{self.organisation}|{self.team}|{self.username}'
+        return (
+            f'{self.type}|{self.hostname}|{self.organisation}|{self.team}|{self.username}|{self.app}'
+        )
 
 
 @dataclasses.dataclass
@@ -159,12 +162,10 @@ class User(Base):
 
 
 @dataclasses.dataclass
-class UserIdentifier:
-    username: str
-
+class Identifier:
     @property
     def normalised(self) -> str:
-        return f'username:{self.username}'
+        raise NotImplementedError
 
     @property
     def normalised_digest(self) -> str:
@@ -172,6 +173,15 @@ class UserIdentifier:
             self.normalised.encode('utf-8'),
             usedforsecurity=False,
         ).hexdigest()
+
+
+@dataclasses.dataclass
+class UserIdentifier(Identifier):
+    username: str
+
+    @property
+    def normalised(self) -> str:
+        return f'username:{self.username}'
 
 
 @dataclasses.dataclass
@@ -186,6 +196,16 @@ class GitHubUserIdentifier(UserIdentifier):
         )
 
 
+@dataclasses.dataclass
+class GitHubAppIdentifier(Identifier):
+    app_name: str
+    hostname: str
+
+    @property
+    def normalised(self) -> str:
+        return f'app_name:{self.app_name}_hostname:{self.hostname}'
+
+
 class UserIdentifiers(Base):
     __tablename__ = 'user_identifiers'
 
@@ -193,15 +213,20 @@ class UserIdentifiers(Base):
 
     type = sa.Column(sa.String(length=32), primary_key=True) # secret_mgmt.oauth_cfg.OAuthCfgTypes
     identifier_normalised_digest = sa.Column(sa.CHAR(length=40), primary_key=True)
-    identifier = sa.Column(sa.JSON) # UserIdentifier
+    identifier = sa.Column(sa.JSON) # Identifier
 
     @property
-    def deserialised_identifier(self) -> GitHubUserIdentifier | UserIdentifier:
+    def deserialised_identifier(self) -> GitHubAppIdentifier | GitHubUserIdentifier | UserIdentifier:
         idp_type = secret_mgmt.oauth_cfg.OAuthCfgTypes(self.type)
 
         if idp_type is secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB:
+            if 'app_name' in self.identifier:
+                data_class = GitHubAppIdentifier
+            else:
+                data_class = GitHubUserIdentifier
+
             return dacite.from_dict(
-                data_class=GitHubUserIdentifier,
+                data_class=data_class,
                 data=self.identifier,
             )
 
