@@ -55,6 +55,8 @@ spec:
           volumeMounts:
             - name: github
               mountPath: /secrets/github
+            - name: github-app
+              mountPath: /secrets/github-app
             - name: kubernetes
               mountPath: /secrets/kubernetes
             - name: oci-registry
@@ -83,6 +85,11 @@ spec:
         - name: github
           secret:
             secretName: secret-factory-github
+            optional: true
+        - name: github-app
+          secret:
+            secretName: secret-factory-github-app
+            optional: true
         - name: kubernetes
           secret:
             secretName: secret-factory-kubernetes
