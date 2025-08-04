@@ -394,7 +394,10 @@ def _process_inactive_compliance_snapshots(
             updated_compliance_snapshot = compliance_snapshot
             logger.info(f'updated inactive compliance snapshot ({artefact=})')
 
-            if extensions_cfg.issue_replicator:
+            if (
+                extensions_cfg.issue_replicator
+                and extensions_cfg.issue_replicator.enabled
+            ):
                 uncommitted_backlog_item = UncommittedBacklogItem(
                     artefact=artefact,
                     priority=k8s.backlog.BacklogPriorities.HIGH,
