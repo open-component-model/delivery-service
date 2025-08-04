@@ -266,9 +266,12 @@ def _github_assignees(
     if not responsibles:
         return set()
 
+    repository = odg.extensions_cfg.github_repository(mapping.github_repository)
+    gh_api = odg.extensions_cfg.github_api(mapping.github_repository)
+
     gh_usernames = delivery.client.github_usernames_from_responsibles(
         responsibles=responsibles,
-        github_url=mapping.repository.html_url,
+        github_url=repository.html_url,
     )
 
     assignees = set(
@@ -276,16 +279,16 @@ def _github_assignees(
         for gh_username in gh_usernames
         if github.user.is_user_active(
             username=gh_username,
-            github=mapping.github_api,
+            github=gh_api,
         )
     )
 
-    valid_assignees = _valid_issue_assignees(mapping.repository)
+    valid_assignees = _valid_issue_assignees(repository)
 
     if invalid_assignees := (assignees - valid_assignees):
         logger.warning(
             f'unable to assign {invalid_assignees} to issues in repository '
-            f'{mapping.repository.html_url}. Please make sure the users have the necessary '
+            f'{repository.html_url}. Please make sure the users have the necessary '
             'permissions to see issues in the repository.'
         )
         assignees -= invalid_assignees
@@ -456,7 +459,8 @@ def replicate_issue(
     issue_replicator.github._all_issues.cache_clear()
 
     mapping = extension_cfg.mapping(artefact.component_name)
-    issue_replicator.github.wait_for_quota_if_required(gh_api=mapping.github_api)
+    gh_api = odg.extensions_cfg.github_api(mapping.github_repository)
+    issue_replicator.github.wait_for_quota_if_required(gh_api=gh_api)
 
     for finding_cfg in finding_cfgs:
         replicate_issue_for_finding_type(

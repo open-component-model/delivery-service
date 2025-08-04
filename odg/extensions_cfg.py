@@ -4,6 +4,7 @@ import enum
 import logging
 import typing
 
+import cachetools
 import dacite
 import github3.repos
 import yaml
@@ -699,18 +700,20 @@ class IssueReplicatorMapping(Mapping):
                 due_date_callback=due_date_callback,
             )
 
-    @property
-    def repository(self) -> github3.repos.Repository:
-        github_api_lookup = lookups.github_api_lookup()
-        github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
 
-        return github_repo_lookup(self.github_repository)
+@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25)) # gh-token is valid for 30 min
+def github_repository(repo: str) -> github3.repos.Repository:
+    github_api_lookup = lookups.github_api_lookup()
+    github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
 
-    @property
-    def github_api(self) -> github3.github.GitHub:
-        github_api_lookup = lookups.github_api_lookup()
+    return github_repo_lookup(repo)
 
-        return github_api_lookup(self.repository.html_url)
+
+@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25)) # gh-token is valid for 30 min
+def github_api(repo: str) -> github3.github.GitHub:
+    github_api_lookup = lookups.github_api_lookup()
+
+    return github_api_lookup(repo)
 
 
 @dataclasses.dataclass(kw_only=True)

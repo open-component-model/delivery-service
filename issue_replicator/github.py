@@ -171,8 +171,10 @@ def _issue_milestone(
         due_date=due_date,
     )
 
+    repo = odg.extensions_cfg.github_repository(mapping.github_repository)
+
     return gcmi.find_or_create_sprint_milestone(
-        repo=mapping.repository,
+        repo=repo,
         sprints=sprints,
         milestone_cfg=mapping.milestones,
     )
@@ -1277,8 +1279,7 @@ def close_issue_if_present(
 
     issue.create_comment(closing_reason)
     if not github.util.close_issue(issue):
-        repository_url = mapping.repository.html_url
-        logger.warning(f'failed to close {issue.id=} with {repository_url=}')
+        logger.warning(f'failed to close {issue.id=} with {mapping.github_repository=}')
 
 
 @github.retry.retry_and_throttle
@@ -1455,8 +1456,10 @@ def _create_or_update_issue(
             milestone=milestone,
         )
 
+    repository = odg.extensions_cfg.github_repository(mapping.github_repository)
+
     return create_issue(
-        repository=mapping.repository,
+        repository=repository,
         body=body,
         title=title,
         milestone=milestone,
@@ -1567,11 +1570,13 @@ def create_or_update_or_close_issue(
         finding_cfg.type,
     }
 
+    repository = odg.extensions_cfg.github_repository(mapping.github_repository)
+
     known_issues = _all_issues(
-        repository=mapping.repository,
+        repository=repository,
         state='open',
     ) | _all_issues(
-        repository=mapping.repository,
+        repository=repository,
         state='closed',
         number=mapping.number_included_closed_issues,
     )
