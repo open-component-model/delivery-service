@@ -86,3 +86,22 @@ def test_extensions(extension_definitions):
     ) == {
         'foo': 'bar.my-domain.com',
     }
+
+    with pytest.raises(KeyError):
+        odgu.template_and_resolve_jsonpath(
+            value={'foo': 'bar.${base_url}'},
+            jsonpaths=outputs,
+            substitution_context={},
+            value_type=odgm.ValueType.PYTHON_STRING_TEMPLATE,
+            default_value=None,
+        )
+
+    assert odgu.template_and_resolve_jsonpath(
+        value={'foo': 'bar.${base_url}'},
+        jsonpaths=outputs,
+        substitution_context={},
+        value_type=odgm.ValueType.PYTHON_STRING_TEMPLATE,
+        default_value='bar.default-domain.com',
+    ) == {
+        'foo': 'bar.default-domain.com',
+    }

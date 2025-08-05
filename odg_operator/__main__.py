@@ -239,6 +239,7 @@ def create_or_update_odg(
                         jsonpaths=outputs_jsonpath,
                         substitution_context=odg.context,
                         value_type=value_template.value_type,
+                        default_value=value_template.default,
                     )
                 )
                 for value_template in extension_definition.installation.value_templates

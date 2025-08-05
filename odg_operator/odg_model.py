@@ -96,6 +96,7 @@ class ExtensionInstanceValue:
 @dataclasses.dataclass
 class ValueTemplate(ExtensionInstanceValue):
     value_type: ValueType
+    default: str | bool | list | dict | None = None
 
 
 @dataclasses.dataclass
