@@ -104,6 +104,7 @@ def template_and_resolve_jsonpath(
     value_type: odgm.ValueType,
     substitution_context: dict,
     jsonpaths: dict,
+    default_value: str | bool | list | dict | None=None,
 ) -> str | bool | list | dict:
     '''
     Processes provided value according to its type.
@@ -118,10 +119,16 @@ def template_and_resolve_jsonpath(
         `value_type`: defining how to process the value
         `substitution_context`: dictionary for placeholder substitution.
         `jsonpaths`: dictionary to replace using JSONPath semantics after substitution.
+        `default_value`: The value used instead of `value` if the substitution context is missing
     '''
 
     if isinstance(value, str):
-        templated = string.Template(value).substitute(substitution_context)
+        try:
+            templated = string.Template(value).substitute(substitution_context)
+        except KeyError:
+            if default_value is None:
+                raise
+            templated = default_value
 
         if value_type is odgm.ValueType.LITERAL:
             return value
@@ -153,12 +160,14 @@ def template_and_resolve_jsonpath(
                     substitution_context=substitution_context,
                     jsonpaths=jsonpaths,
                     value_type=value_type,
+                    default_value=default_value,
                 ),
                 template_and_resolve_jsonpath(
                     value=value,
                     substitution_context=substitution_context,
                     jsonpaths=jsonpaths,
                     value_type=value_type,
+                    default_value=default_value,
                 )
             )
             for key, value in value.items()
@@ -171,6 +180,7 @@ def template_and_resolve_jsonpath(
                 substitution_context=substitution_context,
                 jsonpaths=jsonpaths,
                 value_type=value_type,
+                default_value=default_value,
             )
             for entry in value
         ]
