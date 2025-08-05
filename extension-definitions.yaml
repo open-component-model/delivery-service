@@ -58,6 +58,16 @@ installation:
       helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-next-upstream-tries"
       value: '"0"'
       value_type: literal
+    - helm_chart_name: delivery-service
+      helm_attribute: autoscaler.minReplicas
+      value: '${deliveryServiceMinReplicas}'
+      value_type: python-string-template
+      default: '2'
+    - helm_chart_name: delivery-service
+      helm_attribute: autoscaler.maxReplicas
+      value: '${deliveryServiceMaxReplicas}'
+      value_type: python-string-template
+      default: '10'
 outputs:
   - name: delivery-service-url
     value: https://delivery-service.${base_url}
