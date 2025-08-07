@@ -77,17 +77,14 @@ class SprintInfos(aiohttp.web.View):
                   items:
                     $ref: '#/definitions/Sprint'
         '''
-        sprint_display_name_callback = self.request.app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK]
         sprints_metadata = self.request.app[consts.APP_SPRINTS_METADATA]
         sprints = self.request.app[consts.APP_SPRINTS]
 
         return aiohttp.web.json_response(
             data={
                 'sprints': [
-                    sprint.asdict(
-                        sprint_date_display_name_callback=sprint_display_name_callback,
-                        meta=sprints_metadata,
-                    ) for sprint in sprints
+                    sprint.asdict(meta=sprints_metadata)
+                    for sprint in sprints
                 ],
             },
             dumps=util.dict_to_json_factory,
@@ -141,7 +138,6 @@ class SprintInfosCurrent(aiohttp.web.View):
             except ValueError:
                 raise aiohttp.web.HTTPBadRequest(text='Invalid date format')
 
-        sprint_display_name_callback = self.request.app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK]
         sprints_metadata = self.request.app[consts.APP_SPRINTS_METADATA]
         sprints = self.request.app[consts.APP_SPRINTS]
 
@@ -152,9 +148,6 @@ class SprintInfosCurrent(aiohttp.web.View):
         )
 
         return aiohttp.web.json_response(
-            data=current.asdict(
-                sprint_date_display_name_callback=sprint_display_name_callback,
-                meta=sprints_metadata,
-            ),
+            data=current.asdict(meta=sprints_metadata),
             dumps=util.dict_to_json_factory,
         )

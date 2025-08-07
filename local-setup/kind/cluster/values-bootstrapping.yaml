@@ -323,11 +323,6 @@ features_cfg:
     githubMappingsRelpath: ./../../../../github_mappings/github_mappings
   sprints:
     sprintsRelpath: ./../../../../sprints/sprints
-    sprintDateNameMappings:
-      - dateName: release_decision
-        displayName: Release Decision
-      - dateName: end_date
-        displayName: End Date
 
 profiles:
   - name: default

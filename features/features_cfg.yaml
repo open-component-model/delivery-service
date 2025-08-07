@@ -15,13 +15,4 @@ sprints:
   # todo: create example repository
   repoUrl: https://github.com/open-component-model/example-yellow-pages
   sprintsRelpath: ~ # set to null to disable feature; sprints.yaml
-  sprintDateNameMappings:
-  - dateName: canary_freeze
-    displayName: Canary Freeze
-  - dateName: release_decision
-    displayName: Release Decision
-  - dateName: end_date
-    displayName: End Date
-  - dateName: rtc
-    displayName: Release To Customer
 upgradePRs: True

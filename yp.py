@@ -17,6 +17,7 @@ pragmatically hardcoding a lot.
 @dataclasses.dataclass
 class SprintOffsets:
     name: str
+    display_name: str | None
     comment: str | None
     offset_days: int
 
@@ -34,14 +35,12 @@ class Sprint:
 
     def iter_sprint_dates(
         self,
-        sprint_date_display_name_callback,
-        meta: SprintMetadata=None,
+        meta: SprintMetadata | None=None,
     ) -> collections.abc.Generator[delivery.model.SprintDate, None, None]:
-
         yield delivery.model.SprintDate(
             value=self.end_date.isoformat(),
             name='end_date',
-            display_name=sprint_date_display_name_callback('end_date'),
+            display_name='End Date',
         )
 
         if not meta:
@@ -53,20 +52,16 @@ class Sprint:
             yield delivery.model.SprintDate(
                 value=date.isoformat(),
                 name=offset.name,
-                display_name=sprint_date_display_name_callback(offset.name),
+                display_name=offset.display_name,
             )
 
     def asdict(
         self,
-        sprint_date_display_name_callback,
         meta: SprintMetadata=None,
     ) -> dict:
         return {
             'name': self.name,
-            'dates': list(self.iter_sprint_dates(
-                sprint_date_display_name_callback=sprint_date_display_name_callback,
-                meta=meta,
-            ))
+            'dates': list(self.iter_sprint_dates(meta=meta)),
         }
 
 

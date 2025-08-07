@@ -163,11 +163,9 @@ def add_app_context_vars(
     if sprints_feature.state is features.FeatureStates.AVAILABLE:
         sprints_feature: features.FeatureSprints
 
-        sprint_date_display_name_callback = sprints_feature.get_sprint_date_display_name
         sprints = sprints_feature.get_sprints()
         sprints_metadata = sprints_feature.get_sprints_metadata()
     else:
-        sprint_date_display_name_callback = None
         sprints = []
         sprints_metadata = None
 
@@ -200,7 +198,6 @@ def add_app_context_vars(
     app[consts.APP_PROFILES_CALLBACK] = profiles_callback
     app[consts.APP_SECRET_FACTORY] = secret_factory
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
-    app[consts.APP_SPRINT_DATE_DISPLAY_NAME_CALLBACK] = sprint_date_display_name_callback
     app[consts.APP_SPRINTS] = sprints
     app[consts.APP_SPRINTS_METADATA] = sprints_metadata
     app[consts.APP_VERSION_FILTER_CALLBACK] = version_filter_callback
