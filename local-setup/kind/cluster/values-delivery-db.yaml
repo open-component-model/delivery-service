@@ -1,11 +1,11 @@
 fullnameOverride: delivery-db
 
 auth:
-  postgresPassword: password-123
+  existingSecret: delivery-db-password
 
 image:
   registry: europe-docker.pkg.dev/gardener-project/releases
-  repository: ocm-gear/postgres
+  repository: odg/postgres
   tag: 16.8.0
 
 global:
