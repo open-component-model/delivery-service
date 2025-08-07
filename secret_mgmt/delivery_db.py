@@ -1,9 +1,9 @@
 import dataclasses
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class DeliveryDB:
-    username: str
+    username: str = 'postgres'
     password: str
 
     def connection_url(
