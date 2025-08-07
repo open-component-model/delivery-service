@@ -59,240 +59,35 @@ extensions_cfg:
 
 findings:
   - type: finding/vulnerability
-    categorisations:
+    issues:
+      enable_assignees: false
+    categorisations: &gardener_default
       cfg_name: gardener
       ref:
         path: odg/defaults.yaml
     rescoring_ruleset:
-      cfg_name: gardener
-      ref:
-        path: odg/defaults.yaml
-    issues:
-      enable_assignees: False
+      <<: *gardener_default
   - type: finding/license
-    categorisations:
-      - id: false-positive
-        display_name: false positive
-        value: 0
-        rescoring: manual
-      - id: other
-        display_name: other
-        value: 0
-        rescoring: manual
-      - id: blocker
-        display_name: violation
-        value: 16
-        allowed_processing_time: 0
-        rescoring: manual
-        selector:
-          license_names:
-            - sleepycat
     issues:
-      enable_assignees: False
+      enable_assignees: false
+    categorisations:
+      <<: *gardener_default
   - type: finding/malware
-    categorisations:
-      - id: false-positive
-        display_name: false positive
-        value: 0
-        rescoring: manual
-      - id: other
-        display_name: other
-        value: 0
-        rescoring: manual
-      - id: blocker
-        display_name: malware
-        value: 16
-        allowed_processing_time: 0
-        rescoring: manual
-        selector:
-          malware_names:
-            - .*
     issues:
-      enable_assignees: False
-  - type: finding/sast
+      enable_assignees: false
     categorisations:
-      - id: scan-exists
-        display_name: scan exists
-        value: 0
-        rescoring: manual
-      - id: scan-not-required
-        display_name: not required
-        value: 0
-        rescoring: manual
-      - id: missing-scan
-        display_name: missing-scan
-        value: 16
-        allowed_processing_time: 0
-        rescoring: automatic
-        selector:
-          sub_types:
-            - .*
-    rescoring_ruleset:
-      name: sast-rescoring
-      rules:
-        - match:
-            - component_name: github.com/.*
-            - component_name: ocm.software/.*
-          name: skip-scan-is-optional-for-opensource-components
-          operation: set-to-scan-not-required
-          sast_status: no-linter
-          sub_types:
-            - central-linting
-    issues:
-      enable_assignees: False
-  - type: finding/crypto
-    categorisations:
-      - id: false-positive
-        display_name: False Positive
-        value: 0
-        rescoring: manual
-      - id: security-irrelevant
-        display_name: Security Irrelevant
-        value: 0
-        rescoring: manual
-      - id: compliant
-        display_name: Compliant
-        value: 0
-        rescoring: manual
-        selector:
-          ratings:
-            - compliant
-      - id: maybe-standard-compliant
-        display_name: Maybe Compliant
-        value: 2
-        allowed_processing_time: 90
-        rescoring: manual
-        selector:
-          ratings:
-            - maybe-compliant
-      - id: not-standard-compliant
-        display_name: Not Compliant
-        value: 8
-        allowed_processing_time: 30
-        rescoring: manual
-        selector:
-          ratings:
-            - not-compliant
-    issues:
-      enable_assignees: False
+      <<: *gardener_default
   - type: finding/osid
-    categorisations:
-      - id: empty-os-id
-        display_name: Empty OS ID
-        value: -1
-        allowed_processing_time: ~
-        selector:
-          status:
-            - emptyOsId
-      - id: no-branch-info
-        display_name: No Branch Info
-        value: -1
-        allowed_processing_time: ~
-        selector:
-          status:
-            - noBranchInfo
-      - id: no-release-info
-        display_name: No Release Info
-        value: -1
-        allowed_processing_time: ~
-        selector:
-          status:
-            - noReleaseInfo
-      - id: unable-to-compare-version
-        display_name: Unable to Compare Version
-        value: -1
-        allowed_processing_time: ~
-        selector:
-          status:
-            - unableToCompareVersion
-      - id: up-to-date
-        display_name: Up to Date
-        value: 0
-        allowed_processing_time: ~
-        rescoring: manual
-      - id: false-positive
-        display_name: False-Positive
-        value: 0
-        allowed_processing_time: ~
-        rescoring: manual
-      - id: distroless
-        display_name: Distroless
-        value: 0
-        allowed_processing_time: ~
-        rescoring: manual
-        selector:
-          status:
-            - distroless
-      - id: one-patchlevel-behind
-        display_name: One Patchlevel behind (tip)
-        value: 0
-        allowed_processing_time: ~
-        rescoring: manual
-      - id: postpone
-        display_name: Postpone
-        value: 1
-        allowed_processing_time: input
-        rescoring: manual
-      - id: more-than-one-patchlevel-behind
-        display_name: More than one Patchlevel behind
-        value: 2
-        allowed_processing_time: 90
-        rescoring: manual
-        selector:
-          status:
-            - moreThanOnePatchlevelBehind
-      - id: eol
-        display_name: Branch no longer supported
-        value: 8
-        allowed_processing_time: 30
-        rescoring: manual
-        selector:
-          status:
-            - branchReachedEol
-  - type: finding/ghas
-    categorisations:
-      - id: false-positive
-        display_name: False Positive
-        value: 0
-        allowed_processing_time: ~
-        rescoring: manual
-        selector:
-          resolutions:
-            - false_positive
-      - id: revoked
-        display_name: Revoked
-        value: 0
-        allowed_processing_time: ~
-        rescoring: manual
-        selector:
-          resolutions:
-            - revoked
-      - id: wont-fix
-        display_name: Won't Fix
-        value: 0
-        allowed_processing_time: ~
-        rescoring: manual
-        selector:
-          resolutions:
-            - wont_fix
-      - id: used-in-tests
-        display_name: Used In Tests
-        value: 0
-        allowed_processing_time: ~
-        rescoring: manual
-        selector:
-          resolutions:
-            - used_in_tests
-      - id: MEDIUM
-        display_name: MEDIUM
-        value: 2
-        allowed_processing_time: 90
-        rescoring: manual
-        selector:
-          resolutions:
-            - null
     issues:
-      enable_assignees: False
+      enable_assignees: false
+    categorisations:
+      <<: *gardener_default
+  - type: finding/sast
+    issues:
+      enable_assignees: false
+    categorisations:
+      <<: *gardener_default
+    default_scope: single
 
 ocm_repo_mappings:
   - prefix: ocm.software/ocmcli

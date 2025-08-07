@@ -2,11 +2,16 @@ categorisations:
   - type: finding/vulnerability
     gardener:
       - id: NONE
-        display_name: NONE
+        display_name: Not Exploitable / Accept
         value: 0
         rescoring: manual
+      - id: postpone
+        display_name: Postpone
+        value: 1
+        allowed_processing_time: input
+        rescoring: manual
       - id: LOW
-        display_name: LOW
+        display_name: Low
         value: 1
         allowed_processing_time: 120
         rescoring: [manual, automatic]
@@ -15,7 +20,7 @@ categorisations:
             min: 0.0
             max: 3.9
       - id: MEDIUM
-        display_name: MEDIUM
+        display_name: Medium
         value: 2
         allowed_processing_time: 90
         rescoring: [manual, automatic]
@@ -24,7 +29,7 @@ categorisations:
             min: 4.0
             max: 6.9
       - id: HIGH
-        display_name: HIGH
+        display_name: High
         value: 4
         allowed_processing_time: 30
         rescoring: manual
@@ -33,7 +38,7 @@ categorisations:
             min: 7.0
             max: 8.9
       - id: CRITICAL
-        display_name: CRITICAL
+        display_name: Critical
         value: 8
         allowed_processing_time: 30
         rescoring: manual
@@ -41,6 +46,124 @@ categorisations:
           cve_score_range:
             min: 9.0
             max: 10.0
+  - type: finding/license
+    gardener:
+      - id: false-positive
+        display_name: False-Positive
+        value: 0
+        rescoring: manual
+      - id: violation
+        display_name: Violation
+        value: 16
+        allowed_processing_time: 0
+        rescoring: manual
+        selector:
+          license_names:
+            - sleepycat
+  - type: finding/malware
+    gardener:
+      - id: false-positive
+        display_name: False-Positive
+        value: 0
+        rescoring: manual
+      - id: scanner-limitation
+        display_name: Scanner-Limitation
+        value: 16
+        allowed_processing_time: 0
+        selector:
+          malware_names:
+            - Heuristics.Limits.Exceeded.*
+      - id: found
+        display_name: Found
+        value: 16
+        allowed_processing_time: 0
+        rescoring: manual
+        selector:
+          malware_names:
+            - .*
+  - type: finding/osid
+    gardener:
+      - id: empty-os-id
+        display_name: Empty OS ID
+        value: -1
+        selector:
+          status:
+            - emptyOsId
+      - id: no-branch-info
+        display_name: No Branch Info
+        value: -1
+        selector:
+          status:
+            - noBranchInfo
+      - id: no-release-info
+        display_name: No Release Info
+        value: -1
+        selector:
+          status:
+            - noReleaseInfo
+      - id: unable-to-compare-version
+        display_name: Unable to Compare Version
+        value: -1
+        selector:
+          status:
+            - unableToCompareVersion
+      - id: distroless
+        display_name: Distroless
+        value: 0
+        rescoring: manual
+        selector:
+          status:
+            - distroless
+      - id: up-to-date
+        display_name: Up to Date
+        value: 0
+        rescoring: manual
+      - id: false-positive
+        display_name: False-Positive
+        value: 0
+        rescoring: manual
+      - id: postpone
+        display_name: Postpone
+        value: 1
+        allowed_processing_time: input
+        rescoring: manual
+      - id: one-or-more-patchlevel-behind
+        display_name: One or more Patchlevel behind
+        value: 2
+        rescoring: manual
+        selector:
+          status:
+            - patchlevelBehind
+      - id: eol
+        display_name: Branch no longer supported
+        value: 8
+        allowed_processing_time: 360
+        rescoring: manual
+        selector:
+          status:
+            - branchReachedEol
+  - type: finding/sast
+    gardener:
+      - id: other
+        display_name: Other
+        value: 0
+        rescoring: manual
+      - id: no-linting-required
+        display_name: No SAST scans required
+        value: 0
+        rescoring: manual
+      - id: manual-linting
+        display_name: Manual SAST scans done
+        value: 0
+        rescoring: manual
+      - id: missing-linting
+        display_name: Missing SAST scan
+        value: 16
+        allowed_processing_time: 0
+        rescoring: [manual, automatic]
+        selector:
+          sub_types:
+            - .*
 
 rescoring_rulesets:
   - type: finding/vulnerability
