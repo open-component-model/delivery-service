@@ -206,6 +206,7 @@ def delete_old_backup_versions(
         secret_factory=secret_factory,
         image_reference=oci_ref,
         privileges=oci.auth.Privileges.ADMIN,
+        absent_ok=False,
     )
 
     def oci_cfg_lookup(

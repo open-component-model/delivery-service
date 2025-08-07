@@ -40,13 +40,19 @@ def find_cfg(
     secret_factory: secret_mgmt.SecretFactory,
     image_reference: oci.model.OciImageReference | str,
     privileges: oci.auth.Privileges=None,
+    absent_ok: bool=True,
     _normalised_image_reference: bool=False,
 ) -> OciRegistry | None:
     if isinstance(image_reference, oci.model.OciImageReference):
         image_reference = image_reference.normalised_image_reference
         _normalised_image_reference = True
 
-    oci_registry_cfgs: list[OciRegistry] = secret_factory.oci_registry()
+    try:
+        oci_registry_cfgs: list[OciRegistry] = secret_factory.oci_registry()
+    except secret_mgmt.SecretTypeNotFound as e:
+        if absent_ok:
+            return None
+        raise ValueError('no OCI registry credentials found') from e
 
     matching_cfgs = (
         oci_registry_cfg
@@ -65,12 +71,15 @@ def find_cfg(
     if not sorted_matching_cfgs:
         if _normalised_image_reference:
             # finally give up - did not match anything, even after normalisation
-            return None
+            if absent_ok:
+                return None
+            raise ValueError(f'no credentials found for {image_reference=} with {privileges=}')
         else:
             return find_cfg(
                 secret_factory=secret_factory,
                 image_reference=oci.util.normalise_image_reference(image_reference=image_reference),
                 privileges=privileges,
+                absent_ok=absent_ok,
                 _normalised_image_reference=True,
             )
 
@@ -91,13 +100,11 @@ def oci_cfg_lookup(
             secret_factory=secret_factory,
             image_reference=image_reference,
             privileges=privileges,
+            absent_ok=absent_ok,
         )
 
         if not oci_registry_cfg:
-            if absent_ok:
-                return None # fallback to docker-cfg (or try w/o auth)
-
-            raise RuntimeError(f'No credentials found for {image_reference=} with {privileges=}')
+            return None
 
         return oci.auth.OciBasicAuthCredentials(
             username=oci_registry_cfg.username,

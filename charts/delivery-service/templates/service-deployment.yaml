@@ -139,6 +139,7 @@ spec:
         - name: oci-registry
           secret:
             secretName: secret-factory-oci-registry
+            optional: true # oci authentication is optional
         - name: signing-cfg
           secret:
             secretName: secret-factory-signing-cfg
