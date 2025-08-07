@@ -18,14 +18,12 @@ pragmatically hardcoding a lot.
 class SprintOffsets:
     name: str
     display_name: str | None
-    comment: str | None
     offset_days: int
 
 
 @dataclasses.dataclass
 class SprintMetadata:
     offsets: list[SprintOffsets]
-    sprint_length_days: int
 
 
 @dataclasses.dataclass

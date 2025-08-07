@@ -9,9 +9,6 @@ data:
         # offsets are relative to `end_date`, only integer values are allowed
         - name: release_decision
           display_name: Release Decision
-          comment: release decision takes place one day before end of sprint
           offset_days: -1
-      sprint_length_days: 14
-
     # sprints are automatically generated using `render_sprints.py` script during "kind-up"
     sprints: []
