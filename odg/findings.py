@@ -482,23 +482,48 @@ class SharedCfgReference:
 
 
 @dataclasses.dataclass
+class ReuseDiscoveryDate:
+    '''
+    :param bool enabled:
+        Specifies whether discovery dates should be reused at all.
+    :param str max_reuse_time:
+        The time after the last update of a finding during which a discovery date is reused.
+        Known units:
+            - seconds: s, sec
+            - minutes: m, min
+            - hours: h, hr
+            - days: d (default)
+            - weeks: w
+            - years: a
+    '''
+    enabled: bool = True
+    max_reuse_time: str | int | None = None
+
+    def __post_init__(self):
+        if self.max_reuse_time is not None:
+            self.max_reuse_time = util.convert_to_timedelta(self.max_reuse_time)
+
+
+@dataclasses.dataclass
 class Finding:
     '''
-    :param Datatype type
+    :param Datatype type:
     :param list[FindingCategorisation] categorisation:
         The available categories for this type of findings and information on how to assign the
         findings to one of these categories. If a string is given, the corresponding standard
         categorisations are automatically set after instantiation of this class.
     :param list[FindingFilter] filter:
         An optional filter to restrict detection of findings to certain artefacts.
-    :param RuleSet ruleset:
+    :param RuleSet rescoring_ruleset:
         Based on the finding type, there might be a ruleset available to automatically suggest/do
         rescorings. If a string is given, the corresponding standard ruleset is automatically set
         after instantiation of this class.
     :param FindingIssues issues:
         Configuration whether and if yes, how, GitHub tracking issues should be created/updated.
-    :param RescoringScope default_scope
+    :param RescoringScope default_scope:
         Default scope selection to be used for rescoring via the Delivery-Dashboard.
+    :param ReuseDiscoveryDate reuse_discovery_date:
+        Specifies the behaviour of reusing discovery dates of existing findings.
     '''
     type: odg.model.Datatype
     categorisations: SharedCfgReference | list[FindingCategorisation]
@@ -508,6 +533,7 @@ class Finding:
     default_scope: RescoringSpecificity = dataclasses.field(
         default_factory=lambda: RescoringSpecificity.ARTEFACT
     )
+    reuse_discovery_date: ReuseDiscoveryDate = dataclasses.field(default_factory=ReuseDiscoveryDate)
 
     @staticmethod
     def from_dict(
