@@ -159,15 +159,12 @@ class BDBAMapping(Mapping):
     '''
     :param int group_id:
         BDBA group id to use for scanning.
-    :param str bdba_secret_name:
-        Name of the BDBA secret element to use for scanning.
     :param str aws_secret_name
         Name of the AWS secret element to use to retrieve artefacts from S3.
     :param ProcessingMode processing_mode:
         Defines the scanning behaviour in case there is already an existing scan.
     '''
     group_id: int
-    bdba_secret_name: str
     aws_secret_name: str | None
     processing_mode: str = 'rescan'
 

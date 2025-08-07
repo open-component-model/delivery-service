@@ -16,7 +16,6 @@ bdba:
   mappings:
     - prefix: ''
       group_id: 0 # <int> must be set
-      bdba_secret_name: my-secret # <str> must be set
 
 cache_manager:
   enabled: False

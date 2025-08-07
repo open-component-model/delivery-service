@@ -112,11 +112,11 @@ def scan(
 
     mapping = extension_cfg.mapping(artefact.component_name)
 
-    logger.info(f'using BDBA secret element "{mapping.bdba_secret_name}"')
-    bdba_secret: secret_mgmt.bdba.BDBA = secret_factory.bdba(mapping.bdba_secret_name)
-
-    if bdba_secret.matches(group_id=mapping.group_id) is secret_mgmt.bdba.MatchScore.NO_MATCH:
-        raise ValueError(f'BDBA cfg does not match {mapping.group_id=}')
+    if not (bdba_secret := secret_mgmt.bdba.find_cfg(
+        secret_factory=secret_factory,
+        group_id=mapping.group_id,
+    )):
+        raise ValueError(f'no BDBA secret found for group {mapping.group_id}')
 
     bdba_client = bdba.client.BDBAApi(
         api_routes=bdba.client.BDBAApiRoutes(base_url=bdba_secret.api_url),

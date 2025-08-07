@@ -21,8 +21,8 @@ class MatchScore(enum.IntEnum):
 @dataclasses.dataclass
 class BDBA:
     api_url: str
-    group_ids: list[int]
     token: str
+    group_ids: list[int] = dataclasses.field(default_factory=list)
     tls_verify: bool = True
 
     def matches(
@@ -49,8 +49,8 @@ class BDBA:
 
 def find_cfg(
     secret_factory: secret_mgmt.SecretFactory,
-    group_id: int | None,
-    url: str | None,
+    group_id: int | None=None,
+    url: str | None=None,
 ) -> BDBA | None:
     bdba_cfgs: list[BDBA] = secret_factory.bdba()
 

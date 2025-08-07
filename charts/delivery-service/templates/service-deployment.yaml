@@ -82,8 +82,6 @@ spec:
           {{- end }}
           {{- end }}
           volumeMounts:
-            - name: bdba
-              mountPath: /secrets/bdba
             - name: delivery-db
               mountPath: /secrets/delivery-db
             - name: github
@@ -119,10 +117,6 @@ spec:
               memory: 5Gi
               cpu: 500m
       volumes:
-        - name: bdba
-          secret:
-            secretName: secret-factory-bdba
-            optional: true # bdba extension is optional
         - name: delivery-db
           secret:
             secretName: secret-factory-delivery-db
