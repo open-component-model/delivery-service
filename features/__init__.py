@@ -196,12 +196,6 @@ class ComponentWithDownloadableTestResults:
     downloadableName: str
 
 
-@dataclasses.dataclass(frozen=True)
-class SprintDateNameMapping:
-    dateName: str
-    displayName: str
-
-
 @dataclasses.dataclass
 class Profile:
     name: str
@@ -472,7 +466,6 @@ class FeatureSpecialComponents(FeatureBase):
 class FeatureSprints(FeatureBase):
     name: str = 'sprints'
     sprints_relpath: str = None
-    sprint_date_display_name_mappings: tuple[SprintDateNameMapping] = tuple()
     github_repo: github3.repos.Repository | None = None
 
     def _get_content(self, relpath: str) -> dict:
@@ -513,12 +506,6 @@ class FeatureSprints(FeatureBase):
                 ),
             ) for sprint_raw in sprints_raw
         ]
-
-    def get_sprint_date_display_name(self, sprint_date_name: str) -> str:
-        for sprint_date_display_name_mapping in self.sprint_date_display_name_mappings:
-            if sprint_date_name == sprint_date_display_name_mapping.dateName:
-                return sprint_date_display_name_mapping.displayName
-        return sprint_date_name
 
     def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
@@ -641,17 +628,6 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 
 
 def deserialise_sprints(sprints_raw: dict) -> FeatureSprints:
-    def deserialise_sprint_date_display_name_mappings() -> tuple[SprintDateNameMapping]:
-        sprint_date_name_mappings_raw = sprints_raw.get('sprintDateNameMappings', tuple())
-        sprint_date_name_mappings = tuple(
-            dacite.from_dict(
-                data_class=SprintDateNameMapping,
-                data=sprint_date_name_mapping,
-            )
-            for sprint_date_name_mapping in sprint_date_name_mappings_raw
-        )
-        return sprint_date_name_mappings
-
     if not (sprints_relpath := sprints_raw.get('sprintsRelpath')):
         return FeatureSprints(FeatureStates.UNAVAILABLE)
 
@@ -666,7 +642,6 @@ def deserialise_sprints(sprints_raw: dict) -> FeatureSprints:
     return FeatureSprints(
         FeatureStates.AVAILABLE,
         sprints_relpath=sprints_relpath,
-        sprint_date_display_name_mappings=deserialise_sprint_date_display_name_mappings(),
         github_repo=github_repo,
     )
 
