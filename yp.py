@@ -29,7 +29,7 @@ class SprintMetadata:
 @dataclasses.dataclass
 class Sprint:
     name: str
-    end_date: datetime.datetime
+    end_date: datetime.datetime | datetime.date
 
     def iter_sprint_dates(
         self,

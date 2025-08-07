@@ -501,7 +501,7 @@ class FeatureSprints(FeatureBase):
                 data=sprint_raw,
                 config=dacite.Config(
                     type_hooks={
-                        datetime.datetime: lambda date: dateutil.parser.isoparse(date),
+                        datetime.datetime: lambda date: dateutil.parser.isoparse(date) if isinstance(date, str) else date, # noqa: E501
                     },
                 ),
             ) for sprint_raw in sprints_raw

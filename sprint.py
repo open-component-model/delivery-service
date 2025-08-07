@@ -35,9 +35,14 @@ def current_sprint(
         offset = - offset
 
     for idx, sprint in enumerate(sprints):
-        if sprint.end_date.date() > ref_date.date():
+        if isinstance(sprint.end_date, datetime.datetime):
+            end_date = sprint.end_date.date()
+        else:
+            end_date = sprint.end_date
+
+        if end_date > ref_date.date():
             continue
-        if sprint.end_date.date() == ref_date.date():
+        if end_date == ref_date.date():
             return sprint
         # if this line is reached, current sprint has already ended, so its predecessor is the
         # current one (edge-case: there is no such sprint)
