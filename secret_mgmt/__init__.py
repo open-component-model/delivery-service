@@ -186,7 +186,6 @@ class SecretFactory:
                                 token_url=oauth_cfg['token_url'],
                                 client_id=oauth_cfg['client_id'],
                                 client_secret=oauth_cfg['client_secret'],
-                                scope=oauth_cfg.get('scope'),
                                 role_bindings=[
                                     dacite.from_dict(
                                         data_class=secret_mgmt.oauth_cfg.RoleBinding,

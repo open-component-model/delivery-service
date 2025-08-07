@@ -37,5 +37,4 @@ class OAuthCfg:
     token_url: str
     client_id: str
     client_secret: str
-    scope: str | None
     role_bindings: list[RoleBinding] = dataclasses.field(default_factory=list)

@@ -166,7 +166,6 @@ class OAuthCfgs(aiohttp.web.View):
 
             oauth_url = oauth_cfg.oauth_url.rstrip('?') + '?' + urllib.parse.urlencode({
                 'client_id': oauth_cfg.client_id,
-                'scope': oauth_cfg.scope,
                 'redirect_uri': redirect_uri,
             })
 
@@ -176,7 +175,6 @@ class OAuthCfgs(aiohttp.web.View):
                 'api_url': oauth_cfg.api_url,
                 'oauth_url': oauth_cfg.oauth_url,
                 'client_id': oauth_cfg.client_id,
-                'scope': oauth_cfg.scope,
                 'redirect_uri': redirect_uri,
                 'oauth_url_with_redirect': oauth_url,
             }
