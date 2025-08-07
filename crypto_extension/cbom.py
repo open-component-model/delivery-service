@@ -12,6 +12,7 @@ import crypto_extension.sbom
 import dockerutil
 import odg.extensions_cfg
 import secret_mgmt
+import secret_mgmt.aws
 import secret_mgmt.oci_registry
 
 
@@ -98,11 +99,10 @@ def find_cbom_or_create(
             )
 
     elif access.type is ocm.AccessType.S3:
-        if not mapping.aws_secret_name:
-            raise ValueError('"aws_secret_name" must be configured for resources stored in S3')
-
-        logger.info(f'using AWS secret element "{mapping.aws_secret_name}"')
-        aws_secret = secret_factory.aws(mapping.aws_secret_name)
+        aws_secret = secret_mgmt.aws.find_cfg(
+            secret_factory=secret_factory,
+            secret_name=mapping.aws_secret_name,
+        )
         s3_client = aws_secret.session.client('s3')
 
         fileobj = s3_client.get_object(Bucket=access.bucketName, Key=access.objectKey)['Body']
