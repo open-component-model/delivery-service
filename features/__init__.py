@@ -483,7 +483,7 @@ class FeatureSprints(FeatureBase):
     def get_sprints_metadata(self) -> yp.SprintMetadata:
         meta_raw = self._get_content(
             relpath=self.sprints_relpath,
-        )['meta']
+        ).get('meta', {})
 
         return dacite.from_dict(
             data_class=yp.SprintMetadata,

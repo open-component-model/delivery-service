@@ -23,7 +23,7 @@ class SprintOffsets:
 
 @dataclasses.dataclass
 class SprintMetadata:
-    offsets: list[SprintOffsets]
+    offsets: list[SprintOffsets] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
