@@ -13,7 +13,7 @@ import secret_mgmt
 class OciRegistry:
     username: str
     password: str
-    image_reference_prefixes: list[str]
+    image_reference_prefixes: list[str] = dataclasses.field(default_factory=list)
     privileges: oci.auth.Privileges = oci.auth.Privileges.READONLY
 
     def image_reference_matches(
@@ -23,11 +23,12 @@ class OciRegistry:
     ) -> bool:
         image_reference = str(image_reference)
 
-        if not self.image_reference_prefixes:
-            return False
-
         if privileges and self.privileges < privileges:
             return False
+
+        if not self.image_reference_prefixes:
+            # credentials are not restricted to any image-ref prefix -> may always be used
+            return True
 
         for image_reference_prefix in self.image_reference_prefixes:
             if image_reference.startswith(image_reference_prefix):
@@ -63,9 +64,10 @@ def find_cfg(
         )
     )
 
+    # use the cfg with the least (but enough) privileges and the most prefixes (most specific one)
     sorted_matching_cfgs = sorted(
         matching_cfgs,
-        key=lambda cfg: cfg.privileges,
+        key=lambda cfg: (cfg.privileges, -len(cfg.image_reference_prefixes)),
     )
 
     if not sorted_matching_cfgs:
