@@ -6,13 +6,4 @@ specialComponents:
   version: greatest
   icon: landscape
   dependencies: []
-addressbook:
-  # todo: create example repository
-  repoUrl: https://github.com/open-component-model/example-yellow-pages
-  addressbookRelpath: ~ # (set to null to disable feature) addressbook.yaml
-  githubMappingsRelpath: github.yaml
-sprints:
-  # todo: create example repository
-  repoUrl: https://github.com/open-component-model/example-yellow-pages
-  sprintsRelpath: ~ # set to null to disable feature; sprints.yaml
 upgradePRs: True

@@ -1,0 +1,10 @@
+{{- if $sprints := .Values.sprints }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sprints
+  namespace: {{ .Values.target_namespace | default .Release.Namespace }}
+data:
+  sprints: |
+    {{- toYaml $sprints | nindent 4 }}
+{{- end }}

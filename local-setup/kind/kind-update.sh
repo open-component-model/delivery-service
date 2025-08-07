@@ -53,8 +53,6 @@ helm upgrade -i delivery-db oci://${DELIVERY_DATABASE_CHART%:*} \
 
 echo ">>> Installing delivery-service from ${DELIVERY_SERVICE_CHART}"
 python3 ${CHART}/delivery-service-mounts/render_sprints.py
-kubectl apply -f "${CHART}/delivery-service-mounts/addressbook.yaml" --namespace $NAMESPACE
-kubectl apply -f "${CHART}/delivery-service-mounts/github_mappings.yaml" --namespace $NAMESPACE
 kubectl apply -f "${CHART}/delivery-service-mounts/sprints.yaml" --namespace $NAMESPACE
 helm upgrade -i delivery-service oci://${DELIVERY_SERVICE_CHART%:*} \
     --namespace $NAMESPACE \

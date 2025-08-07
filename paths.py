@@ -63,6 +63,24 @@ def profiles_candidates() -> collections.abc.Generator[str, None, None]:
     yield os.path.join(_odg_path, 'profiles.yaml')
 
 
+def sprints_candidates() -> collections.abc.Generator[str, None, None]:
+    if sprints_path := os.environ.get('SPRINTS_PATH'):
+        yield sprints_path
+    yield os.path.join(_features_path, 'sprints.yaml')
+
+
+def addressbook_candidates() -> collections.abc.Generator[str, None, None]:
+    if addressbook_path := os.environ.get('ADDRESSBOOK_PATH'):
+        yield addressbook_path
+    yield os.path.join(_features_path, 'addressbook.yaml')
+
+
+def github_mappings_candidates() -> collections.abc.Generator[str, None, None]:
+    if github_mappings_path := os.environ.get('GITHUB_MAPPINGS_PATH'):
+        yield github_mappings_path
+    yield os.path.join(_features_path, 'github_mappings.yaml')
+
+
 def find_path(
     candidates: collections.abc.Iterable[str],
     absent_ok: bool=False,
@@ -121,5 +139,35 @@ def profiles_path(
 ) -> str | None:
     return find_path(
         candidates=profiles_candidates(),
+        absent_ok=absent_ok,
+    )
+
+
+def sprints_path(
+    path_overwrite: str | None=None,
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=[path_overwrite] if path_overwrite else sprints_candidates(),
+        absent_ok=absent_ok,
+    )
+
+
+def addressbook_path(
+    path_overwrite: str | None=None,
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=[path_overwrite] if path_overwrite else addressbook_candidates(),
+        absent_ok=absent_ok,
+    )
+
+
+def github_mappings_path(
+    path_overwrite: str | None=None,
+    absent_ok: bool=False,
+) -> str | None:
+    return find_path(
+        candidates=[path_overwrite] if path_overwrite else github_mappings_candidates(),
         absent_ok=absent_ok,
     )
