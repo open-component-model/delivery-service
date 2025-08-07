@@ -182,8 +182,6 @@ class SecretFactory:
                                 name=oauth_cfg['name'],
                                 type=secret_mgmt.oauth_cfg.OAuthCfgTypes(oauth_cfg['type']),
                                 api_url=oauth_cfg['api_url'],
-                                oauth_url=oauth_cfg['oauth_url'],
-                                token_url=oauth_cfg['token_url'],
                                 client_id=oauth_cfg['client_id'],
                                 client_secret=oauth_cfg['client_secret'],
                                 role_bindings=[

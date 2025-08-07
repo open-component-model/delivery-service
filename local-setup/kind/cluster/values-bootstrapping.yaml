@@ -368,8 +368,6 @@ secrets:
       api_url: https://api.github.com
       type: github
       name: GitHub
-      oauth_url: https://github.com/login/oauth/authorize
-      token_url: https://github.com/login/oauth/access_token
       role_bindings:
         - roles:
             - admin
