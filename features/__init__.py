@@ -245,7 +245,7 @@ class FeatureAddressbook(FeatureBase):
         if self.github_repo:
             return self.github_repo.url
 
-        return 'local-configuration'
+        return 'incluster-configuration'
 
     def _get_content(self, relpath: str) -> dict:
         if self.github_repo:
@@ -538,19 +538,24 @@ def get_feature(
 
 
 def deserialise_addressbook(addressbook_raw: dict) -> FeatureAddressbook:
-    if not (addressbook_relpath := addressbook_raw.get('addressbookRelpath')):
-        return FeatureAddressbook(FeatureStates.UNAVAILABLE)
-
-    if not (github_mappings_relpath := addressbook_raw.get('githubMappingsRelpath')):
-        return FeatureAddressbook(FeatureStates.UNAVAILABLE)
-
     if github_repo_url := addressbook_raw.get('repoUrl'):
-        github_repo_lookup = lookups.github_repo_lookup(
-            lookups.github_api_lookup(),
-        )
+        github_api_lookup = lookups.github_api_lookup()
+        github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
         github_repo = github_repo_lookup(github_repo_url)
+        addressbook_relpath = addressbook_raw['addressbookRelpath']
+        github_mappings_relpath = addressbook_raw['githubMappingsRelpath']
     else:
         github_repo = None
+        addressbook_relpath = paths.addressbook_path(
+            path_overwrite=addressbook_raw.get('addressbookRelpath'),
+            absent_ok=True,
+        )
+        github_mappings_relpath = paths.github_mappings_path(
+            path_overwrite=addressbook_raw.get('githubMappingsRelpath'),
+            absent_ok=True,
+        )
+        if not addressbook_relpath or not github_mappings_relpath:
+            return FeatureAddressbook(FeatureStates.UNAVAILABLE)
 
     return FeatureAddressbook(
         FeatureStates.AVAILABLE,
@@ -628,16 +633,20 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 
 
 def deserialise_sprints(sprints_raw: dict) -> FeatureSprints:
-    if not (sprints_relpath := sprints_raw.get('sprintsRelpath')):
-        return FeatureSprints(FeatureStates.UNAVAILABLE)
-
     if github_repo_url := sprints_raw.get('repoUrl'):
         github_repo_lookup = lookups.github_repo_lookup(
             lookups.github_api_lookup(),
         )
         github_repo = github_repo_lookup(github_repo_url)
+        sprints_relpath = sprints_raw['sprintsRelpath']
     else:
         github_repo = None
+        sprints_relpath = paths.sprints_path(
+            path_overwrite=sprints_raw.get('sprintsRelpath'),
+            absent_ok=True,
+        )
+        if not sprints_relpath:
+            return FeatureSprints(FeatureStates.UNAVAILABLE)
 
     return FeatureSprints(
         FeatureStates.AVAILABLE,
@@ -679,59 +688,33 @@ def deserialise_authentication(
 
 
 def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, None]:
-    addressbook = raw.get(
-        'addressbook',
-        FeatureAddressbook(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(addressbook, FeatureAddressbook):
-        yield addressbook
-    else:
-        yield deserialise_addressbook(addressbook)
+    yield deserialise_addressbook(raw.get('addressbook') or {})
 
-    special_components = raw.get(
-        'specialComponents',
-        FeatureSpecialComponents(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(special_components, FeatureSpecialComponents):
-        yield special_components
-    else:
+    if special_components := raw.get('specialComponents'):
         yield deserialise_special_components(special_components)
-
-    sprints = raw.get(
-        'sprints',
-        FeatureSprints(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(sprints, FeatureSprints):
-        yield sprints
     else:
-        yield deserialise_sprints(sprints)
+        yield FeatureSpecialComponents(FeatureStates.UNAVAILABLE)
 
-    tests = raw.get(
-        'tests',
-        FeatureTests(FeatureStates.UNAVAILABLE),
-    )
-    if isinstance(tests, FeatureTests):
-        yield tests
-    else:
+    yield deserialise_sprints(raw.get('sprints') or {})
+
+    if tests := raw.get('tests'):
         yield deserialise_tests(tests)
+    else:
+        yield FeatureTests(FeatureStates.UNAVAILABLE)
 
     if raw.get('upgradePRs'):
         yield FeatureUpgradePRs(FeatureStates.AVAILABLE)
     else:
         yield FeatureUpgradePRs(FeatureStates.UNAVAILABLE)
 
-    # if no custom config is provided, fallback to default config of feature
-    version_filter = raw.get(
-        'versionFilter',
-        FeatureVersionFilter(state=FeatureStates.AVAILABLE),
-    )
-    if isinstance(version_filter, FeatureVersionFilter):
-        yield version_filter
-    else:
+    if version_filter := raw.get('versionFilter'):
         yield FeatureVersionFilter(
             state=FeatureStates.AVAILABLE,
             version_filter=odg.extensions_cfg.VersionFilter(version_filter),
         )
+    else:
+        # if no custom config is provided, fallback to default config of feature
+        yield FeatureVersionFilter(state=FeatureStates.AVAILABLE)
 
 
 def apply_raw_cfg():

@@ -73,6 +73,12 @@ spec:
             value: /ocm_repo_mappings/ocm_repo_mappings
           - name: PROFILES_PATH
             value: /profiles/profiles
+          - name: SPRINTS_PATH
+            value: /sprints/sprints
+          - name: ADDRESSBOOK_PATH
+            value: /addressbook/addressbook
+          - name: GITHUB_MAPPINGS_PATH
+            value: /github_mappings/github_mappings
           - name: K8S_TARGET_NAMESPACE
             value: {{ .Values.target_namespace | default .Release.Namespace }}
           {{- if default dict .Values.envVars }}
@@ -106,9 +112,12 @@ spec:
               mountPath: /profiles
             - name: features-cfg
               mountPath: "/features_cfg"
-          {{- if .Values.additionalVolumeMounts }}
-            {{- toYaml .Values.additionalVolumeMounts | nindent 12 }}
-          {{- end }}
+            - name: sprints
+              mountPath: "/sprints"
+            - name: addressbook
+              mountPath: "/addressbook"
+            - name: github-mappings
+              mountPath: "/github_mappings"
           resources:
             requests:
               memory: 1Gi
@@ -161,9 +170,18 @@ spec:
           secret:
             secretName: features-cfg
             optional: true
-      {{- if .Values.additionalVolumes }}
-        {{- toYaml .Values.additionalVolumes | nindent 8 }}
-      {{- end }}
+        - name: sprints
+          configMap:
+            name: sprints
+            optional: true
+        - name: addressbook
+          configMap:
+            name: addressbook
+            optional: true
+        - name: github-mappings
+          configMap:
+            name: github-mappings
+            optional: true
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

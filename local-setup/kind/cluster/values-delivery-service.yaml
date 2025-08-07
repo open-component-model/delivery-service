@@ -9,25 +9,3 @@ ingress:
   disableTls: True
   hosts:
     - delivery-service
-
-additionalVolumes:
-  - name: sprints
-    configMap:
-      name: sprints
-      optional: true
-  - name: addressbook
-    configMap:
-      name: addressbook
-      optional: true
-  - name: github-mappings
-    configMap:
-      name: github-mappings
-      optional: true
-
-additionalVolumeMounts:
-  - name: sprints
-    mountPath: "/sprints"
-  - name: addressbook
-    mountPath: "/addressbook"
-  - name: github-mappings
-    mountPath: "/github_mappings"

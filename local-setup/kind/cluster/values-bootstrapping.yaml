@@ -318,11 +318,16 @@ features_cfg:
       version: greatest
       icon: home
       dependencies: []
-  addressbook:
-    addressbookRelpath: ./../../../../addressbook/addressbook
-    githubMappingsRelpath: ./../../../../github_mappings/github_mappings
-  sprints:
-    sprintsRelpath: ./../../../../sprints/sprints
+
+addressbook:
+  - name: My name
+    email: my-name@my-domain.com
+    github:
+      public: my-github-username
+
+github_mappings:
+  - name: public
+    api_url: https://api.github.com
 
 profiles:
   - name: default
