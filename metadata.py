@@ -16,6 +16,7 @@ import deliverydb.util as du
 import deliverydb_cache.model as dcm
 import features
 import middleware.cors
+import odg.findings
 import odg.model
 import util
 
@@ -321,9 +322,12 @@ class ArtefactMetadata(aiohttp.web.View):
 
         created_artefacts: list[dm.ArtefactMetaData] = []
 
+        finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
+
         def find_entry_and_discovery_date(
             existing_entry: dm.ArtefactMetaData,
             new_entry: dm.ArtefactMetaData,
+            reuse_discovery_date: odg.findings.ReuseDiscoveryDate,
         ) -> tuple[dm.ArtefactMetaData | None, datetime.date | None]:
             if (
                 existing_entry.type != new_entry.type
@@ -337,6 +341,7 @@ class ArtefactMetadata(aiohttp.web.View):
             reusable_discovery_date = reuse_discovery_date_if_possible(
                 old_metadata=existing_entry,
                 new_metadata=metadata_entry,
+                reuse_discovery_date=reuse_discovery_date,
             )
 
             if existing_entry.id != metadata_entry.id:
@@ -350,6 +355,13 @@ class ArtefactMetadata(aiohttp.web.View):
                     artefact_metadata=artefact_metadatum,
                 )
 
+                for finding_cfg in finding_cfgs:
+                    if finding_cfg.type == metadata_entry.type:
+                        reuse_discovery_date = finding_cfg.reuse_discovery_date
+                        break
+                else:
+                    reuse_discovery_date = odg.findings.ReuseDiscoveryDate()
+
                 found = None
                 discovery_date = None
 
@@ -357,6 +369,7 @@ class ArtefactMetadata(aiohttp.web.View):
                     found, reusable_discovery_date = find_entry_and_discovery_date(
                         existing_entry=existing_entry,
                         new_entry=metadata_entry,
+                        reuse_discovery_date=reuse_discovery_date,
                     )
 
                     if not discovery_date:
@@ -381,6 +394,7 @@ class ArtefactMetadata(aiohttp.web.View):
                         found, reusable_discovery_date = find_entry_and_discovery_date(
                             existing_entry=existing_entry,
                             new_entry=metadata_entry,
+                            reuse_discovery_date=reuse_discovery_date,
                         )
 
                         if not discovery_date:
@@ -485,7 +499,16 @@ class ArtefactMetadata(aiohttp.web.View):
 def reuse_discovery_date_if_possible(
     old_metadata: dm.ArtefactMetaData,
     new_metadata: dm.ArtefactMetaData,
+    reuse_discovery_date: odg.findings.ReuseDiscoveryDate,
 ) -> datetime.date | None:
+    if not reuse_discovery_date.enabled:
+        return None
+
+    if reuse_discovery_date.max_reuse_time:
+        last_update = datetime.datetime.fromisoformat(old_metadata.meta.get('last_update'))
+        if last_update + reuse_discovery_date.max_reuse_time < datetime.datetime.now():
+            return None
+
     if new_metadata.type not in types_with_reusable_discovery_dates:
         return None
 
