@@ -1,0 +1,232 @@
+extensions_cfg:
+  default:
+    delivery_dashboard_url: ... # must be publicly accessible
+    delivery_service_url: ... # e.g. http://delivery-service.<target-namespace>.svc.cluster.local:8080
+  access_manager:
+    enabled: true
+  artefact_enumerator:
+    components:
+      - component_name: ocm.software/ocm-gear
+  bdba:
+    enabled: False # disable in default because of missing BDBA credentials and `group-id`
+    mappings:
+      - prefix: ''
+        group_id: -1
+  cache_manager:
+    prefill_function_caches:
+      components:
+        - component_name: ocm.software/ocm-gear
+  clamav:
+    mappings:
+      - prefix: ''
+  issue_replicator:
+    enabled: False # disable in default because of missing `github_repository`
+    mappings:
+      - prefix: ''
+        github_repository: ''
+  osid:
+    enabled: true
+  responsibles:
+    rules:
+      - name: ocm-software-components
+        filters:
+          - type: match-all
+        strategies:
+          - type: component-responsibles
+  sast:
+    enabled: true
+
+findings:
+  - type: finding/vulnerability
+    issues:
+      enable_assignees: false
+    categorisations: &gardener_default
+      cfg_name: gardener
+      ref:
+        path: odg/defaults.yaml
+    rescoring_ruleset:
+      <<: *gardener_default
+  - type: finding/license
+    issues:
+      enable_assignees: false
+    categorisations:
+      <<: *gardener_default
+  - type: finding/malware
+    issues:
+      enable_assignees: false
+    categorisations:
+      <<: *gardener_default
+  - type: finding/osid
+    issues:
+      enable_assignees: false
+    categorisations:
+      <<: *gardener_default
+  - type: finding/sast
+    issues:
+      enable_assignees: false
+    categorisations:
+      <<: *gardener_default
+    default_scope: single
+
+ocm_repo_mappings:
+  - prefix: ''
+    repository: europe-docker.pkg.dev/gardener-project/releases
+  - prefix: ''
+    repository: europe-docker.pkg.dev/gardener-project/snapshots
+
+features_cfg:
+  specialComponents:
+    - id: e60f2588-3f97-4d6f-9ac4-92ab36dcdb4e
+      name: ocm.software/ocm-gear
+      displayName: Open Delivery Gear
+      type: ODG
+      version: greatest
+      icon: home
+
+sprints:
+  sprints: # todo: generate this if not provided
+    - name: 2612a
+      end_date: 2026-12-09
+    - name: 2611b
+      end_date: 2026-11-25
+    - name: 2611a
+      end_date: 2026-11-11
+    - name: 2612a
+      end_date: 2026-12-09
+    - name: 2611b
+      end_date: 2026-11-25
+    - name: 2611a
+      end_date: 2026-11-11
+    - name: 2610b
+      end_date: 2026-10-28
+    - name: 2610a
+      end_date: 2026-10-14
+    - name: 2609b
+      end_date: 2026-09-30
+    - name: 2609a
+      end_date: 2026-09-16
+    - name: 2608b
+      end_date: 2026-09-02
+    - name: 2608a
+      end_date: 2026-08-19
+    - name: 2607b
+      end_date: 2026-08-05
+    - name: 2607a
+      end_date: 2026-07-22
+    - name: 2606b
+      end_date: 2026-07-08
+    - name: 2606a
+      end_date: 2026-06-24
+    - name: 2605b
+      end_date: 2026-06-10
+    - name: 2605a
+      end_date: 2026-05-27
+    - name: 2604b
+      end_date: 2026-05-13
+    - name: 2604a
+      end_date: 2026-04-29
+    - name: 2603b
+      end_date: 2026-04-15
+    - name: 2603a
+      end_date: 2026-04-01
+    - name: 2602b
+      end_date: 2026-03-18
+    - name: 2602a
+      end_date: 2026-03-04
+    - name: 2601b
+      end_date: 2026-02-18
+    - name: 2601a
+      end_date: 2026-02-04
+    - name: 2513b
+      end_date: 2026-01-21
+    - name: 2513a
+      end_date: 2026-01-08
+    - name: 2512a
+      end_date: 2025-12-10
+    - name: 2511b
+      end_date: 2025-11-26
+    - name: 2511a
+      end_date: 2025-11-12
+    - name: 2510b
+      end_date: 2025-10-29
+    - name: 2510a
+      end_date: 2025-10-15
+    - name: 2509b
+      end_date: 2025-10-01
+    - name: 2509a
+      end_date: 2025-09-17
+    - name: 2508b
+      end_date: 2025-09-03
+    - name: 2508a
+      end_date: 2025-08-20
+    - name: 2507b
+      end_date: 2025-08-06
+
+addressbook:
+  - name: My name
+    email: my-name@my-domain.com
+    github:
+      public: my-github-username
+
+github_mappings:
+  - name: public
+    api_url: https://api.github.com
+
+secrets:
+  # bdba:
+  #   primary:
+  #     api_url: ...
+  #     token: ...
+  delivery-db:
+    primary:
+      username: postgres
+      password: abcdefghijklmnop
+  github: # not required if `github-app` is configured instead
+    github-com:
+      api_url: https://api.github.com
+      http_url: https://github.com
+      repo_urls: ['.*']
+      username: ...
+      auth_token: ...
+  github-app:
+    github-com:
+      api_url: https://api.github.com
+      app_id: ...
+      mappings:
+        - installation_id: ...
+          org: ...
+      private_key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        ...
+        -----END RSA PRIVATE KEY-----
+  oauth-cfg:
+    primary:
+      name: GitHub
+      type: github
+      api_url: https://api.github.com
+      client_id: ...
+      client_secret: ...
+      role_bindings:
+        - roles:
+            - writer # reader, writer, admin
+          subjects:
+            - type: github-org
+              name: ... # <org-name>
+            - type: github-team
+              name: ... # <org-name>/<team-name>
+            - type: github-user
+              name: ... # <username>
+            - type: github-app
+              name: ... # <app-name>
+  signing-cfg:
+    primary:
+      id: 5e1688f9-b032-4a9b-99ee-9ff2eb3cbcb5
+      algorithm: RS256
+      private_key: |
+        -----BEGIN RSA PRIVATE KEY-----
+        ... # todo: generate this if not provided
+        -----END RSA PRIVATE KEY-----
+      public_key: |
+        -----BEGIN PUBLIC KEY-----
+        ... # todo: generate this if not provided
+        -----END PUBLIC KEY-----
