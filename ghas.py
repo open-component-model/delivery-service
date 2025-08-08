@@ -377,8 +377,8 @@ def scan(
     ]
 
     for stale_finding in all_stale_metadata:
-        html_url = stale_finding.data.get('html_url')
-        api_url = stale_finding.data.get('url')
+        html_url = stale_finding.data.html_url
+        api_url = stale_finding.data.url
 
         stale_alert_data = github_api_request(
             url=api_url,
