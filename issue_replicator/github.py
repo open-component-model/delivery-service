@@ -1503,13 +1503,7 @@ def _create_or_update_or_close_issue_per_finding(
 
         finding_labels = labels | {data_digest}
 
-        if len(data.key) <= github.limits.label:
-            # XXX required for backwards compatibility, remove once all existing issues have the
-            # digest-based data key label set
-            finding_labels |= {data.key}
-            labels_for_filtering = (issue_id, finding_cfg.type, data.key)
-        else:
-            labels_for_filtering = (issue_id, finding_cfg.type, data_digest)
+        labels_for_filtering = (issue_id, finding_cfg.type, data_digest)
 
         finding_issues = filter_issues_for_labels(
             issues=set(issues) | created_issues,
