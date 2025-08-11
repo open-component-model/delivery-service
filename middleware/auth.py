@@ -252,6 +252,12 @@ async def find_github_identifier(
                 res.raise_for_status()
 
                 parsed = urllib.parse.parse_qs(await res.text())
+
+                if 'error' in parsed:
+                    raise aiohttp.web.HTTPUnauthorized(
+                        text=(parsed.get('error_description') or parsed['error'])[0],
+                    )
+
                 github_access_token = parsed['access_token'][0]
 
     elif not github_access_token:
