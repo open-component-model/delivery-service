@@ -972,8 +972,12 @@ def _build_falco_event_section(
         key=lambda event: (event.time),
     )
 
-    events += f"- **Start Time:** {_format_time(sorted_events[0].time) if sorted_events else 'N/A'}\n"
-    events += f"- **End Time:** {_format_time(sorted_events[-1].time) if sorted_events else 'N/A'}\n"
+    events += (
+        f"- **Start Time:** {_format_time(sorted_events[0].time) if sorted_events else 'N/A'}\n"
+    )
+    events += (
+        f"- **End Time:** {_format_time(sorted_events[-1].time) if sorted_events else 'N/A'}\n"
+    )
 
     for i, event in enumerate(sorted_events, start=1):
         output_lines = [f"{k}: {v}" for k, v in event.output.items()]
@@ -992,6 +996,7 @@ def _build_falco_event_section(
             _markdown_collapsible_section(summary=f"Event {i}", details_markdown=event_str) + "\n\n"
         )
     return events
+
 
 def _format_time(dt: datetime.datetime) -> str:
     return dt.strftime('%Y-%m-%d %H:%M:%S UTC') if dt else 'N/A'
