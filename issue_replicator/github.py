@@ -858,6 +858,7 @@ def _falco_template_vars(
     finding_groups: list[FindingGroup],
     summary: str
 ) -> dict[str, str]:
+    content = {}
     for finding_group in finding_groups:
         finding_group: FindingGroup
         for aggregated_finding in finding_group.findings:
@@ -969,11 +970,14 @@ def _build_falco_event_section(
     sorted_events = sorted(
         finding_content.events,
         key=lambda event: (event.time),
-        reverse=True,
     )
 
-    events += f"- **Start Time:** {sorted_events[0].time if sorted_events else 'N/A'}\n"
-    events += f"- **End Time:** {sorted_events[-1].time if sorted_events else 'N/A'}\n"
+    events += (
+        f"- **Start Time:** {_format_time(sorted_events[0].time) if sorted_events else 'N/A'}\n"
+    )
+    events += (
+        f"- **End Time:** {_format_time(sorted_events[-1].time) if sorted_events else 'N/A'}\n"
+    )
 
     for i, event in enumerate(sorted_events, start=1):
         output_lines = [f"{k}: {v}" for k, v in event.output.items()]
@@ -992,6 +996,10 @@ def _build_falco_event_section(
             _markdown_collapsible_section(summary=f"Event {i}", details_markdown=event_str) + "\n\n"
         )
     return events
+
+
+def _format_time(dt: datetime.datetime) -> str:
+    return dt.strftime('%Y-%m-%d %H:%M:%S UTC') if dt else 'N/A'
 
 
 def _list_falco_clusters(
