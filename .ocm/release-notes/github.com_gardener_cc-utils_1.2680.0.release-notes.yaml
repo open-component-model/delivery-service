@@ -1,0 +1,26 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2680.0
+release_notes:
+- audience: null
+  author: null
+  category: null
+  contents: |-
+    # [gardener/cc-utils]
+
+    ## ✨ New Features
+
+    - `[DEVELOPER]` Upgrade-PRs now - in addition - augment the `.ocm/release-notes`-directory with the release-notes of the subcomponents by @8R0WNI3 [#1318]
+    ## 🐛 Bug Fixes
+
+    - `[DEVELOPER]` Honour imagevectors in upgrade-dependencies workflow by @8R0WNI3 [#1337]
+    ## 🏃 Others
+
+    - `[DEVELOPER]` make inclusion of subcomponents' release-notes configurable by @ccwienk [#1339]
+    - `[DEVELOPER]` fixate commit for pullrequests in `trusted-checkout` action to avoid race-conditions in conjunction with "label-based trust". by @ccwienk [#1335]
+    - `[DEVELOPER]` also expose component-descriptor from post-build-workflow by @ccwienk [#1334]
+    - `[DEVELOPER]` expose published component-descriptor as output by @ccwienk [#1333]
+    - `[OPERATOR]` render version-commit-diff as codeblock by @ccwienk [#1336]
+  mimetype: text/markdown
+  reference: null
+  type: prerendered
