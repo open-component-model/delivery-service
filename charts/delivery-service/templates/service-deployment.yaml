@@ -98,6 +98,8 @@ spec:
               mountPath: /secrets/kubernetes
             - name: oauth-cfg
               mountPath: /secrets/oauth-cfg
+            - name: rbac
+              mountPath: /secrets/rbac
             - name: oci-registry
               mountPath: /secrets/oci-registry
             - name: signing-cfg
@@ -144,6 +146,10 @@ spec:
         - name: oauth-cfg
           secret:
             secretName: secret-factory-oauth-cfg
+            optional: true # authentication is optional
+        - name: rbac
+          secret:
+            secretName: secret-factory-rbac
             optional: true # authentication is optional
         - name: oci-registry
           secret:
