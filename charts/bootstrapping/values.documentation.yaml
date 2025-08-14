@@ -1,0 +1,1400 @@
+# @section extensions_cfg
+extensions_cfg:
+  # @param extensions_cfg.defaults arbitrary properties which are mixed into following
+  # extension-specific configurations (extension-specific ones take precedence)
+  defaults: {}
+
+  # @param extensions_cfg.access_manager cronjob which regularly updates user role bindings
+  access_manager:
+    # @param extensions_cfg.access_manager.enabled allows disabling of extension without removing
+    # its configuration
+    enabled: true
+
+  # @param extensions_cfg.artefact_enumerator cronjob which regularly creates backlog work-items
+  # for other extensions
+  artefact_enumerator:
+    # @param extensions_cfg.artefact_enumerator.enabled allows disabling of extension without
+    # removing its configuration
+    enabled: true
+    # @param extensions_cfg.artefact_enumerator.delivery_service_url url to access the
+    # delivery-service (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.artefact_enumerator.components list of OCM components which should be
+    # regularly updated
+    components:
+        # @param extensions_cfg.artefact_enumerator.components[].component_name
+        # e.g.
+        # component_name: ocm.software/open-delivery-gear
+      - component_name: ""
+        # @param extensions_cfg.artefact_enumerator.components[].version version of the OCM
+        # component, if "null" or "greatest" is specified, resolves to the greatest available version
+        # considering extensions_cfg.artefact_enumerator.components[].version_filter as well
+        version: null
+        # @param extensions_cfg.artefact_enumerator.components[].ocm_repo_url may be used to
+        # overwrite the default lookup via ocm_repo_mappings
+        ocm_repo_url: null
+        # @param extensions_cfg.artefact_enumerator.components[].version_filter may be used to
+        # overwrite the default version filter features_cfg.versionFilter
+        # options:
+        # - null: use version filter specified via features_cfg.versionFilter
+        # - releases_only: only consider SemVer release versions when resolving "greatest"
+        # - all: consider all versions when resolving "greatest"
+        version_filter: null
+        # @param extensions_cfg.artefact_enumerator.components[].max_versions_limit number of
+        # versions that should be tracked
+        max_versions_limit: 1
+
+  # @param extensions_cfg.backlog_controller controller to scale worker pods upon backlog work-items
+  backlog_controller:
+    # @param extensions_cfg.backlog_controller.enabled allows disabling of extension without removing
+    # its configuration
+    enabled: true
+    # @param extensions_cfg.backlog_controller.max_replicas the maximum number of replicas per
+    # extension the controller scales up to
+    # note: the issue-replicator's maximum is always 1 to prevent potential duplicate GitHub issues
+    max_replicas: 5
+    # @param extensions_cfg.backlog_controller.backlog_items_per_replica number of backlog work-items
+    # which must exist before the controller increases the number of replicas
+    backlog_items_per_replica: 3
+    # @param extensions_cfg.backlog_controller.remove_claim_after_minutes is a backlog work-item is
+    # claimed longer, the controller will remove the claim so that another worker can process it
+    remove_claim_after_minutes: 30
+
+  # @param extensions_cfg.bdba workers which interact with BDBA to create vulnerability and/or
+  # license findings
+  bdba:
+    # @param extensions_cfg.bdba.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.bdba.delivery_service_url url to access the delivery-service (cluster
+    # internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.bdba.interval time (in seconds) after which a component should be
+    # re-scanned the latest
+    interval: 86400 # 24h
+    # @param extensions_cfg.bdba.mappings list of component prefixes that should be processed
+    # together with some individual configuration
+    mappings:
+        # @param extensions_cfg.bdba.mappings[].prefix prefix of the OCM component name
+        # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
+      - prefix: ""
+        # @param extensions_cfg.bdba.mappings[].group_id the BDBA group id used for scanning
+        group_id: -1
+        # @param extensions_cfg.bdba.mappings[].processing_mode the behaviour in case the BDBA scan
+        # already exists
+        # options:
+        # - rescan: re-use already uploaded binary and retrieve updated scan results
+        # - force_upload: always re-upload binary and retrieve updated scan results
+        processing_mode: rescan
+        # @param extensions_cfg.bdba.mappings[].aws_secret_name in case the resources are stored in
+        # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
+        # to use must be specified
+        aws_secret_name: null
+
+  # @param extensions_cfg.cache_manager cronjob which regularly updates the persistent cache entries
+  # and purges stale cache entries if required
+  cache_manager:
+    # @param extensions_cfg.cache_manager.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.cache_manager.max_cache_size_bytes the maximum allowed size of the cache
+    max_cache_size_bytes: 1000000000 # 1Gb
+    # @param extensions_cfg.cache_manager.min_pruning_bytes if max_cache_size_bytes is reached,
+    # existing cache entries will be removed according to the cache_pruning_weights until this
+    # threshold is available again
+    min_pruning_bytes: 100000000 # 100Mb
+    # @param extensions_cfg.cache_manager.cache_pruning_weights the individual weights to determine
+    # those cache entries which should be deleted next (in case max_cache_size_bytes is reached). The
+    # greater the weight, the less likely an entry will be considered for deletion. Negative values
+    # may be also used to express a property which determines an entry should be deleted.
+    cache_pruning_weights:
+      creation_date_weight: 0
+      last_update_weight: 0
+      delete_after_weight: -1.5 # deletion (i.e. stale) flag -> delete
+      keep_until_weight: -1 # keep until has passed -> delete
+      last_read_weight: -1 # long time no read -> delete
+      read_count_weight: 10 # has many reads -> rather not delete
+      revision_weight: 0
+      costs_weight: 10 # is expensive to re-calculate -> rather not delete
+      size_weight: 0
+    # @param extensions_cfg.cache_manager.prefill_function_caches allows pre-calculation of certain
+    # function results for specified OCM components
+    prefill_function_caches:
+      # @param extensions_cfg.cache_manager.prefill_function_caches.functions specifies which
+      # functions should be pre-calculated
+      # options:
+      # - compliance-summary
+      # - component-versions
+      functions:
+        - compliance-summary
+        - component-versions
+      # @param extensions_cfg.cache_manager.prefill_function_caches.components list of components
+      # for which the specified functions should be pre-calculated
+      components:
+          # @param extensions_cfg.cache_manager.prefill_function_caches.components[].component_name
+          # e.g.
+          # component_name: ocm.software/open-delivery-gear
+        - component_name: ""
+          # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version version
+          # of the OCM component, if "null" or "greatest" is specified, resolves to the greatest
+          # available version considering
+          # extensions_cfg.cache_manager.prefill_function_caches.components[].version_filter as well
+          version: null
+          # @param extensions_cfg.cache_manager.prefill_function_caches.components[].ocm_repo_url may
+          # be used to overwrite the default lookup via ocm_repo_mappings
+          ocm_repo_url: null
+          # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version_filter
+          # may be used to overwrite the default version filter features_cfg.versionFilter
+          # options:
+          # - null: use version filter specified via features_cfg.versionFilter
+          # - releases_only: only consider SemVer release versions when resolving "greatest"
+          # - all: consider all versions when resolving "greatest"
+          version_filter: null
+          # @param extensions_cfg.cache_manager.prefill_function_caches.components[].max_versions_limit
+          # number of versions that should be tracked
+          max_versions_limit: 1
+
+  # @param extensions_cfg.clamav worker which interact with use ClamAV to create malware findings
+  clamav:
+    # @param extensions_cfg.clamav.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.clamav.delivery_service_url url to access the delivery-service (cluster
+    # internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.clamav.interval time (in seconds) after which a component should be
+    # re-scanned the latest
+    interval: 86400 # 24h
+    # @param extensions_cfg.clamav.mappings list of component prefixes that should be processed
+    # together with some individual configuration
+    mappings:
+        # @param extensions_cfg.clamav.mappings[].prefix prefix of the OCM component name
+        # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
+      - prefix: ""
+        # @param extensions_cfg.clamav.mappings[].aws_secret_name in case the resources are stored in
+        # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
+        # to use must be specified
+        aws_secret_name: null
+
+  # @param extensions_cfg.crypto workers which identify cryptographic assets and create crypto
+  # findings
+  crypto:
+    # @param extensions_cfg.crypto.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.crypto.delivery_service_url url to access the delivery-service (cluster
+    # internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.crypto.interval time (in seconds) after which a component should be
+    # re-scanned the latest
+    interval: 86400 # 24h
+    # @param extensions_cfg.crypto.mappings list of component prefixes that should be processed
+    # together with some individual configuration
+    mappings:
+        # @param extensions_cfg.crypto.mappings[].prefix prefix of the OCM component name
+        # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
+      - prefix: ""
+        # @param extensions_cfg.crypto.mappings[].included_asset_types list of asset types to
+        # filter processed assets
+        # options:
+        # - null: include all asset types
+        # - algorithm
+        # - certificate
+        # - library
+        # - protocol
+        # - related-crypto-material
+        included_asset_types: null
+        # @param extensions_cfg.crypto.mappings[].libraries list of known cryptographic library
+        # names, might be a list of library names directly or a reference to a file containing them
+        libraries:
+            # @param extensions_cfg.crypto.mappings[].libraries[].ref reference to a local file in
+            # the delivery-service repository (this example), or to a file in another GitHub
+            # repository or an OCM resource. The file (YAML) must contain a property "libraries" that
+            # lists the known cryptographic libraries by their name
+          - ref:
+              # @param extensions_cfg.crypto.mappings[].libraries[].ref.path relative path to the
+              # file containing the cryptographic libraries, see the example file for details
+              path: odg/crypto_defaults.yaml
+        # @param extensions_cfg.crypto.mappings[].standards references to or inline defined standards
+        # the identified cryptographic assets should be validated against
+        standards:
+            # @param extensions_cfg.crypto.mappings[].standards[].name the name of the standard used
+            # to regulate cryptographic usage within software
+          - name: FIPS
+            # @param extensions_cfg.crypto.mappings[].standards[].version the version of the standard
+            # used to regulate cryptographic usage within software
+            version: 140-3
+            # @param extensions_cfg.crypto.mappings[].standards[].ref reference to a local file in
+            # the delivery-service repository (this example), or to a file in another GitHub
+            # repository or an OCM resource. The file (YAML) must contain a property "standards" that
+            # lists known cryptographic standards, which is used to find the standard described by
+            # "name" and "version"
+            ref:
+              # @param extensions_cfg.crypto.mappings[].standards[].ref.path relative path to the
+              # file containing the cryptographic standards, see the example file for details
+              path: odg/crypto_defaults.yaml
+        # @param extensions_cfg.crypto.mappings[].aws_secret_name in case the resources are stored in
+        # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
+        # to use must be specified
+        aws_secret_name: null
+
+  # @param extensions_cfg.delivery_db_backup cronjob which regularly creates a backup of the
+  # PostgreSQL delivery-db and stores it as local blob of an OCM component
+  delivery_db_backup:
+    # @param extensions_cfg.delivery_db_backup.enabled allows disabling of extension without removing
+    # its configuration
+    enabled: true
+    # @param extensions_cfg.delivery_db_backup.delivery_service_url url to access the
+    # delivery-service (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.delivery_db_backup.component_name the name of the OCM component used to
+    # store the backup as local blob
+    component_name: ""
+    # @param extensions_cfg.delivery_db_backup.ocm_repo_url OCM repository to which the OCM component
+    # should be published
+    # note: At least a service account with "readwrite" permissions must be specified via
+    # secrets.oci-registry (if backup_retention_count is specified, "admin" permissions are required
+    # to be able to delete stale backups)
+    ocm_repo_url: ""
+    # @param extensions_cfg.delivery_db_backup.backup_retention_count setting this paramter to a
+    # value > 0 enables the deletion of old backups, only the last <backup_retention_count> backups
+    # are kept
+    backup_retention_count: null
+    # @param extensions_cfg.delivery_db_backup.initial_version inital (SemVer) version for the OCM
+    # component, upon new backups the minor version is bumped
+    initial_version: 0.1.0
+    # @param extensions_cfg.delivery_db_backup.extra_pg_dump_args passed as additional arguments
+    # to "pg_dump"
+    # e.g.
+    # extra_pg_dump_args: ["--my-arg", "value"]
+    extra_pg_dump_args: []
+
+  # @param extensions_cfg.ghas cronjob which regularly checks GitHub secret alerts and takes care of
+  # the lifecycle of respective findings
+  ghas:
+    # @param extensions_cfg.ghas.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.ghas.delivery_service_url url to access the delivery-service (cluster
+    # internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.ghas.github_instances list of GitHub organisations to fetch secret alerts
+    # for
+    github_instances:
+        # @param extensions_cfg.ghas.github_instances[].hostname hostname of the GitHub instance
+        # e.g.
+        # hostname: github.com
+      - hostname: ""
+        # @param extensions_cfg.ghas.github_instances[].orgs list of GitHub organisations to fetch
+        # secret alerts for
+        # e.g.
+        # orgs: ["open-component-model"]
+        orgs:
+          - ""
+
+  # @param extensions_cfg.issue_replicator worker which takes care of the GitHub issue lifecycle for
+  # detected findings
+  issue_replicator:
+    # @param extensions_cfg.issue_replicator.enabled allows disabling of extension without removing
+    # its configuration
+    enabled: true
+    # @param extensions_cfg.issue_replicator.delivery_service_url url to access the delivery-service
+    # (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.issue_replicator.delivery_dashboard_url publicly accessible url to access
+    # the delivery-dashboard, this url is written into the GitHub issues to reference the rescoring
+    delivery_dashboard_url: ""
+    # @param extensions_cfg.issue_replicator.interval time (in seconds) after which the GitHub issues
+    # of a component should be regularly updated the latest
+    # note: in case of certain events (e.g. doing a rescoring, performing an initial scan) GitHub
+    # issues are updated independently of this interval
+    interval: 3600 # 1h
+    # @param extensions_cfg.issue_replicator.mappings list of component prefixes that should be
+    # processed together with some individual configuration
+    mappings:
+        # @param extensions_cfg.issue_replicator.mappings[].prefix prefix of the OCM component name
+        # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
+      - prefix: ""
+        # @param extensions_cfg.issue_replicator.mappings[].github_repository name of the GitHub
+        # repository where the issues should be created
+        # e.g.
+        # github_repository: github.com/<org-name>/<repository-name>
+        github_repository: github.com/gardener/delivery
+        # @param extensions_cfg.issue_replicator.mappings[].github_issue_labels_to_preserve labels
+        # matching one of these regexes will not be removed upon an issue update
+        # e.g.
+        # github_issue_labels_to_preserve: ["do-not-remove-me-.*"]
+        github_issue_labels_to_preserve: []
+        # @param extensions_cfg.issue_replicator.mappings[].number_included_closed_issues number of
+        # closed GitHub issues to consider when evaluating creating vs. re-opening an issue. Limiting
+        # this value might be benefical to reduce GitHub api requests. Specifying "-1" turns off this
+        # limitation
+        number_included_closed_issues: 100
+        # @param extensions_cfg.issue_replicator.mappings[].milestones allows overwriting how the
+        # configured sprints are turned into GitHub milestones
+        milestones:
+          # @param extensions_cfg.issue_replicator.mappings[].milestones.title contains configuration
+          # options to specify how the GitHub milestone name is determined
+          title:
+            # @param extensions_cfg.issue_replicator.mappings[].milestones.title.prefix
+            prefix: sprint-
+            # @param extensions_cfg.issue_replicator.mappings[].milestones.title.sprint specifies how
+            # the sprint should be turned into a milestone title
+            sprint:
+              # @param extensions_cfg.issue_replicator.mappings[].milestones.title.sprint.value_type
+              # if type "name" is used, the sprint name is used, otherwise if type "date" is used,
+              # the date specified via date_name is used and formatted according to
+              # date_string_format (used for Python's strftime function)
+              # options:
+              # - name
+              # - date
+              value_type: name
+              date_name: end_date
+              date_string_format: "%Y-%m-%d"
+            # @param extensions_cfg.issue_replicator.mappings[].milestones.title.suffix
+            suffix: null
+          # @param extensions_cfg.issue_replicator.mappings[].milestones.due_date contains
+          # configuration options to specify how the GitHub milestone due-date is determined
+          due_date:
+            # @param extensions_cfg.issue_replicator.mappings[].milestones.due_date.date_name the
+            # name of the date as specified in the sprints configuration
+            # e.g.
+            # date_name: end_date
+            date_name: release_decision
+
+  # @param extensions_cfg.osid workers which identify base image OS versions for OCI images
+  osid:
+    # @param extensions_cfg.osid.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.osid.delivery_service_url url to access the delivery-service (cluster
+    # internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.osid.interval time (in seconds) after which a component should be
+    # re-scanned the latest
+    interval: 86400 # 24h
+
+  # @param extensions_cfg.responsibles workers which determine the OCM component responsibles based
+  # on the configured rules
+  responsibles:
+    # @param extensions_cfg.responsibles.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.responsibles.delivery_service_url url to access the delivery-service
+    # (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.responsibles.interval time (in seconds) after which a component
+    # responsibles should be re-determined the latest
+    interval: 43200 # 12h
+    # @param extensions_cfg.responsibles.rules used to map desired responsible strategies to
+    # OCM artefacts and finding types using filters. The first matching rule "wins". In case no rule
+    # matches, no responsibles will be determined and instead the default lookup will take precedence
+    # (i.e lookup responsibles in findings and, as a fallback, use delivery-service api)
+    rules:
+        # @param extensions_cfg.responsibles.rules[].name name of the rule used for logging purposes
+      - name: null
+        # @param extensions_cfg.responsibles.rules[].assignee_mode specifies how to handle a GitHub
+        # issue that already has assignees different to those determined via this rule
+        # options:
+        # - null: use findings[].issues.default_assignee_mode
+        # - extend: add determined assignees to GitHub issue assignees
+        # - overwrite: replace existing GitHub issue assignees with determined ones
+        # - skip: do not modify GitHub issue assignees
+        assignee_mode: null
+        # @param extensions_cfg.responsibles.rules[].filters the specified filters are concatenated
+        # using an "AND" expression
+        filters:
+            # @param extensions_cfg.responsibles.rules[].filters[].type depending on the type of the
+            # filter, the additional filter properties vary. All filter properties allow a list of
+            # regexes to be specified
+            # options:
+            # - artefact-filter: "{include|exclude}_artefact_{names|types|kinds}"
+            # - component-filter: "{include|exclude}_component_names"
+            # - datatype-filter: "{include|exclude}_types"
+            # - match-all
+          - type: ""
+            include_artefact_names: []
+            exclude_artefact_names: []
+            include_artefact_types: []
+            exclude_artefact_types: []
+            include_artefact_kinds: []
+            exclude_artefact_kinds: []
+            include_component_names: []
+            exclude_component_names: []
+            include_types: []
+            exclude_types: []
+        # @param extensions_cfg.responsibles.rules[].strategies the responsibles determined via the
+        # strategies are concatenated
+        strategies:
+            # @param extensions_cfg.responsibles.rules[].strategies[].type depending on the type of
+            # the strategy, the additional strategy properties vary
+            # options:
+            # - component-responsibles: Responsibles are determined via delivery-service api (no
+            #   additional parameters expected)
+            # - static-responsibles: Responsibles are read from additional responsibles property
+          - type: ""
+            # @param extensions_cfg.responsibles.rules[].strategies[].responsibles use to configure
+            # the responsibles in case type "static-responsibles" is set
+            responsibles:
+                # @param extensions_cfg.responsibles.rules[].strategies[].responsibles[].type
+                # options:
+                # - githubTeam: requires the property teamname to be set
+                # - githubUser: requires the property username to be set
+              - type: ""
+                # @param extensions_cfg.responsibles.rules[].strategies[].responsibles[].github_hostname
+                # hostname of the GitHub instance
+                # e.g.
+                # github_hostname: github.com
+                github_hostname: ""
+                # @param extensions_cfg.responsibles.rules[].strategies[].responsibles[].teamname
+                # name of the GitHub teams whose members should be used as responsibles
+                # e.g.
+                # teamname: <org-name>/<teamname>
+                teamname: ""
+                # @param extensions_cfg.responsibles.rules[].strategies[].responsibles[].username
+                # name of the GitHub user who should be used as responsible
+                username: ""
+
+  # @param extensions_cfg.sast worker which checks if SAST scans have been executed for an OCM
+  # component and creates findings if those scans are missing
+  sast:
+    # @param extensions_cfg.sast.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.sast.delivery_service_url url to access the delivery-service (cluster
+    # internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.sast.interval time (in seconds) after which a component should be
+    # re-scanned the latest
+    interval: 86400 # 24h
+
+
+# @section ocm_repo_mappings mapping between OCM components and their respective OCM repository
+ocm_repo_mappings:
+    # @param ocm_repo_mappings.prefix prefix of the OCM component name for which the OCM repository
+    # should be used
+    # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
+  - prefix: ""
+    # @param ocm_repo_mappings.repository the OCM repository
+    # e.g.
+    # repository: europe-docker.pkg.dev/gardener-project/releases
+    repository: ""
+
+
+# @section addressbook used to lookup additional information for responsibles, e.g. full name, email,
+# GitHub usernames for additional GitHub instances.
+addressbook:
+    # @param addressbook[].name full name of the person
+  - name: ""
+    # @param addressbook[].email email address of the person
+    email: ""
+    # @param addressbook[].github mapping of GitHub instances to the respective GitHub username. Keys
+    # (reference to a GitHub instance) must be defined via github_mappings[].name
+    # e.g.
+    # github:
+    #   public: my-github-com-username
+    github: {}
+
+
+# @section github_mappings
+github_mappings:
+    # @param github_mappings[].name the name of the GitHub instance for usage in addressbook[].github
+    # e.g.
+    # name: public
+  - name: ""
+    # @param github_mappings[].api_url the api url of the GitHub instance
+    # e.g.
+    # api_url: https://api.github.com
+    api_url: ""
+
+
+# @section sprints used to align due-dates of findings
+sprints:
+  # @param sprints.meta
+  meta:
+    # @param sprints.meta.offsets describe additional "dates-of-interest"
+    offsets:
+        # @param sprints.meta.offsets[].name the unique name of the date
+      - name: ""
+        # @param sprints.meta.offsets[].display_name the name used for displaying purposes
+        display_name: null
+        # @param sprints.meta.offsets[].offset_days the offsets are relative to
+        # sprints.sprints[].end_date
+        offset_days: -1
+
+  sprints:
+      # @param sprints.sprints[].name human-readable sprint name, must be unique within the list
+    - name: ""
+      # @param sprints.sprints[].end_date ISO-8601 compatible timestamp which marks the end of the
+      # sprint
+      # e.g.
+      # end_date: "2025-01-01"
+      end_date: ""
+
+
+# @section features_cfg
+features_cfg:
+  # @param features_cfg.specialComponents list of OCM components which are displayed on the landing
+  # page of the delivery-dashboard
+  specialComponents:
+      # @param features_cfg.specialComponents[].id unique identifier (e.g. UUID) to be able to
+      # correlate user-specific configuration made in the delivery-dashboard to centrally configured
+      # special components. If a special component is removed, new ones must not reuse old
+      # identifiers as this will cause wrong user-specific configuration being related to the new
+      # special component
+      # e.g.
+      # id: e60f2588-3f97-4d6f-9ac4-92ab36dcdb4e
+    - id: ""
+      # @param features_cfg.specialComponents[].name name of the OCM component
+      # e.g.
+      # name: ocm.software/open-delivery-gear
+      name: ""
+      # @param features_cfg.specialComponents[].displayName name of the component shown in the
+      # delivery-dashboard
+      # e.g.
+      # displayName: Open Delivery Gear
+      displayName: ""
+      # @param features_cfg.specialComponents[].type arbitrary type to group multiple special
+      # components in the delivery-dashboard
+      # e.g.
+      # type: ODG
+      type: ""
+      # @param features_cfg.specialComponents[].version version which is selected by default, use
+      # "greatest" to always refer to the greatest version available. To use a version which is
+      # specified in a file in a GitHub repository, use the nested structure instead
+      # e.g.
+      # version: greatest
+      # ---
+      # version: 0.1.0
+      # ---
+      # version:
+      #   source:
+      #     type: github
+      #     repo: github.com/<org-name>/<repository-name>
+      #     relpath:
+      #       - type: submodule
+      #         name: <path>/<to>/<submodule>/<if>/<any>
+      #       - <path>/<to>/<version-file>
+      #     postprocess: false
+      version:
+        # @param features_cfg.specialComponents[].version.source used to specify a location from
+        # which the version should be read
+        source:
+          # @param features_cfg.specialComponents[].version.source.type the type of version location
+          # options:
+          # - github
+          type: ""
+          # @param features_cfg.specialComponents[].version.source.repo the GitHub repository name
+          # e.g.
+          # repo: github.com/<org-name>/<repository-name>
+          repo: ""
+          # @param features_cfg.specialComponents[].version.source.relpath relative path from
+          # repository root to the version-file. In case the path contains a submodule, it must be
+          # specified via a tuple of name and type (see example above), otherwise a plain string is
+          # expected
+          relpath: []
+          # @param features_cfg.specialComponents[].version.source.postprocess if set, the version
+          # will be appended by the current's commit sha, i.e. "{version}-{sha}"
+          postprocess: false
+      # @param features_cfg.specialComponents[].versionFilter may be used to overwrite the default
+      # version filter features_cfg.versionFilter
+      # options:
+      # - null: use version filter specified via features_cfg.versionFilter
+      # - releases_only: only consider SemVer release versions when resolving "greatest"
+      # - all: consider all versions when resolving "greatest"
+      versionFilter: null
+      # @param features_cfg.specialComponents[].icon icon is displayed next to the component on the
+      # landing page of the delivery-dashboard
+      # options:
+      # - null: no icon
+      # - home: house icon
+      # - landscape: mountain icon
+      icon: null
+      # @param features_cfg.specialComponents[].releasePipelineUrl if set, a reference to the url
+      # will be added to the component on the landing page of the delivery-dashboard
+      releasePipelineUrl: null
+      # @param features_cfg.specialComponents[].sprintRules can be used to enrich the component with
+      # special conditions based on the current sprint
+      sprintRules:
+        # @param features_cfg.specialComponents[].sprintRules.frozenFrom refers to a
+        # sprints.meta.offsets[].name starting from which the component should be declared as
+        # "frozen" in the delivery-dashboard
+        frozenFrom: ""
+        # @param features_cfg.specialComponents[].sprintRules.frozenUntil refers to a
+        # sprints.meta.offsets[].name until which the component should be declared as "frozen" in the
+        # delivery-dashboard
+        frozenUntil: ""
+        # @param features_cfg.specialComponents[].sprintRules.frozenWarningOffsetDays (positive)
+        # offset in days to the frozenFrom date at which a warning indicating the upcoming freeze
+        # should be displayed in the delivery-dashboard
+        frozenWarningOffsetDays: null
+      # @param features_cfg.specialComponents[].ocmRepo may be used to overwrite the default lookup
+      # via ocm_repo_mappings
+      ocmRepo: null
+      # @param features_cfg.specialComponents[].currentVersion specifies where to find the current
+      # (not yet published) component version
+      # e.g.
+      # currentVersion:
+      #   source:
+      #     type: github
+      #     repo: github.com/<org-name>/<repository-name>
+      #     relpath:
+      #       - type: submodule
+      #         name: <path>/<to>/<submodule>/<if>/<any>
+      #       - <path>/<to>/<version-file>
+      #     postprocess: false
+      currentVersion:
+        # @param features_cfg.specialComponents[].currentVersion.source used to specify a location
+        # from which the version should be read
+        source:
+          # @param features_cfg.specialComponents[].currentVersion.source.type the type of version
+          # location
+          # options:
+          # - github
+          type: ""
+          # @param features_cfg.specialComponents[].currentVersion.source.repo the GitHub repository
+          # name
+          # e.g.
+          # repo: github.com/<org-name>/<repository-name>
+          repo: ""
+          # @param features_cfg.specialComponents[].currentVersion.source.relpath relative path from
+          # repository root to the version-file. In case the path contains a submodule, it must be
+          # specified via a tuple of name and type (see example above), otherwise a plain string is
+          # expected
+          relpath: []
+          # @param features_cfg.specialComponents[].currentVersion.source.postprocess if set, the
+          # version will be appended by the current's commit sha, i.e. "{version}-{sha}"
+          postprocess: false
+      # @param features_cfg.specialComponents[].dependencies list of dependencies in a certain
+      # version which belong to the currentVersion of the component
+      dependencies:
+        # @param features_cfg.specialComponents[].dependencies[].name OCM component name of the
+        # dependent component
+        # e.g.
+        # name: ocm.software/open-delivery-gear/delivery-service
+        - name: ""
+        # @param features_cfg.specialComponents[].dependencies[].displayName name of the dependent
+        # component shown in the delivery-dashboard
+        # e.g.
+        # displayName: Delivery-Service
+          displayName: ""
+          # @param features_cfg.specialComponents[].dependencies[].currentVersion specifies where to
+          # find the current (not yet published) version of the dependent component
+          # e.g.
+          # currentVersion:
+          #   source:
+          #     type: github
+          #     repo: github.com/<org-name>/<repository-name>
+          #     relpath:
+          #       - type: submodule
+          #         name: <path>/<to>/<submodule>/<if>/<any>
+          #       - <path>/<to>/<version-file>
+          #     postprocess: false
+          currentVersion:
+            # @param features_cfg.specialComponents[].dependencies[].currentVersion.source used to
+            # specify a location from which the version should be read
+            source:
+              # @param features_cfg.specialComponents[].dependencies[].currentVersion.source.type the
+              # type of version location
+              # options:
+              # - github
+              type: ""
+              # @param features_cfg.specialComponents[].dependencies[].currentVersion.source.repo the
+              # GitHub repository name
+              # e.g.
+              # repo: github.com/<org-name>/<repository-name>
+              repo: ""
+              # @param features_cfg.specialComponents[].dependencies[].currentVersion.source.relpath
+              # relative path from repository root to the version-file. In case the path contains a
+              # submodule, it must be specified via a tuple of name and type (see example above),
+              # otherwise a plain string is expected
+              relpath: []
+              # @param features_cfg.specialComponents[].dependencies[].currentVersion.source.postprocess
+              # if set, the version will be appended by the current's commit sha, i.e.
+              # "{version}-{sha}"
+              postprocess: false
+
+  # @param features_cfg.addressbook the addressbook is used to lookup additional information for
+  # responsibles, e.g. full name, email, GitHub usernames for additional GitHub instances. If the
+  # addressbook is already specified via top-level addressbook configuration, this entry can be
+  # omitted
+  addressbook:
+    # @param features_cfg.addressbook.repoUrl GitHub html url of the repository where the addressbook
+    # is located
+    # e.g.
+    # repoUrl: https://github.com/<org-name>/<repository-name>
+    repoUrl: ""
+    # @param features_cfg.addressbook.addressbookRelpath relative path from repository root to the
+    # file containing the addressbook list. The addressbook list is expected to have the following
+    # format:
+    # - name: My Name
+    #   email: my-name@my-domain.com
+    #   github:
+    #     public: my-github-username
+    addressbookRelpath: ""
+    # @param features_cfg.addressbook.githubMappingsRelpath relative path from repository root to the
+    # file containing the GitHub mappings. The GitHub mappings are expected to have the following
+    # format:
+    # - name: public
+    #   api_url: https://api.github.com
+    githubMappingsRelpath: ""
+
+  # @param features_cfg.sprints the sprints are used to align due-dates of findings. If the sprints
+  # are already specified via top-level sprints configuration, this entry can be omitted
+  sprints:
+    # @param features_cfg.sprints.repoUrl GitHub html url of the repository where the sprints are
+    # configured
+    # e.g.
+    # repoUrl: https://github.com/<org-name>/<repository-name>
+    repoUrl: ""
+    # @param features_cfg.sprints.sprintsRelpath relative path from repository root to the file
+    # containing the sprints. The sprints are expected to have the following format:
+    # meta:
+    #   offsets:
+    #     - name: release_decision
+    #       display_name: Release Decision
+    #       offset_days: -1
+    # sprints:
+    #   - name: <sprint-name>
+    #     end_date: "<YYYY-MM-DD>"
+    sprintsRelpath: ""
+
+  # @param features_cfg.upgradePRs enables/disables the upgrade-PR feature which enables the
+  # component-diff tab in the delivery-dashboard and shows detected upgrade-PRs
+  upgradePRs: false
+
+  # @param features_cfg.versionFilter specifies which versions should be included in lookup when
+  # resolving "greatest" version
+  # options:
+  # - releases_only: only consider SemVer release versions when resolving "greatest"
+  # - all: consider all versions when resolving "greatest"
+  versionFilter: releases_only
+
+
+# @section findings only the configured types of finding will be available
+findings:
+    # @param findings[].type type of finding this configuration is used for
+    # options:
+    # - finding/crypto
+    # - finding/diki
+    # - finding/falco
+    # - finding/ghas
+    # - finding/inventory
+    # - finding/license
+    # - finding/malware
+    # - finding/osid
+    # - finding/sast
+    # - finding/vulnerability
+  - type: ""
+    # @param findings[].categorisations different "levels of severity" with respective configuration
+    # options which are known to this type of finding
+    # note: instead of the list of categorisations, also a reference to a default set of
+    # categorisations may be specified
+    # e.g.
+    # # reference to a local file in the delivery-service repository
+    # categorisations:
+    #   cfg_name: gardener
+    #   ref:
+    #     path: odg/defaults.yaml
+    #
+    # # reference to a file in a remote repository
+    # categorisations:
+    #   cfg_name: <cfg-name>
+    #   ref:
+    #     path: <path>/<to>/<file.yaml>
+    #     repository: github.com/<org-name>/<repository-name>
+
+    categorisations:
+        # @param findings[].categorisations[].id unique identifier of the finding type categorisation
+        # note: the identifier must remain stable for the category (once a category with an id has
+        # existed, it must not be removed from the configuration as long as finding with that id
+        # still exist)
+      - id: ""
+        # @param findings[].categorisations[].display_name the name of the categorisation which is
+        # displayed to the user
+        display_name: ""
+        # @param findings[].categorisations[].value finding type independent scala to determine the
+        # actual severity of the category, e.g. to be able to sort by severity or to determine
+        # appropriate colours (multiple categories might contain the same value).
+        # note there must be at least one category per finding which defines value 0 to express that
+        # a finding is not relevant anymore
+        # options:
+        # -1: unknown -> "white colour"
+        # 0: solved -> "green colour"
+        # 1: low -> "blue colour"
+        # 2: medium -> "yellow colour"
+        # 4: high -> "light red colour"
+        # 8: critical -> "red colour"
+        # 16: blocker -> "deep red colour"
+        value: -1
+        # @param findings[].categorisations[].allowed_processing_time the time after which a finding
+        # must have been assessed at the latest. If null is specified, it means it does not have to
+        # be processed and therefore, for example, no GitHub issues will be created
+        # known units:
+        # - seconds: s, sec
+        # - minutes: m, min
+        # - hours: h, hr
+        # - days: d (default)
+        # - weeks: w
+        # - years: a
+        allowed_processing_time: null
+        # @param findings[].categorisations[].rescoring specifies whether the categorisation is
+        # applicable to user rescoring (-> "manual") and/or to full-automatic rescorings
+        # (-> "automatic"). Note that the latter requires a rescoring ruleset to be available
+        # options:
+        # - manual
+        # - automatic
+        rescoring: null
+        # @param findings[].categorisations[].selector finding type specific selector used to
+        # determine findings which should be assigned to this category
+        # e.g.
+        # # finding/crypto
+        # selector:
+        #   ratings:
+        #     - not-compliant
+        #     - maybe-compliant
+        #     - compliant
+        #
+        # # finding/ghas
+        # selector:
+        #   resolutions:
+        #     - false_positive
+        #     - revoked
+        #     - wont_fix
+        #     - used_in_tests
+        #     - null
+        #
+        # # finding/license
+        # selector:
+        #   license_names:
+        #     - sleepycat
+        #
+        # # finding/malware
+        # selector:
+        #   malware_names:
+        #     - Heuristics.Limits.Exceeded.*
+        #     - .*
+        #
+        # # finding/osid
+        # selector:
+        #   status:
+        #     - noBranchInfo
+        #     - noReleaseInfo
+        #     - unableToCompareVersion
+        #     - branchReachedEol
+        #     - updateAvailableForBranch
+        #     - emptyOsId
+        #     - patchlevelBehind
+        #     - upToDate
+        #     - distroless
+        #
+        # # finding/sast
+        # selector:
+        #   sub_types:
+        #     - .*
+        #
+        # # finding/vulnerability
+        # selector:
+        #   cve_score_range:
+        #     min: 7.0
+        #     max: 8.9
+        selector: null
+
+    # @param findings[].filter can be used to stop detection of the specified findings for certain
+    # components/artfacts. If only "include" filters are configured, all other components will be
+    # ignored. If only "exclude" filters are configured, all other components will be considered. If
+    # a combination of "include" and "exclude" filters are configured, all included components which
+    # are not specifically excluded as well will be considered.
+    # note: all properties, except `artefact_kind` and `artefact_extra_id`, will be compared as
+    # regexes
+    filter:
+        # @param findings[].filter[].name only used for informational purposes, such as logging
+      - name: null
+        # @param findings[].filter[].semantics if only "include" filters are configured, all other
+        # components will be ignored. If only "exclude" filters are configured, all other components
+        # will be considered. If a combination of both is configured, all included components which
+        # are not specifically excluded will be considered
+        # options:
+        # - include
+        # - exclude
+        semantics: ""
+        # @param findings[].filter[].component_name regex for the component name
+        # types:
+        # - null
+        # - string
+        # - list of strings
+        component_name: null
+        # @param findings[].filter[].component_version regex for the component version
+        # types:
+        # - null
+        # - string
+        # - list of strings
+        component_version: null
+        # @param findings[].filter[].artefact_kind
+        # options:
+        # - resource
+        # - runtime
+        # - source
+        # types:
+        # - null
+        # - kind
+        # - list of kinds
+        artefact_kind: null
+        # @param findings[].filter[].artefact_name regex for the artefact name
+        # types:
+        # - null
+        # - string
+        # - list of strings
+        artefact_name: null
+        # @param findings[].filter[].artefact_version regex for the artefact version
+        # types:
+        # - null
+        # - string
+        # - list of strings
+        artefact_version: null
+        # @param findings[].filter[].artefact_type regex for the artefact type
+        # types:
+        # - null
+        # - string
+        # - list of strings
+        artefact_type: null
+        # @param findings[].filter[].artefact_type explicit match of the artefact extra id
+        # types:
+        # - null
+        # - objects
+        # - list of objects
+        artefact_extra_id: null
+
+    # @param findings[].rescoring_ruleset used for (half-)automatic rescorings. As of writing
+    # (2025-08-14), only supported for finding types "finding/vulnerability" and "finding/sast"
+    # note: instead of the specifying the ruleset directly, also a reference to a default ruleset
+    # may be specified
+    # e.g.
+    # # reference to a local file in the delivery-service repository
+    # rescoring_ruleset:
+    #   cfg_name: gardener
+    #   ref:
+    #     path: odg/defaults.yaml
+    #
+    # # reference to a file in a remote repository
+    # rescoring_ruleset:
+    #   cfg_name: <cfg-name>
+    #   ref:
+    #     path: <path>/<to>/<file.yaml>
+    #     repository: github.com/<org-name>/<repository-name>
+    rescoring_ruleset:
+      # @param findings[].rescoring_ruleset.name identifier of the ruleset
+      # e.g.
+      # name: vulnerability-rescoring-v1
+      name: ""
+      # @param findings[].rescoring_ruleset.description optional human friendly description
+      description: null
+      # @param findings[].rescoring_ruleset.operations may be used to define custom operations which
+      # can be used in the rules via their name
+      # e.g.
+      # operations:
+      #   reduce:
+      #     order: [critical, high, medium, low, none]
+      #     value: 1
+      operations:
+        replace-me-with-a-name:
+          # @param findings[].rescoring_ruleset.operations.<name>.order list of categorisation-ids,
+          # if this operation is used, a categorisation will be replaced with the <value> next
+          # categorisation defined in the list
+          order: []
+          # @param findings[].rescoring_ruleset.operations.<name>.value specifies the number of
+          # "shifts" of the categorisation, might be negative as well
+          value: 1
+      # @param findings[].rescoring_ruleset.rules
+      rules:
+          # @param findings[].rescoring_ruleset.rules[].name name of the rule for identification and
+          # displaying purposes
+        - name: ""
+          # @param findings[].rescoring_ruleset.rules[].category_value "<key>:<value>" pair of the
+          # context information when this rule should be applied
+          # note: this only applies for type "finding/vulnerability"
+          # e.g.
+          # category_value: network_exposure:public
+          category_value: ""
+          # @param findings[].rescoring_ruleset.rules[].rules mapping between the CVE attack vectors
+          # and respective categorisation operations
+          # note: this only applies for type "finding/vulnerability"
+          rules:
+              # @param findings[].rescoring_ruleset.rules[].rules[].cve_values the CVE attack vector
+              # values this mapping should be applied for
+              # e.g.
+              # cve_values:
+              #   - AV:A
+            - cve_values: []
+              # @param findings[].rescoring_ruleset.rules[].rules[].operation the operation that
+              # should be performed in case the category_value and cve_values match. The operation
+              # must either be defined via findings[].rescoring_ruleset.operations or must adhere to
+              # the form "set-to-<categorisation-id>"
+              operation: ""
+          # @param findings[].rescoring_ruleset.rules[].operation the operation that should be
+          # performed in case the match, sub_types and sast_status match. The operation must either
+          # be defined via findings[].rescoring_ruleset.operations or must adhere to the form
+          # "set-to-<categorisation-id>"
+          # note: this only applies for type "finding/sast"
+          operation: ""
+          # @param findings[].rescoring_ruleset.rules[].match specifies a list of regexes for which
+          # components this rule should be applied
+          # e.g.
+          # match:
+          #   - component_name: .*
+          match:
+            - component_name: ""
+          # @param findings[].rescoring_ruleset.rules[].sub_types specifies a list of sast types for
+          # which this rule should be applied
+          # options:
+          # - local-linting
+          # - central-linting
+          sub_types: []
+          # @param findings[].rescoring_ruleset.rules[].sast_status specifies the sast status for
+          # which this rule should be applied
+          # options:
+          # - no-linter
+          sast_status: ""
+
+    # @param findings[].issues configuration whether and if yes, how, GitHub tracking issues should
+    # be created/updated
+    issues:
+      # @param findings[].issues.template used for the created GitHub issues
+      # available substitutes:
+      # - summary
+      # - rescoring_url
+      # - component_name
+      # - component_version
+      # - artefact_kind
+      # - artefact_name
+      # - artefact_version
+      # - artefact_type
+      template: '{summary}'
+      # @param findings[].issues.title_template used for the title of the created GitHub issues
+      # available substitutes (derived from odg.model.ArtefactMetadata):
+      # - artefact
+      # - meta
+      # - data
+      title_template: '[{meta.type}] - {artefact.component_name}:{artefact.artefact.artefact_name}'
+      # @param findings[].issues.enable_issues if disabled, no GitHub issues will be created/updated
+      # for the specified finding type
+      enable_issues: true
+      # @param findings[].issues.enable_assignees if set, determined responsibles will be
+      # automatically assigned to their respective issues
+      enable_assignees: true
+      # @param findings[].issues.enable_per_finding if set, GitHub issues will be created per finding
+      # for a specific artefact as opposed to a single issue with all findings
+      enable_per_finding: false
+      # @param findings[].issues.labels list of labels that should be added to the created GitHub
+      # issues
+      labels: []
+      # @param findings[].issues.attrs_to_group_by allows a custom configuration of those attributes,
+      # which should be used to group artefacts for a reporting in a shared GitHub issue. Nested
+      # attributes are expected to be separated using a dot `.`
+      # note: the order of the specified attributes is significant as they are concatenated in the
+      # order they were specified to create a stable issue id
+      attrs_to_group_by:
+        - component_name
+        - artefact_kind
+        - artefact.artefact_name
+        - artefact.artefact_type
+      # @param findings[].issues.default_assignee_mode specifies how to handle a GitHub issue that
+      # already has assignees different to those currently determined
+      # options:
+      # - extend: add determined assignees to GitHub issue assignees
+      # - overwrite: replace existing GitHub issue assignees with determined ones
+      # - skip: do not modify GitHub issue assignees
+      default_assignee_mode: skip
+
+    # @param findings[].default_scope the default selection to be used for rescoring via the
+    # delivery-dashboard
+    # options:
+    # - single: the rescoring only applies to the specific component-artefact-version
+    # - artefact: the rescoring applies to the component-artefact (independent of its version)
+    # - component: the rescoring applies to all artefacts of the component (independent of version)
+    # - global: the rescoring applies globally
+    default_scope: artefact
+
+    # @param findings[].reuse_discovery_date specifies the behaviour of reusing discovery dates of
+    # existing findings
+    reuse_discovery_date:
+      # @param findings[].reuse_discovery_date.enabled specifies whether discovery dates should be
+      # reused at all
+      enabled: true
+      # @param findings[].reuse_discovery_date.max_reuse_time the time after the last update of a
+      # finding during which a discovery date is reused
+      # known units:
+      # - null: always reuse existing discovery dates
+      # - seconds: s, sec
+      # - minutes: m, min
+      # - hours: h, hr
+      # - days: d (default)
+      # - weeks: w
+      # - years: a
+      max_reuse_time: null
+
+
+# @section profiles allow pre-filtered views within the delivery-dashboard
+profiles:
+    # @param profiles[].name name of the profile as displayed in the delivery-dashboard
+  - name: ""
+
+    # @param profiles[].finding_types list of finding types which should be displayed for users who
+    # selected this profile in the delivery-dashboard
+    # options:
+    # - finding/crypto
+    # - finding/diki
+    # - finding/falco
+    # - finding/ghas
+    # - finding/inventory
+    # - finding/license
+    # - finding/malware
+    # - finding/osid
+    # - finding/sast
+    # - finding/vulnerability
+    finding_types: []
+
+    # @param profiles[].special_component_ids list of special components which should be displayed
+    # for users who selected this profile in the delivery-dashboard
+    # e.g.
+    # special_component_ids:
+    #   - e60f2588-3f97-4d6f-9ac4-92ab36dcdb4e
+    special_component_ids: []
+
+
+# @section secrets
+secrets:
+  # @param secrets.aws mapping of a secret-name (freely selectable) and the AWS secret-values
+  aws:
+    primary:
+      # @param secrets.aws.<name>.access_key_id AWS identifier of the secret_access_key
+      access_key_id: ""
+      # @param secrets.aws.<name>.secret_access_key AWS access key
+      secret_access_key: ""
+      # @param secrets.aws.<name>.region the AWS region for which the credentials should be used
+      region: ""
+
+  # @param secrets.bdba mapping of a secret-name (freely selectable) and the BDBA secret-values
+  bdba:
+    primary:
+      # @param secrets.bdba.<name>.api_url the api url of the desired BDBA instance
+      api_url: ""
+      # @param secrets.bdba.<name>.token the BDBA access token
+      token: ""
+      # @param secrets.bdba.<name>.group_ids list of BDBA groups these credentials should be used
+      # for, if no groups are specified, they might always be used
+      group_ids: []
+      # @param secrets.bdba.<name>.tls_verify
+      tls_verify: true
+
+  # @param secrets.delivery-db mapping of a secret-name (freely selectable) and the delivery-db
+  # secret-values. There must be exactly _one_ secret
+  delivery-db:
+    primary:
+      # @param secrets.delivery-db.<name>.username as of writing (2025-08-14), the username must
+      # always be "postgres"
+      username: postgres
+      # @param secrets.delivery-db.<name>.password the password with which the PostgreSQL database
+      # user should be initialised
+      password: ""
+
+  # @param secrets.github mapping of a secret-name (freely selectable) and the GitHub secret-values
+  github:
+    github-com:
+      # @param secrets.github.<name>.api_url the api url of the GitHub instance
+      # e.g.
+      # api_url: https://api.github.com
+      api_url: ""
+      # @param secrets.github.<name>.http_url the http url of the GitHub instance
+      # e.g.
+      # api_url: https://github.com
+      http_url: ""
+      # @param secrets.github.<name>.username the username of the GitHub serviceaccount
+      username: ""
+      # @param secrets.github.<name>.auth_token the token of the GitHub serviceaccount
+      auth_token: ""
+      # @param secrets.github.<name>.repo_urls list of GitHub repository regexes for which these
+      # credentials should be used, if no repositories are specified, they might always be used (for
+      # this GitHub instance)
+      # e.g.
+      # repo_urls: ["github.com/<org-name>/.*"]
+      repo_urls: []
+      # @param secrets.github.<name>.tls_verify
+      tls_verify: true
+
+  # @param secrets.github-app mapping of a secret-name (freely selectable) and the GitHub App
+  # secret-values
+  github-app:
+    github-com:
+      # @param secrets.github-app.<name>.api_url the api url of the GitHub instance
+      # e.g.
+      # api_url: https://api.github.com
+      api_url: ""
+      # @param secrets.github-app.<name>.app_id the id of the App (as displayed in its settings)
+      app_id: -1
+      # @param secrets.github-app.<name>.mappings the GitHub App must be installed into the
+      # organisations it should have access to. These are the mappings between the organisation
+      # and its installation id
+      mappings:
+          # @param secrets.github-app.<name>.mappings[].installation_id the id of the GitHub App
+          # installation (as displayed in the url of the installation page)
+        - installation_id: ""
+          # @param secrets.github-app.<name>.mappings[].org the name of the GitHub organisation the
+          # App is installed into
+          # e.g.
+          # org: <org-name>
+          org: ""
+      # @param secrets.github-app.<name>.private_key a private key (PEM-format) of the GitHub App
+      # (can be created in its settings)
+      private_key: ""
+      # @param secrets.github-app.<name>.tls_verify
+      tls_verify: true
+
+  # @param secrets.oci-registry mapping of a secret-name (freely selectable) and the OCI registry
+  # secret-values
+  oci-registry:
+    primary:
+      # @param secrets.oci-registry.<name>.username the username of the serviceaccount
+      username: ""
+      # @param secrets.oci-registry.<name>.password the password of the serviceaccount
+      password: ""
+      # @param secrets.oci-registry.<name>.image_reference_prefixes list of image prefixes for which
+      # these credentials should be used, if no prefixes are specified, they might always be used
+      # note: The prefixes are _not_ evaluated as a regex
+      # e.g.
+      # image_reference_prefixes:
+      #   - europe-docker.pkg.dev/gardener-project
+      image_reference_prefixes: []
+      # @param secrets.oci-registry.<name>.privileges the privileges which are associated with this
+      # serviceaccount, those are used during lookup of which credentials to use
+      # options:
+      # - readonly: only allows reading of images
+      # - readwrite: allows reading and writing of images
+      # - admin: also allows deletion of images
+      privileges: readonly
+
+  # @param secrets.oauth-cfg mapping of a secret-name (freely selectable) and the oauth configuration
+  oauth-cfg:
+    primary:
+      # @param secrets.oauth-cfg.<name>.name name of the oauth configuration as displayed to the user
+      # for selection in the delivery-dashboard
+      name: ""
+      # @param secrets.oauth-cfg.<name>.type the type of oauth configuration
+      # options:
+      # - github
+      type: ""
+      # @param secrets.oauth-cfg.<name>.api_url the api url of the GitHub instance
+      # e.g.
+      # api_url: https://api.github.com
+      api_url: ""
+      # @param secrets.oauth-cfg.<name>.client_id the client id of the GitHub App (as displayed in
+      # its settings)
+      client_id: ""
+      # @param secrets.oauth-cfg.<name>.client_secret a client secret of the GitHub App (can be
+      # created in its settings)
+      client_secret: ""
+      # @param secrets.oauth-cfg.<name>.role_bindings a list of mappings between user roles and the
+      # respective subjects these roles should be assigned to
+      role_bindings:
+          # @param secrets.oauth-cfg.<name>.role_bindings[].roles the name of the roles which should
+          # be assigned to the subjects
+          # options:
+          # - reader
+          # - writer
+          # - admin
+          # - <any-role-defined-via-secrets.rbac.<name>.roles[].name>
+          # e.g.
+          # roles: ["reader"]
+        - roles: []
+          # @param secrets.oauth-cfg.<name>.role_bindings[].subjects a list of subjects which should
+          # be assigned to the defined roles
+          subjects:
+              # @param secrets.oauth-cfg.<name>.role_bindings[].subjects[].type the type of subject
+              # options:
+              # - github-app: name is expected as <app-name>
+              # - github-user: name is expected as <username>
+              # - github-org: name is expected as <org-name>
+              # - github-team: name is expected as <org-name>/<team-name>
+            - type: ""
+              # @param secrets.oauth-cfg.<name>.role_bindings[].subjects[].name the name of subject
+              name: ""
+
+  # @param secrets.rbac mapping of a secret-name (freely selectable) and the rbac configuration.
+  # There must be at most _one_ secret
+  rbac:
+    primary:
+      # @param secrets.rbac.<name>.permissions a list of custom defined permissions which can be used
+      # to define new custom roles
+      # note: there are already pre-defined permissions named "read-all", "write-all" and "admin",
+      # those can always be used but can also be overwritten
+      permissions:
+          # @param secrets.rbac.<name>.permissions[].name the name of the permission which is used to
+          # assign it to a certain role
+        - name: ""
+          # @param secrets.rbac.<name>.permissions[].routes list of regexes of routes this permission
+          # grants access to
+          # e.g.
+          # routes:
+          #   - /artefacts/metadata/query
+          #   - /components/.*
+          routes: ""
+          # @param secrets.rbac.<name>.permissions[].methos list of regexes of http methods this
+          # permission grants access to
+          # e.g.
+          # methods: .*
+          methods: ""
+      # @param secrets.rbac.<name>.roles a list of custom defined roles which can be used to define
+      # secrets.oauth-cfg.<name>.role_bindings
+      # note: there are already pre-defined roles named "reader", "writer" and "admin", those can
+      # always be used but can also be overwritten
+      roles:
+          # @param secrets.rbac.<name>.roles[].name the name of the role which is used to create a
+          # role binding
+        - name: ""
+          # @param secrets.rbac.<name>.roles[].permissions list of permissions this role is granted
+          permissions: []
+
+  # @param secrets.signing-cfg mapping of a secret-name (freely selectable) and the JWT signing
+  # configuration
+  signing-cfg:
+    primary:
+      # @param secrets.signing-cfg.<name>.id the identifier (e.g. UUID) is used to detect which
+      # public key must be used for signature validation
+      # e.g.
+      # id: 5e1688f9-b032-4a9b-99ee-9ff2eb3cbcb5
+      id: ""
+      # @param secrets.signing-cfg.<name>.algorithm the algorithm used to create the JWT
+      # options:
+      # - RS256
+      algorithm: ""
+      # @param secrets.signing-cfg.<name>.priority the lower the priority, the less likely the key
+      # will be used to create a signature (e.g. useful to age-out an old key)
+      priority: 0
+      # @param secrets.signing-cfg.<name>.private_key the private key (PEM-format) to use for signing
+      # note: you may use "openssl genrsa -out private.pem 4096" for generation
+      private_key: ""
+      # @param secrets.signing-cfg.<name>.public_key the public key (PEM-format) to use for verifying
+      # of the signature
+      # note: you may use "openssl rsa -in private.pem -outform PEM -pubout -out public.pem" for
+      # generation
+      public_key: ""
