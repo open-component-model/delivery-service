@@ -1,0 +1,15 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2684.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: other
+  contents: Allow configuration of full vs. local release-notes for Slack posting
+    on Concourse
+  mimetype: text/markdown
+  reference: '[#1345](https://github.com/gardener/cc-utils/pull/1345)'
+  type: standard
