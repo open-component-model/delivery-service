@@ -1,5 +1,5 @@
 extensions_cfg:
-  default:
+  defaults:
     delivery_dashboard_url: ... # must be publicly accessible
     delivery_service_url: ... # e.g. http://delivery-service.<target-namespace>.svc.cluster.local:8080
   access_manager:
