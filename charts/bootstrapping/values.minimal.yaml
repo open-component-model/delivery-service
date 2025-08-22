@@ -1,0 +1,86 @@
+extensions_cfg:
+  artefact_enumerator:
+    components:
+      - component_name: ocm.software/ocm-gear
+  cache_manager:
+    prefill_function_caches:
+      components:
+        - component_name: ocm.software/ocm-gear
+  clamav:
+    mappings:
+      - prefix: ''
+
+profiles:
+  - name: "Open Delivery gear"
+    finding_types:
+      - finding/malware
+    special_component_ids:
+      - e60f2588-3f97-4d6f-9ac4-92ab36dcdb4e
+
+features_cfg:
+  specialComponents:
+    - id: e60f2588-3f97-4d6f-9ac4-92ab36dcdb4e
+      name: ocm.software/ocm-gear
+      displayName: Open Delivery Gear
+      type: ODG
+      version: greatest
+      icon: home
+
+ocm_repo_mappings:
+  - prefix: ''
+    repository: europe-docker.pkg.dev/gardener-project/releases
+
+findings:
+  - type: finding/malware
+    issues:
+      enable_assignees: False
+    categorisations:
+      - id: NONE
+        display_name: False-Positive
+        value: 0
+        allowed_processing_time: ~
+        rescoring: manual
+      - id: scanner-limitation
+        display_name: Scanner-Limitation
+        value: 16
+        allowed_processing_time: 0
+        selector:
+          malware_names:
+            - Heuristics.Limits.Exceeded.*
+      - id: BLOCKER
+        display_name: Found
+        value: 16
+        allowed_processing_time: 0
+        rescoring: manual
+        selector:
+          malware_names:
+            - .*
+
+secrets:
+  oauth-cfg:
+    primary:
+      name: GitHub
+      type: github
+      api_url: https://api.github.com
+      client_id: ... # input required
+      client_secret: ... # input required
+      role_bindings:
+      - subjects:
+        - type: github-team # input required
+          name: your-org/your-team # input required
+        - type: github-app # input required
+          name: your-odg-app # input required
+        roles:
+        - admin
+
+  github-app:
+    github-tools:
+      api_url: https://api.github.com
+      app_id: ... # input required
+      mappings:
+        - installation_id: ... # input required
+          org: your-org # input required
+      private_key: | # input required
+        -----BEGIN RSA PRIVATE KEY-----
+        ...
+        -----END RSA PRIVATE KEY-----
