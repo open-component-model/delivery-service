@@ -14,7 +14,7 @@ import tarutil
 
 import bdba.client
 import bdba.model as bm
-import bdba_extension.scanning
+import bdba_utils.scan
 import ctx_util
 import lookups
 import ocm_util
@@ -143,12 +143,12 @@ def scan(
             lookup=lookup,
             node_filter=cnudie.iter.Filter.resources,
         ):
-            known_scan_results = bdba_extension.scanning.retrieve_existing_scan_results(
+            known_scan_results = bdba_utils.scan.retrieve_existing_scan_results(
                 bdba_client=bdba_client,
                 group_id=bdba_group_id,
                 resource_node=resource_node,
             )
-            processor = bdba_extension.scanning.ResourceGroupProcessor(
+            processor = bdba_utils.scan.ResourceGroupProcessor(
                 bdba_client=bdba_client,
                 group_id=bdba_group_id,
             )
