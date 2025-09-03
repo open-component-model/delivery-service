@@ -1,0 +1,16 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2691.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: prepare ocm callback. Extend ocm-package's CLI to allow for appending
+    to component-labels. This will allow us to drop downstream usages of (legacy)
+    `component-cli` command.
+  mimetype: text/markdown
+  reference: '[#1354](https://github.com/gardener/cc-utils/pull/1354)'
+  type: standard
