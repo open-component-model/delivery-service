@@ -1030,6 +1030,134 @@ def _markdown_collapsible_section(
     )
 
 
+def _kyverno_template_vars(
+    finding_groups: list[FindingGroup],
+    summary: str
+) -> dict[str, str]:
+    content = {}
+    for finding_group in finding_groups:
+        finding_group: FindingGroup
+        for aggregated_finding in finding_group.findings:
+            aggregated_finding: AggregatedFinding
+            am: odg.model.ArtefactMetadata = aggregated_finding.finding
+            finding: odg.model.KyvernoFinding = am.data
+            content = _kyverno_process_finding(finding)
+
+    return content
+
+
+def _kyverno_process_finding(
+    finding: odg.model.KyvernoFinding,
+) -> dict[str, str]:
+    content = {}
+    if finding.subtype == odg.model.KyvernoFindingSubType.POLICY_REPORT_SUMMARY:
+        content = _kyverno_gen_policy_summary_content(finding)
+    elif finding.subtype == odg.model.KyvernoFindingSubType.POLICY_REPORT:
+        content = _kyverno_gen_policy_content(finding)
+
+    return content
+
+
+def _kyverno_gen_policy_summary_content(
+    finding: odg.model.KyvernoFinding,
+) -> dict[str, str]:
+    title = "# Kyverno Summary\n"
+    text = textwrap.dedent(
+        """\
+
+        ### This is a Kyverno summary:
+        - Confirm the summary.
+
+        **Do not close this ticket manually; it will be updated automatically.**
+        """
+    )
+
+    kyverno_summary_finding: odg.model.KyvernoPolicySummaryFinding = finding.finding
+
+    info = (
+        "### Summary:\n"
+        "\n"
+        f"- **Landscape:** {kyverno_summary_finding.landscape}\n"
+        f"- **Project:** {kyverno_summary_finding.project}\n"
+        f"- **Cluster:** {kyverno_summary_finding.cluster}\n"
+        f"- **Report Time:** {kyverno_summary_finding.date}\n"
+        f"- **Hash:** `{kyverno_summary_finding.group_hash}`\n"
+    )
+
+    reports_summary = _build_kyverno_summary_section(kyverno_summary_finding)
+
+    content = {"title": title, "text": text, "info": info, "reports": reports_summary}
+
+    return content
+
+
+def _build_kyverno_summary_section(
+    finding_content: odg.model.KyvernoPolicySummaryFinding,
+) -> str:
+    reports = "### Policy Reports by Namespace:\n\n"
+    reports += "#### Namespace Overview:\n"
+    reports += "| Namespace | Pass | Fail | Warn | Error | Skip | Policies |\n"
+    reports += "|-----------|------|------|------|-------|------|----------|\n"
+
+    report_summary = finding_content.report
+
+    sorted_namespaces = sorted(report_summary.namespace_summary.keys(),
+                              key=lambda ns: (ns != 'default', ns))
+
+    for namespace in sorted_namespaces:
+        namespace_summary = report_summary.namespace_summary[namespace]
+        policy_count = len(report_summary.policy_results.get(namespace, {}))
+        reports += (
+            f"| `{namespace}` | {namespace_summary.passed} | "
+            f"{namespace_summary.fail} | {namespace_summary.warn} | "
+            f"{namespace_summary.error} | {namespace_summary.skip} | {policy_count} |\n"
+        )
+
+    reports += "\n---\n\n"
+
+    reports += "#### Detailed Policy Reports:\n\n"
+
+    for namespace in sorted_namespaces:
+        namespace_summary = report_summary.namespace_summary[namespace]
+        policy_count = len(report_summary.policy_results.get(namespace, {}))
+
+        namespace_header = f"<code>{namespace}</code> ({policy_count} policies)"
+
+        namespace_details = ""
+        namespace_policies = report_summary.policy_results.get(namespace, {})
+
+        for policy_name in sorted(namespace_policies.keys()):
+            policy_rules = namespace_policies[policy_name]
+            namespace_details += f"- **Policy:** `{policy_name}`\n"
+
+            for rule_name in sorted(policy_rules.keys()):
+                rule_result = policy_rules[rule_name]
+                namespace_details += f"  - **Rule:** `{rule_name}`\n"
+                namespace_details += (
+                    f"    - **Results:** Pass: {rule_result.pass_}, "
+                    f"Fail: {rule_result.fail}, Warn: {rule_result.warn}, "
+                    f"Error: {rule_result.error}, Skip: {rule_result.skip}\n"
+                )
+
+            namespace_details += "\n"
+
+        if not namespace_details.strip():
+            namespace_details = "No detailed policy results available.\n"
+
+        reports += _markdown_collapsible_section(
+            summary=namespace_header,
+            details_markdown=namespace_details.strip()
+        ) + "\n\n"
+
+    return reports
+
+
+def _kyverno_gen_policy_content(
+    finding: odg.model.KyvernoFinding,
+) -> dict[str, str]:
+    return {} # to be implemented
+
+
 def _template_vars(
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
@@ -1252,6 +1380,11 @@ def _template_vars(
         )
     elif finding_cfg.type is odg.model.Datatype.FALCO_FINDING:
         template_variables |= _falco_template_vars(
+            finding_groups=finding_groups,
+            summary=summary,
+        )
+    elif finding_cfg.type is odg.model.Datatype.KYVERNO_FINDING:
+        template_variables |= _kyverno_template_vars(
             finding_groups=finding_groups,
             summary=summary,
         )

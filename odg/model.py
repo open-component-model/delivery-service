@@ -30,6 +30,7 @@ class Datatype(enum.StrEnum):
     CRYPTO_FINDING = 'finding/crypto'
     DIKI_FINDING = 'finding/diki'
     FALCO_FINDING = 'finding/falco'
+    KYVERNO_FINDING = 'finding/kyverno'
     GHAS_FINDING = 'finding/ghas'
     INVENTORY_FINDING = 'finding/inventory'
     LICENSE_FINDING = 'finding/license'
@@ -48,6 +49,7 @@ class Datatype(enum.StrEnum):
             Datatype.CRYPTO_FINDING: Datasource.CRYPTO,
             Datatype.DIKI_FINDING: Datasource.DIKI,
             Datatype.FALCO_FINDING: Datasource.FALCO,
+            Datatype.KYVERNO_FINDING: Datasource.KYVERNO,
             Datatype.GHAS_FINDING: Datasource.GHAS,
             Datatype.INVENTORY_FINDING: Datasource.INVENTORY,
             Datatype.LICENSE_FINDING: Datasource.BDBA,
@@ -66,6 +68,7 @@ class Datasource(enum.StrEnum):
     DELIVERY_DASHBOARD = 'delivery-dashboard'
     DIKI = 'diki'
     FALCO = 'falco'
+    KYVERNO = 'kyverno'
     GHAS = 'ghas'
     INVENTORY = 'inventory'
     OSID = 'osid'
@@ -458,6 +461,15 @@ class RescoringFalcoFinding:
 
 
 @dataclasses.dataclass
+class RescoringKyvernoFinding:
+    group_hash: str
+
+    @property
+    def key(self) -> str:
+        return self.group_hash
+
+
+@dataclasses.dataclass
 class RescoringLicenseFinding:
     package_name: str
     license: License
@@ -799,6 +811,7 @@ class CustomRescoring:
         | RescoringCryptoFinding
         | RescoreOsIdFinding
         | RescoringFalcoFinding
+        | RescoringKyvernoFinding
         | RescoreGitHubSecretFinding
     )
     referenced_type: str
@@ -998,6 +1011,92 @@ class FalcoFinding(Finding):
 
 
 @dataclasses.dataclass
+class KyvernoViolation:
+    """Represents a policy violation."""
+
+    name: str
+    kind: str
+    status: str
+
+
+@dataclasses.dataclass
+class KyvernoRuleResult:
+    """Represents the result of a policy rule."""
+
+    fail: int = 0
+    pass_: int = 0  # Using pass_ since pass is a keyword
+    skip: int = 0
+    error: int = 0
+    warn: int = 0
+    violations: typing.List[KyvernoViolation] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass
+class KyvernoNamespaceSummary:
+    """Represents a summary of policy results for a namespace."""
+
+    error: int = 0
+    fail: int = 0
+    passed: int = 0
+    warn: int = 0
+    skip: int = 0
+
+
+@dataclasses.dataclass
+class KyvernoReportSummary:
+    """Represents the complete metrics data structure."""
+
+    namespace_summary: dict[str, KyvernoNamespaceSummary] = (
+        dataclasses.field(default_factory=dict) # namespace -> NamespaceSummary
+    )
+    policy_results: dict[str, dict[str, dict[str, KyvernoRuleResult]]] = (
+        dataclasses.field(default_factory=dict) # namespace -> policy -> rule -> RuleResult
+    )
+
+
+@dataclasses.dataclass
+class KyvernoPolicySummaryFinding:
+    landscape: str
+    project: str
+    cluster: str
+    date: datetime.date
+    group_hash: str
+    report: KyvernoReportSummary
+
+    @property
+    def key(self) -> str:
+        return self.group_hash
+
+
+@dataclasses.dataclass
+class KyvernoPolicyFinding:
+    landscape: str
+    project: str
+    cluster: str
+    group_hash: str
+    report: list
+
+    @property
+    def key(self) -> str:
+        return self.group_hash
+
+
+class KyvernoFindingSubType(enum.StrEnum):
+    POLICY_REPORT_SUMMARY = 'policy-report-summary'
+    POLICY_REPORT = 'policy-report'
+
+
+@dataclasses.dataclass
+class KyvernoFinding(Finding):
+    subtype: KyvernoFindingSubType
+    finding: KyvernoPolicySummaryFinding | KyvernoPolicyFinding
+
+    @property
+    def key(self) -> str:
+        return self.finding.key
+
+
+@dataclasses.dataclass
 class ResponsibleInfo:
     referenced_type: Datatype
 
@@ -1011,6 +1110,7 @@ FindingModels = (
     | CryptoFinding
     | DikiFinding
     | FalcoFinding
+    | KyvernoFinding
     | GitHubSecretFinding
     | InventoryFinding
     | LicenseFinding
