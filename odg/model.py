@@ -30,6 +30,7 @@ class Datatype(enum.StrEnum):
     CRYPTO_FINDING = 'finding/crypto'
     DIKI_FINDING = 'finding/diki'
     FALCO_FINDING = 'finding/falco'
+    KYVERNO_FINDING = 'finding/kyverno'
     GHAS_FINDING = 'finding/ghas'
     INVENTORY_FINDING = 'finding/inventory'
     LICENSE_FINDING = 'finding/license'
@@ -48,6 +49,7 @@ class Datatype(enum.StrEnum):
             Datatype.CRYPTO_FINDING: Datasource.CRYPTO,
             Datatype.DIKI_FINDING: Datasource.DIKI,
             Datatype.FALCO_FINDING: Datasource.FALCO,
+            Datatype.KYVERNO_FINDING: Datasource.KYVERNO,
             Datatype.GHAS_FINDING: Datasource.GHAS,
             Datatype.INVENTORY_FINDING: Datasource.INVENTORY,
             Datatype.LICENSE_FINDING: Datasource.BDBA,
@@ -66,6 +68,7 @@ class Datasource(enum.StrEnum):
     DELIVERY_DASHBOARD = 'delivery-dashboard'
     DIKI = 'diki'
     FALCO = 'falco'
+    KYVERNO = 'kyverno'
     GHAS = 'ghas'
     INVENTORY = 'inventory'
     OSID = 'osid'
@@ -799,6 +802,7 @@ class CustomRescoring:
         | RescoringCryptoFinding
         | RescoreOsIdFinding
         | RescoringFalcoFinding
+        | RescoringKyvernoFinding
         | RescoreGitHubSecretFinding
     )
     referenced_type: str
@@ -996,6 +1000,49 @@ class FalcoFinding(Finding):
     def key(self) -> str:
         return self.finding.key
 
+@dataclasses.dataclass
+class KyvernoPolicyReportSummary:
+    '''
+    '''
+    cluster: str # does a shoot know its name
+    project: str
+    landscape: str
+    group_hash: str
+    events: list
+
+    @property
+    def key(self) -> str:
+        return self.group_hash
+
+@dataclasses.dataclass
+class KyvernoPolicyReport:
+    '''
+    '''
+    cluster: str # does a shoot know its name
+    project: str
+    landscape: str
+    group_hash: str
+    data: list
+
+    @property
+    def key(self) -> str:
+        return self.group_hash
+
+
+class KyvernoFindingSubType(enum.StrEnum):
+    POLICY_REPORT_SUMMARY = 'policy-report-summary'
+    POLICY_REPORT = 'policy-report'
+
+
+@dataclasses.dataclass
+class KyvernoFinding(Finding):
+    subtype: KyvernoFindingSubType
+    finding: KyvernoPolicyReportSummary | KyvernoPolicyReport
+
+    @property
+    def key(self) -> str:
+        return self.finding.key
+
 
 @dataclasses.dataclass
 class ResponsibleInfo:
@@ -1011,6 +1058,7 @@ FindingModels = (
     | CryptoFinding
     | DikiFinding
     | FalcoFinding
+    | KyvernoFinding
     | GitHubSecretFinding
     | InventoryFinding
     | LicenseFinding

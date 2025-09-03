@@ -1031,6 +1031,68 @@ def _markdown_collapsible_section(
         "</details>\n"
     )
 
+def _kyverno_template_vars(
+    finding_groups: list[FindingGroup],
+    summary: str
+) -> dict[str, str]:
+    content = {}
+    for finding_group in finding_groups:
+        finding_group: FindingGroup
+        for aggregated_finding in finding_group.findings:
+            aggregated_finding: AggregatedFinding
+            am: odg.model.ArtefactMetadata = aggregated_finding.finding
+            finding: odg.model.KyvernoFinding = am.data
+            content = _kyverno_process_finding(finding)
+
+    return content
+
+def _kyverno_process_finding(
+    finding: odg.model.KyvernoFinding,
+) -> dict[str, str]:
+    content = {}
+    if finding.subtype == odg.model.KyvernoFindingSubType.POLICY_REPORT_SUMMARY:
+        content = _kyverno_gen_policy_summary_content(finding)
+    elif finding.subtype == odg.model.KyvernoFindingSubType.POLICY_REPORT:
+        content = _kyverno_gen_policy_content(finding)
+
+    return content
+
+def _kyverno_gen_policy_summary_content(
+    finding: odg.model.KyvernoFinding,
+) -> dict[str, str]:
+    title = "# Kyverno Summary\n"
+    text = textwrap.dedent(
+        """\
+
+        ### This is a Kyverno summary:
+        - Confirm the summary.
+
+        **Do not close this ticket manually; it will be updated automatically.**
+    """
+    )
+
+    kyverno_summary_finding : odg.model.KyvernoPolicyReportSummary = finding.finding
+
+    info = (
+        "### Summary:\n"
+        "\n"
+        f"- **Landscape:** {kyverno_summary_finding.landscape}\n"
+        f"- **Project:** {kyverno_summary_finding.project}\n"
+        f"- **Cluster:** {kyverno_summary_finding.cluster}\n"
+        f"- **Event count:** {kyverno_summary_finding.count}\n"
+        f"- **Hash:** `{kyverno_summary_finding.group_hash}`\n"
+    )
+
+    reports_summary = _build_kyverno_summary_section(kyverno_summary_finding)
+
+    content = {"title": title, "text": text, "info": info, "reports": reports_summary}
+
+    return content
+
+def _kyverno_gen_policy_content(
+    finding: odg.model.KyvernoFinding,
+) -> dict[str, str]:
+    return {} # to be implemented
 
 def _template_vars(
     finding_cfg: odg.findings.Finding,
@@ -1254,6 +1316,11 @@ def _template_vars(
         )
     elif finding_cfg.type is odg.model.Datatype.FALCO_FINDING:
         template_variables |= _falco_template_vars(
+            finding_groups=finding_groups,
+            summary=summary,
+        )
+    elif finding_cfg.type is odg.model.Datatype.KYVERNO_FINDING:
+        template_variables |= _kyverno_template_vars(
             finding_groups=finding_groups,
             summary=summary,
         )
