@@ -4,6 +4,7 @@ import datetime
 import enum
 import functools
 import logging
+import math
 import os
 import watchdog.events
 import watchdog.observers.polling
@@ -462,11 +463,163 @@ class FeatureSpecialComponents(FeatureBase):
         }
 
 
+@dataclasses.dataclass
+class SprintsConfiguration:
+    '''
+    :param str sprint_name_pattern:
+        (required), the pattern used to dynamically format the sprint name based on the sprint's end
+        date. Format codes are passed-through to Python datetime's "strftime" function, with the
+        following (pre-processed) extra-codes:
+        - "%S": the sprint number of the year as a zero-padded decimal number, e.g. 01, 02, ..., 13
+          note: maximum sprint number depends on the "days_per_sprint" and "cycles" configuration
+        - "%C": if "cycles" are configured (i.e. != 0), the current cycle, e.g. a, b, ..., z
+    :param date start_date:
+        ISO-8601 compatible date starting from which the sprints should be generated
+        note: this should be kept constant to ensure the generated sprints remain the same,
+        independent of when they were generated
+    :param int future_threshold_days:
+        the number of days into the future for which sprints should be generated
+        note: this should be at least larger than the maximum allowed processing time for any of the
+        finding configurations
+    :param int days_per_sprint:
+        number of days a sprint consist of
+    :param int cycles:
+        optionally allows to separate a sprint into sub-cycles, indicated by a letter (e.g. "a", "b",
+        ...)
+        note: set this value to 0 (or 1) to disable it (no cycles is equivalent to one cycle per
+        sprint)
+    :param int offset:
+        allows generation of a sprint based on the sprint end date of another relative sprint, useful
+        for example to start with the first sprint only in February and not already in January
+    :param SprintMetadata meta:
+    '''
+    sprint_name_pattern: str
+    start_date: datetime.date = datetime.date.fromisoformat('2025-01-08') # noqa: E501 default date is compatible with existing implementations
+    future_threshold_days: int = 365
+    days_per_sprint: int = 14
+    cycles: int = 2
+    offset: int = -2
+    meta: yp.SprintMetadata = dataclasses.field(default_factory=yp.SprintMetadata)
+
+
+def iter_sprint_dates(
+    start_date: datetime.date,
+    end_date: datetime.date,
+    days_per_sprint: int,
+    offset: int=0,
+) -> collections.abc.Iterable[datetime.date]:
+    '''
+    Yields all dates between (including) `start_date` and (excluding) `end_date` with the interval
+    of `days_per_sprint`. If `offset` is specified, the `start_date` will be modified by `offset`
+    sprints, e.g. if `offset=-1`, the first yielded sprint will be the sprint before `start_date`
+    (this might be helpful to handle corner cases where predecessor and/or successor sprints have to
+    be considered as well).
+    '''
+    start_date += datetime.timedelta(days=days_per_sprint * offset)
+    current_date = start_date
+    offset = 0
+
+    while current_date < end_date:
+        current_date = start_date + datetime.timedelta(days=days_per_sprint * offset)
+        offset += 1
+
+        yield current_date
+
+
+def sprint_number(
+    sprint_date: datetime.date,
+    days_per_sprint: int,
+    cycles: int,
+) -> int:
+    '''
+    Returns the number of the sprint for the provided `sprint_date` based on the configured
+    `days_per_sprint` and `cycles`, e.g. if `sprint_date='2025-01-07'` and `days_per_sprint=1` and
+    `cycles=3`, the corresponding sprint number would be "3".
+    '''
+    day_of_year = int(sprint_date.strftime('%j'))
+    return math.ceil(day_of_year / (cycles * days_per_sprint))
+
+
+def sprint_name(
+    sprint_name_pattern: str,
+    sprint_date: datetime.date,
+    sprint_number: int,
+    cycle: int,
+) -> str:
+    '''
+    Formats the passed `sprint_date` according to the `sprint_name_pattern`. The format codes are
+    passed-through to Python datetime's `strftime` function, with the following (pre-processed)
+    extra-codes:
+    - `%S`: the sprint number of the year as a zero-padded decimal number, e.g. 01, 02, ..., 13
+      note: maximum sprint number depends on the `days_per_sprint` and `cycles` configuration
+    - `%C`: if `cycles` are configured, the current cycle, e.g. a, b, ..., z
+      note: the maximum cycle depends on the `cycles` configuration
+    '''
+    cycle_options = 'abcdefghijklmnopqrstuvwxyz'
+
+    custom_sprint_format = sprint_name_pattern \
+        .replace('%S', f'{sprint_number:02d}') \
+        .replace('%C', cycle_options[cycle % 26])
+
+    return sprint_date.strftime(custom_sprint_format)
+
+
+def iter_sprints(
+    sprints_cfg: SprintsConfiguration,
+) -> collections.abc.Iterable[yp.Sprint]:
+    end_date = datetime.date.today() + datetime.timedelta(days=sprints_cfg.future_threshold_days)
+
+    sprint_dates = list(iter_sprint_dates(
+        start_date=sprints_cfg.start_date,
+        end_date=end_date,
+        days_per_sprint=sprints_cfg.days_per_sprint,
+        offset=sprints_cfg.offset,
+    ))
+
+    last_sprint_number = None
+
+    for idx, sprint_date in enumerate(sprint_dates):
+        if (
+            (effective_idx := idx + sprints_cfg.offset) < 0
+            or effective_idx >= len(sprint_dates)
+        ):
+            # if the effective idx is out of range, just skip it as those dates have been added to
+            # the list via `iter_sprint_dates` anyways as padding only
+            continue
+
+        effective_sprint_date = sprint_dates[effective_idx]
+
+        current_sprint_number = sprint_number(
+            sprint_date=effective_sprint_date,
+            days_per_sprint=sprints_cfg.days_per_sprint,
+            cycles=sprints_cfg.cycles or 1,
+        )
+
+        if current_sprint_number == last_sprint_number:
+            current_cycle += 1
+        else:
+            current_cycle = 0
+            last_sprint_number = current_sprint_number
+
+        current_sprint_name = sprint_name(
+            sprint_name_pattern=sprints_cfg.sprint_name_pattern,
+            sprint_date=effective_sprint_date,
+            sprint_number=current_sprint_number,
+            cycle=current_cycle,
+        )
+
+        yield yp.Sprint(
+            name=current_sprint_name,
+            end_date=sprint_date,
+        )
+
+
 @dataclasses.dataclass(frozen=True)
 class FeatureSprints(FeatureBase):
     name: str = 'sprints'
-    sprints_relpath: str = None
+    sprints_relpath: str | None = None
     github_repo: github3.repos.Repository | None = None
+    sprints_cfg: SprintsConfiguration | None = None
 
     def _get_content(self, relpath: str) -> dict:
         if self.github_repo:
@@ -481,6 +634,9 @@ class FeatureSprints(FeatureBase):
         return yaml.safe_load(content)
 
     def get_sprints_metadata(self) -> yp.SprintMetadata:
+        if self.sprints_cfg:
+            return self.sprints_cfg.meta
+
         meta_raw = self._get_content(
             relpath=self.sprints_relpath,
         ).get('meta', {})
@@ -491,6 +647,9 @@ class FeatureSprints(FeatureBase):
         )
 
     def get_sprints(self) -> list[yp.Sprint]:
+        if self.sprints_cfg:
+            return list(reversed(list(iter_sprints(self.sprints_cfg))))
+
         sprints_raw = self._get_content(
             relpath=self.sprints_relpath,
         )['sprints']
@@ -633,7 +792,20 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
 
 
 def deserialise_sprints(sprints_raw: dict) -> FeatureSprints:
-    if github_repo_url := sprints_raw.get('repoUrl'):
+    if sprints_raw.get('sprint_name_pattern'):
+        return FeatureSprints(
+            state=FeatureStates.AVAILABLE,
+            sprints_cfg=dacite.from_dict(
+                data_class=SprintsConfiguration,
+                data=sprints_raw,
+                config=dacite.Config(
+                    type_hooks={
+                        datetime.date: lambda date: datetime.date.fromisoformat(date) if isinstance(date, str) else date, # noqa: E501
+                    },
+                ),
+            ),
+        )
+    elif github_repo_url := sprints_raw.get('repoUrl'):
         github_repo_lookup = lookups.github_repo_lookup(
             lookups.github_api_lookup(),
         )
