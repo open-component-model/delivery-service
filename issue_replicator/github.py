@@ -1079,7 +1079,7 @@ def _kyverno_gen_policy_summary_content(
         f"- **Landscape:** {kyverno_summary_finding.landscape}\n"
         f"- **Project:** {kyverno_summary_finding.project}\n"
         f"- **Cluster:** {kyverno_summary_finding.cluster}\n"
-        f"- **Event count:** {kyverno_summary_finding.count}\n"
+        # f"- **Event count:** {kyverno_summary_finding.count}\n"
         f"- **Hash:** `{kyverno_summary_finding.group_hash}`\n"
     )
 
@@ -1088,6 +1088,32 @@ def _kyverno_gen_policy_summary_content(
     content = {"title": title, "text": text, "info": info, "reports": reports_summary}
 
     return content
+
+def _build_kyverno_summary_section(
+    finding_content: odg.model.KyvernoPolicyReportSummary,
+) -> str:
+    reports = "### Policy Reports:\n"
+    reports += "\n".join([f"{report}" for report in finding_content.reports])
+    # sorted_reports = sorted(
+    #     finding_content.reports,
+    #     key=lambda report: (report.policy_name),
+    # )
+
+    # for i, report in enumerate(sorted_reports, start=1):
+    #     report_str = (
+    #         f"- **Policy Name:** {report.policy}\n"
+    #         f"- **Rule:** {report.rule}\n"
+    #         f"- **Namespace:** {report.namespace}\n"
+    #         f"Fail: {report.results.get('fail', 0)}, "
+    #         f"Warn: {report.results.get('warn', 0)}, "
+    #         f"Error: {report.results.get('error', 0)}, "
+    #         f"Skip: {report.results.get('skip', 0)}\n"
+    #     )
+
+    #     reports += (
+    #         _markdown_collapsible_section(summary=f"Report {i}", details_markdown=report_str) + "\n\n"
+    #     )
+    return reports
 
 def _kyverno_gen_policy_content(
     finding: odg.model.KyvernoFinding,

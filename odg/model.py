@@ -461,6 +461,15 @@ class RescoringFalcoFinding:
 
 
 @dataclasses.dataclass
+class RescoringKyvernoFinding:
+    group_hash: str
+
+    @property
+    def key(self) -> str:
+        return self.group_hash
+
+
+@dataclasses.dataclass
 class RescoringLicenseFinding:
     package_name: str
     license: License
@@ -1008,7 +1017,7 @@ class KyvernoPolicyReportSummary:
     project: str
     landscape: str
     group_hash: str
-    events: list
+    reports: list
 
     @property
     def key(self) -> str:
@@ -1022,7 +1031,7 @@ class KyvernoPolicyReport:
     project: str
     landscape: str
     group_hash: str
-    data: list
+    reports: list
 
     @property
     def key(self) -> str:
