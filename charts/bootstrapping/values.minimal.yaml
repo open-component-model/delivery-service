@@ -25,6 +25,13 @@ features_cfg:
       type: ODG
       version: greatest
       icon: home
+  sprints:
+    sprint_name_pattern: '%y%S%C'
+    meta:
+      offsets:
+        - name: release_decision
+          display_name: Release Decision
+          offset_days: -1
 
 ocm_repo_mappings:
   - prefix: ''

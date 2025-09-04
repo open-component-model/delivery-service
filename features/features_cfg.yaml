@@ -7,3 +7,10 @@ specialComponents:
   icon: landscape
   dependencies: []
 upgradePRs: True
+sprints:
+  sprint_name_pattern: '%y%S%C'
+  meta:
+    offsets:
+      - name: release_decision
+        display_name: Release Decision
+        offset_days: -1

@@ -82,85 +82,13 @@ features_cfg:
       type: ODG
       version: greatest
       icon: home
-
-sprints:
-  sprints: # todo: generate this if not provided
-    - name: 2612a
-      end_date: 2026-12-09
-    - name: 2611b
-      end_date: 2026-11-25
-    - name: 2611a
-      end_date: 2026-11-11
-    - name: 2612a
-      end_date: 2026-12-09
-    - name: 2611b
-      end_date: 2026-11-25
-    - name: 2611a
-      end_date: 2026-11-11
-    - name: 2610b
-      end_date: 2026-10-28
-    - name: 2610a
-      end_date: 2026-10-14
-    - name: 2609b
-      end_date: 2026-09-30
-    - name: 2609a
-      end_date: 2026-09-16
-    - name: 2608b
-      end_date: 2026-09-02
-    - name: 2608a
-      end_date: 2026-08-19
-    - name: 2607b
-      end_date: 2026-08-05
-    - name: 2607a
-      end_date: 2026-07-22
-    - name: 2606b
-      end_date: 2026-07-08
-    - name: 2606a
-      end_date: 2026-06-24
-    - name: 2605b
-      end_date: 2026-06-10
-    - name: 2605a
-      end_date: 2026-05-27
-    - name: 2604b
-      end_date: 2026-05-13
-    - name: 2604a
-      end_date: 2026-04-29
-    - name: 2603b
-      end_date: 2026-04-15
-    - name: 2603a
-      end_date: 2026-04-01
-    - name: 2602b
-      end_date: 2026-03-18
-    - name: 2602a
-      end_date: 2026-03-04
-    - name: 2601b
-      end_date: 2026-02-18
-    - name: 2601a
-      end_date: 2026-02-04
-    - name: 2513b
-      end_date: 2026-01-21
-    - name: 2513a
-      end_date: 2026-01-08
-    - name: 2512a
-      end_date: 2025-12-10
-    - name: 2511b
-      end_date: 2025-11-26
-    - name: 2511a
-      end_date: 2025-11-12
-    - name: 2510b
-      end_date: 2025-10-29
-    - name: 2510a
-      end_date: 2025-10-15
-    - name: 2509b
-      end_date: 2025-10-01
-    - name: 2509a
-      end_date: 2025-09-17
-    - name: 2508b
-      end_date: 2025-09-03
-    - name: 2508a
-      end_date: 2025-08-20
-    - name: 2507b
-      end_date: 2025-08-06
+  sprints:
+    sprint_name_pattern: '%y%S%C'
+    meta:
+      offsets:
+        - name: release_decision
+          display_name: Release Decision
+          offset_days: -1
 
 addressbook:
   - name: My name

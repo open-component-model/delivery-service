@@ -762,6 +762,48 @@ features_cfg:
   # @param features_cfg.sprints the sprints are used to align due-dates of findings. If the sprints
   # are already specified via top-level sprints configuration, this entry can be omitted
   sprints:
+    # @param features_cfg.sprints.sprint_name_pattern the pattern used to dynamically format the
+    # sprint name based on the sprint's end date. Format codes are passed-through to Python
+    # datetime's "strftime" function, with the following (pre-processed) extra-codes:
+    # - "%S": the sprint number of the year as a zero-padded decimal number, e.g. 01, 02, ..., 13
+    #   note: maximum sprint number depends on the "days_per_sprint" and "cycles" configuration
+    # - "%C": if "cycles" are configured (i.e. != 0), the current cycle, e.g. a, b, ..., z
+    # e.g.
+    # sprint_name_pattern: "%y%S%C"
+    sprint_name_pattern: ""
+    # @param features_cfg.sprints.start_date ISO-8601 compatible date starting from which the sprints
+    # should be generated
+    # note: this should be kept constant to ensure the generated sprints remain the same, independent
+    # of when they were generated
+    start_date: 2025-01-08
+    # @param features_cfg.sprints.future_threshold_days the number of days into the future for which
+    # sprints should be generated
+    # note: this should be at least larger than the maximum allowed processing time for any of the
+    # finding configurations
+    future_threshold_days: 365
+    # @param features_cfg.sprints.days_per_sprint number of days a sprint consist of
+    days_per_sprint: 14
+    # @param features_cfg.sprints.cycles optionally allows to separate a sprint into sub-cycles,
+    # indicated by a letter (e.g. "a", "b", ...)
+    # note: set this value to 0 (or 1) to disable it (no cycles is equivalent to one cycle per
+    # sprint)
+    cycles: 2
+    # @param features_cfg.sprints.offset allows generation of a sprint based on the sprint end date
+    # of another relative sprint, useful for example to start with the first sprint only in February
+    # and not already in January
+    offset: -2
+    # @param features_cfg.sprints.meta
+    meta:
+      # @param features_cfg.sprints.meta.offsets describe additional "dates-of-interest"
+      offsets:
+          # @param features_cfg.sprints.meta.offsets[].name the unique name of the date
+        - name: ""
+          # @param features_cfg.sprints.meta.offsets[].display_name the name used for displaying
+          # purposes
+          display_name: null
+          # @param features_cfg.sprints.meta.offsets[].offset_days the offsets are relative to the
+          # end date of the sprint
+          offset_days: -1
     # @param features_cfg.sprints.repoUrl GitHub html url of the repository where the sprints are
     # configured
     # e.g.
