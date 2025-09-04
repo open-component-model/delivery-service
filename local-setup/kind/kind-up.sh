@@ -73,13 +73,10 @@ helm upgrade -i delivery-db oci://${DELIVERY_DATABASE_CHART%:*} \
     --values ${CHART}/values-delivery-db.yaml
 
 echo ">>> Installing delivery-service from ${DELIVERY_SERVICE_CHART}"
-python3 ${CHART}/delivery-service-mounts/render_sprints.py
-kubectl apply -f "${CHART}/delivery-service-mounts/sprints.yaml" --namespace $NAMESPACE
 helm upgrade -i delivery-service oci://${DELIVERY_SERVICE_CHART%:*} \
     --namespace $NAMESPACE \
     --version ${DELIVERY_SERVICE_CHART#*:} \
     --values ${CHART}/values-delivery-service.yaml
-rm ${CHART}/delivery-service-mounts/sprints.yaml # is created every time from base file
 echo "Waiting for delivery-service to become ready, this can take up to 3 minutes..."
 kubectl rollout status deployment delivery-service \
     --namespace $NAMESPACE \
