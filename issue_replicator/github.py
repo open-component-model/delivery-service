@@ -1090,10 +1090,10 @@ def _kyverno_gen_policy_summary_content(
     return content
 
 def _build_kyverno_summary_section(
-    finding_content: odg.model.KyvernoPolicyReportSummary,
+    finding_content: odg.model.KyvernoReportSummary,
 ) -> str:
     reports = "### Policy Reports:\n"
-    reports += "\n".join([f"{report}" for report in finding_content.reports])
+    reports += "\n".join([f"{report}" for report in finding_content.report])
     # sorted_reports = sorted(
     #     finding_content.reports,
     #     key=lambda report: (report.policy_name),

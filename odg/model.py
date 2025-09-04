@@ -1010,28 +1010,71 @@ class FalcoFinding(Finding):
         return self.finding.key
 
 @dataclasses.dataclass
-class KyvernoPolicyReportSummary:
+class KyvernoViolation:
+    """Represents a policy violation."""
+
+    name: str
+    kind: str
+    status: str
+
+
+@dataclasses.dataclass
+class KyvernoRuleResult:
+    """Represents the result of a policy rule."""
+
+    fail: int = 0
+    pass_: int = 0  # Using pass_ since pass is a keyword
+    skip: int = 0
+    error: int = 0
+    warn: int = 0
+    violations: typing.List[KyvernoViolation] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass
+class KyvernoNamespaceSummary:
+    """Represents a summary of policy results for a namespace."""
+
+    error: int = 0
+    fail: int = 0
+    passed: int = 0
+    warn: int = 0
+    skip: int = 0
+
+
+@dataclasses.dataclass
+class KyvernoReportSummary:
+    """Represents the complete metrics data structure."""
+
+    namespace_summary: typing.Dict[str, KyvernoNamespaceSummary] = (
+        dataclasses.field(default_factory=dict) # namespace -> NamespaceSummary
+    )
+    policy_results: typing.Dict[str, typing.Dict[str, typing.Dict[str, KyvernoRuleResult]]] = (
+        dataclasses.field(default_factory=dict) # namespace -> policy -> rule -> RuleResult
+    )
+
+@dataclasses.dataclass
+class KyvernoPolicySummaryFinding:
     '''
     '''
-    cluster: str # does a shoot know its name
-    project: str
     landscape: str
+    project: str
+    cluster: str
     group_hash: str
-    reports: list
+    report: KyvernoReportSummary
 
     @property
     def key(self) -> str:
         return self.group_hash
 
 @dataclasses.dataclass
-class KyvernoPolicyReport:
+class KyvernoPolicyFinding:
     '''
     '''
-    cluster: str # does a shoot know its name
-    project: str
     landscape: str
+    project: str
+    cluster: str # does a shoot know its name
     group_hash: str
-    reports: list
+    report: list
 
     @property
     def key(self) -> str:
@@ -1046,7 +1089,7 @@ class KyvernoFindingSubType(enum.StrEnum):
 @dataclasses.dataclass
 class KyvernoFinding(Finding):
     subtype: KyvernoFindingSubType
-    finding: KyvernoPolicyReportSummary | KyvernoPolicyReport
+    finding: KyvernoPolicySummaryFinding | KyvernoPolicyFinding
 
     @property
     def key(self) -> str:
