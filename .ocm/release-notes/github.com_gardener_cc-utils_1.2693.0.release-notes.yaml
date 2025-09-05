@@ -1,0 +1,15 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2693.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: bugfix
+  contents: Fix CTT replication in case the root OCM component descriptor already
+    existed in the target OCM repository
+  mimetype: text/markdown
+  reference: '[#1357](https://github.com/gardener/cc-utils/pull/1357)'
+  type: standard
