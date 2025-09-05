@@ -1009,6 +1009,7 @@ class FalcoFinding(Finding):
     def key(self) -> str:
         return self.finding.key
 
+
 @dataclasses.dataclass
 class KyvernoViolation:
     """Represents a policy violation."""
@@ -1052,6 +1053,7 @@ class KyvernoReportSummary:
         dataclasses.field(default_factory=dict) # namespace -> policy -> rule -> RuleResult
     )
 
+
 @dataclasses.dataclass
 class KyvernoPolicySummaryFinding:
     """
@@ -1067,6 +1069,7 @@ class KyvernoPolicySummaryFinding:
     @property
     def key(self) -> str:
         return self.group_hash
+
 
 @dataclasses.dataclass
 class KyvernoPolicyFinding:

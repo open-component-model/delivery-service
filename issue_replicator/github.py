@@ -997,6 +997,7 @@ def _build_falco_event_section(
         )
     return events
 
+
 def _format_time(dt: datetime.datetime) -> str:
     return dt.strftime('%Y-%m-%d %H:%M:%S UTC') if dt else 'N/A'
 
@@ -1030,6 +1031,7 @@ def _markdown_collapsible_section(
         "</details>\n"
     )
 
+
 def _kyverno_template_vars(
     finding_groups: list[FindingGroup],
     summary: str
@@ -1045,6 +1047,7 @@ def _kyverno_template_vars(
 
     return content
 
+
 def _kyverno_process_finding(
     finding: odg.model.KyvernoFinding,
 ) -> dict[str, str]:
@@ -1055,6 +1058,7 @@ def _kyverno_process_finding(
         content = _kyverno_gen_policy_content(finding)
 
     return content
+
 
 def _kyverno_gen_policy_summary_content(
     finding: odg.model.KyvernoFinding,
@@ -1070,7 +1074,7 @@ def _kyverno_gen_policy_summary_content(
         """
     )
 
-    kyverno_summary_finding : odg.model.KyvernoPolicySummaryFinding = finding.finding
+    kyverno_summary_finding: odg.model.KyvernoPolicySummaryFinding = finding.finding
 
     info = (
         "### Summary:\n"
@@ -1087,6 +1091,7 @@ def _kyverno_gen_policy_summary_content(
     content = {"title": title, "text": text, "info": info, "reports": reports_summary}
 
     return content
+
 
 def _build_kyverno_summary_section(
     finding_content: odg.model.KyvernoPolicySummaryFinding,
@@ -1153,6 +1158,7 @@ def _kyverno_gen_policy_content(
     finding: odg.model.KyvernoFinding,
 ) -> dict[str, str]:
     return {} # to be implemented
+
 
 def _template_vars(
     finding_cfg: odg.findings.Finding,
