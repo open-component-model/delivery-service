@@ -997,7 +997,6 @@ def _build_falco_event_section(
         )
     return events
 
-
 def _format_time(dt: datetime.datetime) -> str:
     return dt.strftime('%Y-%m-%d %H:%M:%S UTC') if dt else 'N/A'
 
@@ -1068,10 +1067,10 @@ def _kyverno_gen_policy_summary_content(
         - Confirm the summary.
 
         **Do not close this ticket manually; it will be updated automatically.**
-    """
+        """
     )
 
-    kyverno_summary_finding : odg.model.KyvernoPolicyReportSummary = finding.finding
+    kyverno_summary_finding : odg.model.KyvernoPolicySummaryFinding = finding.finding
 
     info = (
         "### Summary:\n"
@@ -1079,7 +1078,7 @@ def _kyverno_gen_policy_summary_content(
         f"- **Landscape:** {kyverno_summary_finding.landscape}\n"
         f"- **Project:** {kyverno_summary_finding.project}\n"
         f"- **Cluster:** {kyverno_summary_finding.cluster}\n"
-        # f"- **Event count:** {kyverno_summary_finding.count}\n"
+        f"- **Report Time:** {kyverno_summary_finding.date}\n"
         f"- **Hash:** `{kyverno_summary_finding.group_hash}`\n"
     )
 
@@ -1090,30 +1089,65 @@ def _kyverno_gen_policy_summary_content(
     return content
 
 def _build_kyverno_summary_section(
-    finding_content: odg.model.KyvernoReportSummary,
+    finding_content: odg.model.KyvernoPolicySummaryFinding,
 ) -> str:
-    reports = "### Policy Reports:\n"
-    reports += "\n".join([f"{report}" for report in finding_content.report])
-    # sorted_reports = sorted(
-    #     finding_content.reports,
-    #     key=lambda report: (report.policy_name),
-    # )
+    reports = "### Policy Reports by Namespace:\n\n"
+    reports += "#### Namespace Overview:\n"
+    reports += "| Namespace | Pass | Fail | Warn | Error | Skip | Policies |\n"
+    reports += "|-----------|------|------|------|-------|------|----------|\n"
 
-    # for i, report in enumerate(sorted_reports, start=1):
-    #     report_str = (
-    #         f"- **Policy Name:** {report.policy}\n"
-    #         f"- **Rule:** {report.rule}\n"
-    #         f"- **Namespace:** {report.namespace}\n"
-    #         f"Fail: {report.results.get('fail', 0)}, "
-    #         f"Warn: {report.results.get('warn', 0)}, "
-    #         f"Error: {report.results.get('error', 0)}, "
-    #         f"Skip: {report.results.get('skip', 0)}\n"
-    #     )
+    report_summary = finding_content.report
 
-    #     reports += (
-    #         _markdown_collapsible_section(summary=f"Report {i}", details_markdown=report_str) + "\n\n"
-    #     )
+    sorted_namespaces = sorted(report_summary.namespace_summary.keys(),
+                              key=lambda ns: (ns != 'default', ns))
+
+    for namespace in sorted_namespaces:
+        namespace_summary = report_summary.namespace_summary[namespace]
+        policy_count = len(report_summary.policy_results.get(namespace, {}))
+        reports += (
+            f"| `{namespace}` | {namespace_summary.passed} | "
+            f"{namespace_summary.fail} | {namespace_summary.warn} | "
+            f"{namespace_summary.error} | {namespace_summary.skip} | {policy_count} |\n"
+        )
+
+    reports += "\n---\n\n"
+
+    reports += "#### Detailed Policy Reports:\n\n"
+
+    for namespace in sorted_namespaces:
+        namespace_summary = report_summary.namespace_summary[namespace]
+        policy_count = len(report_summary.policy_results.get(namespace, {}))
+
+        namespace_header = f"<code>{namespace}</code> ({policy_count} policies)"
+
+        namespace_details = ""
+        namespace_policies = report_summary.policy_results.get(namespace, {})
+
+        for policy_name in sorted(namespace_policies.keys()):
+            policy_rules = namespace_policies[policy_name]
+            namespace_details += f"- **Policy:** `{policy_name}`\n"
+
+            for rule_name in sorted(policy_rules.keys()):
+                rule_result = policy_rules[rule_name]
+                namespace_details += f"  - **Rule:** `{rule_name}`\n"
+                namespace_details += (
+                    f"    - **Results:** Pass: {rule_result.pass_}, "
+                    f"Fail: {rule_result.fail}, Warn: {rule_result.warn}, "
+                    f"Error: {rule_result.error}, Skip: {rule_result.skip}\n"
+                )
+
+            namespace_details += "\n"
+
+        if not namespace_details.strip():
+            namespace_details = "No detailed policy results available.\n"
+
+        reports += _markdown_collapsible_section(
+            summary=namespace_header,
+            details_markdown=namespace_details.strip()
+        ) + "\n\n"
+
     return reports
+
 
 def _kyverno_gen_policy_content(
     finding: odg.model.KyvernoFinding,
