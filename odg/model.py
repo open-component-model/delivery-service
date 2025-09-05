@@ -1054,11 +1054,13 @@ class KyvernoReportSummary:
 
 @dataclasses.dataclass
 class KyvernoPolicySummaryFinding:
-    '''
-    '''
+    """
+    Represents a summary of Kyverno policy violations.
+    """
     landscape: str
     project: str
     cluster: str
+    date: datetime.date
     group_hash: str
     report: KyvernoReportSummary
 
@@ -1068,8 +1070,9 @@ class KyvernoPolicySummaryFinding:
 
 @dataclasses.dataclass
 class KyvernoPolicyFinding:
-    '''
-    '''
+    """
+    Represents a single Kyverno policy violation finding.
+    """
     landscape: str
     project: str
     cluster: str # does a shoot know its name
