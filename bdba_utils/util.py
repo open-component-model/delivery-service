@@ -302,7 +302,7 @@ def enum_triages(
                 yield component, triage
 
 
-def component_artifact_metadata(
+def component_artefact_metadata(
     resource_node: cnudie.iter.ResourceNode,
     omit_resource_strict_id: bool=False,
 ) -> dict:
@@ -334,20 +334,20 @@ def component_artifact_metadata(
 
 
 def _matching_analysis_result_id(
-    component_artifact_metadata: dict[str, str],
+    component_artefact_metadata: dict[str, str],
     analysis_results: collections.abc.Iterable[bm.Product],
 ) -> int | None:
-    # This is a helper function that is used when we create new ScanRequests for a given artifact
-    # group. Since a given artifact group can trigger multiple scans in bdba, we want to be
+    # This is a helper function that is used when we create new ScanRequests for a given artefact
+    # group. Since a given artefact group can trigger multiple scans in bdba, we want to be
     # able to find the correct one from a set of possible choices (if there is one).
     def filter_func(other_dict: dict[str, str]):
         # filter-function to find the correct match. We consider a given dict a match if
         # it contains all keys we have and the values associated with these keys are identical.
         # Note: That means that (manually) added bdba-metadata will not interfere.
-        for key in component_artifact_metadata:
+        for key in component_artefact_metadata:
             if key not in other_dict.keys():
                 return False
-            if other_dict[key] != component_artifact_metadata[key]:
+            if other_dict[key] != component_artefact_metadata[key]:
                 return False
         return True
 
@@ -361,7 +361,7 @@ def _matching_analysis_result_id(
     if len(filtered_results) > 1:
         logger.warning(
             'more than one scan result found for component artefact with '
-            f'{component_artifact_metadata=}, will use latest scan result...'
+            f'{component_artefact_metadata=}, will use latest scan result...'
         )
         filtered_results = sorted(
             filtered_results,

@@ -2,21 +2,17 @@ import functools
 import logging
 
 import ci.log
-import cnudie.access
 import cnudie.retrieve
 import delivery.client
 import oci.client
 import ocm
-import tarutil
 
 import bdba.client
-import bdba.model
-import bdba_extension.scanning
+import bdba_utils.scan
 import deliverydb_cache.model as dcm
 import deliverydb_cache.util as dcu
 import k8s.logging
 import k8s.util
-import ocm_util
 import odg.extensions_cfg
 import odg.findings
 import odg.model
@@ -125,69 +121,14 @@ def scan(
         tls_verify=bdba_secret.tls_verify,
     )
 
-    known_scan_results = bdba_extension.scanning.retrieve_existing_scan_results(
+    scan_results = bdba_utils.scan.run_scan(
+        aws_secret_name=mapping.aws_secret_name,
         bdba_client=bdba_client,
         group_id=mapping.group_id,
+        processing_mode=mapping.processing_mode,
         resource_node=resource_node,
-    )
-
-    processor = bdba_extension.scanning.ResourceGroupProcessor(
-        bdba_client=bdba_client,
-        group_id=mapping.group_id,
-    )
-
-    access = resource_node.resource.access
-
-    if access.type is ocm.AccessType.OCI_REGISTRY:
-        content_iterator = oci.image_layers_as_tarfile_generator(
-            image_reference=access.imageReference,
-            oci_client=oci_client,
-            include_config_blob=False,
-            fallback_to_first_subimage_if_index=True,
-        )
-
-    elif access.type is ocm.AccessType.S3:
-        aws_secret = secret_mgmt.aws.find_cfg(
-            secret_factory=secret_factory,
-            secret_name=mapping.aws_secret_name,
-        )
-        s3_client = aws_secret.session.client('s3')
-
-        content_iterator = tarutil.concat_blobs_as_tarstream(
-            blobs=[
-                cnudie.access.s3_access_as_blob_descriptor(
-                    s3_client=s3_client,
-                    s3_access=access,
-                ),
-            ]
-        )
-
-    elif access.type is ocm.AccessType.LOCAL_BLOB:
-        ocm_repo = resource_node.component.current_ocm_repo
-        image_reference = ocm_repo.component_version_oci_ref(
-            name=resource_node.component.name,
-            version=resource_node.component.version,
-        )
-
-        content_iterator = tarutil.concat_blobs_as_tarstream(
-            blobs=[
-                ocm_util.local_blob_access_as_blob_descriptor(
-                    access=access,
-                    oci_client=oci_client,
-                    image_reference=image_reference,
-                ),
-            ]
-        )
-
-    else:
-        # we filtered supported access types already earlier
-        raise RuntimeError('this is a bug, this line should never be reached')
-
-    scan_results = processor.process(
-        resource_node=resource_node,
-        content_iterator=content_iterator,
-        known_scan_results=known_scan_results,
-        processing_mode=bdba.model.ProcessingMode(mapping.processing_mode),
+        secret_factory=secret_factory,
+        oci_client=oci_client,
         delivery_client=delivery_client,
         vulnerability_cfg=vulnerability_cfg,
         license_cfg=license_cfg,

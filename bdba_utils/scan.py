@@ -7,17 +7,21 @@ import requests
 import ci.log
 import cnudie.iter
 import delivery.client
+import oci
+import oci.client
 import ocm
 
 import bdba.client
 import bdba.model as bm
-import bdba_extension.assessments
-import bdba_extension.rescore
-import bdba_extension.util
-import bdba_extension.model
+import bdba_utils.assessments
+import bdba_utils.rescore
+import bdba_utils.util
+import bdba_utils.model
 import odg.findings
 import odg.labels
 import odg.model
+import ocm_util
+import secret_mgmt
 
 
 logger = logging.getLogger(__name__)
@@ -37,8 +41,8 @@ class ResourceGroupProcessor:
         self,
         resource_node: cnudie.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
-        known_artifact_scans: collections.abc.Iterable[bm.Product],
-    ) -> bdba_extension.model.ScanRequest:
+        known_artefact_scans: collections.abc.Iterable[bm.Product],
+    ) -> bdba_utils.model.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
         display_name = f'{resource.name}_{resource.version}_{component.name}_{resource.type}'.replace('/', '_') # noqa: E501
@@ -47,13 +51,13 @@ class ResourceGroupProcessor:
             # peers are not required here as version is considered anyways
             display_name += f'_{resource.identity(peers=())}'.replace('/', '_')
 
-        component_artifact_metadata = bdba_extension.util.component_artifact_metadata(
+        component_artefact_metadata = bdba_utils.util.component_artefact_metadata(
             resource_node=resource_node,
         )
 
-        target_product_id = bdba_extension.util._matching_analysis_result_id(
-            component_artifact_metadata=component_artifact_metadata,
-            analysis_results=known_artifact_scans,
+        target_product_id = bdba_utils.util._matching_analysis_result_id(
+            component_artefact_metadata=component_artefact_metadata,
+            analysis_results=known_artefact_scans,
         )
 
         if target_product_id:
@@ -61,22 +65,22 @@ class ResourceGroupProcessor:
         else:
             logger.info(f'{display_name=}: did not find old scan')
 
-        return bdba_extension.model.ScanRequest(
+        return bdba_utils.model.ScanRequest(
             component=component,
             artefact=resource,
             scan_content=content_iterator,
             display_name=display_name,
             target_product_id=target_product_id,
-            custom_metadata=component_artifact_metadata,
+            custom_metadata=component_artefact_metadata,
         )
 
     def process_scan_request(
         self,
-        scan_request: bdba_extension.model.ScanRequest,
+        scan_request: bdba_utils.model.ScanRequest,
         processing_mode: bm.ProcessingMode,
     ) -> bm.Result:
         def raise_on_error(exception):
-            raise bdba_extension.model.BdbaScanError(
+            raise bdba_utils.model.BdbaScanError(
                 scan_request=scan_request,
                 component=scan_request.component,
                 artefact=scan_request.artefact,
@@ -184,7 +188,7 @@ class ResourceGroupProcessor:
         scan_request = self.scan_request(
             resource_node=resource_node,
             content_iterator=content_iterator,
-            known_artifact_scans=known_scan_results,
+            known_artefact_scans=known_scan_results,
         )
         try:
             result = self.process_scan_request(
@@ -193,7 +197,7 @@ class ResourceGroupProcessor:
             )
             scan_result = self.bdba_client.wait_for_scan_result(result.product_id)
             scan_failed = False
-        except bdba_extension.model.BdbaScanError as bse:
+        except bdba_utils.model.BdbaScanError as bse:
             scan_result = bse
             scan_failed = True
             logger.warning(bse.print_stacktrace())
@@ -216,7 +220,7 @@ class ResourceGroupProcessor:
             resource=resource_node.resource,
         ):
             logger.info(f'uploading package-version-hints for {scan_result.display_name}')
-            scan_result = bdba_extension.assessments.upload_version_hints(
+            scan_result = bdba_utils.assessments.upload_version_hints(
                 scan_result=scan_result,
                 hints=version_hints,
                 bdba_client=self.bdba_client,
@@ -227,7 +231,7 @@ class ResourceGroupProcessor:
             vulnerability_cfg = None
 
         if vulnerability_cfg:
-            refetching_required = bdba_extension.rescore.rescore(
+            refetching_required = bdba_utils.rescore.rescore(
                 bdba_client=self.bdba_client,
                 scan_result=scan_result,
                 scanned_element=scanned_element,
@@ -242,7 +246,7 @@ class ResourceGroupProcessor:
 
         logger.info(f'post-processing of {scan_result.display_name} done')
 
-        yield from bdba_extension.util.iter_artefact_metadata(
+        yield from bdba_utils.util.iter_artefact_metadata(
             scanned_element=scanned_element,
             scan_result=scan_result,
             delivery_client=delivery_client,
@@ -276,7 +280,7 @@ def retrieve_existing_scan_results(
     group_id: int,
     resource_node: cnudie.iter.ResourceNode,
 ) -> list[bm.Product]:
-    query_data = bdba_extension.util.component_artifact_metadata(
+    query_data = bdba_utils.util.component_artefact_metadata(
         resource_node=resource_node,
         omit_resource_strict_id=True,
     )
@@ -285,3 +289,45 @@ def retrieve_existing_scan_results(
         group_id=group_id,
         custom_attribs=query_data,
     ))
+
+
+def run_scan(
+    aws_secret_name: str,
+    bdba_client: bdba.client.BDBAApi,
+    group_id: int,
+    oci_client: oci.client.Client,
+    processing_mode: bm.ProcessingMode,
+    resource_node: cnudie.iter.ResourceNode,
+    secret_factory: secret_mgmt.SecretFactory,
+    vulnerability_cfg: odg.findings.Finding | None=None,
+    license_cfg: odg.findings.Finding | None=None,
+    delivery_client: delivery.client.DeliveryServiceClient | None=None,
+) -> collections.abc.Iterator[odg.model.ArtefactMetadata]:
+
+    content_iterator = ocm_util.iter_content_for_resource_node(
+        resource_node=resource_node,
+        oci_client=oci_client,
+        secret_factory=secret_factory,
+        aws_secret_name=aws_secret_name,
+    )
+
+    known_scan_results = retrieve_existing_scan_results(
+        bdba_client=bdba_client,
+        group_id=group_id,
+        resource_node=resource_node,
+    )
+
+    processor = ResourceGroupProcessor(
+        bdba_client=bdba_client,
+        group_id=group_id,
+    )
+
+    return processor.process(
+        resource_node=resource_node,
+        content_iterator=content_iterator,
+        known_scan_results=known_scan_results,
+        processing_mode=bm.ProcessingMode(processing_mode),
+        delivery_client=delivery_client,
+        vulnerability_cfg=vulnerability_cfg,
+        license_cfg=license_cfg
+    )
