@@ -797,7 +797,7 @@ def _ghas_template_vars(
 
     def iter_findings(
         aggregated_findings: tuple[AggregatedFinding],
-    ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
+    ) -> collections.abc.Generator[tuple[str, str, str, str, str], None, None]:
         for af in aggregated_findings:
             ghas_finding: odg.model.GitHubSecretFinding = af.finding.data
             secret = ghas_finding.secret
@@ -805,8 +805,9 @@ def _ghas_template_vars(
             path = ghas_finding.path
             line = ghas_finding.line
             display_name = ghas_finding.secret_type_display_name
+            html_url = f'[ref]({ghas_finding.html_url})'
 
-            yield secret_type, secret, path, line, display_name
+            yield secret_type, secret, path, line, display_name, html_url
 
     for finding_group in finding_groups:
         summary += '\n' + finding_group.summary(
@@ -815,14 +816,14 @@ def _ghas_template_vars(
         )
 
         summary += (
-            '\n| Secret Type | Secret | Path | Line | Display Name |'
-            '\n| --- | --- | --- | --- | --- |'
+            '\n| Secret Type | Secret | Path | Line | Display Name | Ref |'
+            '\n| --- | --- | --- | --- | --- | --- |'
         )
-        for secret_type, secret, path, line, display_name in iter_findings(
-            aggregated_findings=finding_group.findings
+        for secret_type, secret, path, line, display_name, html_url in iter_findings(
+            aggregated_findings=finding_group.findings,
         ):
             summary += (
-                f'\n| {secret_type} | {secret} | {path} | {line} | {display_name} |'
+                f'\n| {secret_type} | {secret} | {path} | {line} | {display_name} | {html_url} |'
             )
 
         summary += '\n---'
