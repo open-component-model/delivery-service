@@ -620,15 +620,6 @@ def reconcile(
                     namespace=odg.namespace,
                     label_selector=f'{ODG_NAME_LABEL}={odg.name}',
                 ).get('items', []):
-
-                    kubernetes_api.custom_kubernetes_api.delete_namespaced_custom_object(
-                        group=odgm.ManagedResourceMeta.group,
-                        version=odgm.ManagedResourceMeta.version,
-                        plural=odgm.ManagedResourceMeta.plural,
-                        namespace=odg.namespace,
-                        name=managed_resource['metadata']['name'],
-                    )
-
                     delete_managed_resource(
                         kubernetes_api=kubernetes_api,
                         managed_resource=managed_resource,
