@@ -70,8 +70,8 @@ class FindingGroup:
     def summary(
         self,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-        delivery_dashboard_url: str,
         finding_cfg: odg.findings.Finding,
+        delivery_dashboard_url: str | None=None,
         sprint_name: str | None=None,
     ) -> str:
         ocm_node = k8s.util.get_ocm_node(
@@ -91,13 +91,14 @@ class FindingGroup:
 
         ''')
 
-        delivery_dashboard_url = _delivery_dashboard_url(
-            base_url=delivery_dashboard_url,
-            component_artefact_id=self.artefact,
-            finding_type=finding_cfg.type,
-            sprint_name=sprint_name,
-        )
-        summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+        if delivery_dashboard_url:
+            delivery_dashboard_url = _delivery_dashboard_url(
+                base_url=delivery_dashboard_url,
+                component_artefact_id=self.artefact,
+                finding_type=finding_cfg.type,
+                sprint_name=sprint_name,
+            )
+            summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
         return summary
 
@@ -791,8 +792,6 @@ def _ghas_template_vars(
     finding_groups: list[FindingGroup],
     summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str,
-    sprint_name: str | None=None,
 ) -> dict[str, str]:
     summary += '# Summary of found secret scanning alert'
 
@@ -812,9 +811,7 @@ def _ghas_template_vars(
     for finding_group in finding_groups:
         summary += '\n' + finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
             finding_cfg=finding_cfg,
-            sprint_name=sprint_name,
         )
 
         summary += (
@@ -1263,8 +1260,6 @@ def _template_vars(
             finding_groups=finding_groups,
             summary=summary,
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
         )
     else:
         template_variables |= {
