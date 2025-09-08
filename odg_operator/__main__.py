@@ -45,6 +45,7 @@ ODG_NAME_LABEL = 'open-delivery-gear.ocm.software/odg-name'
 ODG_COMPONENT_NAME = 'ocm.software/ocm-gear'
 HELM_CHART_MEDIA_TYPE = 'application/vnd.cncf.helm.chart.content.v1.tar+gzip'
 ODG_EXTENSION_ARTEFACT_TYPE = 'odg-extension'
+DEFAULT_K8S_SECRET_MAX_BYTES = 1150000
 
 
 class ODGException(Exception):
@@ -182,6 +183,42 @@ def create_or_update_resource(
             patch_namespaced_resource(**kwargs)
         else:
             raise
+
+
+def encode_manifest(
+    manifest: dict | collections.abc.Iterable[dict],
+) -> str:
+    if isinstance(manifest, dict):
+        manifest = [manifest]
+
+    return base64.b64encode(yaml.dump_all(manifest).encode()).decode()
+
+
+def encode_and_split_manifests(
+    manifests: collections.abc.Iterable[dict],
+    max_size_bytes: int=DEFAULT_K8S_SECRET_MAX_BYTES,
+) -> collections.abc.Iterable[str]:
+    '''
+    Base64 encodes the given `manifests` and splits them into separate chunks, each of them not
+    larger than `max_size_bytes`. This might be used to split the manifests for the managed resources
+    into chunks which fit into a Kubernetes secret each.
+    '''
+    current_manifests = []
+    current_size = 0
+
+    for manifest in manifests:
+        if (manifest_size := len(encode_manifest(manifest).encode())) > max_size_bytes:
+            raise ValueError(f'{manifest=} exceeds {max_size_bytes=} ({manifest_size=})')
+
+        if current_manifests and current_size + manifest_size > max_size_bytes:
+            yield encode_manifest(current_manifests)
+            current_manifests = []
+            current_size = 0
+
+        current_manifests.append(manifest)
+        current_size += manifest_size
+
+    yield encode_manifest(current_manifests)
 
 
 def create_or_update_odg(
@@ -338,6 +375,16 @@ def create_or_update_odg(
                 ),
                 helm_path=helm_chart_path,
             )
+            encoded_manifests = tuple(encode_and_split_manifests(manifests))
+
+            if len(encoded_manifests) == 1:
+                # don't add suffix in case only one secret is required (for readability)
+                secret_names = [extension_artefact_name]
+            else:
+                secret_names = [
+                    f'{extension_artefact_name}-{idx}'
+                    for idx in range(len(encoded_manifests))
+                ]
 
             data = {
                 'apiVersion': odgm.ManagedResourceMeta.apiVersion,
@@ -354,8 +401,9 @@ def create_or_update_odg(
                     'keepObjects': False,
                     'secretRefs': [
                         {
-                            'name': extension_artefact_name,
+                            'name': secret_name,
                         }
+                        for secret_name in secret_names
                     ],
                 }
             }
@@ -371,30 +419,29 @@ def create_or_update_odg(
                 plural=odgm.ManagedResourceMeta.plural,
             )
 
-            secret_body = kubernetes.client.V1Secret(
-                api_version='v1',
-                kind='Secret',
-                metadata=kubernetes.client.V1ObjectMeta(
-                    name=extension_artefact_name,
+            for idx, secret_name in enumerate(secret_names):
+                secret_body = kubernetes.client.V1Secret(
+                    api_version='v1',
+                    kind='Secret',
+                    metadata=kubernetes.client.V1ObjectMeta(
+                        name=secret_name,
+                        namespace=odg.namespace,
+                        labels={
+                            ODG_NAME_LABEL: odg.name, # we need to find them again
+                        }
+                    ),
+                    data={
+                        'data.yaml': encoded_manifests[idx],
+                    },
+                )
+                core_api = kubernetes_api.core_kubernetes_api
+                create_or_update_resource(
+                    create_namespaced_resource=core_api.create_namespaced_secret,
+                    patch_namespaced_resource=core_api.patch_namespaced_secret,
+                    data=secret_body.to_dict(),
+                    name=secret_name,
                     namespace=odg.namespace,
-                    labels={
-                        ODG_NAME_LABEL: odg.name, # we need to find them again
-                    }
-                ),
-                data={
-                    'data.yaml': base64.b64encode(
-                        yaml.dump_all(manifests).encode()
-                    ).decode(),
-                },
-            )
-            core_api = kubernetes_api.core_kubernetes_api
-            create_or_update_resource(
-                create_namespaced_resource=core_api.create_namespaced_secret,
-                patch_namespaced_resource=core_api.patch_namespaced_secret,
-                data=secret_body.to_dict(),
-                name=extension_artefact_name,
-                namespace=odg.namespace,
-            )
+                )
 
             helm_charts_path.cleanup()
 
