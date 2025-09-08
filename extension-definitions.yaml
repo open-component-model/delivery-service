@@ -27,6 +27,10 @@ installation:
       value: '"true"'
       value_type: literal
     - helm_chart_name: delivery-service
+      helm_attribute: ingress.class
+      value: nginx-${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: delivery-service
       helm_attribute: ingress.annotations."cert.gardener.cloud/purpose"
       value: 'managed'
       value_type: literal
