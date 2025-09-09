@@ -1046,19 +1046,16 @@ class KyvernoNamespaceSummary:
 class KyvernoReportSummary:
     """Represents the complete metrics data structure."""
 
-    namespace_summary: typing.Dict[str, KyvernoNamespaceSummary] = (
+    namespace_summary: dict[str, KyvernoNamespaceSummary] = (
         dataclasses.field(default_factory=dict) # namespace -> NamespaceSummary
     )
-    policy_results: typing.Dict[str, typing.Dict[str, typing.Dict[str, KyvernoRuleResult]]] = (
+    policy_results: dict[str, dict[str, dict[str, KyvernoRuleResult]]] = (
         dataclasses.field(default_factory=dict) # namespace -> policy -> rule -> RuleResult
     )
 
 
 @dataclasses.dataclass
 class KyvernoPolicySummaryFinding:
-    """
-    Represents a summary of Kyverno policy violations.
-    """
     landscape: str
     project: str
     cluster: str
@@ -1073,12 +1070,9 @@ class KyvernoPolicySummaryFinding:
 
 @dataclasses.dataclass
 class KyvernoPolicyFinding:
-    """
-    Represents a single Kyverno policy violation finding.
-    """
     landscape: str
     project: str
-    cluster: str # does a shoot know its name
+    cluster: str
     group_hash: str
     report: list
 
