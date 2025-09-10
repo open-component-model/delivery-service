@@ -105,6 +105,9 @@ class Datasource(enum.StrEnum):
                 Datatype.OSID,
                 Datatype.OSID_FINDING,
             ),
+            Datasource.KYVERNO: (
+                Datatype.KYVERNO_FINDING,
+            ),
             Datasource.RESPONSIBLES: (
                 Datatype.RESPONSIBLES,
             ),
