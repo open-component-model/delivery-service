@@ -36,6 +36,8 @@ spec:
                 extension_status:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
+                time:
+                  type: string
       additionalPrinterColumns:
         - name: State
           type: string
