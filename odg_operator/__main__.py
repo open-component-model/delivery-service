@@ -528,7 +528,7 @@ def set_odg_state(
                 'phase': phase,
                 'extension_status': extension_status,
                 'error': error,
-                'last_update': datetime.datetime.now().isoformat(),
+                'last_reconcile': datetime.datetime.now().isoformat(),
             }
         },
     )
