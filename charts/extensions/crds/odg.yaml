@@ -36,7 +36,7 @@ spec:
                 extension_status:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
-                time:
+                last_update:
                   type: string
       additionalPrinterColumns:
         - name: State
@@ -45,5 +45,8 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
+        - name: Last Update
+          type: string
+          jsonPath: .status.last_update
       subresources:
         status: {}
