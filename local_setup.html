@@ -84,6 +84,7 @@
              
   <section id="setup-local-development-environment">
 <h1>Setup Local Development Environment<a class="headerlink" href="#setup-local-development-environment" title="Link to this heading"></a></h1>
+<p>In order to start with the set-up first clone the <a class="reference external" href="https://github.com/open-component-model/delivery-service">delivery-service repository</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This guide focuses on running the delivery-service (+ database) and one
@@ -96,6 +97,7 @@ guide instead.</p>
 </div>
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
+<p>The following software should be installed on your local machine:</p>
 <ul class="simple">
 <li><p><code class="code docutils literal notranslate"><span class="pre">Python</span> <span class="pre">3.12</span></code> or greater (qualification is always done using the Python3
 version from <code class="code docutils literal notranslate"><span class="pre">alpine:edge</span></code>)</p></li>
@@ -135,14 +137,14 @@ usage of PostgreSQL is recommended (the Helm charts do not support SQLite3).</p>
 <section id="requirements">
 <h3>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h3>
 <ol class="arabic">
-<li><p>(Optional) Create a new <a class="reference external" href="https://docs.python.org/3/library/venv.html">virtual env</a> and activate it:</p>
+<li><p>(Optional) Create a new <a class="reference external" href="https://docs.python.org/3/library/venv.html">virtual env</a> in your local delivery-service repository and activate it:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
 <span class="nb">source</span><span class="w"> </span>venv/bin/activate
 </pre></div>
 </div>
 </li>
 <li><p>Install development dependencies</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip3<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>-r<span class="w"> </span>&lt;path-to-delivery-service&gt;/requirements-dev.txt
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip3<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>-r<span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;/requirements-dev.txt
 </pre></div>
 </div>
 </li>
@@ -152,9 +154,10 @@ usage of PostgreSQL is recommended (the Helm charts do not support SQLite3).</p>
 <h3>Secrets<a class="headerlink" href="#secrets" title="Link to this heading"></a></h3>
 <p>For the local setup, the delivery-service retrieves its secrets from a config
 repository. Therefore, a local copy of the config repository must be available
-and specified via env var <code class="code docutils literal notranslate"><span class="pre">CC_CONFIG_DIR=/path/to/config.d</span></code> (see Gardener’s
-configuration management for more details) (more comprehensive documentation on
-how to obtain secrets TBD).</p>
+and specified via env var <code class="code docutils literal notranslate"><span class="pre">CC_CONFIG_DIR=/path/to/config.d</span></code> (see <a class="reference external" href="https://github.com/gardener/cc-utils/tree/master">Gardener’s
+configuration management</a> for more details) (more comprehensive documentation on
+how to obtain secrets TBD). In short: please add <code class="code docutils literal notranslate"><span class="pre">export</span> <span class="pre">CC_CONFIG_DIR='&lt;path-to-local-cc-config-repo&gt;/cc-config</span></code>
+to your .zshrc file.</p>
 </section>
 <section id="certificates">
 <h3>Certificates<a class="headerlink" href="#certificates" title="Link to this heading"></a></h3>
@@ -186,19 +189,19 @@ trust store.</p>
 <section id="start-up">
 <h3>Start-Up<a class="headerlink" href="#start-up" title="Link to this heading"></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Running with PostgreSQL</span>
-python3<span class="w"> </span>&lt;path-to-delivery-service&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+python3<span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
 <span class="c1"># Running with SQLite3</span>
-python3<span class="w"> </span>&lt;path-to-delivery-service&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///relative/path/to/file.db
+python3<span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
 </pre></div>
 </div>
 <p>Start-up with useful development tooling (e.g. hot-reloading or enhanced
 request information upon errors):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Running with PostgreSQL</span>
-adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-delivery-service&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
 <span class="c1"># Running with SQLite3</span>
-adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-delivery-service&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///relative/path/to/file.db
+adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
 </pre></div>
 </div>
 </section>

@@ -1,6 +1,7 @@
 ===================================
 Setup Local Development Environment
 ===================================
+In order to start with the set-up first clone the `delivery-service repository <https://github.com/open-component-model/delivery-service>`_.
 
 .. note::
    This guide focuses on running the delivery-service (+ database) and one
@@ -14,6 +15,7 @@ Setup Local Development Environment
 
 Prerequisites
 =============
+The following software should be installed on your local machine:
 
 - `Python 3.12` or greater (qualification is always done using the Python3
   version from `alpine:edge`)
@@ -59,7 +61,7 @@ Requirements
 ^^^^^^^^^^^^
 
 #. (Optional) Create a new `virtual env
-   <https://docs.python.org/3/library/venv.html>`_ and activate it:
+   <https://docs.python.org/3/library/venv.html>`_ in your local delivery-service repository and activate it:
 
    .. code-block:: bash
 
@@ -70,16 +72,17 @@ Requirements
 
    .. code-block:: bash
 
-      pip3 install --upgrade -r <path-to-delivery-service>/requirements-dev.txt
+      pip3 install --upgrade -r <path-to-local-delivery-service-repo>/requirements-dev.txt
 
 Secrets
 ^^^^^^^
 
 For the local setup, the delivery-service retrieves its secrets from a config
 repository. Therefore, a local copy of the config repository must be available
-and specified via env var `CC_CONFIG_DIR=/path/to/config.d` (see Gardener's
-configuration management for more details) (more comprehensive documentation on
-how to obtain secrets TBD).
+and specified via env var `CC_CONFIG_DIR=/path/to/config.d` (see `Gardener's
+configuration management <https://github.com/gardener/cc-utils/tree/master>`_ for more details) (more comprehensive documentation on
+how to obtain secrets TBD). In short: please add `export CC_CONFIG_DIR='<path-to-local-cc-config-repo>/cc-config` 
+to your .zshrc file.
 
 Certificates
 ^^^^^^^^^^^^
@@ -117,10 +120,10 @@ Start-Up
 .. code-block:: bash
 
     # Running with PostgreSQL
-    python3 <path-to-delivery-service>/app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+    python3 <path-to-local-delivery-service-repo>/app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
     # Running with SQLite3
-    python3 <path-to-delivery-service>/app.py --delivery-db-url sqlite+aiosqlite:///relative/path/to/file.db
+    python3 <path-to-local-delivery-service-repo>/app.py --delivery-db-url sqlite+aiosqlite:///filename.db
 
 Start-up with useful development tooling (e.g. hot-reloading or enhanced
 request information upon errors):
@@ -128,10 +131,10 @@ request information upon errors):
 .. code-block:: bash
 
     # Running with PostgreSQL
-    adev runserver --port 5000 <path-to-delivery-service> -- --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+    adev runserver --port 5000 <path-to-local-delivery-service-repo> -- --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
     # Running with SQLite3
-    adev runserver --port 5000 <path-to-delivery-service> -- --delivery-db-url sqlite+aiosqlite:///relative/path/to/file.db
+    adev runserver --port 5000 <path-to-local-delivery-service-repo> -- --delivery-db-url sqlite+aiosqlite:///filename.db
 
 Running the Extension
 =====================
