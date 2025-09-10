@@ -773,6 +773,21 @@ def jwt_from_signing_cfg(
         )
 
 
+def retrieve_role_bindings(
+    secret_factory: secret_mgmt.SecretFactory,
+) -> secret_mgmt.rbac.RoleBindings:
+    try:
+        rbac_cfgs = secret_factory.rbac()
+        if len(rbac_cfgs) > 1:
+            raise ValueError(f'There must be at most one rbac secret, found {len(rbac_cfgs)}')
+        elif len(rbac_cfgs) == 1:
+            return rbac_cfgs[0]
+    except secret_mgmt.SecretTypeNotFound:
+        pass
+
+    return secret_mgmt.rbac.RoleBindings() # default rbac cfg
+
+
 def auth_middleware(
     signing_cfgs: collections.abc.Iterable[secret_mgmt.signing_cfg.SigningCfg],
     default_auth: AuthType=AuthType.BEARER,
@@ -827,13 +842,7 @@ def auth_middleware(
 
         secret_factory = request.app[consts.APP_SECRET_FACTORY]
 
-        try:
-            rbac_cfgs = secret_factory.rbac()
-            if len(rbac_cfgs) != 1:
-                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
-            role_bindings = rbac_cfgs[0]
-        except secret_mgmt.SecretTypeNotFound:
-            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+        role_bindings = retrieve_role_bindings(secret_factory)
 
         user_role_names = decoded_jwt.get('roles', [])
 
@@ -962,13 +971,7 @@ class Rbac(aiohttp.web.View):
         '''
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
 
-        try:
-            rbac_cfgs = secret_factory.rbac()
-            if len(rbac_cfgs) != 1:
-                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
-            role_bindings = rbac_cfgs[0]
-        except secret_mgmt.SecretTypeNotFound:
-            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+        role_bindings = retrieve_role_bindings(secret_factory)
 
         return aiohttp.web.json_response(
             data=role_bindings,
@@ -1058,13 +1061,7 @@ class User(aiohttp.web.View):
         user_id = self.request[consts.REQUEST_USER_ID]
         user_role_names = self.request[consts.REQUEST_USER_ROLES]
 
-        try:
-            rbac_cfgs = secret_factory.rbac()
-            if len(rbac_cfgs) != 1:
-                raise ValueError(f'There must be exactly one rbac secret, found {len(rbac_cfgs)}')
-            role_bindings = rbac_cfgs[0]
-        except secret_mgmt.SecretTypeNotFound:
-            role_bindings = secret_mgmt.rbac.RoleBindings() # use default rbac cfg
+        role_bindings = retrieve_role_bindings(secret_factory)
 
         user_roles = role_bindings.filter_roles(names=user_role_names)
 
