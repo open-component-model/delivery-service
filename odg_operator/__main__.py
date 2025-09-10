@@ -2,6 +2,7 @@ import argparse
 import base64
 import collections
 import collections.abc
+import datetime
 import enum
 import http
 import io
@@ -527,6 +528,7 @@ def set_odg_state(
                 'phase': phase,
                 'extension_status': extension_status,
                 'error': error,
+                'last_reconcile': datetime.datetime.now().isoformat(),
             }
         },
     )

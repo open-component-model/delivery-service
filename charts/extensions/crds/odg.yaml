@@ -36,6 +36,8 @@ spec:
                 extension_status:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
+                last_reconcile:
+                  type: string
       additionalPrinterColumns:
         - name: State
           type: string
@@ -43,5 +45,8 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
+        - name: Last Reconcile
+          type: string
+          jsonPath: .status.last_reconcile
       subresources:
         status: {}
