@@ -46,7 +46,7 @@ spec:
           type: string
           jsonPath: .status.phase
         - name: Last Reconcile
-          type: string
+          type: date
           jsonPath: .status.last_reconcile
       subresources:
         status: {}

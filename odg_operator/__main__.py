@@ -528,7 +528,8 @@ def set_odg_state(
                 'phase': phase,
                 'extension_status': extension_status,
                 'error': error,
-                'last_reconcile': datetime.datetime.now().isoformat(),
+                # k8s expects UTC timestamp
+                'last_reconcile': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             }
         },
     )
