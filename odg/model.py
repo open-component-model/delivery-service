@@ -1062,7 +1062,7 @@ class KyvernoPolicySummaryFinding:
     landscape: str
     project: str
     cluster: str
-    date: datetime.date
+    date: datetime.datetime
     group_hash: str
     report: KyvernoReportSummary
 
