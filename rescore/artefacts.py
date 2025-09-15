@@ -205,7 +205,12 @@ def sprint_for_finding(
         return None
 
     for sprint in sorted(sprints, key=lambda sprint: sprint.end_date):
-        if sprint.end_date.date() > due_date:
+        end_date = sprint.end_date
+
+        if isinstance(end_date, datetime.datetime):
+            end_date = end_date.date()
+
+        if end_date > due_date:
             return sprint
 
     logger.warning(f'could not determine target sprint for {due_date=}')
