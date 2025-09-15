@@ -1,0 +1,16 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2699.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: other
+  contents: The CTT is now capable of explicitly specifying the OCM repository per
+    target, enabling OCM repositories to have a different registry than the image
+    replication target
+  mimetype: text/markdown
+  reference: '[#1365](https://github.com/gardener/cc-utils/pull/1365)'
+  type: standard
