@@ -88,15 +88,15 @@ def _iter_ocm_artefacts(
             )
 
             if ocm_repo := component.ocm_repo:
-                component = component_descriptor_lookup(
+                component_descriptor = component_descriptor_lookup(
                     component_id,
                     ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
                 ).component
             else:
-                component = component_descriptor_lookup(component_id).component
+                component_descriptor = component_descriptor_lookup(component_id).component
 
             for artefact_node in cnudie.iter.iter(
-                component=component,
+                component=component_descriptor,
                 lookup=component_descriptor_lookup,
                 node_filter=cnudie.iter.Filter.artefacts,
             ):
