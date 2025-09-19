@@ -1,0 +1,14 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2703.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: trusted-checkout-action now optionally creates github-app-authtokens
+  mimetype: text/markdown
+  reference: '[#1375](https://github.com/gardener/cc-utils/pull/1375)'
+  type: standard

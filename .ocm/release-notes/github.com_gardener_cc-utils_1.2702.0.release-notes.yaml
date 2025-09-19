@@ -1,0 +1,25 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2702.0
+release_notes:
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: TuanAnh17N
+  category: other
+  contents: Introduce upstream gating in upgrade dependencies workflow
+  mimetype: text/markdown
+  reference: '[#1372](https://github.com/gardener/cc-utils/pull/1372)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: Allow checking-out of submodules from repositories on same github(-enterprise)-instance,
+    also if authentication is required, using default Github-App-issued auth-tokens.
+  mimetype: text/markdown
+  reference: '[#1373](https://github.com/gardener/cc-utils/pull/1373)'
+  type: standard

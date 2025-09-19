@@ -1,0 +1,25 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2701.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: other
+  contents: GitHub App tokens are now used in the release-notes action to be able
+    to correctly fetch release-notes for private repositories
+  mimetype: text/markdown
+  reference: '[#1371](https://github.com/gardener/cc-utils/pull/1371)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: bugfix
+  contents: Python OCI client now properly handles concurrent AWS ECR repository creations
+  mimetype: text/markdown
+  reference: '[#1374](https://github.com/gardener/cc-utils/pull/1374)'
+  type: standard
