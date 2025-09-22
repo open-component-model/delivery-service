@@ -206,9 +206,14 @@ class SecretFactory:
                                 priority=signing_cfg.get('priority', 0),
                             )
                 elif cfg_type == 'container_registry':
+                    import oci.model
                     import secret_mgmt.oci_registry
+                    if element.registry_type() is oci.model.OciRegistryType.AWS:
+                        username = element.credentials().access_key_id()
+                    else:
+                        username = element.credentials().username()
                     secrets_dict['oci-registry'][element._name] = secret_mgmt.oci_registry.OciRegistry( # noqa: E501
-                        username=element.credentials().username(),
+                        username=username,
                         password=element.credentials().passwd(),
                         image_reference_prefixes=element.image_reference_prefixes(),
                         privileges=element.privileges(),

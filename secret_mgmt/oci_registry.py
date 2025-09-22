@@ -108,6 +108,14 @@ def oci_cfg_lookup(
         if not oci_registry_cfg:
             return None
 
+        registry_type = oci.model.OciRegistryType.from_image_ref(image_reference)
+
+        if registry_type is oci.model.OciRegistryType.AWS:
+            return oci.auth.OciAccessKeyCredentials(
+                access_key_id=oci_registry_cfg.username,
+                secret_access_key=oci_registry_cfg.password,
+            )
+
         return oci.auth.OciBasicAuthCredentials(
             username=oci_registry_cfg.username,
             password=oci_registry_cfg.password,
