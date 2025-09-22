@@ -450,8 +450,6 @@ def replicate_issue(
 ):
     logger.info(f'starting issue replication of {artefact}')
 
-    due_dates = sprint_dates(delivery_client=delivery_client)
-
     if not (due_dates := sprint_dates(delivery_client=delivery_client)):
         logger.warning('did not find any sprints, exiting...')
         return
