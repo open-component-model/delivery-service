@@ -361,6 +361,12 @@ def replicate_issue_for_finding_type(
         due_dates=due_dates,
     )
 
+    artefact_scan_infos = [
+        finding.finding
+        for finding in findings
+        if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO
+    ]
+
     # `artefacts` are retrieved from all active compliance snapshots, whereas `scanned_artefacts`
     # are retrieved from the existing findings. The difference is that `scanned_artefacts` may not
     # contain any component version (i.e. for BDBA findings) because they're deduplicated across
@@ -380,12 +386,11 @@ def replicate_issue_for_finding_type(
     scanned_artefacts = {
         finding_cfg.issues.strip_artefact(
             artefact=dataclasses.replace(
-                finding.finding.artefact,
+                artefact_scan_info.artefact,
                 component_version=None,
             ),
             keep_group_attributes=False,
-        ) for finding in findings
-        if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO
+        ) for artefact_scan_info in artefact_scan_infos
     }
     artefacts_without_scan = all_artefacts - scanned_artefacts
 
@@ -395,10 +400,6 @@ def replicate_issue_for_finding_type(
         and len(artefacts_without_scan) == 0
     ):
         # only lookup responsibles in artefact scan info objects for now
-        artefact_scan_infos = [
-            finding.finding for finding in findings
-            if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO
-        ]
         responsibles, assignee_mode, statuses = _responsibles(
             artefact_metadata=artefact_scan_infos,
             artefacts=artefacts,
