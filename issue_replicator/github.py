@@ -53,6 +53,7 @@ class AggregatedFinding:
     finding: odg.model.ArtefactMetadata
     rescorings: list[odg.model.ArtefactMetadata] = dataclasses.field(default_factory=list)
     due_date: datetime.date | None = None
+    historical_due_dates: list[datetime.date | None] = dataclasses.field(default_factory=list)
 
     @property
     def severity(self) -> str:
