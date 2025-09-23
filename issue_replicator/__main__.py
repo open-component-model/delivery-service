@@ -82,10 +82,10 @@ def _iter_findings_for_artefact(
                 yield issue_replicator.github.AggregatedFinding(finding)
             continue
 
-        filtered_rescorings = rescore.utility.rescorings_for_finding_by_specificity(
+        filtered_rescorings = list(rescore.utility.rescorings_for_finding_by_specificity(
             finding=finding,
             rescorings=rescorings,
-        )
+        ))
 
         yield issue_replicator.github.AggregatedFinding(
             finding=finding,
@@ -105,21 +105,44 @@ def _iter_findings_with_due_dates(
             yield finding
             continue
 
-        categorisation = finding_cfg.categorisation_by_id(finding.severity)
+        # due dates are sorted by timeline, the first one being the current due date
+        finding_due_dates: list[datetime.date | None] = []
 
-        if not (due_date := categorisation.effective_due_date(
-            finding=finding.finding,
-            rescoring=finding.rescorings[0] if finding.rescorings else None,
-        )):
-            continue # finding does not have to be processed anymore
+        for rescoring in finding.rescorings:
+            categorisation = finding_cfg.categorisation_by_id(rescoring.data.severity)
 
-        for sprint_due_date in sprint_due_dates:
-            if sprint_due_date >= due_date:
-                finding.due_date = sprint_due_date
-                break
+            if not (due_date := categorisation.effective_due_date(
+                finding=finding.finding,
+                rescoring=rescoring,
+            )):
+                finding_due_dates.append(None) # finding does not have to be processed anymore
+                continue
+
+            for sprint_due_date in sprint_due_dates:
+                if sprint_due_date >= due_date:
+                    finding_due_dates.append(sprint_due_date)
+                    break
+            else:
+                logger.warning(f'could not determine target sprint for {due_date=})')
+
+        # consider the original categorisation (without rescorings) as well
+        categorisation = finding_cfg.categorisation_by_id(finding.finding.data.severity)
+        if not (due_date := categorisation.effective_due_date(finding.finding)):
+            finding_due_dates.append(None) # finding does not have to be processed anymore
         else:
-            logger.warning(f'could not determine target sprint for {finding=})')
-            continue
+            for sprint_due_date in sprint_due_dates:
+                if sprint_due_date >= due_date:
+                    finding_due_dates.append(sprint_due_date)
+                    break
+            else:
+                logger.warning(f'could not determine target sprint for {due_date=})')
+
+        if not finding_due_dates:
+            continue # only the case if no target sprint could be determined at all
+
+        # the first due date is the current one, the remainder (if any) is historical only
+        finding.due_date = finding_due_dates[0]
+        finding.historical_due_dates = finding_due_dates[1:]
 
         yield finding
 
