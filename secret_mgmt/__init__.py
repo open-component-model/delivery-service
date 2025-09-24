@@ -42,6 +42,9 @@ def default_secret_type_to_class(secret_type: str) -> object:
         case 'aws':
             import secret_mgmt.aws
             return secret_mgmt.aws.AWS
+        case 'blackduck':
+            import secret_mgmt.blackduck
+            return secret_mgmt.blackduck.BlackDuck
         case 'bdba':
             import secret_mgmt.bdba
             return secret_mgmt.bdba.BDBA
@@ -120,6 +123,13 @@ class SecretFactory:
                         group_ids=element.group_ids(),
                         token=element.credentials().token(),
                         tls_verify=element.tls_verify(),
+                    )
+                elif cfg_type == 'blackduck':
+                    import secret_mgmt.blackduck
+                    secrets_dict[key][element._name] = secret_mgmt.blackduck.BlackDuck(
+                        api_url=element.api_url(),
+                        group_id=element.group_id(),
+                        token=element.credentials()['token'],
                     )
                 elif cfg_type == 'delivery_db':
                     import secret_mgmt.delivery_db
