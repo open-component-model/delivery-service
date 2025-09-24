@@ -260,6 +260,21 @@ def _process_compliance_snapshot_of_artefact(
             uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     if (
+        extensions_cfg.blackduck
+        and extensions_cfg.blackduck.enabled
+        and extensions_cfg.blackduck.is_supported(artefact_kind=artefact.artefact_kind)
+    ):
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item(
+            artefact=artefact,
+            compliance_snapshot=compliance_snapshot,
+            service=odg.extensions_cfg.Services.BLACKDUCK,
+            interval_seconds=extensions_cfg.blackduck.interval,
+            now=now,
+        )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
+
+    if (
         extensions_cfg.clamav
         and extensions_cfg.clamav.enabled
         and extensions_cfg.clamav.is_supported(artefact_kind=artefact.artefact_kind)
