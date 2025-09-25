@@ -91,17 +91,25 @@
     enable_per_finding: True
   categorisations:
     - id: NONE
-      display_name: NONE
+      display_name: Not Exploitable / Accept
       value: 0
       allowed_processing_time: ~
+      rescoring: manual
+    - id: postpone
+      display_name: Postpone
+      value: 1
+      allowed_processing_time: input
+      rescoring: manual
     - id: MEDIUM
-      display_name: MEDIUM
+      display_name: Medium
       value: 2
       allowed_processing_time: 90
+      rescoring: manual
     - id: HIGH
-      display_name: HIGH
+      display_name: High
       value: 4
       allowed_processing_time: 30
+      rescoring: manual
 
 - type: finding/crypto
   issues:

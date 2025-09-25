@@ -613,6 +613,17 @@ class DikiFinding(Finding):
         return _as_key(self.provider_id, self.ruleset_id, self.rule_id)
 
 
+@dataclasses.dataclass
+class RescoringDikiFinding:
+    provider_id: str
+    ruleset_id: str
+    rule_id: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.provider_id, self.ruleset_id, self.rule_id)
+
+
 class CryptoAssetTypes(enum.StrEnum):
     ALGORITHM = 'algorithm'
     CERTIFICATE = 'certificate'
@@ -812,6 +823,7 @@ class CustomRescoring:
         | MalwareFindingDetails
         | RescoreSastFinding
         | RescoringCryptoFinding
+        | RescoringDikiFinding
         | RescoreOsIdFinding
         | RescoringFalcoFinding
         | RescoringKyvernoFinding
