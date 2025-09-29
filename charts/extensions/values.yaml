@@ -14,35 +14,35 @@ backlog-controller:
     repository: null
     tag: null
 bdba:
+  deployment:
+    annotations: []
   enabled: false
   image:
     repository: null
     tag: null
-  deployment:
-    annotations: []
 cache-manager:
   enabled: false
   image:
     repository: null
     tag: null
 clamav:
+  deployment:
+    annotations: []
   enabled: false
   freshclam:
     image:
       repository: null
-      tag: null
+      tag: 1.10.0
   image:
     repository: null
     tag: null
+crypto:
   deployment:
     annotations: []
-crypto:
   enabled: false
   image:
     repository: null
     tag: null
-  deployment:
-    annotations: []
 delivery-db-backup:
   enabled: false
   image:
@@ -54,37 +54,37 @@ ghas:
     repository: null
     tag: null
 issue-replicator:
+  deployment:
+    annotations: []
   enabled: false
   image:
     repository: null
     tag: null
-  deployment:
-    annotations: []
-sast:
-  enabled: false
-  image:
-    repository: null
-    tag: null
-  deployment:
-    annotations: []
-osid:
-  enabled: false
-  image:
-    repository: null
-    tag: null
-  deployment:
-    annotations: []
-responsibles:
-  enabled: false
-  image:
-    repository: null
-    tag: null
-  deployment:
-    annotations: []
 odg-operator:
   enabled: false
+  extensionDefinitions: null
   image:
     repository: null
     tag: null
-  namespaceOverride: ~
-  extensionDefinitions: ~
+  namespaceOverride: null
+osid:
+  deployment:
+    annotations: []
+  enabled: false
+  image:
+    repository: null
+    tag: null
+responsibles:
+  deployment:
+    annotations: []
+  enabled: false
+  image:
+    repository: null
+    tag: null
+sast:
+  deployment:
+    annotations: []
+  enabled: false
+  image:
+    repository: null
+    tag: null
