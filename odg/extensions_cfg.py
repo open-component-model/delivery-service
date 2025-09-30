@@ -266,7 +266,7 @@ class BlackDuckConfig(BacklogItemMixins):
 
         is_supported = True
 
-        if artefact_kind and artefact_kind not in supported_access_types:
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
             if self.on_supported is WarningVerbosities.WARNING:
                 logger.warning(
