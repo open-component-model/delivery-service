@@ -1,7 +1,7 @@
 componentReferences:
 - componentName: github.com/gardener/cc-utils
   name: cc-utils
-  version: 1.2707.0
+  version: 1.2708.0
 - componentName: ocm.software/ocm-gear/bdba-client
   name: bdba
   version: 0.5.0
