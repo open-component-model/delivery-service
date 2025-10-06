@@ -79,6 +79,7 @@ async def _find_artefact_metadata(
             dm.ArtefactMetaData.component_name == artefact.component_name,
             sa.or_(
                 dm.ArtefactMetaData.component_version == sa.null(),
+                dm.ArtefactMetaData.component_version == '',
                 dm.ArtefactMetaData.component_version == artefact.component_version,
             ),
             dm.ArtefactMetaData.artefact_kind == artefact.artefact_kind,
@@ -115,18 +116,22 @@ async def _find_rescorings(
             sa.or_(
                 # regular `not` or `is None` not working with sqlalchemy
                 dm.ArtefactMetaData.component_name == sa.null(),
+                dm.ArtefactMetaData.component_name == '',
                 dm.ArtefactMetaData.component_name == artefact.component_name,
             ),
             sa.or_(
                 dm.ArtefactMetaData.component_version == sa.null(),
+                dm.ArtefactMetaData.component_version == '',
                 dm.ArtefactMetaData.component_version == artefact.component_version
             ),
             sa.or_(
                 dm.ArtefactMetaData.artefact_name == sa.null(),
+                dm.ArtefactMetaData.artefact_name == '',
                 dm.ArtefactMetaData.artefact_name == artefact.artefact.artefact_name,
             ),
             sa.or_(
                 dm.ArtefactMetaData.artefact_version == sa.null(),
+                dm.ArtefactMetaData.artefact_version == '',
                 dm.ArtefactMetaData.artefact_version == artefact.artefact.artefact_version,
             ),
             sa.or_(
@@ -681,6 +686,9 @@ class Rescore(aiohttp.web.View):
         artefact_type = util.param(params, 'artefactType', required=True)
         artefact_extra_id = json.loads(util.param(params, 'artefactExtraId', default='{}'))
         type_filter = params.getall('type', default=[])
+
+        if component_version == 'greatest':
+            component_version = None
 
         finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
         for finding_type in type_filter:

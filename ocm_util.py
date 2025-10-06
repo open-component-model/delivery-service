@@ -91,11 +91,20 @@ async def find_artefact_node_async(
         raise RuntimeError('this line should never be reached')
 
     for a in artefacts:
-        if a.name != artefact.artefact.artefact_name:
+        if (
+            (a.name or artefact.artefact.artefact_name)
+            and a.name != artefact.artefact.artefact_name
+        ):
             continue
-        if a.version != artefact.artefact.artefact_version:
+        if (
+            (a.version or artefact.artefact.artefact_version)
+            and a.version != artefact.artefact.artefact_version
+        ):
             continue
-        if a.type != artefact.artefact.artefact_type:
+        if (
+            (a.type or artefact.artefact.artefact_type)
+            and a.type != artefact.artefact.artefact_type
+        ):
             continue
         if (
             odg.model.normalise_artefact_extra_id(a.extraIdentity)
