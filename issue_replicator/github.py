@@ -1160,7 +1160,7 @@ def _kyverno_gen_policy_content(
     return {} # to be implemented
 
 
-def _template_vars(
+def template_issue_body(
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     artefacts_without_scan: collections.abc.Iterable[odg.model.ComponentArtefactId],
@@ -1170,7 +1170,7 @@ def _template_vars(
     delivery_dashboard_url: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     sprint_name: str | None=None,
-) -> dict:
+) -> str:
     '''
     Fills a dictionary with template variables intended to be used to fill a template for a GitHub
     issue. The most prominent template variable is called `summary`. It contains a table showing
@@ -1331,7 +1331,7 @@ def _template_vars(
             'summary': summary,
         }
 
-        return template_variables
+        return finding_cfg.issues.template.format(**template_variables)
 
     elif findings:
         summary += (
@@ -1425,7 +1425,7 @@ def _template_vars(
             'summary': summary,
         }
 
-    return template_variables
+    return finding_cfg.issues.template.format(**template_variables)
 
 
 @github.retry.retry_and_throttle
@@ -1589,7 +1589,7 @@ def _create_or_update_issue(
 
     is_overdue = due_date < datetime.date.today()
 
-    template_variables = _template_vars(
+    body = template_issue_body(
         finding_cfg=finding_cfg,
         component_descriptor_lookup=component_descriptor_lookup,
         artefacts=artefacts,
@@ -1600,8 +1600,6 @@ def _create_or_update_issue(
         delivery_dashboard_url=delivery_dashboard_url,
         sprint_name='Overdue' if is_overdue else sprint_name,
     )
-
-    body = finding_cfg.issues.template.format(**template_variables)
 
     if is_overdue:
         labels.add(IssueLabels.OVERDUE)
