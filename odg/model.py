@@ -1,7 +1,9 @@
+import collections
 import dataclasses
 import datetime
 import enum
 import hashlib
+import textwrap
 import typing
 
 import dacite
@@ -980,6 +982,88 @@ class FalcoEventGroup:
     def key(self) -> str:
         return self.group_hash
 
+    @property
+    def summary(self) -> tuple[str, str, str]:
+        if events := sorted(self.events, key=lambda event: event.time):
+            start_time = events[0].time.strftime('%Y-%m-%d %H:%M:%S UTC')
+            end_time = events[-1].time.strftime('%Y-%m-%d %H:%M:%S UTC')
+        else:
+            start_time = 'N/A'
+            end_time = 'N/A'
+
+        hostnames_by_cluster = collections.defaultdict(set)
+        for event in events:
+            hostnames_by_cluster[event.cluster].add(event.hostname)
+
+        summary_long = summary = summary_short = textwrap.dedent(f'''\
+            One or more Falco events were detected in the landscape. These events may be false
+            positives or could indicate an attack.
+
+            ### Please take the following actions:
+            - Review the event stream to determine if the events are false positives.
+            - If they are false positives, triage this ticket using the available methods.
+            - Implement a Falco exception as suggested in this ticket.
+            - If you cannot confirm the events are false positives, inform the security team.
+
+            **Do not close this ticket manually; it will be updated automatically.**
+
+            ### Summary:
+            - **Landscape:** {self.landscape}
+            - **Project:** {self.project}
+            - **Rule:** {self.rule}
+            - **Event count:** {self.count}
+            - **Hash:** `{self.group_hash}`
+        ''')
+
+        clusters_str = '### Clusters:\n'
+        for cluster, hostnames in sorted(hostnames_by_cluster.items()):
+            clusters_str += textwrap.dedent(f'''\
+                <details>
+                <summary><strong>{cluster} ({len(hostnames)} host(s))</strong></summary>
+
+                {
+                    '\n                '.join([ # match whitespace for textwrap
+                        f'- {hostname}'
+                        for hostname in sorted(hostnames)
+                    ])
+                }
+                </details>
+            ''')
+        summary_long += clusters_str
+        summary += clusters_str
+
+        events_str = textwrap.dedent(f'''
+            ### Events:
+            - **Start Time:** {start_time}
+            - **End Time:** {end_time}
+        ''')
+        for idx, event in enumerate(events, start=1):
+            events_str += textwrap.dedent(f'''\
+                <details>
+                <summary><strong>Event {idx}: {event.rule}</strong></summary>
+
+                - **Time:** {event.time}
+                - **Message:** `{event.message}`
+                <blockquote>
+                <details>
+                <summary><strong>Output Fields</strong></summary>
+
+                ```
+                {
+                    '\n                '.join([ # match whitespace for textwrap
+                        f'{key}: {value}'
+                        for key, value in event.output.items()
+                    ])
+                }
+                ```
+                </details>
+                </blockquote>
+                </details>
+            ''')
+        summary_long += events_str
+
+        return summary_long, summary, summary_short
+
 
 @dataclasses.dataclass
 class FalcoInteractiveEventGroup:
@@ -1009,6 +1093,69 @@ class FalcoInteractiveEventGroup:
     def key(self) -> str:
         return self.group_hash
 
+    @property
+    def summary(self) -> tuple[str, str, str]:
+        if events := sorted(self.events, key=lambda event: event.time):
+            start_time = events[0].time.strftime('%Y-%m-%d %H:%M:%S UTC')
+            end_time = events[-1].time.strftime('%Y-%m-%d %H:%M:%S UTC')
+        else:
+            start_time = 'N/A'
+            end_time = 'N/A'
+
+        summary_long = summary = summary_short = textwrap.dedent(f'''\
+            An interactive session was detected on the cluster. This may be a legitimate action
+            (e.g., an interactive debug session) or could indicate suspicious activity.
+
+            ### Please take the following actions:
+            - Confirm the session was initiated by you by reviewing the event stream.
+            - Check the time and activity to ensure they match your actions.
+            - If the session was legitimate, triage this ticket using the available methods.
+            - If the session was not initiated by you, or the activity does not match, notify the
+            security team.
+
+            **Do not close this ticket manually; it will be updated automatically.**
+
+            ### Summary:
+            - **Landscape:** {self.landscape}
+            - **Project:** {self.project}
+            - **Cluster:** {self.cluster}
+            - **Hostname:** {self.hostname}
+            - **Event count:** {self.count}
+            - **Hash:** `{self.group_hash}`
+        ''')
+
+        events_str = textwrap.dedent(f'''
+            ### Events:
+            - **Start Time:** {start_time}
+            - **End Time:** {end_time}
+        ''')
+        for idx, event in enumerate(events, start=1):
+            events_str += textwrap.dedent(f'''\
+                <details>
+                <summary><strong>Event {idx}: {event.rule}</strong></summary>
+
+                - **Time:** {event.time}
+                - **Message:** `{event.message}`
+                <blockquote>
+                <details>
+                <summary><strong>Output Fields</strong></summary>
+
+                ```
+                {
+                    '\n                '.join([ # match whitespace for textwrap
+                        f'{key}: {value}'
+                        for key, value in event.output.items()
+                    ])
+                }
+                ```
+                </details>
+                </blockquote>
+                </details>
+            ''')
+        summary_long += events_str
+
+        return summary_long, summary, summary_short
+
 
 class FalcoFindingSubType(enum.StrEnum):
     EVENT_GROUP = 'event-group'
@@ -1023,6 +1170,10 @@ class FalcoFinding(Finding):
     @property
     def key(self) -> str:
         return self.finding.key
+
+    @property
+    def summary(self) -> tuple[str, str, str]:
+        return self.finding.summary
 
 
 @dataclasses.dataclass
@@ -1082,6 +1233,78 @@ class KyvernoPolicySummaryFinding:
     def key(self) -> str:
         return self.group_hash
 
+    @property
+    def summary(self) -> tuple[str, str, str]:
+        namespaces = sorted(
+            self.report.namespace_summary.keys(),
+            key=lambda namespace: (namespace != 'default', namespace),
+        )
+
+        summary_long = summary = summary_short = textwrap.dedent(f'''\
+            ### This is a Kyverno summary:
+            - Confirm the summary.
+
+            **Do not close this ticket manually; it will be updated automatically.**
+
+            ### Summary:
+            - **Landscape:** {self.landscape}
+            - **Project:** {self.project}
+            - **Cluster:** {self.cluster}
+            - **Report Time:** {self.date}
+            - **Hash:** `{self.group_hash}`
+        ''')
+
+        namespaces_str = textwrap.dedent('''\
+            ### Policy Reports by Namespace
+            #### Namespace Overview:
+            | Namespace | Pass | Fail | Warn | Error | Skip | Policies |
+            |-----------|------|------|------|-------|------|----------|
+        ''')
+        for namespace in namespaces:
+            namespace_summary = self.report.namespace_summary[namespace]
+            policy_count = len(self.report.policy_results.get(namespace, {}))
+            namespaces_str += (
+                f'| `{namespace}` | {namespace_summary.passed} | '
+                f'{namespace_summary.fail} | {namespace_summary.warn} | '
+                f'{namespace_summary.error} | {namespace_summary.skip} | {policy_count} |\n'
+            )
+
+        summary_long += namespaces_str + '\n---\n'
+        summary += namespaces_str
+
+        policy_reports_str = '#### Detailed Policy Reports:\n'
+        for namespace in namespaces:
+            namespace_summary = self.report.namespace_summary[namespace]
+            namespace_policies = self.report.policy_results.get(namespace, {})
+            policy_count = len(namespace_policies)
+
+            policy_reports_str += textwrap.dedent(f'''\
+                <details>
+                <summary><strong>
+                <code>{namespace}</code> ({policy_count} policies)
+                </strong></summary>
+
+            ''')
+
+            policy_reports_str = ''
+            for policy_name, policy_rules in sorted(namespace_policies.items()):
+                policy_reports_str += f'- **Policy:** `{policy_name}`\n'
+
+                for rule_name, rule_result in sorted(policy_rules.items()):
+                    policy_reports_str += f'  - **Rule:** `{rule_name}`\n'
+                    policy_reports_str += (
+                        f'    - **Results:** Pass: {rule_result.pass_}, '
+                        f'Fail: {rule_result.fail}, Warn: {rule_result.warn}, '
+                        f'Error: {rule_result.error}, Skip: {rule_result.skip}\n'
+                    )
+            else:
+                policy_reports_str = 'No detailed policy results available.\n'
+
+            policy_reports_str += '</details>\n'
+        summary_long += policy_reports_str
+
+        return summary_long, summary, summary_short
+
 
 @dataclasses.dataclass
 class KyvernoPolicyFinding:
@@ -1094,6 +1317,11 @@ class KyvernoPolicyFinding:
     @property
     def key(self) -> str:
         return self.group_hash
+
+    @property
+    def summary(self) -> tuple[str, str, str]:
+        # XXX still needs to be implemented
+        return '', '', ''
 
 
 class KyvernoFindingSubType(enum.StrEnum):
@@ -1109,6 +1337,10 @@ class KyvernoFinding(Finding):
     @property
     def key(self) -> str:
         return self.finding.key
+
+    @property
+    def summary(self) -> tuple[str, str, str]:
+        return self.finding.summary
 
 
 @dataclasses.dataclass
