@@ -150,21 +150,22 @@ def _iter_findings_with_due_dates(
 def _group_findings_by_due_date(
     findings: collections.abc.Sequence[issue_replicator.github.AggregatedFinding],
     due_dates: collections.abc.Iterable[datetime.date],
-) -> collections.abc.Generator[
-    tuple[
-        tuple[issue_replicator.github.AggregatedFinding], # findings
-        datetime.date, # latest processing date
-    ],
-    None,
-    None,
-]:
+) -> collections.abc.Iterable[tuple[
+    datetime.date, # due date
+    tuple[issue_replicator.github.AggregatedFinding], # findings
+    tuple[issue_replicator.github.AggregatedFinding], # historical findings
+]]:
     for due_date in due_dates:
         filtered_findings = tuple(
             finding for finding in findings
             if finding.due_date == due_date
         )
+        historical_findings = tuple(
+            finding for finding in findings
+            if due_date in finding.historical_due_dates
+        )
 
-        yield filtered_findings, due_date
+        yield due_date, filtered_findings, historical_findings
 
 
 def _responsibles_from_responsible_infos(
@@ -439,7 +440,7 @@ def replicate_issue_for_finding_type(
         assignee_mode = finding_cfg.issues.default_assignee_mode
         statuses = None
 
-    for findings, due_date in findings_by_due_date:
+    for due_date, findings, historical_findings in findings_by_due_date:
         issue_id = finding_cfg.issues.issue_id(
             artefact=artefact,
             due_date=due_date,
@@ -452,6 +453,7 @@ def replicate_issue_for_finding_type(
             delivery_client=delivery_client,
             artefacts=artefacts,
             findings=findings,
+            historical_findings=historical_findings,
             issue_id=issue_id,
             due_date=due_date,
             is_in_bom=is_in_bom,
