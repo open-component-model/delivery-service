@@ -1,0 +1,24 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2710.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: wpross
+  category: bugfix
+  contents: Fixes the update-extension-provider-images workflow.
+  mimetype: text/markdown
+  reference: '[#1391](https://github.com/gardener/cc-utils/pull/1391)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: wpross
+  category: bugfix
+  contents: Fix multi-line encoding in update-extension-provider-images workflow.
+  mimetype: text/markdown
+  reference: '[#1393](https://github.com/gardener/cc-utils/pull/1393)'
+  type: standard
