@@ -1,5 +1,6 @@
 import collections
 import collections.abc
+import copy
 import dataclasses
 import enum
 import datetime
@@ -26,6 +27,7 @@ import github.limits
 import github.retry
 import github.util
 import ocm.util
+import version
 
 import k8s.util
 import odg.extensions_cfg
@@ -253,932 +255,1117 @@ def _delivery_dashboard_url(
     return f'{url}?{query}'
 
 
-def _vulnerability_template_vars(
+def _severity_str(
+    aggregated_finding: AggregatedFinding,
+    finding_group: FindingGroup,
+    finding_cfg: odg.findings.Finding,
+) -> str:
+    categorisation = finding_cfg.categorisation_by_id(aggregated_finding.severity)
+
+    if aggregated_finding.rescorings:
+        return f'`{categorisation.display_name}` (rescored)'
+
+    return f'`{categorisation.display_name}`'
+
+
+def _rescoring_comment(
+    aggregated_finding: AggregatedFinding,
+    finding_group: FindingGroup,
+) -> str:
+    if not aggregated_finding.rescorings:
+        return ''
+
+    if not (comment := aggregated_finding.rescorings[0].data.comment):
+        return ''
+
+    return comment
+
+
+def _issue_ref(
+    due_date: datetime.date | None,
+    artefact: odg.model.ComponentArtefactId,
+    finding_cfg: odg.findings.Finding,
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    additional_labels: collections.abc.Iterable[str] | None=None,
+) -> str:
+    if not due_date:
+        return '' # finding is already resolved -> no open issue left
+
+    issue_id = finding_cfg.issues.issue_id(
+        artefact=artefact,
+        due_date=due_date,
+    )
+
+    labels = [issue_id, finding_cfg.type]
+    if additional_labels:
+        labels.extend(additional_labels)
+
+    if not (matching_issues := filter_issues_for_labels(
+        issues=known_issues,
+        labels=labels,
+    )):
+        return ''
+
+    issue_number = matching_issues[0].number
+
+    return f'[#{issue_number}](https://{mapping.github_repository}/issues/{issue_number})'
+
+
+TableColumnHeader = str
+TableCellContent = str
+TableCallback = dict[
+    TableColumnHeader,
+    collections.abc.Callable[[AggregatedFinding, FindingGroup], TableCellContent],
+]
+
+
+def table_callback_to_table(
+    finding_group: FindingGroup,
+    aggregated_findings: tuple[AggregatedFinding],
+    table_callback: TableCallback | None=None,
+) -> str:
+    if not table_callback or not aggregated_findings:
+        return ''
+
+    column_names = table_callback.keys()
+    column_callbacks = table_callback.values()
+
+    table = '| ' + ' | '.join(column_names) + ' |\n'
+    table += '| ' + ' | '.join('---' for _ in column_names) + ' |\n'
+
+    for af in aggregated_findings:
+        table += '| ' + ' | '.join(callback(af, finding_group) for callback in column_callbacks) + ' |\n' # noqa: E501
+
+    return table
+
+
+def findings_summary(
     finding_cfg: odg.findings.Finding,
     finding_groups: list[FindingGroup],
-    summary: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str,
+    findings_table_callback: TableCallback | None=None,
+    historical_findings_table_callback: TableCallback | None=None,
+    report_urls_callback: collections.abc.Callable[[FindingGroup], list[str]] | None=None,
+    delivery_dashboard_url: str | None=None,
     sprint_name: str | None=None,
-) -> dict[str, str]:
-    summary += '# Summary of found vulnerabilities'
+) -> tuple[str, str, str]:
+    '''
+    Creates summaries (long, normal, short) for the specified finding type and finding groups with
+    the following structure for each finding group:
 
-    def _group_findings(
-        findings: tuple[AggregatedFinding],
-    ) -> dict[str, dict[str, list[AggregatedFinding]]]:
-        '''
-        returns `findings` grouped by the affected package of the finding and the CVE
-        '''
-        grouped_findings_by_package = dict()
-
-        for finding in findings:
-            package_name = finding.finding.data.package_name
-            cve = finding.finding.data.cve
-
-            if not package_name in grouped_findings_by_package:
-                grouped_findings_by_package[package_name] = collections.defaultdict(list)
-
-            grouped_findings_by_package[package_name][cve].append(finding)
-
-        return grouped_findings_by_package
-
-    def _grouped_findings_to_table_row(
-        findings: list[AggregatedFinding],
-    ) -> str:
-        finding = findings[0].finding
-        rescorings = findings[0].rescorings
-        severity = findings[0].severity
-
-        def _vulnerability_str():
-            _vuln_str = f'`{finding.data.cve}` | `{finding.data.cvss_v3_score}` | '
-            _vuln_str += f'`{severity}` (rescored) |' if rescorings else f'`{severity}` |'
-
-            if not (cve_rescoring_rules and cve_categorisation and finding.data.cvss):
-                return _vuln_str
-
-            rules = tuple(rescore.utility.matching_rescore_rules(
-                rescoring_rules=cve_rescoring_rules,
-                categorisation=cve_categorisation,
-                cvss=finding.data.cvss,
-            ))
-
-            current_categorisation = odg.findings.categorise_finding(
-                finding_cfg=finding_cfg,
-                finding_property=finding.data.cvss_v3_score,
-            )
-
-            rescored_categorisation = rescore.utility.rescore_finding(
-                finding_cfg=finding_cfg,
-                current_categorisation=current_categorisation,
-                rescoring_rules=rules,
-                operations=finding_cfg.rescoring_ruleset.operations,
-            )
-
-            if rescored_categorisation.id == current_categorisation.id:
-                return _vuln_str
-
-            return _vuln_str + f' `{rescored_categorisation.display_name}`'
-
-        versions = ', <br/>'.join((f'`{f.finding.data.package_version}`' for f in sorted(
-            findings,
-            key=lambda finding: # try to sort by version
-                [x for x in finding.finding.data.package_version.split('.')]
-                if finding.finding.data.package_version
-                else [f'{finding.finding.data.package_version}'],
-        )))
-
-        return f'\n| `{finding.data.package_name}` | {_vulnerability_str()} | {versions} |'
-
-    cve_rescoring_rules = []
-    if finding_cfg.rescoring_ruleset:
-        cve_rescoring_rules = finding_cfg.rescoring_ruleset.rules
+    - artefact-id of the finding group
+    - link to the rescoring UI of the delivery-dashboard -> `delivery_dashboard_url`
+    - list of report url (long & normal only) -> `report_urls_callback`
+    - table containing all belonging findings (long & normal only) -> `findings_table_callback`
+    - table containing all historical findings (long) -> `historical_findings_table_callback`
+    '''
+    finding_name = finding_cfg.type.removeprefix('finding/')
+    summary_long = summary = summary_short = f'# Summary of found {finding_name} findings\n'
 
     for finding_group in finding_groups:
-        summary += '\n' + finding_group.summary(
+        group_summary = finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
             finding_cfg=finding_cfg,
+            delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
+        summary_long += group_summary
+        summary += group_summary
+        summary_short += group_summary
 
-        report_urls = {(
-            f'[BDBA {finding.finding.data.product_id}]'
-            f'({finding.finding.data.report_url})'
-        ) for finding in finding_group.findings}
-        report_urls_str = '\n'.join(sorted(report_urls))
-        summary += f'{report_urls_str}\n'
+        if report_urls_callback:
+            report_urls = '\n'.join(report_urls_callback(finding_group)) + '\n'
+            summary_long += report_urls
+            summary += report_urls
+
+        findings_table = table_callback_to_table(
+            finding_group=finding_group,
+            aggregated_findings=finding_group.findings,
+            table_callback=findings_table_callback,
+        )
+        summary_long += findings_table
+        summary += findings_table
+
+        if finding_group.historical_findings and historical_findings_table_callback:
+            historical_findings_table = '<details><summary>Historical Findings</summary>\n\n'
+            historical_findings_table += table_callback_to_table(
+                finding_group=finding_group,
+                aggregated_findings=finding_group.historical_findings,
+                table_callback=historical_findings_table_callback,
+            )
+            historical_findings_table += '</details>\n'
+
+            summary_long += historical_findings_table
+
+        summary_long += '\n---\n'
+        summary += '\n---\n'
+        summary_short += '\n---\n'
+
+    return summary_long, summary, summary_short
+
+
+def fallback_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    def default_callback(
+        aggregated_finding: AggregatedFinding,
+        finding_group: FindingGroup,
+        attr: str,
+    ) -> str:
+        value = getattr(aggregated_finding.finding.data, attr)
+
+        if isinstance(value, (str, int, float)):
+            return f'`{value}`'.replace('\n', ' ')
+        return util.dict_to_json_factory(value).replace('\n', ' ')
+
+    finding_table_callback = {
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+    }
+    if finding_groups and finding_groups[0].findings:
+        aggregated_finding = finding_groups[0].findings[0]
+        raw = dataclasses.asdict(aggregated_finding.finding.data)
+        for key in raw.keys():
+            title = key.title().replace('_', ' ')
+            if title in finding_table_callback:
+                continue # don't overwrite explicitly set callbacks
+            callback = functools.partial(default_callback, attr=key)
+            finding_table_callback[title] = callback
+
+    historical_table_callback = {
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
+    if finding_groups and finding_groups[0].historical_findings:
+        aggregated_finding = finding_groups[0].historical_findings[0]
+        raw = dataclasses.asdict(aggregated_finding.finding.data)
+        for key in raw.keys():
+            title = key.title().replace('_', ' ')
+            if title in historical_table_callback:
+                continue # don't overwrite explicitly set callbacks
+            callback = functools.partial(default_callback, attr=key)
+            historical_table_callback[title] = callback
+
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+
+def crypto_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    def names_str(
+        aggregated_finding: AggregatedFinding,
+        finding_group: FindingGroup,
+    ) -> str:
+        return '<br/>'.join(sorted(
+            f'`{name}`'
+            for name in aggregated_finding.finding.data.asset.names
+            if name
+        ))
+
+    finding_table_callback = {
+        'Standard': lambda f, _: f'`{f.finding.data.standard}`',
+        'Asset Type': lambda f, _: f'`{f.finding.data.asset.asset_type}`',
+        'Names': names_str,
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+    }
+
+    historical_table_callback = {
+        'Standard': lambda f, _: f'`{f.finding.data.standard}`',
+        'Asset Type': lambda f, _: f'`{f.finding.data.asset.asset_type}`',
+        'Names': names_str,
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
+
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+
+def diki_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    def _targets_table(
+        targets: list[dict],
+    ) -> str:
+        unique_keys = set()
+        for target in targets:
+            unique_keys.update(target.keys())
+        unique_keys = list(unique_keys)
+        unique_keys.sort()
+        if 'details' in unique_keys:
+            unique_keys.remove('details')
+            unique_keys.append('details')
+
+        table = '| ' + ' | '.join(key.title() for key in unique_keys) + ' |\n'
+        table += '| ' + ' | '.join(':-:' for _ in unique_keys) + ' |\n'
+
+        for target in targets:
+            table += '| ' + ' | '.join(target.get(key, '') for key in unique_keys) + ' |\n'
+
+        return table
+
+    summary_long = summary = summary_short = '# Summary of found diki findings\n'
+
+    for finding_group in finding_groups:
+        for aggregated_finding in finding_group.findings:
+            finding_rule: odg.model.DikiFinding = aggregated_finding.finding.data
+
+            severity = _severity_str(
+                aggregated_finding=aggregated_finding,
+                finding_group=finding_group,
+                finding_cfg=finding_cfg,
+            )
+
+            finding_str = textwrap.dedent(f'''\
+                ## Failed rule summary
+                |    |    |
+                | -- | -- |
+                | Ruleset ID | {finding_rule.ruleset_id} |
+                | Ruleset Name | {finding_rule.ruleset_name} |
+                | Ruleset Version | {finding_rule.ruleset_version} |
+                | Rule ID | {finding_rule.rule_id} |
+                | Rule Name | {finding_rule.rule_name} |
+            ''')
+
+            if finding_rule.ruleset_id == 'disa-kubernetes-stig':
+                rule_desc = f'[DISA STIG viewer - {finding_rule.rule_id}](https://stigviewer.com/stigs/kubernetes/2024-08-22/finding/V-{finding_rule.rule_id})' # noqa: E501
+            elif finding_rule.ruleset_id == 'security-hardened-shoot-cluster':
+                diki_version = {
+                    'v0.1.0': 'v0.14.0',
+                    'v0.2.0': 'v0.15.0',
+                    'v0.2.1': 'v0.15.1',
+                }.get(finding_rule.ruleset_version, 'main')
+
+                rule_desc = f'[Security Hardened Shoot Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finding_rule.rule_id})' # noqa: E501
+            elif finding_rule.ruleset_id == 'security-hardened-k8s':
+                diki_version = {
+                    'v0.1.0': 'v0.15.0',
+                }.get(finding_rule.ruleset_version, 'main')
+
+                rule_desc = f'[Security Hardened Kubernetes Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-k8s/ruleset.md#{finding_rule.rule_id})' # noqa: E501
+            else:
+                rule_desc = None
+
+            if rule_desc:
+                finding_str += f'| Rule Description | {rule_desc} |\n'
+
+            finding_str += f'| Severity | {severity} |\n'
+
+            if rescoring_comment := _rescoring_comment(
+                aggregated_finding=aggregated_finding,
+                finding_group=finding_group,
+            ):
+                finding_str += f'| Rescoring Comment | {rescoring_comment} |\n'
+
+            data_digest = hashlib.shake_128(
+                finding_rule.key.encode(),
+                usedforsecurity=False,
+            ).hexdigest(int(github.limits.label / 2))
+
+            issue_refs = []
+            for historical_due_date in aggregated_finding.historical_due_dates:
+                if issue_ref := _issue_ref(
+                    due_date=historical_due_date,
+                    artefact=finding_group.artefact,
+                    finding_cfg=finding_cfg,
+                    known_issues=known_issues,
+                    mapping=mapping,
+                    additional_labels=[data_digest],
+                ):
+                    issue_refs.append(issue_ref)
+            if issue_refs:
+                finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
+
+            if delivery_dashboard_url:
+                delivery_dashboard_url = _delivery_dashboard_url(
+                    base_url=delivery_dashboard_url,
+                    component_artefact_id=finding_group.artefact,
+                    finding_type=finding_cfg.type,
+                    sprint_name=sprint_name,
+                )
+                finding_str += f'\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n' # noqa: E501
+
+            summary_long += finding_str + '### Failed checks:\n'
+            summary += finding_str + '### Failed checks:\n'
+            summary_short += finding_str
+
+            for check in finding_rule.checks:
+                check_msg_str = textwrap.dedent(f'''
+                    Message: {check.message}
+                    Targets:
+                ''')
+
+                summary_long += check_msg_str
+                summary += check_msg_str
+
+                if not check.targets:
+                    summary_long += 'n/a\n'
+                    summary += 'n/a\n'
+
+                elif isinstance(check.targets, dict):
+                    # process merged checks
+                    for key, value in check.targets.items():
+                        if value:
+                            summary_long += f'<details><summary>{key}:</summary>\n\n'
+                            summary_long += _targets_table(value)
+                            summary_long += '</details>\n\n'
+                            summary += f'**{key}**: {len(value)} targets\n'
+                        else:
+                            summary_long += f'**{key}**\n'
+                            summary += f'**{key}**\n'
+
+                elif isinstance(check.targets, list):
+                    # process single checks
+                    summary_long += _targets_table(check.targets)
+                    summary += f'{len(check.targets)} targets\n'
+
+                else:
+                    raise TypeError(check.targets) # this line should never be reached
+
+    return summary_long, summary, summary_short
+
+
+def falco_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    summary_long = summary = summary_short = '# Summary of found falco findings\n'
+
+    for finding_group in finding_groups:
+        for aggregated_finding in finding_group.findings:
+            finding: odg.model.FalcoFinding = aggregated_finding.finding.data
+
+            if finding.subtype is odg.model.FalcoFindingSubType.EVENT_GROUP:
+                finding_title = '## Falco Event Group Detected'
+            elif finding.subtype is odg.model.FalcoFindingSubType.INTERACTIVE_EVENT_GROUP:
+                finding_title = '## Falco Interactive Event Group Detected'
+            else:
+                raise ValueError(finding.subtype)
+
+            severity = _severity_str(
+                aggregated_finding=aggregated_finding,
+                finding_group=finding_group,
+                finding_cfg=finding_cfg,
+            )
+
+            finding_str = textwrap.dedent(f'''\
+                {finding_title}
+                |    |    |
+                | -- | -- |
+                | Severity | {severity} |
+            ''')
+
+            if rescoring_comment := _rescoring_comment(
+                aggregated_finding=aggregated_finding,
+                finding_group=finding_group,
+            ):
+                finding_str += f'| Rescoring Comment | {rescoring_comment} |\n'
+
+            data_digest = hashlib.shake_128(
+                finding.key.encode(),
+                usedforsecurity=False,
+            ).hexdigest(int(github.limits.label / 2))
+
+            issue_refs = []
+            for historical_due_date in aggregated_finding.historical_due_dates:
+                if issue_ref := _issue_ref(
+                    due_date=historical_due_date,
+                    artefact=finding_group.artefact,
+                    finding_cfg=finding_cfg,
+                    known_issues=known_issues,
+                    mapping=mapping,
+                    additional_labels=[data_digest],
+                ):
+                    issue_refs.append(issue_ref)
+            if issue_refs:
+                finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
+
+            if delivery_dashboard_url:
+                delivery_dashboard_url = _delivery_dashboard_url(
+                    base_url=delivery_dashboard_url,
+                    component_artefact_id=finding_group.artefact,
+                    finding_type=finding_cfg.type,
+                    sprint_name=sprint_name,
+                )
+                finding_str += f'\n\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n' # noqa: E501
+
+            finding_summary_long, finding_summary, finding_summary_short = finding.summary
+
+            summary_long += finding_str + '\n' + finding_summary_long
+            summary += finding_str + '\n' + finding_summary
+            summary_short += finding_str + '\n' + finding_summary_short
+
+    return summary_long, summary, summary_short
+
+
+def ghas_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    finding_table_callback = {
+        'Secret Type': lambda f, _: f'`{f.finding.data.secret_type}`',
+        'Secret': lambda f, _: f'`{f.finding.data.secret}`',
+        'Path': lambda f, _: f'`{f.finding.data.path}`',
+        'Line': lambda f, _: f'`{f.finding.data.line}`',
+        'Display Name': lambda f, _: f'`{f.finding.data.secret_type_display_name}`',
+        'Ref': lambda f, _: f'[ref]({f.finding.data.html_url})',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+    }
+
+    historical_table_callback = {
+        'Secret Type': lambda f, _: f'`{f.finding.data.secret_type}`',
+        'Secret': lambda f, _: f'`{f.finding.data.secret}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
+
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+
+def inventory_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    summary_long = summary = summary_short = '# Summary of found inventory findings\n'
+
+    for finding_group in finding_groups:
+        for aggregated_finding in finding_group.findings:
+            finding: odg.model.InventoryFinding = aggregated_finding.finding.data
+
+            severity = _severity_str(
+                aggregated_finding=aggregated_finding,
+                finding_group=finding_group,
+                finding_cfg=finding_cfg,
+            )
+
+            finding_str = textwrap.dedent(f'''\
+                ## {finding.summary} - {finding.provider_name} - {finding.resource_name}
+                |    |    |
+                | -- | -- |
+            ''')
+
+            for key, value in finding.attributes.items():
+                finding_str += f'| {key.title().replace('_', ' ')} | {value} |\n'
+
+            finding_str += f'| Severity | {severity} |\n'
+
+            if rescoring_comment := _rescoring_comment(
+                aggregated_finding=aggregated_finding,
+                finding_group=finding_group,
+            ):
+                finding_str += f'| Rescoring Comment | {rescoring_comment} |\n'
+
+            data_digest = hashlib.shake_128(
+                finding.key.encode(),
+                usedforsecurity=False,
+            ).hexdigest(int(github.limits.label / 2))
+
+            issue_refs = []
+            for historical_due_date in aggregated_finding.historical_due_dates:
+                if issue_ref := _issue_ref(
+                    due_date=historical_due_date,
+                    artefact=finding_group.artefact,
+                    finding_cfg=finding_cfg,
+                    known_issues=known_issues,
+                    mapping=mapping,
+                    additional_labels=[data_digest],
+                ):
+                    issue_refs.append(issue_ref)
+            if issue_refs:
+                finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
+
+            if delivery_dashboard_url:
+                delivery_dashboard_url = _delivery_dashboard_url(
+                    base_url=delivery_dashboard_url,
+                    component_artefact_id=finding_group.artefact,
+                    finding_type=finding_cfg.type,
+                    sprint_name=sprint_name,
+                )
+                finding_str += f'\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n' # noqa: E501
+
+            summary_long += finding_str
+            summary += finding_str
+            summary_short += finding_str
+
+    return summary_long, summary, summary_short
+
+
+def kyverno_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    summary_long = summary = summary_short = '# Summary of found kyverno findings\n'
+
+    for finding_group in finding_groups:
+        for aggregated_finding in finding_group.findings:
+            finding: odg.model.KyvernoFinding = aggregated_finding.finding.data
+
+            if finding.subtype is odg.model.KyvernoFindingSubType.POLICY_REPORT_SUMMARY:
+                finding_title = '## Kyverno Policy Report Summary'
+            elif finding.subtype is odg.model.KyvernoFindingSubType.POLICY_REPORT:
+                finding_title = '## Kyverno Policy Report'
+            else:
+                raise ValueError(finding.subtype)
+
+            severity = _severity_str(
+                aggregated_finding=aggregated_finding,
+                finding_group=finding_group,
+                finding_cfg=finding_cfg,
+            )
+
+            finding_str = textwrap.dedent(f'''\
+                {finding_title}
+                |    |    |
+                | -- | -- |
+                | Severity | {severity} |
+            ''')
+
+            if rescoring_comment := _rescoring_comment(
+                aggregated_finding=aggregated_finding,
+                finding_group=finding_group,
+            ):
+                finding_str += f'| Rescoring Comment | {rescoring_comment} |\n'
+
+            data_digest = hashlib.shake_128(
+                finding.key.encode(),
+                usedforsecurity=False,
+            ).hexdigest(int(github.limits.label / 2))
+
+            issue_refs = []
+            for historical_due_date in aggregated_finding.historical_due_dates:
+                if issue_ref := _issue_ref(
+                    due_date=historical_due_date,
+                    artefact=finding_group.artefact,
+                    finding_cfg=finding_cfg,
+                    known_issues=known_issues,
+                    mapping=mapping,
+                    additional_labels=[data_digest],
+                ):
+                    issue_refs.append(issue_ref)
+            if issue_refs:
+                finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
+
+            if delivery_dashboard_url:
+                delivery_dashboard_url = _delivery_dashboard_url(
+                    base_url=delivery_dashboard_url,
+                    component_artefact_id=finding_group.artefact,
+                    finding_type=finding_cfg.type,
+                    sprint_name=sprint_name,
+                )
+                finding_str += f'\n\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n' # noqa: E501
+
+            finding_summary_long, finding_summary, finding_summary_short = finding.summary
+
+            summary_long += finding_str + '\n' + finding_summary_long
+            summary += finding_str + '\n' + finding_summary
+            summary_short += finding_str + '\n' + finding_summary_short
+
+    return summary_long, summary, summary_short
+
+
+def license_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    finding_table_callback = {
+        'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
+        'Package Version': lambda f, _: f'`{f.finding.data.package_version}`',
+        'License': lambda f, _: f'`{f.finding.data.license.name}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+    }
+
+    historical_table_callback = {
+        'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
+        'Package Version': lambda f, _: f'`{f.finding.data.package_version}`',
+        'License': lambda f, _: f'`{f.finding.data.license.name}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
+
+    report_urls_callback = lambda finding_group: sorted({
+        f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
+        for finding in finding_group.findings
+    })
+
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        report_urls_callback=report_urls_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+
+def malware_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    finding_table_callback = {
+        'Malware': lambda f, _: f'`{f.finding.data.finding.malware}`',
+        'Filename': lambda f, _: f'`{f.finding.data.finding.filename}`',
+        'Content Digest': lambda f, _: f'`{f.finding.data.finding.content_digest}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+    }
+
+    historical_table_callback = {
+        'Malware': lambda f, _: f'`{f.finding.data.finding.malware}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
+
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+
+def osid_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    finding_table_callback = {
+        'OS Name': lambda f, _: f'`{f.finding.data.osid.NAME}`',
+        'Detected Version': lambda f, _: f'`{f.finding.data.osid.VERSION_ID}`',
+        'Greatest Version': lambda f, _: f'`{f.finding.data.greatest_version}`',
+        'Issue Text': lambda f, _: f.finding.data.status_description,
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+    }
+
+    historical_table_callback = {
+        'OS Name': lambda f, _: f'`{f.finding.data.osid.NAME}`',
+        'Detected Version': lambda f, _: f'`{f.finding.data.osid.VERSION_ID}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
+
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+
+def sast_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    def sub_type_to_description(
+        sub_type: odg.model.SastSubType,
+    ) -> str:
+        if sub_type is odg.model.SastSubType.LOCAL_LINTING:
+            return 'No evidence about SAST-linting was found.'
+        elif sub_type is odg.model.SastSubType.CENTRAL_LINTING:
+            return 'No central linting found.'
+        return 'Unknown SAST issue subtype.'
+
+    finding_table_callback = {
+        'SAST Status': lambda f, _: f'`{f.finding.data.sast_status}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Sub Type': lambda f, _: f'`{f.finding.data.sub_type}`',
+        'Issue Text': lambda f, _: sub_type_to_description(f.finding.data.sub_type),
+    }
+
+    historical_table_callback = {
+        'SAST Status': lambda f, _: f'`{f.finding.data.sast_status}`',
+        'Sub Type': lambda f, _: f'`{f.finding.data.sub_type}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
+
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+
+def vulnerability_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    def rescoring_suggestion(
+        aggregated_finding: AggregatedFinding,
+        finding_group: FindingGroup,
+    ) -> str:
+        if not aggregated_finding.finding.data.cvss:
+            return ''
+
+        if not finding_cfg.rescoring_ruleset or not finding_cfg.rescoring_ruleset.rules:
+            return ''
 
         ocm_node = k8s.util.get_ocm_node(
             component_descriptor_lookup=component_descriptor_lookup,
             artefact=finding_group.artefact,
         )
 
-        cve_categorisation = rescore.utility.find_cve_categorisation(ocm_node)
+        if not (cve_categorisation := rescore.utility.find_cve_categorisation(ocm_node)):
+            return ''
 
-        summary += (
-            '\n| Affected Package | CVE | CVE Score | Severity | Rescoring Suggestion | Package Version(s) |' # noqa: E501
-            '\n| ---------------- | :-: | :-------: | :------: | :------------------: | ------------------ |' # noqa: E501
-        ) + ''.join(
-            _grouped_findings_to_table_row(findings=grouped_findings_by_cve)
-            for _, grouped_findings_by_package in sorted(
-                _group_findings(findings=finding_group.findings).items(),
-                key=lambda grouped_finding: grouped_finding[0], # sort by package name
-            )
-            for grouped_findings_by_cve in sorted(
-                grouped_findings_by_package.values(),
-                key=lambda group: (
-                    -group[0].finding.data.cvss_v3_score,
-                    group[0].finding.data.cve,
+        rules = tuple(rescore.utility.matching_rescore_rules(
+            rescoring_rules=finding_cfg.rescoring_ruleset.rules,
+            categorisation=cve_categorisation,
+            cvss=aggregated_finding.finding.data.cvss,
+        ))
+
+        current_categorisation = odg.findings.categorise_finding(
+            finding_cfg=finding_cfg,
+            finding_property=aggregated_finding.finding.data.cvss_v3_score,
+        )
+
+        rescored_categorisation = rescore.utility.rescore_finding(
+            finding_cfg=finding_cfg,
+            current_categorisation=current_categorisation,
+            rescoring_rules=rules,
+            operations=finding_cfg.rescoring_ruleset.operations,
+        )
+
+        if rescored_categorisation.id == current_categorisation.id:
+            return ''
+
+        return f'`{rescored_categorisation.display_name}`'
+
+    def package_versions_str(
+        aggregated_finding: AggregatedFinding,
+        finding_group: FindingGroup,
+    ) -> str:
+        return ', <br/>'.join(
+            f'`{package_version}`'
+            for package_version in sorted(
+                aggregated_finding.finding.data.package_version,
+                key=lambda package_version: version.parse_to_semver(
+                    version=package_version or '0.0',
+                    invalid_semver_ok=True,
                 ),
             )
         )
-        summary += '\n---'
 
-    return {
-        'summary': summary,
-    }
-
-
-def _malware_template_vars(
-    finding_cfg: odg.findings.Finding,
-    finding_groups: list[FindingGroup],
-    summary: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str,
-    sprint_name: str | None=None,
-) -> dict[str, str]:
-    summary += '# Summary of found Malware'
-
-    def iter_findings(
-        aggregated_findings: tuple[AggregatedFinding],
-    ) -> collections.abc.Generator[tuple[str, str, str], None, None]:
-        for af in aggregated_findings:
-            finding_details: odg.model.MalwareFindingDetails = af.finding.data.finding
-            yield finding_details.malware, finding_details.filename, finding_details.content_digest
-
-    for finding_group in finding_groups:
-        summary += '\n' + finding_group.summary(
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
+    finding_table_callback = {
+        'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
+        'CVE': lambda f, _: f'`{f.finding.data.cve}`',
+        'CVE Score': lambda f, _: f'`{f.finding.data.cvss_v3_score}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
             finding_cfg=finding_cfg,
-            sprint_name=sprint_name,
-        )
-
-        summary += (
-            '\n| Malware | Filename | Content Digest |'
-            '\n| --- | --- | --- |'
-        ) + ''.join(
-            f'\n| {malware} | {filename} | {content_digest} |'
-            for malware, filename, content_digest in iter_findings(finding_group.findings)
-        )
-        summary += '\n---'
-
-    return {
-        'summary': summary,
+        ),
+        'Rescoring Suggestion': rescoring_suggestion,
+        'Package Version(s)': package_versions_str,
     }
 
+    historical_table_callback = {
+        'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
+        'CVE': lambda f, _: f'`{f.finding.data.cve}`',
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
 
-def _sast_template_vars(
-    finding_cfg: odg.findings.Finding,
-    finding_groups: list[FindingGroup],
-    summary: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str,
-    sprint_name: str | None=None,
-) -> dict[str, str]:
-    summary += '# Summary of found SAST issues'
+    report_urls_callback = lambda finding_group: sorted({
+        f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
+        for finding in finding_group.findings
+    })
 
-    def iter_findings(
-        aggragated_findings: tuple[AggregatedFinding],
-    ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
-        for af in aggragated_findings:
-            sast_finding: odg.model.SastFinding = af.finding.data
-            sast_status = sast_finding.sast_status
-            sub_type = sast_finding.sub_type
-            severity = sast_finding.severity
+    def group_aggregated_findings(
+        aggregated_findings: tuple[AggregatedFinding],
+    ) -> tuple[AggregatedFinding]:
+        '''
+        returns `findings` grouped by the affected package of the finding and the CVE
+        '''
+        findings_by_package_and_cve = collections.defaultdict(dict)
 
-            if sub_type is odg.model.SastSubType.LOCAL_LINTING:
-                issue_text = 'No evidence about SAST-linting was found.'
-            elif sub_type is odg.model.SastSubType.CENTRAL_LINTING:
-                issue_text = 'No central linting found.'
+        for aggregated_finding in aggregated_findings:
+            package_name = aggregated_finding.finding.data.package_name
+            package_version = aggregated_finding.finding.data.package_version
+            cve = aggregated_finding.finding.data.cve
+
+            if finding := findings_by_package_and_cve[package_name].get(cve):
+                finding.finding.data.package_version.append(package_version)
             else:
-                issue_text = 'Unknown SAST issue subtype.'
+                finding = copy.deepcopy(aggregated_finding)
+                finding.finding.data.package_version = [package_version]
+                findings_by_package_and_cve[package_name][cve] = finding
 
-            yield sast_status, severity, sub_type, issue_text
-
-    for finding_group in finding_groups:
-        summary += '\n' + finding_group.summary(
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            finding_cfg=finding_cfg,
-            sprint_name=sprint_name,
-        )
-
-        summary += (
-            '\n| SAST Status | Severity | Sub Type | Issue Text |'
-            '\n| --- | --- | --- | --- |'
-        )
-        for sast_status, severity, sub_type, issue_text in iter_findings(finding_group.findings):
-            summary += f'\n| {sast_status} | {severity} | {sub_type} | {issue_text} |'
-
-        summary += '\n---'
-
-    return {
-        'summary': summary,
-    }
-
-
-def _license_template_vars(
-    finding_cfg: odg.findings.Finding,
-    finding_groups: list[FindingGroup],
-    summary: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str,
-    sprint_name: str=None,
-) -> dict[str, str]:
-    summary += '# Summary of found licenses'
-
-    def _group_findings(
-        findings: tuple[AggregatedFinding],
-    ) -> dict[str, dict[str, list[AggregatedFinding]]]:
-        '''
-        returns `findings` grouped by the affected package of the finding and the license name
-        '''
-        grouped_findings_by_package = dict()
-
-        for finding in findings:
-            package_name = finding.finding.data.package_name
-            license_name = finding.finding.data.license.name
-
-            if not package_name in grouped_findings_by_package:
-                grouped_findings_by_package[package_name] = collections.defaultdict(list)
-
-            grouped_findings_by_package[package_name][license_name].append(finding)
-
-        return grouped_findings_by_package
-
-    def _grouped_findings_to_table_row(
-        findings: list[AggregatedFinding],
-    ) -> str:
-        finding = findings[0].finding
-        rescorings = findings[0].rescorings
-        severity = findings[0].severity
-
-        def _license_str():
-            if rescorings:
-                return f'`{finding.data.license.name}` | `{severity}` (rescored)'
-
-            return f'`{finding.data.license.name}` | `{severity}`'
-
-        versions = ', <br/>'.join((f'`{f.finding.data.package_version}`' for f in sorted(
-            findings,
-            key=lambda finding: # try to sort by version
-                [x for x in finding.finding.data.package_version.split('.')]
-                if finding.finding.data.package_version
-                else [f'{finding.finding.data.package_version}'],
-        )))
-
-        return f'\n| `{finding.data.package_name}` | {_license_str()} | {versions} |'
-
-    for finding_group in finding_groups:
-        summary += '\n' + finding_group.summary(
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            finding_cfg=finding_cfg,
-            sprint_name=sprint_name,
-        )
-
-        report_urls = {(
-            f'[BDBA {finding.finding.data.product_id}]'
-            f'({finding.finding.data.report_url})'
-        ) for finding in finding_group.findings}
-        report_urls_str = '\n'.join(sorted(report_urls))
-        summary += f'{report_urls_str}\n'
-
-        summary += (
-            '\n| Affected Package | License | Severity | Package Version(s) |'
-            '\n| ---------------- | :-----: | :------: | ------------------ |'
-        ) + ''.join(
-            _grouped_findings_to_table_row(findings=grouped_findings_by_license)
-            for _, grouped_findings_by_package in sorted(
-                _group_findings(findings=finding_group.findings).items(),
-                key=lambda grouped_finding: grouped_finding[0], # sort by package name
+        return tuple(
+            findings_for_package_and_cve
+            for _, findings_for_package_by_cve in sorted(
+                findings_by_package_and_cve.items(),
+                key=lambda finding_by_package_and_cve: finding_by_package_and_cve[0], # package name
             )
-            for grouped_findings_by_license in sorted(
-                grouped_findings_by_package.values(),
-                key=lambda grouped_findings: grouped_findings[0].finding.data.license.name,
+            for findings_for_package_and_cve in sorted(
+                findings_for_package_by_cve.values(),
+                key=lambda finding_for_package_and_cve: (
+                    -finding_for_package_and_cve.finding.data.cvss_v3_score,
+                    finding_for_package_and_cve.finding.data.cve,
+                ),
             )
         )
-        summary += '\n---'
-
-    return {
-        'summary': summary,
-    }
-
-
-def _diki_template_vars(
-    finding_groups: list[FindingGroup],
-    summary: str,
-) -> dict[str, str]:
-    # GitHub has a maximum character limit of 65,536
-    MAX_SUMMARY_SIZE = 60000
-
-    findings: list[AggregatedFinding] = []
-    for finding_group in finding_groups:
-        findings.extend(finding_group.findings)
-
-    def _targets_table(
-        targets: list[dict],
-    ) -> str:
-        table = ''
-        unique_keys = set()
-        for t in targets:
-            unique_keys.update(t.keys())
-        unique_keys = list(unique_keys)
-
-        unique_keys.sort()
-        if 'details' in unique_keys:
-            unique_keys.remove('details')
-            unique_keys.append('details')
-
-        column_titles = '|'
-        column_separation = '|'
-        for key in unique_keys:
-            column_titles += f' {key} |'
-            column_separation += ':-:|'
-
-        table += f'{column_titles}\n'
-        table += f'{column_separation}\n'
-        for t in targets:
-            current_row = '|'
-            for key in unique_keys:
-                if key in t:
-                    current_row += f' {t[key]} |'
-                else:
-                    current_row += ' |'
-            table += f'{current_row}\n'
-        return table
-
-    shortened_summary = summary
-    for finding in findings:
-
-        finding_rule = finding.finding.data
-        finding_str = '\n'
-        finding_str += '# Failed rule summary\n'
-        finding_str += '|    |    |\n'
-        finding_str += '| -- | -- |\n'
-        finding_str += f'| Ruleset ID | {finding_rule.ruleset_id} |\n'
-        finding_str += f'| Ruleset Name | {finding_rule.ruleset_name} |\n'
-        finding_str += f'| Ruleset Version | {finding_rule.ruleset_version} |\n'
-        finding_str += f'| Rule ID | {finding_rule.rule_id} |\n'
-        finding_str += f'| Rule Name | {finding_rule.rule_name} |\n'
-        finding_str += f'| Severity | {finding_rule.severity} |\n'
-
-        rule_desc = ""
-        match finding_rule.ruleset_id:
-            case "disa-kubernetes-stig":
-                rule_desc = f'[DISA STIG viewer - {finding_rule.rule_id}](https://stigviewer.com/stigs/kubernetes/2024-08-22/finding/V-{finding_rule.rule_id})'  # noqa: E501
-            case "security-hardened-shoot-cluster":
-                diki_vers_for_ruleset_vers = {
-                    'v0.1.0': 'v0.14.0',
-                    'v0.2.0': 'v0.15.0',
-                    'v0.2.1': 'v0.15.1',
-                }
-                diki_version = diki_vers_for_ruleset_vers.get(finding_rule.ruleset_version, 'main')
-
-                rule_desc = f'[Security Hardened Shoot Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finding_rule.rule_id})' # noqa: E501
-            case "security-hardened-k8s":
-                diki_vers_for_ruleset_vers = {
-                    'v0.1.0': 'v0.15.0',
-                }
-                diki_version = diki_vers_for_ruleset_vers.get(finding_rule.ruleset_version, 'main')
-
-                rule_desc = f'[Security Hardened Kubernetes Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-k8s/ruleset.md#{finding_rule.rule_id})' # noqa: E501
-        if len(rule_desc) > 0:
-            finding_str += f'| Rule Description | {rule_desc} |\n'
-        finding_str += '\n'
-        finding_str += '### Failed checks:\n'
-
-        summary += finding_str
-        shortened_summary += finding_str
-
-        for check in finding_rule.checks:
-            check_msg_str = '\n'
-            check_msg_str += f'Message: {check.message}\n'
-            check_msg_str += 'Targets:\n'
-            check_msg_str += '\n'
-
-            summary += check_msg_str
-            shortened_summary += check_msg_str
-
-            match check.targets:
-                # process merged checks
-                case dict():
-                    for key, value in check.targets.items():
-                        if value:
-                            shortened_summary += f'**{key}**: {len(value)} targets\n'
-                            summary += '<details>\n'
-                            summary += f'<summary>{key}:</summary>\n\n'
-                            summary += _targets_table(value)
-                            summary += '</details>\n\n'
-                        else:
-                            shortened_summary += f'**{key}**\n'
-                            summary += f'**{key}**\n'
-                # process single checks
-                case list():
-                    if len(check.targets) == 0:
-                        shortened_summary += 'n/a\n'
-                        summary += 'n/a\n'
-                    else:
-                        shortened_summary += f'{len(check.targets)} targets\n'
-                        summary += _targets_table(check.targets)
-                case None:
-                    shortened_summary += 'n/a\n'
-                    summary += 'n/a\n'
-                case _:
-                    raise TypeError(check.targets) # this line should never be reached
-
-    return {
-        'summary': summary if len(summary) <= MAX_SUMMARY_SIZE else shortened_summary,
-    }
-
-
-def _crypto_template_vars(
-    finding_cfg: odg.findings.Finding,
-    finding_groups: list[FindingGroup],
-    summary: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str,
-    sprint_name: str | None=None,
-) -> dict[str, str]:
-    summary += '# Summary of found crypto issues'
-
-    def iter_findings(
-        aggragated_findings: tuple[AggregatedFinding],
-    ) -> collections.abc.Generator[tuple[str, str, str, str, list[str]], None, None]:
-        for af in sorted(
-            aggragated_findings,
-            key=lambda af: (
-                af.finding.data.standard,
-                af.finding.data.asset.asset_type,
-                af.finding.data.severity,
-                sorted(af.finding.data.asset.names),
-            ),
-        ):
-            crypto_finding: odg.model.CryptoFinding = af.finding.data
-
-            standard = crypto_finding.standard
-            asset_type = crypto_finding.asset.asset_type
-            severity = crypto_finding.severity
-            names = [name for name in crypto_finding.asset.names if name]
-
-            yield standard, asset_type, severity, names
 
     for finding_group in finding_groups:
-        summary += '\n' + finding_group.summary(
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            finding_cfg=finding_cfg,
-            sprint_name=sprint_name,
-        )
-
-        summary += (
-            '\n| Standard | Asset Type | Severity | Names |'
-            '\n| -------- | ---------- | :------: | ----- |'
-        )
-        for standard, asset_type, severity, names in iter_findings(
-            aggragated_findings=finding_group.findings,
-        ):
-            summary += textwrap.dedent(f'''
-                | `{standard}` | `{asset_type}` | `{severity}` | \
-                {', <br/>'.join(f'`{name}`' for name in sorted(names))} | \
-            ''')
-
-        summary += '\n---'
-
-    return {
-        'summary': summary,
-    }
-
-
-def _osid_template_vars(
-    finding_cfg: odg.findings.Finding,
-    finding_groups: list[FindingGroup],
-    summary: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str,
-    sprint_name: str | None=None,
-) -> dict[str, str]:
-    summary += '# Summary of found Issues related to Operating-System versioning policies'
-
-    def iter_findings(
-        aggregated_findings: tuple[AggregatedFinding],
-    ) -> collections.abc.Generator[tuple[str, str, str, str], None, None]:
-        for af in aggregated_findings:
-            osid_finding: odg.model.OsIdFinding = af.finding.data
-            os_name = osid_finding.osid.NAME
-            greatest_version = osid_finding.greatest_version
-            detected_version = osid_finding.osid.VERSION_ID
-            issue_text = osid_finding.status_description
-
-            yield os_name, detected_version, greatest_version, issue_text
-
-    for finding_group in finding_groups:
-        summary += '\n' + finding_group.summary(
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            finding_cfg=finding_cfg,
-            sprint_name=sprint_name,
-        )
-
-        summary += (
-            '\n| OS Name | Detected Version | Greatest Version | Issue Text |'
-            '\n| --- | --- | --- | --- |'
-        )
-        for os_name, detected_version, greatest_version, issue_text in iter_findings(
-            aggregated_findings=finding_group.findings
-        ):
-            summary += (
-                f'\n| {os_name} | {detected_version} | {greatest_version} | {issue_text} |'
-            )
-
-        summary += '\n---'
-
-    return {
-        'summary': summary,
-    }
-
-
-def _ghas_template_vars(
-    finding_cfg: odg.findings.Finding,
-    finding_groups: list[FindingGroup],
-    summary: str,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-) -> dict[str, str]:
-    summary += '# Summary of found secret scanning alert'
-
-    def iter_findings(
-        aggregated_findings: tuple[AggregatedFinding],
-    ) -> collections.abc.Generator[tuple[str, str, str, str, str], None, None]:
-        for af in aggregated_findings:
-            ghas_finding: odg.model.GitHubSecretFinding = af.finding.data
-            secret = ghas_finding.secret
-            secret_type = ghas_finding.secret_type
-            path = ghas_finding.path
-            line = ghas_finding.line
-            display_name = ghas_finding.secret_type_display_name
-            html_url = f'[ref]({ghas_finding.html_url})'
-
-            yield secret_type, secret, path, line, display_name, html_url
-
-    for finding_group in finding_groups:
-        summary += '\n' + finding_group.summary(
-            component_descriptor_lookup=component_descriptor_lookup,
-            finding_cfg=finding_cfg,
-        )
-
-        summary += (
-            '\n| Secret Type | Secret | Path | Line | Display Name | Ref |'
-            '\n| --- | --- | --- | --- | --- | --- |'
-        )
-        for secret_type, secret, path, line, display_name, html_url in iter_findings(
+        finding_group.findings = group_aggregated_findings(
             aggregated_findings=finding_group.findings,
-        ):
-            summary += (
-                f'\n| {secret_type} | {secret} | {path} | {line} | {display_name} | {html_url} |'
-            )
-
-        summary += '\n---'
-
-    return {
-        'summary': summary,
-    }
-
-
-def _inventory_template_vars(finding_groups: list[FindingGroup], summary: str) -> dict[str, str]:
-    findings: list[AggregatedFinding] = []
-    for finding_group in finding_groups:
-        findings.extend(finding_group.findings)
-
-    summary += '\n'
-    for item in findings:
-        data = item.finding.data
-        summary += f'# {data.summary} - {data.provider_name} - {data.resource_name}\n'
-        summary += '|    |    |\n'
-        summary += '| -- | -- |\n'
-        for k, v in data.attributes.items():
-            summary += f'| {k} | {v} |\n'
-
-    return {
-        'summary': summary,
-    }
-
-
-def _falco_template_vars(
-    finding_groups: list[FindingGroup],
-    summary: str
-) -> dict[str, str]:
-    content = {}
-    for finding_group in finding_groups:
-        finding_group: FindingGroup
-        for aggregated_finding in finding_group.findings:
-            aggregated_finding: AggregatedFinding
-            am: odg.model.ArtefactMetadata = aggregated_finding.finding
-            finding: odg.model.FalcoFinding = am.data
-            content = _falco_process_event(finding)
-
-    return content
-
-
-def _falco_process_event(
-    finding: odg.model.FalcoFinding,
-) -> dict[str, str]:
-    content = {}
-    if finding.subtype == odg.model.FalcoFindingSubType.EVENT_GROUP:
-        content = _falco_gen_event_content(finding)
-    elif finding.subtype == odg.model.FalcoFindingSubType.INTERACTIVE_EVENT_GROUP:
-        content = _falco_gen_interactive_content(finding)
-
-    return content
-
-
-def _falco_gen_interactive_content(
-    finding: odg.model.FalcoFinding,
-) -> dict[str, str]:
-    title = "# Falco Interactive Event Group Detected\n"
-    text = textwrap.dedent(
-        """\
-        An interactive session was detected on the cluster. This may be a legitimate action
-        (e.g., an interactive debug session) or could indicate suspicious activity.
-
-        ### Please take the following actions:
-        - Confirm the session was initiated by you by reviewing the event stream.
-        - Check the time and activity to ensure they match your actions.
-        - If the session was legitimate, triage this ticket using the available methods.
-        - If the session was not initiated by you, or the activity does not match, notify the
-        security team.
-
-        **Do not close this ticket manually; it will be updated automatically.**
-    """
-    )
-
-    finding_interactive: odg.model.FalcoInteractiveEventGroup = finding.finding
-
-    info = (
-        "### Summary:\n"
-        "\n"
-        f"- **Landscape:** {finding_interactive.landscape}\n"
-        f"- **Project:** {finding_interactive.project}\n"
-        f"- **Cluster:** {finding_interactive.cluster}\n"
-        f"- **Hostname:** {finding_interactive.hostname}\n"
-        f"- **Event count:** {finding_interactive.count}\n"
-        f"- **Hash:** `{finding_interactive.group_hash}`\n"
-    )
-
-    events = _build_falco_event_section(finding_interactive)
-
-    content = {"title": title, "text": text, "info": info, "events": events}
-    return content
-
-
-def _falco_gen_event_content(
-    finding: odg.model.FalcoFinding,
-) -> dict[str, str]:
-    title = "# Falco Event Group Detected\n"
-    text = textwrap.dedent(
-        """\
-        One or more Falco events were detected in the landscape. These events may
-        be false positives or could indicate an
-        attack.
-
-        ### Please take the following actions:
-        - Review the event stream to determine if the events are false positives.
-        - If they are false positives, triage this ticket using the available methods.
-        - Implement a Falco exception as suggested in this ticket.
-        - If you cannot confirm the events are false positives, inform the security team.
-
-        If you triage this ticket, no new tickets for similar events will be created for the next
-        30 days.
-
-        **Do not close this ticket manually; it will be updated automatically.**
-    """
-    )
-
-    finding_group: odg.model.FalcoEventGroup = finding.finding
-
-    info = (
-        "### Summary:\n"
-        "\n"
-        f"- **Landscape:** {finding_group.landscape}\n"
-        f"- **Project:** {finding_group.project}\n"
-        f"- **Rule:** {finding_group.rule}\n"
-        f"- **Event count:** {finding_group.count}\n"
-        f"- **Hash:** `{finding_group.group_hash}`\n"
-    )
-
-    info += _list_falco_clusters(finding_group)
-    events = _build_falco_event_section(finding_group)
-
-    content = {"title": title, "text": text, "info": info, "events": events}
-    return content
-
-
-def _build_falco_event_section(
-    finding_content: odg.model.FalcoEventGroup,
-) -> str:
-    events = "### Events:\n"
-    sorted_events = sorted(
-        finding_content.events,
-        key=lambda event: (event.time),
-    )
-
-    events += (
-        f"- **Start Time:** {_format_time(sorted_events[0].time) if sorted_events else 'N/A'}\n"
-    )
-    events += (
-        f"- **End Time:** {_format_time(sorted_events[-1].time) if sorted_events else 'N/A'}\n"
-    )
-
-    for i, event in enumerate(sorted_events, start=1):
-        output_lines = [f"{k}: {v}" for k, v in event.output.items()]
-        output_block = "```\n" + "\n".join(output_lines) + "\n```"
-
-        event_str = (
-            f"- **Rule:** {event.rule}\n"
-            f"- **Time:** {event.time}\n"
-            f"- **Message:** `{event.message}`\n"
-            + "<blockquote>\n"
-            + _markdown_collapsible_section(summary="Output Fields", details_markdown=output_block)
-            + "</blockquote>\n"
+        )
+        finding_group.historical_findings = group_aggregated_findings(
+            aggregated_findings=finding_group.historical_findings,
         )
 
-        events += (
-            _markdown_collapsible_section(summary=f"Event {i}", details_markdown=event_str) + "\n\n"
-        )
-    return events
-
-
-def _format_time(dt: datetime.datetime) -> str:
-    return dt.strftime('%Y-%m-%d %H:%M:%S UTC') if dt else 'N/A'
-
-
-def _list_falco_clusters(
-    finding_group: odg.model.FalcoEventGroup,
-) -> str:
-    clusters = collections.defaultdict(set)
-    for event in finding_group.events:
-        clusters[event.cluster].add(event.hostname)
-
-    section = "### Clusters:\n"
-    for cluster, hostnames in sorted(clusters.items()):
-        hostnames_md = "\n".join(f"- {hostname}" for hostname in sorted(hostnames))
-        md = _markdown_collapsible_section(
-            summary=f"{cluster} ({len(hostnames)} host(s))",
-            details_markdown=hostnames_md,
-        )
-        section += md + "\n"
-    return section + "\n"
-
-
-def _markdown_collapsible_section(
-    summary: str,
-    details_markdown: str,
-) -> str:
-    return (
-        "<details>\n"
-        f"<summary><strong>{summary}</strong></summary>\n\n"
-        f"{details_markdown}\n"
-        "</details>\n"
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        report_urls_callback=report_urls_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
     )
-
-
-def _kyverno_template_vars(
-    finding_groups: list[FindingGroup],
-    summary: str
-) -> dict[str, str]:
-    content = {}
-    for finding_group in finding_groups:
-        finding_group: FindingGroup
-        for aggregated_finding in finding_group.findings:
-            aggregated_finding: AggregatedFinding
-            am: odg.model.ArtefactMetadata = aggregated_finding.finding
-            finding: odg.model.KyvernoFinding = am.data
-            content = _kyverno_process_finding(finding)
-
-    return content
-
-
-def _kyverno_process_finding(
-    finding: odg.model.KyvernoFinding,
-) -> dict[str, str]:
-    content = {}
-    if finding.subtype == odg.model.KyvernoFindingSubType.POLICY_REPORT_SUMMARY:
-        content = _kyverno_gen_policy_summary_content(finding)
-    elif finding.subtype == odg.model.KyvernoFindingSubType.POLICY_REPORT:
-        content = _kyverno_gen_policy_content(finding)
-
-    return content
-
-
-def _kyverno_gen_policy_summary_content(
-    finding: odg.model.KyvernoFinding,
-) -> dict[str, str]:
-    title = "# Kyverno Summary\n"
-    text = textwrap.dedent(
-        """\
-
-        ### This is a Kyverno summary:
-        - Confirm the summary.
-
-        **Do not close this ticket manually; it will be updated automatically.**
-        """
-    )
-
-    kyverno_summary_finding: odg.model.KyvernoPolicySummaryFinding = finding.finding
-
-    info = (
-        "### Summary:\n"
-        "\n"
-        f"- **Landscape:** {kyverno_summary_finding.landscape}\n"
-        f"- **Project:** {kyverno_summary_finding.project}\n"
-        f"- **Cluster:** {kyverno_summary_finding.cluster}\n"
-        f"- **Report Time:** {kyverno_summary_finding.date}\n"
-        f"- **Hash:** `{kyverno_summary_finding.group_hash}`\n"
-    )
-
-    reports_summary = _build_kyverno_summary_section(kyverno_summary_finding)
-
-    content = {"title": title, "text": text, "info": info, "reports": reports_summary}
-
-    return content
-
-
-def _build_kyverno_summary_section(
-    finding_content: odg.model.KyvernoPolicySummaryFinding,
-) -> str:
-    reports = "### Policy Reports by Namespace:\n\n"
-    reports += "#### Namespace Overview:\n"
-    reports += "| Namespace | Pass | Fail | Warn | Error | Skip | Policies |\n"
-    reports += "|-----------|------|------|------|-------|------|----------|\n"
-
-    report_summary = finding_content.report
-
-    sorted_namespaces = sorted(report_summary.namespace_summary.keys(),
-                              key=lambda ns: (ns != 'default', ns))
-
-    for namespace in sorted_namespaces:
-        namespace_summary = report_summary.namespace_summary[namespace]
-        policy_count = len(report_summary.policy_results.get(namespace, {}))
-        reports += (
-            f"| `{namespace}` | {namespace_summary.passed} | "
-            f"{namespace_summary.fail} | {namespace_summary.warn} | "
-            f"{namespace_summary.error} | {namespace_summary.skip} | {policy_count} |\n"
-        )
-
-    reports += "\n---\n\n"
-
-    reports += "#### Detailed Policy Reports:\n\n"
-
-    for namespace in sorted_namespaces:
-        namespace_summary = report_summary.namespace_summary[namespace]
-        policy_count = len(report_summary.policy_results.get(namespace, {}))
-
-        namespace_header = f"<code>{namespace}</code> ({policy_count} policies)"
-
-        namespace_details = ""
-        namespace_policies = report_summary.policy_results.get(namespace, {})
-
-        for policy_name in sorted(namespace_policies.keys()):
-            policy_rules = namespace_policies[policy_name]
-            namespace_details += f"- **Policy:** `{policy_name}`\n"
-
-            for rule_name in sorted(policy_rules.keys()):
-                rule_result = policy_rules[rule_name]
-                namespace_details += f"  - **Rule:** `{rule_name}`\n"
-                namespace_details += (
-                    f"    - **Results:** Pass: {rule_result.pass_}, "
-                    f"Fail: {rule_result.fail}, Warn: {rule_result.warn}, "
-                    f"Error: {rule_result.error}, Skip: {rule_result.skip}\n"
-                )
-
-            namespace_details += "\n"
-
-        if not namespace_details.strip():
-            namespace_details = "No detailed policy results available.\n"
-
-        reports += _markdown_collapsible_section(
-            summary=namespace_header,
-            details_markdown=namespace_details.strip()
-        ) + "\n\n"
-
-    return reports
-
-
-def _kyverno_gen_policy_content(
-    finding: odg.model.KyvernoFinding,
-) -> dict[str, str]:
-    return {} # to be implemented
 
 
 def template_issue_body(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     artefacts_without_scan: collections.abc.Iterable[odg.model.ComponentArtefactId],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     findings: collections.abc.Sequence[AggregatedFinding],
     historical_findings: collections.abc.Sequence[AggregatedFinding],
     due_date: datetime.date,
-    delivery_dashboard_url: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str,
     sprint_name: str | None=None,
 ) -> str:
     '''
-    Fills a dictionary with template variables intended to be used to fill a template for a GitHub
-    issue. The most prominent template variable is called `summary`. It contains a table showing
-    information on the artefact the issue is opened for as well as more detailed information on the
-    actual findings per artefact. The summary table first depicts the properties which are used to
-    group the artefacts (so the properties which all artefacts have in common) and then the remaining
-    properties per artefact. Also, artefacts which were not scanned yet are reported (if there are
-    any).
+    Returns a formatted GitHub issue body based on the template specified in the `finding_cfg`.
+    Therefore, it fills a selection of template variables (see below), the most prominent template
+    variable is called `summary`. It contains a table showing information on the artefact the issue
+    is opened for as well as more detailed information on the actual findings per artefact. The
+    summary table first depicts the properties which are used to group the artefacts (so the
+    properties which all artefacts have in common) and then the remaining properties per artefact.
+    Also, artefacts which were not scanned yet are reported (if there are any).
     '''
     artefact_sorting_key = lambda artefact: (
         artefact.component_name,
@@ -1327,9 +1514,7 @@ def template_issue_body(
             'hence no findings may show up.**'
         )
 
-        template_variables |= {
-            'summary': summary,
-        }
+        template_variables['summary'] = summary
 
         return finding_cfg.issues.template.format(**template_variables)
 
@@ -1339,93 +1524,42 @@ def template_issue_body(
             'yielded findings relevant for future release decisions.\n'
         )
 
-    if finding_cfg.type is odg.model.Datatype.VULNERABILITY_FINDING:
-        template_variables |= _vulnerability_template_vars(
-            finding_cfg=finding_cfg,
-            finding_groups=finding_groups,
-            summary=summary,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
-        )
-    elif finding_cfg.type is odg.model.Datatype.LICENSE_FINDING:
-        template_variables |= _license_template_vars(
-            finding_cfg=finding_cfg,
-            finding_groups=finding_groups,
-            summary=summary,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
-        )
-    elif finding_cfg.type is odg.model.Datatype.MALWARE_FINDING:
-        template_variables |= _malware_template_vars(
-            finding_cfg=finding_cfg,
-            finding_groups=finding_groups,
-            summary=summary,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
-        )
-    elif finding_cfg.type is odg.model.Datatype.SAST_FINDING:
-        template_variables |= _sast_template_vars(
-            finding_cfg=finding_cfg,
-            finding_groups=finding_groups,
-            summary=summary,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
-        )
-    elif finding_cfg.type is odg.model.Datatype.DIKI_FINDING:
-        template_variables |= _diki_template_vars(
-            finding_groups=finding_groups,
-            summary=summary,
-        )
-    elif finding_cfg.type is odg.model.Datatype.CRYPTO_FINDING:
-        template_variables |= _crypto_template_vars(
-            finding_cfg=finding_cfg,
-            finding_groups=finding_groups,
-            summary=summary,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
-        )
-    elif finding_cfg.type is odg.model.Datatype.OSID_FINDING:
-        template_variables |= _osid_template_vars(
-            finding_cfg=finding_cfg,
-            finding_groups=finding_groups,
-            summary=summary,
-            component_descriptor_lookup=component_descriptor_lookup,
-            delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
-        )
-    elif finding_cfg.type is odg.model.Datatype.INVENTORY_FINDING:
-        template_variables |= _inventory_template_vars(
-            finding_groups=finding_groups,
-            summary=summary,
-        )
-    elif finding_cfg.type is odg.model.Datatype.FALCO_FINDING:
-        template_variables |= _falco_template_vars(
-            finding_groups=finding_groups,
-            summary=summary,
-        )
-    elif finding_cfg.type is odg.model.Datatype.KYVERNO_FINDING:
-        template_variables |= _kyverno_template_vars(
-            finding_groups=finding_groups,
-            summary=summary,
-        )
-    elif finding_cfg.type is odg.model.Datatype.GHAS_FINDING:
-        template_variables |= _ghas_template_vars(
-            finding_cfg=finding_cfg,
-            finding_groups=finding_groups,
-            summary=summary,
-            component_descriptor_lookup=component_descriptor_lookup,
-        )
     else:
-        template_variables |= {
-            'summary': summary,
-        }
+        # there are only historical findings, which means the issue is about to being closed but the
+        # body should still be updated to show the actual state of resolved findings
+        pass
 
-    return finding_cfg.issues.template.format(**template_variables)
+    summary_function = {
+        odg.model.Datatype.CRYPTO_FINDING: crypto_summary,
+        odg.model.Datatype.DIKI_FINDING: diki_summary,
+        odg.model.Datatype.FALCO_FINDING: falco_summary,
+        odg.model.Datatype.GHAS_FINDING: ghas_summary,
+        odg.model.Datatype.INVENTORY_FINDING: inventory_summary,
+        odg.model.Datatype.KYVERNO_FINDING: kyverno_summary,
+        odg.model.Datatype.LICENSE_FINDING: license_summary,
+        odg.model.Datatype.MALWARE_FINDING: malware_summary,
+        odg.model.Datatype.OSID_FINDING: osid_summary,
+        odg.model.Datatype.SAST_FINDING: sast_summary,
+        odg.model.Datatype.VULNERABILITY_FINDING: vulnerability_summary,
+    }.get(finding_cfg.type, fallback_summary)
+
+    summary_variants = summary_function(
+        mapping=mapping,
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        known_issues=known_issues,
+        component_descriptor_lookup=component_descriptor_lookup,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+    for summary_variant in summary_variants:
+        template_variables['summary'] = summary + summary_variant
+        issue_body = finding_cfg.issues.template.format(**template_variables)
+        if len(issue_body) <= github.limits.issue_body:
+            return issue_body
+
+    raise RuntimeError(f'{len(issue_body)=} exceeds {github.limits.issue_body=}')
 
 
 @github.retry.retry_and_throttle
@@ -1547,6 +1681,7 @@ def _create_or_update_issue(
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     artefacts: tuple[odg.model.ComponentArtefactId],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     findings: tuple[AggregatedFinding],
     historical_findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
@@ -1598,9 +1733,11 @@ def _create_or_update_issue(
     is_overdue = due_date < datetime.date.today()
 
     body = template_issue_body(
+        mapping=mapping,
         finding_cfg=finding_cfg,
         component_descriptor_lookup=component_descriptor_lookup,
         artefacts=artefacts,
+        known_issues=known_issues,
         findings=findings,
         historical_findings=historical_findings,
         artefacts_without_scan=artefacts_without_scan,
@@ -1645,6 +1782,7 @@ def _create_or_update_or_close_issue_per_finding(
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     findings: tuple[AggregatedFinding],
     historical_findings: tuple[AggregatedFinding],
     issue_id: str,
@@ -1687,6 +1825,7 @@ def _create_or_update_or_close_issue_per_finding(
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
             artefacts=artefacts,
+            known_issues=known_issues,
             findings=(finding,),
             historical_findings=historical_findings,
             issues=finding_issues,
@@ -1766,9 +1905,11 @@ def create_or_update_or_close_issue(
         for issue in issues:
             if historical_findings:
                 body = template_issue_body(
+                    mapping=mapping,
                     finding_cfg=finding_cfg,
                     artefacts=artefacts,
                     artefacts_without_scan=artefacts_without_scan,
+                    known_issues=known_issues,
                     findings=findings,
                     historical_findings=historical_findings,
                     due_date=due_date,
@@ -1812,6 +1953,7 @@ def create_or_update_or_close_issue(
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
             artefacts=artefacts,
+            known_issues=known_issues,
             findings=findings,
             historical_findings=historical_findings,
             issue_id=issue_id,
@@ -1834,6 +1976,7 @@ def create_or_update_or_close_issue(
         finding_cfg=finding_cfg,
         component_descriptor_lookup=component_descriptor_lookup,
         artefacts=artefacts,
+        known_issues=known_issues,
         findings=findings,
         historical_findings=historical_findings,
         issues=issues,
