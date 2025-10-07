@@ -67,6 +67,7 @@ class AggregatedFinding:
 class FindingGroup:
     artefact: odg.model.ComponentArtefactId
     findings: tuple[AggregatedFinding]
+    historical_findings: tuple[AggregatedFinding]
 
     def summary(
         self,
@@ -1164,6 +1165,7 @@ def _template_vars(
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     artefacts_without_scan: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: collections.abc.Sequence[AggregatedFinding],
+    historical_findings: collections.abc.Sequence[AggregatedFinding],
     due_date: datetime.date,
     delivery_dashboard_url: str,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
@@ -1254,12 +1256,33 @@ def _template_vars(
             )
         )
 
-        if not findings_for_artefact:
+        historical_findings_for_artefact = tuple(
+            finding for finding in historical_findings
+            if (
+                finding.finding.artefact.component_name == artefact.component_name
+                and (
+                    # finding's component version might be `None`, i.e. for BDBA findings
+                    not finding.finding.artefact.component_version
+                    or finding.finding.artefact.component_version == artefact.component_version
+                ) and finding.finding.artefact.artefact_kind is artefact.artefact_kind
+                and finding.finding.artefact.artefact.artefact_name
+                    == artefact.artefact.artefact_name
+                and finding.finding.artefact.artefact.artefact_version
+                    == artefact.artefact.artefact_version
+                and finding.finding.artefact.artefact.artefact_type
+                    == artefact.artefact.artefact_type
+                and finding.finding.artefact.artefact.normalised_artefact_extra_id
+                    == artefact.artefact.normalised_artefact_extra_id
+            )
+        )
+
+        if not findings_for_artefact and not historical_findings_for_artefact:
             continue
 
         finding_groups.append(FindingGroup(
             artefact=artefact,
             findings=findings_for_artefact,
+            historical_findings=historical_findings_for_artefact,
         ))
 
     # secondly, display the combinations of artefact properties which are not part of the group
@@ -1298,7 +1321,7 @@ def _template_vars(
         'rescoring_url': rescoring_url,
     }
 
-    if not findings:
+    if not findings and not historical_findings:
         summary += (
             '**The scan of the recent artefact version is currently pending, '
             'hence no findings may show up.**'
@@ -1310,10 +1333,11 @@ def _template_vars(
 
         return template_variables
 
-    summary += (
-        f'The aforementioned {util.pluralise('artefact', len(artefacts_non_group_properties))} '
-        'yielded findings relevant for future release decisions.\n'
-    )
+    elif findings:
+        summary += (
+            f'The aforementioned {util.pluralise('artefact', len(artefacts_non_group_properties))} '
+            'yielded findings relevant for future release decisions.\n'
+        )
 
     if finding_cfg.type is odg.model.Datatype.VULNERABILITY_FINDING:
         template_variables |= _vulnerability_template_vars(
@@ -1516,6 +1540,7 @@ def _create_or_update_issue(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     artefacts: tuple[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
+    historical_findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone | None,
     failed_milestones: list[github3.issues.milestone.Milestone],
@@ -1569,6 +1594,7 @@ def _create_or_update_issue(
         component_descriptor_lookup=component_descriptor_lookup,
         artefacts=artefacts,
         findings=findings,
+        historical_findings=historical_findings,
         artefacts_without_scan=artefacts_without_scan,
         due_date=due_date,
         delivery_dashboard_url=delivery_dashboard_url,
@@ -1614,6 +1640,7 @@ def _create_or_update_or_close_issue_per_finding(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
+    historical_findings: tuple[AggregatedFinding],
     issue_id: str,
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone,
@@ -1655,6 +1682,7 @@ def _create_or_update_or_close_issue_per_finding(
             component_descriptor_lookup=component_descriptor_lookup,
             artefacts=artefacts,
             findings=(finding,),
+            historical_findings=historical_findings,
             issues=finding_issues,
             milestone=milestone,
             failed_milestones=failed_milestones,
@@ -1686,6 +1714,7 @@ def create_or_update_or_close_issue(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
+    historical_findings: tuple[AggregatedFinding],
     issue_id: str,
     due_date: datetime.date,
     is_in_bom: bool,
@@ -1762,6 +1791,7 @@ def create_or_update_or_close_issue(
             component_descriptor_lookup=component_descriptor_lookup,
             artefacts=artefacts,
             findings=findings,
+            historical_findings=historical_findings,
             issue_id=issue_id,
             issues=issues,
             milestone=milestone,
@@ -1783,6 +1813,7 @@ def create_or_update_or_close_issue(
         component_descriptor_lookup=component_descriptor_lookup,
         artefacts=artefacts,
         findings=findings,
+        historical_findings=historical_findings,
         issues=issues,
         milestone=milestone,
         failed_milestones=failed_milestones,
