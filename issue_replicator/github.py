@@ -1433,12 +1433,20 @@ def close_issue_if_present(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     issue: github3.issues.issue.ShortIssue,
     closing_reason: IssueComments,
+    body: str | None=None,
 ):
+    '''
+    Closes the `issue` if it is still open. Prior to closing, the issue body can be optionally
+    edited by providing the `body` param (an empty value will keep the body as-is) and a comment
+    stating the `closing_reason` is added.
+    '''
     if not issue or issue.state != 'open':
         return
 
     logger.info(f'labels for issue for closing: {[l.name for l in issue.original_labels]}')
 
+    if body:
+        issue.edit(body=body)
     issue.create_comment(closing_reason)
     if not github.util.close_issue(issue):
         logger.warning(f'failed to close {issue.id=} with {mapping.github_repository=}')
@@ -1756,10 +1764,26 @@ def create_or_update_or_close_issue(
 
     if is_scanned and not findings:
         for issue in issues:
+            if historical_findings:
+                body = template_issue_body(
+                    finding_cfg=finding_cfg,
+                    artefacts=artefacts,
+                    artefacts_without_scan=artefacts_without_scan,
+                    findings=findings,
+                    historical_findings=historical_findings,
+                    due_date=due_date,
+                    component_descriptor_lookup=component_descriptor_lookup,
+                    delivery_dashboard_url=delivery_dashboard_url,
+                )
+            else:
+                # in case issue is closed because of version bump, don't remove all findings
+                body = None
+
             close_issue_if_present(
                 mapping=mapping,
                 issue=issue,
                 closing_reason=IssueComments.NO_FINDINGS,
+                body=body,
             )
         return
 
