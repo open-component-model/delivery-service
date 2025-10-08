@@ -237,7 +237,7 @@ class FindingCategorisation:
     def effective_due_date(
         self,
         finding: odg.model.ArtefactMetadata,
-        rescoring: odg.model.ArtefactMetadata | None,
+        rescoring: odg.model.ArtefactMetadata | None=None,
     ) -> datetime.date | None:
         '''
         Returns the effective due date for the referenced finding. If any related rescoring exist,
