@@ -1286,7 +1286,6 @@ class KyvernoPolicySummaryFinding:
 
             ''')
 
-            policy_reports_str = ''
             for policy_name, policy_rules in sorted(namespace_policies.items()):
                 policy_reports_str += f'- **Policy:** `{policy_name}`\n'
 
@@ -1298,7 +1297,7 @@ class KyvernoPolicySummaryFinding:
                         f'Error: {rule_result.error}, Skip: {rule_result.skip}\n'
                     )
             else:
-                policy_reports_str = 'No detailed policy results available.\n'
+                policy_reports_str += 'No detailed policy results available.\n'
 
             policy_reports_str += '</details>\n'
         summary_long += policy_reports_str
