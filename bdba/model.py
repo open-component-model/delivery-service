@@ -254,7 +254,6 @@ class BDIO:
     name: str
     publisher: str
     publisher_version: str
-    creation_datetime: str
     entries: list[dict[str, typing.Any]]
 
     def as_blackduck_bytes(self) -> bytes:
@@ -263,7 +262,6 @@ class BDIO:
             'name': self.name,
             'publisher': self.publisher,
             'publisherVersion': self.publisher_version,
-            'creationDateTime': self.creation_datetime,
             '@graph': self.entries,
         }, indent=2).encode('utf-8')
 
