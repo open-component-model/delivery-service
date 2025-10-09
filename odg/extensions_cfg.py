@@ -41,6 +41,7 @@ class Services(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    TEST_EVIDENCE = 'testEvidence'
     ODG_OPERATOR = 'odg-operator'
 
 
@@ -961,6 +962,24 @@ class SASTConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass(kw_only=True)
+class TestEvidenceConfig(BacklogItemMixins):
+    service: Services = Services.TEST_EVIDENCE
+    delivery_service_url: str
+    external_artefacts_require_tests: bool
+    interval: int = 60 * 60 * 24 #
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+
+    def is_supported(
+        self,
+        artefact_kind: odg.model.ArtefactKind,
+    ) -> bool:
+        if artefact_kind is not odg.model.ArtefactKind.RESOURCE:
+            return False
+
+        return True
+
+
+@dataclasses.dataclass(kw_only=True)
 class OsId(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -1043,6 +1062,7 @@ class ExtensionsConfiguration:
     osid: OsId | None
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
+    test_evidence: TestEvidenceConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod
