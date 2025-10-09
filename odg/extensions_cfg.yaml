@@ -105,3 +105,6 @@ sbom_generator:
   mappings:
    - prefix: ''
      group_id: 0 # <int> must be set
+
+test_evidence:
+  external_artefacts_require_tests: False

@@ -76,6 +76,18 @@ class CveCategorisationLabel(Label):
     value: odg.cvss.CveCategorisation
 
 
+@dataclasses.dataclass(frozen=True)
+class TestScopeLabel(Label):
+    name = 'gardener.cloud/test-scope'
+    value: str # artefact-name
+
+
+@dataclasses.dataclass(frozen=True)
+class TestPolicyLabel(Label):
+    name = 'gardener.cloud/test-policy'
+    value: bool # is test required
+
+
 @functools.cache
 def _label_to_type() -> dict[str, Label]:
     own_module = sys.modules[__name__]

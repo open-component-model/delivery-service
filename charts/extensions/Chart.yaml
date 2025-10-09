@@ -44,3 +44,6 @@ dependencies:
   - name: odg-operator
     repository: file://charts/odg-operator
     condition: odg-operator.enabled
+  - name: test-evidence
+    repository: file://charts/test-evidence
+    condition: test-evidence.enabled

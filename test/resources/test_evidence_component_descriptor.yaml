@@ -1,0 +1,45 @@
+component:
+  name: MyComponent
+  version: 1.2.3
+  resources:
+    - name: test-evidence
+      relation: local
+      labels:
+        - name: gardener.cloud/purposes
+          value:
+            - test
+        - name: gardener.cloud/test-scope
+          value: build-result
+      version: foo
+      type: foo
+
+    - name: build-result
+      relation: local
+      labels:
+        - name: gardener.cloud/test-policy
+          value: True
+      version: foo
+      type: foo
+
+    - name: other-build-result
+      relation: local
+      labels:
+        - name: gardener.cloud/test-policy
+          value: True
+      version: foo
+      type: foo
+
+    - name: build-result-not-requiring-tests
+      relation: local
+      labels:
+        - name: gardener.cloud/test-policy
+          value: False
+      version: foo
+      type: foo
+
+  repositoryContexts: []
+  provider: any
+  sources: []
+  componentReferences: []
+meta:
+  schemaVersion: v2

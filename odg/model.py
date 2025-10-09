@@ -42,6 +42,7 @@ class Datatype(enum.StrEnum):
     OSID_FINDING = 'finding/osid'
     SAST_FINDING = 'finding/sast'
     VULNERABILITY_FINDING = 'finding/vulnerability'
+    TEST_EVIDENCE_FINDING = 'finding/test-evidence'
 
     # informational datatypes
     CRYPTO_ASSET = 'crypto_asset'
@@ -62,6 +63,7 @@ class Datatype(enum.StrEnum):
             Datatype.OSID_FINDING: Datasource.OSID,
             Datatype.SAST_FINDING: Datasource.SAST,
             Datatype.VULNERABILITY_FINDING: Datasource.BDBA,
+            Datatype.TEST_EVIDENCE_FINDING: Datasource.TEST_EVIDENCE,
         }[self]
 
     def display_name(self) -> str:
@@ -83,6 +85,7 @@ class Datasource(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    TEST_EVIDENCE = 'test-evidence'
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
@@ -126,6 +129,7 @@ class Datasource(enum.StrEnum):
             Datasource.SAST: (
                 Datatype.SAST_FINDING,
             ),
+            Datasource.TEST_EVIDENCE: (Datatype.TEST_EVIDENCE_FINDING)
         }.get(self, tuple())
 
 
@@ -177,11 +181,21 @@ class UserIdentity:
     '''
     Collection of identities that refer to the same user
     '''
-    identifiers: list[EmailAddress | GithubUser | MetaOrigin | PersonalName | UserIdentifierBase]
+    identifiers: list[
+        EmailAddress
+        | GithubUser
+        | MetaOrigin
+        | PersonalName
+        | UserIdentifierBase
+    ]
 
 
 class SastStatus(enum.StrEnum):
     NO_LINTER = 'no-linter'
+
+
+class TestStatus(enum.StrEnum):
+    NO_TEST_EVIDENCE = 'no-test-evidence'
 
 
 class SastSubType(enum.StrEnum):
@@ -471,6 +485,15 @@ class LicenseFinding(Finding, BDBAMixin):
     @property
     def key(self) -> str:
         return _as_key(self.package_name, self.package_version, self.license.name)
+
+
+@dataclasses.dataclass
+class TestEvidenceMissingFinding(Finding):
+    test_status: TestStatus
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.test_status)
 
 
 @dataclasses.dataclass
@@ -1426,6 +1449,7 @@ FindingModels = (
     | OsIdFinding
     | SastFinding
     | VulnerabilityFinding
+    | TestEvidenceMissingFinding
 )
 InformationalModels = (
     StructureInfo
