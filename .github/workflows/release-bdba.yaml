@@ -31,6 +31,7 @@ jobs:
       next-version: ${{ inputs.next-version }}
       release-on-github: false
       github-tag-template: bdba-${version}
+      version-versionfile: BDBA_VERSION
 
   pypi:
     runs-on: ubuntu-latest
