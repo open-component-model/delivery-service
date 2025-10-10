@@ -614,6 +614,9 @@ def diki_summary(
             if rule_desc:
                 finding_str += f'| Rule Description | {rule_desc} |\n'
 
+            if discovery_date := aggregated_finding.finding.discovery_date:
+                finding_str += f'| Initial Discovery Date | {discovery_date.isoformat()} |\n'
+
             finding_str += f'| Severity | {severity} |\n'
 
             if rescoring_comment := _rescoring_comment(
