@@ -724,6 +724,12 @@ class Finding:
             expected_selector=VulnerabilityFindingSelector,
         )
 
+        if not self.none_categorisation:
+            violations.append(
+                'there must be at least one categorisation with "value=0" to express that a '
+                'finding is not relevant anymore'
+            )
+
         if self.rescoring_ruleset:
             if not isinstance(self.rescoring_ruleset, rm.CveRescoringRuleSet):
                 violations.append(f'rescoring rule set must be of type {rm.CveRescoringRuleSet}')
@@ -764,12 +770,6 @@ class Finding:
                     f'the prefix "{consts.RESCORING_OPERATOR_SET_TO_PREFIX}" is reserved for '
                     'operations defined in the rescoring ruleset'
                 )
-
-        if not self.none_categorisation:
-            violations.append(
-                'there must be at least one categorisation with "value=0" to express that a '
-                'finding is not relevant anymore'
-            )
 
         return violations
 
@@ -823,7 +823,7 @@ class Finding:
         return violations
 
     @property
-    def none_categorisation(self) -> FindingCategorisation:
+    def none_categorisation(self) -> FindingCategorisation | None:
         '''
         Returns the category which marks a finding as "not relevant anymore", e.g. if it is assessed
         as a false-positive.
@@ -831,11 +831,6 @@ class Finding:
         for categorisation in self.categorisations:
             if categorisation.value == 0:
                 return categorisation
-
-        raise RuntimeError(
-            'did not find any categorisation with value=0, this is probably a bug as initial '
-            'validation should have checked that at least one such categorisation exists'
-        )
 
     def categorisation_by_id(
         self,
