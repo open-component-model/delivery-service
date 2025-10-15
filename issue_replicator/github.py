@@ -1245,14 +1245,19 @@ def vulnerability_summary(
         aggregated_finding: AggregatedFinding,
         finding_group: FindingGroup,
     ) -> str:
+        def package_version_key(package_version: str) -> str:
+            try:
+                package_version = version.parse_to_semver(package_version)
+            except ValueError:
+                package_version = version.parse_to_semver('0.0')
+
+            return package_version
+
         return ', <br/>'.join(
             f'`{package_version}`'
             for package_version in sorted(
                 aggregated_finding.finding.data.package_version,
-                key=lambda package_version: version.parse_to_semver(
-                    version=package_version or '0.0',
-                    invalid_semver_ok=True,
-                ),
+                key=package_version_key,
             )
         )
 
