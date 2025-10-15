@@ -1433,6 +1433,9 @@ class ArtefactMetadata:
             usedforsecurity=False,
         ).hexdigest()
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 def artefact_scan_info(
     artefact_node: 'cnudie.iter.ArtefactNode',
