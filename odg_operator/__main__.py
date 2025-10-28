@@ -536,7 +536,7 @@ def set_odg_state(
 
 
 def reconcile(
-    extension_definitions: list[odgm.ExtensionDefinition],
+    extension_definitions: collections.abc.Iterable[odgm.ExtensionDefinition],
     required_extensions: list[str],
     component_descriptor_lookup,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -916,6 +916,7 @@ if __name__ == '__main__':
             oci_client=oci_client,
         ))
 
+    extension_definitions = sorted(set(extension_definitions)) # ensure there are no duplicates
     logger.info(f'known extension definitions: {[e.name for e in extension_definitions]}')
     kubernetes_api = k8s.util.kubernetes_api(kubeconfig_path=parsed.kubeconfig)
 
