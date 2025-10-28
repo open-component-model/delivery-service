@@ -151,6 +151,7 @@ def get_secret_alerts(
         secret_factory=secret_factory,
     )
     alerts_raw = result if isinstance(result, list) else []
+    logger.info(f'found {len(alerts_raw)} secret alerts for {github_hostname}/{org}')
 
     return (
         dacite.from_dict(SecretAlert, alert)
