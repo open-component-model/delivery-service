@@ -228,8 +228,14 @@ class BDBAConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
+class BlackDuckTarget:
+    group_id: str
+    host: str
+
+
+@dataclasses.dataclass
 class BlackDuckExtensionMapping(Mapping):
-    group_id_blackduck: str
+    targets: list[BlackDuckTarget]
     group_id_bdba: int
     aws_secret_name: str | None
     processing_mode: str = 'rescan'
