@@ -102,6 +102,11 @@ class GHASFindingSelector:
 
 
 @dataclasses.dataclass
+class IPFindingSelector:
+    policy_violation_ids: list[str]
+
+
+@dataclasses.dataclass
 class LicenseFindingSelector:
     '''
     :param list[str] license_names:
@@ -182,6 +187,7 @@ class FindingCategorisation:
     selector: (
         CryptoFindingSelector
         | GHASFindingSelector
+        | IPFindingSelector
         | LicenseFindingSelector
         | MalwareFindingSelector
         | SASTFindingSelector
@@ -628,6 +634,8 @@ class Finding:
                 self._validate_vulnerabilty()
             case odg.model.Datatype.INVENTORY_FINDING:
                 self._validate_inventory()
+            case odg.model.Datatype.IP_FINDING:
+                self._validate_ip()
             case _:
                 pass
 
@@ -673,6 +681,18 @@ class Finding:
             return
 
         e = ModelValidationError('ghas finding model violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
+
+    def _validate_ip(self):
+        violations = self._validate_categorisations(
+            expected_selector=IPFindingSelector,
+        )
+
+        if not violations:
+            return
+
+        e = ModelValidationError('ip finding model violations found:')
         e.add_note('\n'.join(violations))
         raise e
 
@@ -930,6 +950,11 @@ def categorise_finding(
                     if resolution == finding_property:
                         return categorisation
                 elif re.fullmatch(resolution, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, IPFindingSelector):
+            for policy_violation_id in selector.policy_violation_ids:
+                if re.fullmatch(policy_violation_id, finding_property, re.IGNORECASE):
                     return categorisation
 
         elif isinstance(selector, LicenseFindingSelector):

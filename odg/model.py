@@ -35,6 +35,7 @@ class Datatype(enum.StrEnum):
     KYVERNO_FINDING = 'finding/kyverno'
     GHAS_FINDING = 'finding/ghas'
     INVENTORY_FINDING = 'finding/inventory'
+    IP_FINDING = 'finding/ip'
     LICENSE_FINDING = 'finding/license'
     MALWARE_FINDING = 'finding/malware'
     OSID_FINDING = 'finding/osid'
@@ -54,6 +55,7 @@ class Datatype(enum.StrEnum):
             Datatype.KYVERNO_FINDING: Datasource.KYVERNO,
             Datatype.GHAS_FINDING: Datasource.GHAS,
             Datatype.INVENTORY_FINDING: Datasource.INVENTORY,
+            Datatype.IP_FINDING: Datasource.BLACKDUCK,
             Datatype.LICENSE_FINDING: Datasource.BDBA,
             Datatype.MALWARE_FINDING: Datasource.CLAMAV,
             Datatype.OSID_FINDING: Datasource.OSID,
@@ -65,6 +67,7 @@ class Datatype(enum.StrEnum):
 class Datasource(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefact-enumerator'
     BDBA = 'bdba'
+    BLACKDUCK = 'blackduck'
     CLAMAV = 'clamav'
     CRYPTO = 'crypto'
     DELIVERY_DASHBOARD = 'delivery-dashboard'
@@ -79,6 +82,9 @@ class Datasource(enum.StrEnum):
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
+            Datasource.BLACKDUCK: (
+                Datatype.IP_FINDING,
+            ),
             Datasource.BDBA: (
                 Datatype.LICENSE_FINDING,
                 Datatype.STRUCTURE_INFO,
@@ -390,8 +396,16 @@ class BDBAMixin:
 
 
 @dataclasses.dataclass
+class PoliceViolationRef:
+    name: str
+    id: str | None
+    url: str | None
+
+
+@dataclasses.dataclass
 class License:
     name: str
+    id: str | None = None
 
 
 @dataclasses.dataclass
@@ -423,6 +437,25 @@ class Finding:
     severity and might become object of being rescored.
     '''
     severity: str
+
+
+@dataclasses.dataclass
+class IPFinding(Finding):
+    package_name: str
+    package_version: str | None
+    license: License
+    policy_violation: PoliceViolationRef
+    host: str
+
+    @property
+    def key(self) -> str:
+        return _as_key(
+            self.package_name,
+            self.package_version,
+            self.license.name,
+            self.host,
+            self.policy_violation.name,
+        )
 
 
 @dataclasses.dataclass
@@ -1359,6 +1392,7 @@ FindingModels = (
     | KyvernoFinding
     | GitHubSecretFinding
     | InventoryFinding
+    | IPFinding
     | LicenseFinding
     | OsIdFinding
     | SastFinding
