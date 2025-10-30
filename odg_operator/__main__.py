@@ -916,7 +916,10 @@ if __name__ == '__main__':
             oci_client=oci_client,
         ))
 
-    extension_definitions = sorted(set(extension_definitions)) # ensure there are no duplicates
+    extension_definitions = sorted(
+        set(extension_definitions), # ensure there are no duplicates
+        key=lambda extension_definition: extension_definition.name,
+    )
     logger.info(f'known extension definitions: {[e.name for e in extension_definitions]}')
     kubernetes_api = k8s.util.kubernetes_api(kubeconfig_path=parsed.kubeconfig)
 
