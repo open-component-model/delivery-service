@@ -18,7 +18,6 @@ import github3.issues.issue
 import github3.issues.milestone
 import github3.repos
 
-import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import delivery.model
@@ -26,6 +25,7 @@ import github.compliance.milestone as gcmi
 import github.limits
 import github.retry
 import github.util
+import ocm.iter
 import ocm.util
 import version
 
@@ -202,7 +202,7 @@ def _artefact_to_str(
 
 
 def _artefact_url(
-    ocm_node: cnudie.iter.ArtefactNode | None,
+    ocm_node: ocm.iter.ArtefactNode | None,
 ) -> str:
     if not ocm_node:
         return ''

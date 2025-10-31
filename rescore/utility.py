@@ -2,7 +2,7 @@ import collections.abc
 import datetime
 import re
 
-import cnudie.iter
+import ocm.iter
 
 import consts
 import odg.cvss
@@ -130,7 +130,7 @@ def rescorings_for_finding_by_specificity(
 
 
 def find_cve_categorisation(
-    artefact_node: cnudie.iter.Node | cnudie.iter.ArtefactNode,
+    artefact_node: ocm.iter.Node | ocm.iter.ArtefactNode,
 ) -> odg.cvss.CveCategorisation | None:
     label_name = odg.labels.CveCategorisationLabel.name
 

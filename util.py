@@ -12,11 +12,11 @@ import aiohttp.web
 import dateutil.parser
 import yaml
 
-import cnudie.iter
 import cnudie.retrieve
 import cnudie.retrieve_async
 import oci.model as om
 import ocm
+import ocm.iter
 
 
 logger = logging.getLogger(__name__)
@@ -125,11 +125,11 @@ async def retrieve_component_descriptor(
 
 
 def artefact_node_to_str(
-    artefact_node: cnudie.iter.Node | cnudie.iter.ArtefactNode,
+    artefact_node: ocm.iter.Node | ocm.iter.ArtefactNode,
 ) -> str:
     component_id = artefact_node.component.identity()
 
-    if isinstance(artefact_node, cnudie.iter.SourceNode):
+    if isinstance(artefact_node, ocm.iter.SourceNode):
         artefact_id = artefact_node.artefact.identity(peers=artefact_node.component.sources)
     else:
         artefact_id = artefact_node.artefact.identity(peers=artefact_node.component.resources)

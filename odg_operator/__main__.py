@@ -21,9 +21,9 @@ import urllib3
 import yaml
 
 import ci.log
-import cnudie.iter
 import oci.client
 import ocm
+import ocm.iter
 
 import ctx_util
 import k8s.util
@@ -775,7 +775,7 @@ def reconcile(
 
 
 def _iter_extension_definitions_from_resource_node(
-    resource_node: cnudie.iter.ResourceNode,
+    resource_node: ocm.iter.ResourceNode,
     oci_client: oci.client.Client,
 ) -> collections.abc.Generator[odgm.ExtensionDefinition, None, None]:
     odg_extension_tar_stream = oci_client.blob(
@@ -898,10 +898,9 @@ if __name__ == '__main__':
 
         component_id = f'{extension_ref.component_name}:{extension_ref.component_version}'
         component = component_descriptor_lookup(component_id).component
-        for resource_node in cnudie.iter.iter(
+        for resource_node in ocm.iter.iter_resources(
             component=component,
             recursion_depth=recursion_depth,
-            node_filter=cnudie.iter.Filter.resources,
             lookup=component_descriptor_lookup,
         ):
             if (

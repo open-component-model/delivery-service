@@ -8,7 +8,6 @@ import subprocess
 import tarfile
 
 import ci.log
-import cnudie.iter
 import cnudie.purge
 import cnudie.retrieve
 import cnudie.util
@@ -16,6 +15,7 @@ import delivery.client
 import oci.auth
 import oci.client
 import ocm
+import ocm.iter
 import ocm.upload
 import version
 
@@ -180,12 +180,11 @@ def iter_components_to_purge(
 def iter_local_resources(
     component: ocm.Component,
 ) -> collections.abc.Generator[None, None, ocm.Resource]:
-    for resource_node in cnudie.iter.iter(
+    for resource_node in ocm.iter.iter_resources(
         component=component,
-        node_filter=cnudie.iter.Filter.resources,
         recursion_depth=0,
     ):
-        resource_node: cnudie.iter.ResourceNode
+        resource_node: ocm.iter.ResourceNode
         if isinstance(resource_node.resource.access, ocm.LocalBlobAccess):
             yield resource_node.resource
 

@@ -6,10 +6,10 @@ import functools
 import logging
 
 import ci.log
-import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import ocm
+import ocm.iter
 
 import k8s.util
 import k8s.logging
@@ -46,7 +46,7 @@ def has_local_linter(
 
 
 def find_scan_policy(
-    snode: cnudie.iter.SourceNode
+    snode: ocm.iter.SourceNode,
 ) -> odg.labels.ScanPolicy | None:
     if label := snode.source.find_label(name=odg.labels.SourceScanLabel.name):
         label_content = odg.labels.deserialise_label(label)

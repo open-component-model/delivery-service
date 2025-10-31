@@ -11,8 +11,8 @@ import logging
 import dacite
 
 import ci.log
-import cnudie.iter
 import delivery.client
+import ocm.iter
 
 import bdba.model as bm
 import odg.cvss
@@ -26,7 +26,7 @@ ci.log.configure_default_logging(print_thread_id=True)
 
 def iter_existing_findings(
     delivery_client: delivery.client.DeliveryServiceClient,
-    resource_node: cnudie.iter.ResourceNode,
+    resource_node: ocm.iter.ResourceNode,
     finding_type: odg.model.Datatype | tuple[odg.model.Datatype],
     datasource: odg.model.Datasource=odg.model.Datasource.BDBA,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
@@ -48,7 +48,7 @@ def iter_existing_findings(
 
 
 def iter_artefact_metadata(
-    scanned_element: cnudie.iter.ResourceNode,
+    scanned_element: ocm.iter.ResourceNode,
     scan_result: bm.AnalysisResult,
     delivery_client: delivery.client.DeliveryServiceClient=None,
     vulnerability_cfg: odg.findings.Finding | None=None,
@@ -304,7 +304,7 @@ def enum_triages(
 
 
 def component_artefact_metadata(
-    resource_node: cnudie.iter.ResourceNode,
+    resource_node: ocm.iter.ResourceNode,
     omit_resource_strict_id: bool=False,
 ) -> dict:
     '''
