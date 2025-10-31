@@ -1762,9 +1762,13 @@ def _create_or_update_issue(
         labels.add(IssueLabels.OVERDUE)
 
     if not is_scanned:
+        if not issue:
+            # there is no scan yet but we have no open issue either -> nothing to do (yet)
+            return
+
         labels.add(IssueLabels.SCAN_PENDING)
 
-    if not is_scanned or issue:
+    if issue:
         return update_issue(
             issue=issue,
             body=body,
