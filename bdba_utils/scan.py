@@ -5,11 +5,11 @@ import botocore.exceptions
 import requests
 
 import ci.log
-import cnudie.iter
 import delivery.client
 import oci
 import oci.client
 import ocm
+import ocm.iter
 
 import bdba.client
 import bdba.model as bm
@@ -39,7 +39,7 @@ class ResourceGroupProcessor:
 
     def scan_request(
         self,
-        resource_node: cnudie.iter.ResourceNode,
+        resource_node: ocm.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_artefact_scans: collections.abc.Iterable[bm.Product],
     ) -> bdba_utils.model.ScanRequest:
@@ -177,7 +177,7 @@ class ResourceGroupProcessor:
 
     def process(
         self,
-        resource_node: cnudie.iter.ResourceNode,
+        resource_node: ocm.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_scan_results: collections.abc.Iterable[bm.Product],
         processing_mode: bm.ProcessingMode,
@@ -202,8 +202,8 @@ class ResourceGroupProcessor:
             scan_failed = True
             logger.warning(bse.print_stacktrace())
 
-        scanned_element = cnudie.iter.ResourceNode(
-            path=(cnudie.iter.NodePathEntry(resource_node.component),),
+        scanned_element = ocm.iter.ResourceNode(
+            path=(ocm.iter.NodePathEntry(resource_node.component),),
             resource=resource_node.resource,
         )
 
@@ -278,7 +278,7 @@ def _package_version_hints(
 def retrieve_existing_scan_results(
     bdba_client: bdba.client.BDBAApi,
     group_id: int,
-    resource_node: cnudie.iter.ResourceNode,
+    resource_node: ocm.iter.ResourceNode,
 ) -> list[bm.Product]:
     query_data = bdba_utils.util.component_artefact_metadata(
         resource_node=resource_node,
@@ -297,7 +297,7 @@ def run_scan(
     group_id: int,
     oci_client: oci.client.Client,
     processing_mode: bm.ProcessingMode,
-    resource_node: cnudie.iter.ResourceNode,
+    resource_node: ocm.iter.ResourceNode,
     secret_factory: secret_mgmt.SecretFactory,
     vulnerability_cfg: odg.findings.Finding | None=None,
     license_cfg: odg.findings.Finding | None=None,

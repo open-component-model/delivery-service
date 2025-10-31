@@ -2,10 +2,10 @@ import dataclasses
 import enum
 import string
 
-import cnudie.iter
 import oci
 import oci.client
 import ocm
+import ocm.iter
 
 import ocm_util
 
@@ -167,7 +167,7 @@ class ExtensionInstance:
                 artefact_name=ocm_ref.artefact.name,
                 artefact_version=ocm_ref.artefact.version,
                 artefact_type=ocm_ref.artefact.artefact_type,
-                artefact_nodes=cnudie.iter.iter_resources(
+                artefact_nodes=ocm.iter.iter_resources(
                     component=component,
                     recursion_depth=0,
                 ),
@@ -180,13 +180,12 @@ class ExtensionInstance:
 
             for mapping in ocm_ref.mappings:
                 mapping: OcmArtefactReference
-                resource_node: cnudie.iter.ResourceNode = ocm_util.find_artefact_node(
+                resource_node: ocm.iter.ResourceNode = ocm_util.find_artefact_node(
                     artefact_name=mapping.name,
                     artefact_version=mapping.version,
                     artefact_type=mapping.artefact_type,
-                    artefact_nodes=cnudie.iter.iter(
+                    artefact_nodes=ocm.iter.iter_resources(
                         component=component,
-                        node_filter=cnudie.iter.Filter.resources,
                         recursion_depth=0,
                     ),
                 )

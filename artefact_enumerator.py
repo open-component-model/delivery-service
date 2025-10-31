@@ -6,10 +6,10 @@ import datetime
 import logging
 
 import ci.log
-import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import ocm
+import ocm.iter
 
 import k8s.backlog
 import k8s.logging
@@ -95,10 +95,10 @@ def _iter_ocm_artefacts(
             else:
                 component_descriptor = component_descriptor_lookup(component_id).component
 
-            for artefact_node in cnudie.iter.iter(
+            for artefact_node in ocm.iter.iter(
                 component=component_descriptor,
                 lookup=component_descriptor_lookup,
-                node_filter=cnudie.iter.Filter.artefacts,
+                node_filter=ocm.iter.Filter.artefacts,
             ):
                 yield odg.model.component_artefact_id_from_ocm(
                     component=artefact_node.component,

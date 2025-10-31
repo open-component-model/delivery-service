@@ -12,9 +12,9 @@ import kubernetes.config
 import kubernetes.dynamic
 import yaml
 
-import cnudie.iter
 import cnudie.retrieve
 import ocm
+import ocm.iter
 
 import k8s.model
 import odg.extensions_cfg
@@ -184,7 +184,7 @@ def get_ocm_node(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     artefact: odg.model.ComponentArtefactId,
     absent_ok: bool=False,
-) -> cnudie.iter.ResourceNode | cnudie.iter.SourceNode | None:
+) -> ocm.iter.ResourceNode | ocm.iter.SourceNode | None:
     if not odg.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
@@ -223,13 +223,13 @@ def get_ocm_node(
 
         # found artefact of backlog item in component's artefacts
         if artefact.artefact_kind is odg.model.ArtefactKind.RESOURCE:
-            return cnudie.iter.ResourceNode(
-                path=(cnudie.iter.NodePathEntry(component),),
+            return ocm.iter.ResourceNode(
+                path=(ocm.iter.NodePathEntry(component),),
                 resource=a,
             )
         elif artefact.artefact_kind is odg.model.ArtefactKind.SOURCE:
-            return cnudie.iter.SourceNode(
-                path=(cnudie.iter.NodePathEntry(component),),
+            return ocm.iter.SourceNode(
+                path=(ocm.iter.NodePathEntry(component),),
                 source=a,
             )
         else:

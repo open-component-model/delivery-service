@@ -2,12 +2,12 @@ import collections.abc
 import logging
 
 import cnudie.access
-import cnudie.iter
 import cnudie.retrieve_async
 import ioutil
 import oci.client
 import oci.model
 import ocm
+import ocm.iter
 import tarutil
 
 import odg.model
@@ -68,7 +68,7 @@ async def find_artefact_node_async(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     artefact: odg.model.ComponentArtefactId,
     absent_ok: bool=False,
-) -> cnudie.iter.ResourceNode | cnudie.iter.SourceNode | None:
+) -> ocm.iter.ResourceNode | ocm.iter.SourceNode | None:
     if not odg.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
@@ -114,13 +114,13 @@ async def find_artefact_node_async(
 
         # found artefact in component's artefacts
         if artefact.artefact_kind is odg.model.ArtefactKind.RESOURCE:
-            return cnudie.iter.ResourceNode(
-                path=(cnudie.iter.NodePathEntry(component),),
+            return ocm.iter.ResourceNode(
+                path=(ocm.iter.NodePathEntry(component),),
                 resource=a,
             )
         elif artefact.artefact_kind is odg.model.ArtefactKind.SOURCE:
-            return cnudie.iter.SourceNode(
-                path=(cnudie.iter.NodePathEntry(component),),
+            return ocm.iter.SourceNode(
+                path=(ocm.iter.NodePathEntry(component),),
                 source=a,
             )
         else:
@@ -131,13 +131,13 @@ async def find_artefact_node_async(
 
 
 def find_artefact_node(
-    artefact_nodes: collections.abc.Sequence[cnudie.iter.ArtefactNode],
+    artefact_nodes: collections.abc.Sequence[ocm.iter.ArtefactNode],
     artefact_name: str=None,
     artefact_version: str=None,
     artefact_type: str=None,
     artefact_extra_id: dict=None,
     absent_ok: bool=False,
-) -> cnudie.iter.ArtefactNode | None:
+) -> ocm.iter.ArtefactNode | None:
     for artefact_node in artefact_nodes:
 
         if (
@@ -175,7 +175,7 @@ def find_artefact_node(
 
 
 def iter_content_for_resource_node(
-    resource_node: cnudie.iter.ResourceNode,
+    resource_node: ocm.iter.ResourceNode,
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
     aws_secret_name: str | None = None,

@@ -12,8 +12,6 @@ import dacite.exceptions
 import sqlalchemy.ext.asyncio as sqlasync
 import yaml
 
-import cnudie.iter
-import cnudie.iter_async
 import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
@@ -21,6 +19,8 @@ import github.pullrequest
 import oci.client_async
 import oci.model as om
 import ocm
+import ocm.iter
+import ocm.iter_async
 import ocm.oci
 import version as versionutil
 
@@ -829,7 +829,7 @@ async def resolve_component_dependencies(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
-) -> collections.abc.AsyncGenerator[cnudie.iter.ComponentNode, None, None]:
+) -> collections.abc.AsyncGenerator[ocm.iter.ComponentNode, None, None]:
     descriptor = await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
             name=component_name,
@@ -1193,7 +1193,7 @@ async def _components(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
-) -> collections.abc.AsyncGenerator[cnudie.iter.ComponentNode, None, None]:
+) -> collections.abc.AsyncGenerator[ocm.iter.ComponentNode, None, None]:
     component_descriptor = await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
             name=component_name,
@@ -1204,12 +1204,12 @@ async def _components(
     )
 
     try:
-        return cnudie.iter_async.iter(
+        return ocm.iter_async.iter(
             component=component_descriptor,
             lookup=component_descriptor_lookup,
             recursion_depth=recursion_depth,
             prune_unique=False,
-            node_filter=cnudie.iter.Filter.components,
+            node_filter=ocm.iter.Filter.components,
         )
     except om.OciImageNotFoundException:
         err_str = 'Error occurred during retrieval of component dependencies of ' \

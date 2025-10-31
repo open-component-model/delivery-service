@@ -16,11 +16,11 @@ import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.sql.elements
 
 import ci.log
-import cnudie.iter
-import cnudie.iter_async
 import cnudie.retrieve_async
 import oci.client_async
 import ocm
+import ocm.iter
+import ocm.iter_async
 
 import compliance_summary
 import components as components_module
@@ -179,10 +179,10 @@ async def prefill_compliance_summary_caches(
                 version=version,
             ))
 
-            async for component_node in cnudie.iter_async.iter(
+            async for component_node in ocm.iter_async.iter(
                 component=component_descriptor.component,
                 lookup=component_descriptor_lookup,
-                node_filter=cnudie.iter.Filter.components,
+                node_filter=ocm.iter.Filter.components,
             ):
                 component_id = component_node.component_id
 

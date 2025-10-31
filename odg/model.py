@@ -9,6 +9,7 @@ import typing
 import dacite
 
 import ocm
+import ocm.iter
 
 import odg.cvss
 
@@ -1472,7 +1473,7 @@ class ArtefactMetadata:
 
 
 def artefact_scan_info(
-    artefact_node: 'cnudie.iter.ArtefactNode',
+    artefact_node: ocm.iter.ArtefactNode,
     datasource: Datasource,
     data: dict={},
     responsibles: list[UserIdentity] | None=None,

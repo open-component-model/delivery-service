@@ -16,11 +16,11 @@ import cachetools.keys
 import dateutil.parser
 import github3
 
-import cnudie.iter
-import cnudie.iter_async
 import cnudie.retrieve_async
 import cnudie.util
 import ocm
+import ocm.iter
+import ocm.iter_async
 import version as versionutil
 
 import caching
@@ -924,18 +924,18 @@ async def _diff_components(
     component-version, choosing greatest/smallest versions.
     '''
     old_components = [
-        c.component async for c in cnudie.iter_async.iter(
+        c.component async for c in ocm.iter_async.iter(
             component=component_vector.start,
             lookup=component_descriptor_lookup,
-            node_filter=cnudie.iter.Filter.components,
+            node_filter=ocm.iter.Filter.components,
         )
     ]
 
     new_components = [
-        c.component async for c in cnudie.iter_async.iter(
+        c.component async for c in ocm.iter_async.iter(
             component=component_vector.end,
             lookup=component_descriptor_lookup,
-            node_filter=cnudie.iter.Filter.components,
+            node_filter=ocm.iter.Filter.components,
         )
     ]
 
