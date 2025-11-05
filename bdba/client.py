@@ -611,3 +611,28 @@ class BDBAApi:
                 entries=raw_data.get('@graph'),
             ),
         )
+
+    # SBOM-Export-Methods 
+    def cyclonedx_sbom_export(self, product_id: int | str) -> dict:
+        """Export SBOM in CycloneDX format from BDBA scan results"""
+        url = self._routes.export_product(product_id, format='cyclonedx')
+        url = url.rstrip('/') + '/json'
+        response = self._get(url=url)
+        response.raise_for_status()
+        return response.json()
+
+    def spdx_sbom_export(self, product_id: int | str) -> dict:
+        """Export SBOM in SPDX format from BDBA scan results"""  
+        url = self._routes.export_product(product_id, format='spdx')
+        response = self._get(url=url)
+        response.raise_for_status()
+        return response.json()
+
+    def sbom_export(self, product_id: int | str, format: str = 'cyclonedx') -> dict:
+        """Generic SBOM export method supporting multiple formats"""
+        if format.lower() == 'cyclonedx':
+            return self.cyclonedx_sbom_export(product_id)
+        elif format.lower() == 'spdx':
+            return self.spdx_sbom_export(product_id)
+        else:
+            raise ValueError(f"Unsupported SBOM format: {format}. Use 'cyclonedx' or 'spdx'")
