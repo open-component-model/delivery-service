@@ -1,0 +1,48 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2722.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: feature
+  contents: Draft release-notes are also created for branches matching the `release-branch-template`
+    configured via `.ocm/branch-info.yaml` file
+  mimetype: text/markdown
+  reference: '[#1435](https://github.com/gardener/cc-utils/pull/1435)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: feature
+  contents: The `release.yaml` workflow now allows configuration of automatic cleanup
+    of stale release branches
+  mimetype: text/markdown
+  reference: '[#1436](https://github.com/gardener/cc-utils/pull/1436)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: feature
+  contents: Added option to specify merge-policies/-methods of upgrade-PRs for specific
+    components
+  mimetype: text/markdown
+  reference: '[#1437](https://github.com/gardener/cc-utils/pull/1437)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: feature
+  contents: Added input `create-release-branch` to release workflow to automatically
+    create a release-/hotfix-branch upon release
+  mimetype: text/markdown
+  reference: '[#1435](https://github.com/gardener/cc-utils/pull/1435)'
+  type: standard
