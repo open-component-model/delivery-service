@@ -108,8 +108,15 @@ class BDBAApiRoutes:
     def api_key(self):
         return self._api_url('key/')
 
-    def export_product(self, product_id: int | str, format: str = 'bdio'):
-        return self._api_url('product', str(product_id), f'?format={format}')
+    def export_product(
+        self,
+        product_id: int | str,
+        sbom_format: bm.SBomFormat=bm.SBomFormat.BDIO,
+    ) -> str:
+        url = self._api_url('product', str(product_id), f'?format={sbom_format}')
+        if bm.SBomFormat(sbom_format) is bm.SBomFormat.CYCLONEDX:
+            url = f'{url.rstrip("/")}/json'
+        return url
 
     # ---- "rest" routes (undocumented API)
 
@@ -611,3 +618,26 @@ class BDBAApi:
                 entries=raw_data.get('@graph'),
             ),
         )
+
+    def export_sbom(
+        self,
+        product_id: int | str,
+        sbom_format: bm.SBomFormat
+    ) -> dict | bm.BDIO:
+        url = self._routes.export_product(product_id, sbom_format=sbom_format)
+
+        response = self._get(url=url)
+        response_raw = response.json()
+
+        if sbom_format is bm.SBomFormat.BDIO:
+            return dacite.from_dict(
+                data_class=bm.BDIO,
+                data=dict(
+                    **response_raw,
+                    id=response_raw.get('@id'),
+                    publisher_version=response_raw.get('publisherVersion'),
+                    creation_datetime=response_raw.get('creationDateTime'),
+                    entries=response_raw.get('@graph'),
+                ),
+            )
+        return response_raw
