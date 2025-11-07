@@ -222,8 +222,10 @@ def get_backlog_crd_and_claim(
         return None
 
     backlog_crds.sort(
-        key=lambda backlog_crd: BacklogPriorities(backlog_crd.get('spec').get('priority')),
-        reverse=True,
+        key=lambda backlog_crd: (
+            -BacklogPriorities(backlog_crd.get('spec').get('priority')), # negate for high to low
+            backlog_crd.get('spec').get('timestamp'),
+        )
     )
 
     backlog_crd = backlog_crds[0]
