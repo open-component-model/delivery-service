@@ -1,3 +1,4 @@
+reference_version: 0.1245.0
 ocm:
   component_name: github.com/gardener/cc-utils
   component_version: 1.2722.0
