@@ -6,14 +6,15 @@ import logging
 import tarfile
 
 import awesomeversion.exceptions
+
 import ci.log
-import cnudie.retrieve
 import delivery.client
 import oci.client
 import oci.model
 import ocm
 import tarutil
 
+import cnudie.retrieve
 import eol
 import k8s.logging
 import k8s.util
@@ -21,10 +22,11 @@ import odg.extensions_cfg
 import odg.findings
 import odg.model
 import odg.util
+import osinfo
 import osid_extension.scan as osidscan
 import osid_extension.util as osidutil
-import osinfo
 import paths
+
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
@@ -66,8 +68,8 @@ def determine_os_status(
         return odg.model.OsStatus.DISTROLESS, greatest_version, eol_date
 
     if osidutil.branch_reached_eol(
-            osid=osid,
-            os_infos=release_infos,
+        osid=osid,
+        os_infos=release_infos,
     ):
         return odg.model.OsStatus.BRANCH_REACHED_EOL, greatest_version, eol_date
 
@@ -110,7 +112,9 @@ def base_image_osid(
             image_reference=image_reference,
             digest=layer.digest,
         )
-        fileproxy = tarutil.FilelikeProxy(layer_blob.iter_content(chunk_size=tarfile.BLOCKSIZE))
+        fileproxy = tarutil.FilelikeProxy(
+            layer_blob.iter_content(chunk_size=tarfile.BLOCKSIZE)
+        )
         tf = tarfile.open(fileobj=fileproxy, mode='r|*')
         if (os_info := osidscan.determine_osinfo(tf)):
             last_os_info: odg.model.OperatingSystemId = os_info
@@ -174,8 +178,13 @@ def create_artefact_metadata(
     if not severity:
         return
 
-    if (relation is ocm.ResourceRelation.EXTERNAL and os_status is not odg.model.OsStatus.BRANCH_REACHED_EOL):
-        logger.info(f'skipping osid finding for external non-EOL artefact {artefact}')
+    if (
+        relation is ocm.ResourceRelation.EXTERNAL
+        and os_status is not odg.model.OsStatus.BRANCH_REACHED_EOL
+    ):
+        logger.info(
+            f'skipping osid finding for external non-EOL artefact {artefact}'
+        )
         return
 
     yield odg.model.ArtefactMetadata(
@@ -216,7 +225,8 @@ def process_artefact(
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{artefact.artefact_kind} is not supported by the OSID extension, maybe the filter '
-                'configurations have to be adjusted to filter out this artefact kind')
+                'configurations have to be adjusted to filter out this artefact kind'
+            )
         return
 
     resource = k8s.util.get_ocm_node(

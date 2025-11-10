@@ -7,9 +7,10 @@ import typing
 import cachetools
 import dacite
 import github3.repos
+import yaml
+
 import github.compliance.milestone as gcmi
 import ocm
-import yaml
 
 import crypto_extension.config
 import lookups
@@ -17,6 +18,7 @@ import odg.model
 import odg.shared_cfg
 import responsibles_extension.filters as ref
 import responsibles_extension.strategies as res
+
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +68,10 @@ class BacklogItemMixins(ExtensionCfgMixins):
     Defines properties and functions which are shared among those extensions which determine their
     workload using the BacklogItem custom resource.
     '''
-
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
-        access_type: ocm.AccessType | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
     ) -> bool:
         raise NotImplementedError('function must be implemented by derived classes')
 
@@ -101,7 +102,7 @@ class Component:
 @dataclasses.dataclass(kw_only=True)
 class AccessManagerConfig(ExtensionCfgMixins):
     service: Services = Services.ACCESS_MANAGER
-    schedule: str = '*/10 * * * *'    # every 10 minutes
+    schedule: str = '*/10 * * * *' # every 10 minutes
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
@@ -123,8 +124,8 @@ class ArtefactEnumeratorConfig(ExtensionCfgMixins):
     service: Services = Services.ARTEFACT_ENUMERATOR
     delivery_service_url: str
     components: list[Component]
-    compliance_snapshot_grace_period: int = 60 * 60 * 24    # 24h
-    schedule: str = '*/5 * * * *'    # every 5 minutes
+    compliance_snapshot_grace_period: int = 60 * 60 * 24 # 24h
+    schedule: str = '*/5 * * * *' # every 5 minutes
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
@@ -183,7 +184,7 @@ class BDBAConfig(BacklogItemMixins):
     service: Services = Services.BDBA
     delivery_service_url: str
     mappings: list[BDBAMapping]
-    interval: int = 60 * 60 * 24    # 24h
+    interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> BDBAMapping:
@@ -195,10 +196,12 @@ class BDBAConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
-        access_type: ocm.AccessType | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
     ) -> bool:
-        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE, )
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.RESOURCE,
+        )
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
             ocm.AccessType.LOCAL_BLOB,
@@ -210,12 +213,16 @@ class BDBAConfig(BacklogItemMixins):
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{artefact_kind=} is not supported for BDBA scans, {supported_artefact_kinds=}')
+                logger.warning(
+                    f'{artefact_kind=} is not supported for BDBA scans, {supported_artefact_kinds=}'
+                )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{access_type=} is not supported for BDBA scans, {supported_access_types=}')
+                logger.warning(
+                    f'{access_type=} is not supported for BDBA scans, {supported_access_types=}'
+                )
 
         return is_supported
 
@@ -239,7 +246,7 @@ class BlackDuckConfig(BacklogItemMixins):
     service: Services = Services.BLACKDUCK
     delivery_service_url: str
     mappings: list[BlackDuckExtensionMapping]
-    interval: int = 60 * 60 * 24    # 24h
+    interval: int = 60 * 60 * 24 # 24h
     on_supported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> BlackDuckExtensionMapping:
@@ -251,10 +258,12 @@ class BlackDuckConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
-        access_type: ocm.AccessType | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
     ) -> bool:
-        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE, )
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.RESOURCE,
+        )
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
             ocm.AccessType.LOCAL_BLOB,
@@ -266,12 +275,16 @@ class BlackDuckConfig(BacklogItemMixins):
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
             if self.on_supported is WarningVerbosities.WARNING:
-                logger.warning(f'{artefact_kind=} is not supported for BD scans, {supported_artefact_kinds=}')
+                logger.warning(
+                    f'{artefact_kind=} is not supported for BD scans, {supported_artefact_kinds=}'
+                )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
             if self.on_supported is WarningVerbosities.WARNING:
-                logger.warning(f'{access_type=} is not supported for BD scans, {supported_access_types=}')
+                logger.warning(
+                    f'{access_type=} is not supported for BD scans, {supported_access_types=}'
+                )
 
         return is_supported
 
@@ -318,8 +331,7 @@ class FunctionNames(enum.StrEnum):
 @dataclasses.dataclass
 class PrefillFunctionCaches:
     components: list[Component] = dataclasses.field(default_factory=list)
-    functions: list[FunctionNames] = dataclasses.field(
-        default_factory=lambda: [f for f in FunctionNames])    # noqa: E501
+    functions: list[FunctionNames] = dataclasses.field(default_factory=lambda: [f for f in FunctionNames]) # noqa: E501
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -338,13 +350,11 @@ class CacheManagerConfig(ExtensionCfgMixins):
     :param int failed_jobs_history_limit
     '''
     service: Services = Services.CACHE_MANAGER
-    max_cache_size_bytes: int = 1000000000    # 1Gb
-    min_pruning_bytes: int = 100000000    # 100Mb
-    cache_pruning_weights: CachePruningWeights = dataclasses.field(
-        default_factory=CachePruningWeights.default)    # noqa: E501
-    prefill_function_caches: PrefillFunctionCaches = dataclasses.field(
-        default_factory=PrefillFunctionCaches)    # noqa: E501
-    schedule: str = '*/10 * * * *'    # every 10 minutes
+    max_cache_size_bytes: int = 1000000000 # 1Gb
+    min_pruning_bytes: int = 100000000 # 100Mb
+    cache_pruning_weights: CachePruningWeights = dataclasses.field(default_factory=CachePruningWeights.default) # noqa: E501
+    prefill_function_caches: PrefillFunctionCaches = dataclasses.field(default_factory=PrefillFunctionCaches) # noqa: E501
+    schedule: str = '*/10 * * * *' # every 10 minutes
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
@@ -372,7 +382,7 @@ class ClamAVConfig(BacklogItemMixins):
     service: Services = Services.CLAMAV
     delivery_service_url: str
     mappings: list[ClamAVMapping]
-    interval: int = 60 * 60 * 24    # 24h
+    interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> ClamAVMapping:
@@ -384,11 +394,13 @@ class ClamAVConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
-        access_type: ocm.AccessType | None = None,
-        artefact_type: str | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
+        artefact_type: str | None=None,
     ) -> bool:
-        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE, )
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.RESOURCE,
+        )
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
             ocm.AccessType.LOCAL_BLOB,
@@ -403,22 +415,33 @@ class ClamAVConfig(BacklogItemMixins):
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{artefact_kind=} is not supported for ClamAV scans, '
-                               f'{supported_artefact_kinds=}')
+                logger.warning(
+                    f'{artefact_kind=} is not supported for ClamAV scans, '
+                    f'{supported_artefact_kinds=}'
+                )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{access_type=} is not supported for ClamAV scans, {supported_access_types=}')
+                logger.warning(
+                    f'{access_type=} is not supported for ClamAV scans, {supported_access_types=}'
+                )
 
-        if (artefact_type and access_type
-                and (artefact_types := supported_artefact_types_by_access_type.get(access_type))):
-            if not any(artefact_type.startswith(supported_artefact_type) for supported_artefact_type in artefact_types):
+        if (
+            artefact_type
+            and access_type
+            and (artefact_types := supported_artefact_types_by_access_type.get(access_type))
+        ):
+            if not any(
+                artefact_type.startswith(supported_artefact_type)
+                for supported_artefact_type in artefact_types
+            ):
                 is_supported = False
                 if self.on_unsupported is WarningVerbosities.WARNING:
                     logger.warning(
                         f'{artefact_type=} is not supported for ClamAV scans with {access_type=}, '
-                        f'{supported_artefact_types_by_access_type=}')
+                        f'{supported_artefact_types_by_access_type=}'
+                    )
 
         return is_supported
 
@@ -440,7 +463,8 @@ class StandardRef:
     ref: (
         odg.shared_cfg.SharedCfgGitHubReference
         | odg.shared_cfg.SharedCfgLocalReference
-        | odg.shared_cfg.SharedCfgOCMReference)
+        | odg.shared_cfg.SharedCfgOCMReference
+    )
 
     def retrieve_standard(
         self,
@@ -450,7 +474,10 @@ class StandardRef:
 
         standards_raw = crypto_cfg_raw.get('standards', [])
         for standard_raw in standards_raw:
-            if (standard_raw['name'] == self.name and standard_raw['version'] == self.version):
+            if (
+                standard_raw['name'] == self.name
+                and standard_raw['version'] == self.version
+            ):
                 return dacite.from_dict(
                     data_class=crypto_extension.config.Standard,
                     data=standard_raw,
@@ -472,7 +499,8 @@ class LibrariesRef:
     ref: (
         odg.shared_cfg.SharedCfgGitHubReference
         | odg.shared_cfg.SharedCfgLocalReference
-        | odg.shared_cfg.SharedCfgOCMReference)
+        | odg.shared_cfg.SharedCfgOCMReference
+    )
 
 
 @dataclasses.dataclass
@@ -500,7 +528,9 @@ class CryptoMapping(Mapping):
         shared_cfg_lookup = odg.shared_cfg.shared_cfg_lookup()
 
         self.standards = [
-            standard.retrieve_standard(shared_cfg_lookup) if isinstance(standard, StandardRef) else standard
+            standard.retrieve_standard(shared_cfg_lookup)
+            if isinstance(standard, StandardRef)
+            else standard
             for standard in self.standards
         ]
 
@@ -528,7 +558,7 @@ class CryptoConfig(BacklogItemMixins):
     service: Services = Services.CRYPTO
     delivery_service_url: str
     mappings: list[CryptoMapping]
-    interval: int = 60 * 60 * 24    # 24h
+    interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> CryptoMapping:
@@ -540,18 +570,20 @@ class CryptoConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
-        access_type: ocm.AccessType | None = None,
-        artefact_type: str | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
+        artefact_type: str | None=None,
     ) -> bool:
-        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE, )
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.RESOURCE,
+        )
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
             ocm.AccessType.LOCAL_BLOB,
             ocm.AccessType.S3,
         )
         supported_artefact_types_by_access_type = {
-            ocm.AccessType.OCI_REGISTRY: ('ociImage', ),
+            ocm.AccessType.OCI_REGISTRY: ('ociImage',),
             ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
         }
 
@@ -560,22 +592,33 @@ class CryptoConfig(BacklogItemMixins):
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{artefact_kind=} is not supported for crypto scans, '
-                               f'{supported_artefact_kinds=}')
+                logger.warning(
+                    f'{artefact_kind=} is not supported for crypto scans, '
+                    f'{supported_artefact_kinds=}'
+                )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{access_type=} is not supported for crypto scans, {supported_access_types=}')
+                logger.warning(
+                    f'{access_type=} is not supported for crypto scans, {supported_access_types=}'
+                )
 
-        if (artefact_type and access_type
-                and (artefact_types := supported_artefact_types_by_access_type.get(access_type))):
-            if not any(artefact_type.startswith(supported_artefact_type) for supported_artefact_type in artefact_types):
+        if (
+            artefact_type
+            and access_type
+            and (artefact_types := supported_artefact_types_by_access_type.get(access_type))
+        ):
+            if not any(
+                artefact_type.startswith(supported_artefact_type)
+                for supported_artefact_type in artefact_types
+            ):
                 is_supported = False
                 if self.on_unsupported is WarningVerbosities.WARNING:
                     logger.warning(
                         f'{artefact_type=} is not supported for crypto scans with {access_type=}, '
-                        f'{supported_artefact_types_by_access_type=}')
+                        f'{supported_artefact_types_by_access_type=}'
+                    )
 
         return is_supported
 
@@ -607,7 +650,7 @@ class DeliveryDBBackup(ExtensionCfgMixins):
     backup_retention_count: int | None
     initial_version: str = '0.1.0'
     extra_pg_dump_args: list[str] = dataclasses.field(default_factory=list)
-    schedule: str = '0 0 * * *'    # every day at 12:00 AM
+    schedule: str = '0 0 * * *' # every day at 12:00 AM
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
@@ -624,19 +667,23 @@ class GHASConfig(ExtensionCfgMixins):
     delivery_service_url: str
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     github_instances: list[GitHubInstance] = dataclasses.field(default_factory=list)
-    schedule: str = '0 0 * * *'    # every day at 12:00 AM
+    schedule: str = '0 0 * * *' # every day at 12:00 AM
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
     ) -> bool:
-        supported_artefact_kinds = (odg.model.ArtefactKind.SOURCE, )
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.SOURCE,
+        )
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{artefact_kind=} is not supported for GHAS scans, {supported_artefact_kinds=}')
+                logger.warning(
+                    f'{artefact_kind=} is not supported for GHAS scans, {supported_artefact_kinds=}'
+                )
             return False
 
         return True
@@ -653,8 +700,7 @@ class ExtensionDefinitionOcmReference:
 class OdgOperatorConfig(ExtensionCfgMixins):
     service: Services = Services.ODG_OPERATOR
     required_extension_names: list[str] = dataclasses.field(default_factory=list)
-    extension_ocm_references: list[ExtensionDefinitionOcmReference] = dataclasses.field(
-        default_factory=list)    # noqa: E501
+    extension_ocm_references: list[ExtensionDefinitionOcmReference] = dataclasses.field(default_factory=list) # noqa: E501
 
 
 @dataclasses.dataclass
@@ -672,8 +718,7 @@ class IssueReplicatorMapping(Mapping):
     github_repository: str
     github_issue_labels_to_preserve: list[str] = dataclasses.field(default_factory=list)
     number_included_closed_issues: int = 100
-    milestones: gcmi.MilestoneConfiguration | dict = dataclasses.field(
-        default_factory=gcmi.MilestoneConfiguration)    # noqa: E501
+    milestones: gcmi.MilestoneConfiguration | dict = dataclasses.field(default_factory=gcmi.MilestoneConfiguration) # noqa: E501
 
     def __post_init__(self):
         if isinstance(self.milestones, dict):
@@ -694,8 +739,7 @@ class IssueReplicatorMapping(Mapping):
                     name = title_sprint_cfg.get('date_name', 'end_date')
                     str_format = title_sprint_cfg.get('date_string_format', '%Y-%m-%d')
 
-                    title_callback = lambda sprint: sprint.find_sprint_date(name).value.strftime(
-                        str_format)    # noqa: E501
+                    title_callback = lambda sprint: sprint.find_sprint_date(name).value.strftime(str_format) # noqa: E501
 
                 else:
                     raise ValueError(f'invalid milestone sprint value type {sprint_value_type}')
@@ -717,7 +761,7 @@ class IssueReplicatorMapping(Mapping):
             )
 
 
-@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25))    # gh-token is valid for 30 min
+@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25)) # gh-token is valid for 30 min
 def github_repository(repo: str) -> github3.repos.Repository:
     github_api_lookup = lookups.github_api_lookup()
     github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
@@ -725,7 +769,7 @@ def github_repository(repo: str) -> github3.repos.Repository:
     return github_repo_lookup(repo)
 
 
-@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25))    # gh-token is valid for 30 min
+@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25)) # gh-token is valid for 30 min
 def github_api(repo: str) -> github3.github.GitHub:
     github_api_lookup = lookups.github_api_lookup()
 
@@ -745,7 +789,7 @@ class IssueReplicatorConfig(BacklogItemMixins):
     delivery_service_url: str
     delivery_dashboard_url: str
     mappings: list[IssueReplicatorMapping]
-    interval: int = 60 * 60    # 1h
+    interval: int = 60 * 60 # 1h
 
     def mapping(self, name: str, /) -> IssueReplicatorMapping:
         for mapping in self.mappings:
@@ -756,10 +800,10 @@ class IssueReplicatorConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
-        access_type: ocm.AccessType | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
     ) -> bool:
-        return True    # issue replication works independent of any artefact or access type
+        return True # issue replication works independent of any artefact or access type
 
 
 @dataclasses.dataclass
@@ -777,11 +821,16 @@ class ResponsibleConfigRule:
         finding-cfg will be used.
     '''
     name: str | None
-    filters: list[ref.ArtefactFilter
-                  | ref.ComponentFilter
-                  | ref.DatatypeFilter
-                  | ref.MatchAllFilter] = dataclasses.field(default_factory=list)
-    strategies: list[res.ComponentResponsibles | res.StaticResponsibles] = dataclasses.field(default_factory=list)
+    filters: list[
+        ref.ArtefactFilter
+        | ref.ComponentFilter
+        | ref.DatatypeFilter
+        | ref.MatchAllFilter
+    ] = dataclasses.field(default_factory=list)
+    strategies: list[
+        res.ComponentResponsibles
+        | res.StaticResponsibles
+    ] = dataclasses.field(default_factory=list)
     assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
 
 
@@ -799,7 +848,7 @@ class ResponsiblesConfig(BacklogItemMixins):
     '''
     service: Services = Services.RESPONSIBLES
     delivery_service_url: str
-    interval: int = 60 * 60 * 12    # 12h
+    interval: int = 60 * 60 * 12 # 12h
     rules: list[ResponsibleConfigRule] = dataclasses.field(default_factory=list)
 
 
@@ -815,18 +864,22 @@ class SASTConfig(BacklogItemMixins):
     '''
     service: Services = Services.SAST
     delivery_service_url: str
-    interval: int = 60 * 60 * 24    # 24h
+    interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
     ) -> bool:
-        supported_artefact_kinds = (odg.model.ArtefactKind.SOURCE, )
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.SOURCE,
+        )
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{artefact_kind=} is not supported for SAST scans, {supported_artefact_kinds=}')
+                logger.warning(
+                    f'{artefact_kind=} is not supported for SAST scans, {supported_artefact_kinds=}'
+                )
             return False
 
         return True
@@ -844,16 +897,18 @@ class OsId(BacklogItemMixins):
     '''
     service: Services = Services.OSID
     delivery_service_url: str
-    interval: int = 60 * 60 * 24    # 24h
+    interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None = None,
-        access_type: ocm.AccessType | None = None,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
     ) -> bool:
 
-        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE, )
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.RESOURCE,
+        )
 
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
@@ -861,14 +916,19 @@ class OsId(BacklogItemMixins):
             ocm.AccessType.LOCAL_BLOB,
             ocm.AccessType.S3,
         )
+
         if access_type and access_type not in supported_access_types:
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{access_type=} is not supported for OS_ID scans, {supported_access_types=}')
+                logger.warning(
+                    f'{access_type=} is not supported for OS_ID scans, {supported_access_types=}'
+                )
             return False
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
-                logger.warning(f'{artefact_kind=} is not supported for OS_ID scans, {supported_artefact_kinds=}')
+                logger.warning(
+                    f'{artefact_kind=} is not supported for OS_ID scans, {supported_artefact_kinds=}'
+                )
             return False
 
         return True
@@ -890,8 +950,7 @@ class ExtensionsConfiguration:
     osid: OsId | None
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
-    backlog_controller: BacklogControllerConfig = dataclasses.field(
-        default_factory=BacklogControllerConfig)    # noqa: E501
+    backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod
     def from_dict(extensions_cfg_raw: dict) -> typing.Self:
@@ -925,7 +984,7 @@ class ExtensionsConfiguration:
     def find_extension_cfg(
         self,
         service: Services,
-        require_enabled: bool = True,
+        require_enabled: bool=True,
     ) -> object | None:
         for extension_name in dataclasses.asdict(self).keys():
             if not (extension_cfg := getattr(self, extension_name)):
@@ -939,11 +998,14 @@ class ExtensionsConfiguration:
 
     def enabled_extensions(
         self,
-        convert_to_camel_case: bool = False,
+        convert_to_camel_case: bool=False,
     ) -> collections.abc.Generator[str, None, None]:
         for extension_name in dataclasses.asdict(self).keys():
-            if (not (extension_cfg := getattr(self, extension_name)) or not extension_cfg.enabled):
-                continue    # extension is not configured
+            if (
+                not (extension_cfg := getattr(self, extension_name))
+                or not extension_cfg.enabled
+            ):
+                continue # extension is not configured
 
             if not convert_to_camel_case:
                 yield extension_name
