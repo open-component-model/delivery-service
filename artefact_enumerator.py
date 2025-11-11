@@ -78,7 +78,6 @@ def _iter_ocm_artefacts(
             max_versions=component.max_versions_limit,
             greatest_version=component.version,
             ocm_repo=component.ocm_repo,
-            version_filter=component.version_filter,
         )
 
         for version in versions:

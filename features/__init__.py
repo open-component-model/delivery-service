@@ -138,10 +138,6 @@ class SpecialComponentsCfg:
     :param str version:
         (required), version which is selected by default, use `greatest` to
         always refer to the latest version available
-    :param VersionFilter versionFilter:
-        (optional), specify which versions to include when resolving the version
-        alias `greatest`; if not set it defaults to only consider
-        release versions according to SemVer (no suffix/snapshot)
     :param SprintRules sprintRules:
         (optional), rules to enrich the component with special conditions based
         on the current sprint
@@ -159,7 +155,6 @@ class SpecialComponentsCfg:
     displayName: str
     type: str
     version: str | CurrentVersion
-    versionFilter: odg.extensions_cfg.VersionFilter | None
     icon: str | None
     releasePipelineUrl: str | None
     sprintRules: SprintRules | None
@@ -678,15 +673,6 @@ class FeatureUpgradePRs(FeatureBase):
     name: str = 'upgrade-prs'
 
 
-@dataclasses.dataclass(frozen=True)
-class FeatureVersionFilter(FeatureBase):
-    name: str = 'version-filter'
-    version_filter: odg.extensions_cfg.VersionFilter = odg.extensions_cfg.VersionFilter.RELEASES_ONLY
-
-    def get_version_filter(self) -> odg.extensions_cfg.VersionFilter:
-        return self.version_filter
-
-
 def get_feature(
     feature_type: type[FeatureBase],
 ) -> FeatureBase | None:
@@ -878,15 +864,6 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
         yield FeatureUpgradePRs(FeatureStates.AVAILABLE)
     else:
         yield FeatureUpgradePRs(FeatureStates.UNAVAILABLE)
-
-    if version_filter := raw.get('versionFilter'):
-        yield FeatureVersionFilter(
-            state=FeatureStates.AVAILABLE,
-            version_filter=odg.extensions_cfg.VersionFilter(version_filter),
-        )
-    else:
-        # if no custom config is provided, fallback to default config of feature
-        yield FeatureVersionFilter(state=FeatureStates.AVAILABLE)
 
 
 def apply_raw_cfg():

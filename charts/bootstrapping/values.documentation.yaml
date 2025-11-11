@@ -30,18 +30,10 @@ extensions_cfg:
       - component_name: ""
         # @param extensions_cfg.artefact_enumerator.components[].version version of the OCM
         # component, if "null" or "greatest" is specified, resolves to the greatest available version
-        # considering extensions_cfg.artefact_enumerator.components[].version_filter as well
         version: null
         # @param extensions_cfg.artefact_enumerator.components[].ocm_repo_url may be used to
         # overwrite the default lookup via ocm_repo_mappings
         ocm_repo_url: null
-        # @param extensions_cfg.artefact_enumerator.components[].version_filter may be used to
-        # overwrite the default version filter features_cfg.versionFilter
-        # options:
-        # - null: use version filter specified via features_cfg.versionFilter
-        # - releases_only: only consider SemVer release versions when resolving "greatest"
-        # - all: consider all versions when resolving "greatest"
-        version_filter: null
         # @param extensions_cfg.artefact_enumerator.components[].max_versions_limit number of
         # versions that should be tracked
         max_versions_limit: 1
@@ -190,19 +182,11 @@ extensions_cfg:
         - component_name: ""
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version version
           # of the OCM component, if "null" or "greatest" is specified, resolves to the greatest
-          # available version considering
-          # extensions_cfg.cache_manager.prefill_function_caches.components[].version_filter as well
+          # available version
           version: null
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].ocm_repo_url may
           # be used to overwrite the default lookup via ocm_repo_mappings
           ocm_repo_url: null
-          # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version_filter
-          # may be used to overwrite the default version filter features_cfg.versionFilter
-          # options:
-          # - null: use version filter specified via features_cfg.versionFilter
-          # - releases_only: only consider SemVer release versions when resolving "greatest"
-          # - all: consider all versions when resolving "greatest"
-          version_filter: null
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].max_versions_limit
           # number of versions that should be tracked
           max_versions_limit: 1
@@ -700,13 +684,6 @@ features_cfg:
           # @param features_cfg.specialComponents[].version.source.postprocess if set, the version
           # will be appended by the current's commit sha, i.e. "{version}-{sha}"
           postprocess: false
-      # @param features_cfg.specialComponents[].versionFilter may be used to overwrite the default
-      # version filter features_cfg.versionFilter
-      # options:
-      # - null: use version filter specified via features_cfg.versionFilter
-      # - releases_only: only consider SemVer release versions when resolving "greatest"
-      # - all: consider all versions when resolving "greatest"
-      versionFilter: null
       # @param features_cfg.specialComponents[].icon icon is displayed next to the component on the
       # landing page of the delivery-dashboard
       # options:
@@ -908,13 +885,6 @@ features_cfg:
   # @param features_cfg.upgradePRs enables/disables the upgrade-PR feature which enables the
   # component-diff tab in the delivery-dashboard and shows detected upgrade-PRs
   upgradePRs: false
-
-  # @param features_cfg.versionFilter specifies which versions should be included in lookup when
-  # resolving "greatest" version
-  # options:
-  # - releases_only: only consider SemVer release versions when resolving "greatest"
-  # - all: consider all versions when resolving "greatest"
-  versionFilter: releases_only
 
 
 # @section findings only the configured types of finding will be available

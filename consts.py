@@ -23,7 +23,6 @@ APP_SECRET_FACTORY = 'secret_factory'
 APP_SPECIAL_COMPONENT_CALLBACK = 'special_component_callback'
 APP_SPRINTS = 'sprints'
 APP_SPRINTS_METADATA = 'sprints_metadata'
-APP_VERSION_FILTER_CALLBACK = 'version_filter_callback'
 APP_VERSION_LOOKUP = 'version_lookup'
 
 # `db_session` is intended to be used for tasks which have to be finished in a timely manner
