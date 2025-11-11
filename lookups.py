@@ -360,42 +360,6 @@ def init_component_descriptor_lookup_async(
     )
 
 
-def init_version_lookup(
-    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    oci_client: oci.client.Client=None,
-    default_absent_ok: bool=False,
-) -> cnudie.retrieve.VersionLookupByComponent:
-    if not ocm_repository_lookup:
-        ocm_repository_lookup = init_ocm_repository_lookup()
-
-    if not oci_client:
-        oci_client = semver_sanitising_oci_client()
-
-    return cnudie.retrieve.version_lookup(
-        ocm_repository_lookup=ocm_repository_lookup,
-        oci_client=oci_client,
-        default_absent_ok=default_absent_ok,
-    )
-
-
-def init_version_lookup_async(
-    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    oci_client: oci.client_async.Client=None,
-    default_absent_ok: bool=False,
-) -> cnudie.retrieve_async.VersionLookupByComponent:
-    if not ocm_repository_lookup:
-        ocm_repository_lookup = init_ocm_repository_lookup()
-
-    if not oci_client:
-        oci_client = semver_sanitising_oci_client_async()
-
-    return cnudie.retrieve_async.version_lookup(
-        ocm_repository_lookup=ocm_repository_lookup,
-        oci_client=oci_client,
-        default_absent_ok=default_absent_ok,
-    )
-
-
 def github_api_lookup(
     secret_factory: secret_mgmt.SecretFactory=None
 ) -> collections.abc.Callable[[str], github3.github.GitHub | None]:
