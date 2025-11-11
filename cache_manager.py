@@ -151,7 +151,6 @@ async def prefill_compliance_summary_caches(
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
-    invalid_semver_ok: bool,
     db_session: sqlasync.session.AsyncSession,
 ):
     seen_component_ids = set()
@@ -169,7 +168,6 @@ async def prefill_compliance_summary_caches(
             greatest_version=component.version,
             oci_client=oci_client,
             version_filter=version_filter,
-            invalid_semver_ok=invalid_semver_ok,
             db_session=db_session,
         )
 
@@ -219,7 +217,6 @@ async def prefill_function_caches(
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
-    invalid_semver_ok: bool,
     db_session: sqlasync.session.AsyncSession,
 ):
     for function_name in function_names:
@@ -233,7 +230,6 @@ async def prefill_function_caches(
                     version_lookup=version_lookup,
                     oci_client=oci_client,
                     finding_cfgs=finding_cfgs,
-                    invalid_semver_ok=invalid_semver_ok,
                     db_session=db_session,
                 )
 
@@ -253,7 +249,6 @@ async def main():
             odg.util.Arguments.K8S_NAMESPACE,
             odg.util.Arguments.EXTENSIONS_CFG_PATH,
             odg.util.Arguments.FINDINGS_CFG_PATH,
-            odg.util.Arguments.INVALID_SEMVER_OK,
             odg.util.Arguments.CACHE_DIR,
         ),
     )
@@ -328,7 +323,6 @@ async def main():
             version_lookup=version_lookup,
             oci_client=oci_client,
             finding_cfgs=finding_cfgs,
-            invalid_semver_ok=parsed_arguments.invalid_semver_ok,
             db_session=db_session,
         )
     finally:

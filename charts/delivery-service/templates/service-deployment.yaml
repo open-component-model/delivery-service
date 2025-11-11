@@ -48,9 +48,6 @@ spec:
             allowPrivilegeEscalation: false
           args:
             - --productive
-          {{- range $arg := default list .Values.args }}
-            - {{ $arg }}
-          {{- end }}
           readinessProbe:
             httpGet:
               path: /ready

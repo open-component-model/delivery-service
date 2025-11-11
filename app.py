@@ -53,12 +53,6 @@ def parse_args():
     parser.add_argument('--delivery-db-url', default=None)
     parser.add_argument('--cache-dir', default=default_cache_dir)
     parser.add_argument(
-        '--invalid-semver-ok',
-        action='store_true',
-        default=False,
-        help='whether to raise on invalid (semver) version when resolving greatest version',
-    )
-    parser.add_argument(
         '--k8s-cfg-name',
         help='specify kubernetes cluster to interact with extensions (and logs)',
     )
@@ -191,7 +185,6 @@ def add_app_context_vars(
     app[consts.APP_FINDING_CFGS] = finding_cfgs
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup
     app[consts.APP_GITHUB_REPO_LOOKUP] = github_repo_lookup
-    app[consts.APP_INVALID_SEMVER_OK] = parsed_arguments.invalid_semver_ok
     app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
     app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
     app[consts.APP_OCI_CLIENT] = oci_client
