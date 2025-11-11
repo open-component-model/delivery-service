@@ -156,9 +156,6 @@ async def prefill_compliance_summary_caches(
     seen_component_ids = set()
 
     for component in components:
-        if not (version_filter := component.version_filter):
-            version_filter = odg.extensions_cfg.VersionFilter.RELEASES_ONLY
-
         versions = await components_module.greatest_component_versions(
             component_name=component.component_name,
             component_descriptor_lookup=component_descriptor_lookup,
@@ -167,7 +164,6 @@ async def prefill_compliance_summary_caches(
             max_versions=component.max_versions_limit,
             greatest_version=component.version,
             oci_client=oci_client,
-            version_filter=version_filter,
             db_session=db_session,
         )
 

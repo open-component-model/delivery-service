@@ -163,10 +163,6 @@ def add_app_context_vars(
         sprints = []
         sprints_metadata = None
 
-    version_filter_callback = features.get_feature(
-        feature_type=features.FeatureVersionFilter,
-    ).get_version_filter
-
     base_url = get_base_url(
         is_productive=parsed_arguments.productive,
         kubernetes_api=kubernetes_api_callback() if kubernetes_api_callback else None,
@@ -193,7 +189,6 @@ def add_app_context_vars(
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
     app[consts.APP_SPRINTS] = sprints
     app[consts.APP_SPRINTS_METADATA] = sprints_metadata
-    app[consts.APP_VERSION_FILTER_CALLBACK] = version_filter_callback
     app[consts.APP_VERSION_LOOKUP] = version_lookup
 
     return app
