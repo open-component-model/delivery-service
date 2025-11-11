@@ -40,25 +40,3 @@ def component_descriptor_lookup_mockup_factory(
                 return component_descriptor
 
     return component_descriptor_lookup_mockup
-
-
-def versions_lookup_mockup_factory(
-    mock_component_file_path: str,
-) -> collections.abc.Callable[
-    [cnudie.util.ComponentName, ocm.OcmRepository | None],
-    collections.abc.Awaitable[collections.abc.Sequence[str]],
-]:
-    async def versions_lookup_mockup(
-        component_name: cnudie.util.ComponentName,
-        ocm: ocm.OcmRepository | None=None,
-    ) -> collections.abc.Sequence[str]:
-        component_descriptors = load_component_descriptors(
-            mock_component_file_path
-        )
-        versions: list[str] = []
-        for component_descriptor in component_descriptors:
-            if component_descriptor.component.name == component_name:
-                versions.append(component_descriptor.component.version)
-        return versions
-
-    return versions_lookup_mockup

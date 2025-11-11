@@ -99,11 +99,6 @@ def add_app_context_vars(
 ) -> aiohttp.web.Application:
     oci_client = lookups.semver_sanitising_oci_client_async(secret_factory)
 
-    version_lookup = lookups.init_version_lookup_async(
-        oci_client=oci_client,
-        default_absent_ok=True,
-    )
-
     delivery_db_feature = features.get_feature(features.FeatureDeliveryDB)
     if delivery_db_feature.state is features.FeatureStates.AVAILABLE:
         delivery_db_feature: features.FeatureDeliveryDB
@@ -189,7 +184,6 @@ def add_app_context_vars(
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
     app[consts.APP_SPRINTS] = sprints
     app[consts.APP_SPRINTS_METADATA] = sprints_metadata
-    app[consts.APP_VERSION_LOOKUP] = version_lookup
 
     return app
 
