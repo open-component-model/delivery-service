@@ -27,12 +27,6 @@ spec:
             - python3
             - -m
             - cache_manager
-            {{- if default list .Values.args }}
-            args:
-            {{- range $arg := .Values.args }}
-            - {{ $arg }}
-            {{- end }}
-            {{- end }}
             securityContext:
               allowPrivilegeEscalation: false
             env:

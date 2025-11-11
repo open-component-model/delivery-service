@@ -81,7 +81,6 @@ async def greatest_version_if_none(
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
     version_filter: odg.extensions_cfg.VersionFilter=odg.extensions_cfg.VersionFilter.RELEASES_ONLY,
-    invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ):
     if version is None:
@@ -91,7 +90,6 @@ async def greatest_version_if_none(
             ocm_repo=ocm_repo,
             oci_client=oci_client,
             version_filter=version_filter,
-            invalid_semver_ok=invalid_semver_ok,
             db_session=db_session,
         )
 
@@ -109,7 +107,6 @@ async def _component_descriptor(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     version_filter: odg.extensions_cfg.VersionFilter,
-    invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ) -> ocm.ComponentDescriptor:
     component_name = util.param(params, 'component_name', required=True)
@@ -134,7 +131,6 @@ async def _component_descriptor(
             version_lookup=version_lookup,
             ocm_repo=ocm_repo,
             version_filter=version_filter,
-            invalid_semver_ok=invalid_semver_ok,
             db_session=db_session,
         )
 
@@ -255,7 +251,6 @@ class Component(aiohttp.web.View):
             component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
             version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
             version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
-            invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
             db_session=self.request.get(consts.REQUEST_DB_SESSION),
         )
 
@@ -331,7 +326,6 @@ class ComponentDependencies(aiohttp.web.View):
                 version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
-                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 db_session=self.request.get(consts.REQUEST_DB_SESSION),
             )
 
@@ -441,7 +435,6 @@ class ComponentResponsibles(aiohttp.web.View):
             component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
             version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
             version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
-            invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
             db_session=self.request.get(consts.REQUEST_DB_SESSION),
         )
         component = component_descriptor.component
@@ -599,7 +592,6 @@ async def greatest_component_version(
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
     version_filter: odg.extensions_cfg.VersionFilter=odg.extensions_cfg.VersionFilter.RELEASES_ONLY,
-    invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ) -> str | None:
     versions = await component_versions(
@@ -616,7 +608,6 @@ async def greatest_component_version(
         if isinstance(candidate, str):
             candidate_semver = versionutil.parse_to_semver(
                 version=candidate,
-                invalid_semver_ok=invalid_semver_ok,
             )
 
             if not candidate_semver:
@@ -651,7 +642,6 @@ async def greatest_component_versions(
     greatest_version: str=None,
     oci_client: oci.client_async.Client=None,
     version_filter: odg.extensions_cfg.VersionFilter=odg.extensions_cfg.VersionFilter.RELEASES_ONLY,
-    invalid_semver_ok: bool=False,
     start_date: datetime.date=None,
     end_date: datetime.date=None,
     db_session: sqlasync.session.AsyncSession=None,
@@ -671,7 +661,6 @@ async def greatest_component_versions(
         v for v in versions
         if versionutil.parse_to_semver(
             version=v,
-            invalid_semver_ok=invalid_semver_ok,
         )
     ]
 
@@ -680,13 +669,11 @@ async def greatest_component_versions(
             v for v in versions
             if not (pv := versionutil.parse_to_semver(
                 version=v,
-                invalid_semver_ok=invalid_semver_ok,
             )).prerelease and not pv.build
         ]
 
     versions = sorted(versions, key=lambda v: versionutil.parse_to_semver(
         version=v,
-        invalid_semver_ok=invalid_semver_ok,
     ))
 
     # If no end_date is provided, default to now
@@ -809,7 +796,6 @@ class GreatestComponentVersions(aiohttp.web.View):
                 max_versions=int(max_version),
                 greatest_version=version,
                 version_filter=version_filter,
-                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 start_date=start_date,
                 end_date=end_date,
                 db_session=self.request.get(consts.REQUEST_DB_SESSION),
@@ -948,7 +934,6 @@ class UpgradePRs(aiohttp.web.View):
                 version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
-                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 db_session=self.request.get(consts.REQUEST_DB_SESSION),
             )
 
@@ -1282,7 +1267,6 @@ class ComplianceSummary(aiohttp.web.View):
         '''
         params = self.request.rel_url.query
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
-        invalid_semver_ok = self.request.app[consts.APP_INVALID_SEMVER_OK]
         version_filter_callback = self.request.app[consts.APP_VERSION_FILTER_CALLBACK]
         version_lookup = self.request.app[consts.APP_VERSION_LOOKUP]
 
@@ -1310,7 +1294,6 @@ class ComplianceSummary(aiohttp.web.View):
                 version_lookup=version_lookup,
                 ocm_repo=ocm_repo,
                 version_filter=version_filter,
-                invalid_semver_ok=invalid_semver_ok,
                 db_session=db_session,
             )
 
