@@ -15,9 +15,6 @@ import dateutil.parser
 import github3.repos
 import yaml
 
-import cnudie.retrieve
-import ocm
-
 import consts
 import ctx_util
 import k8s.util
@@ -398,26 +395,27 @@ class FeatureTests(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
-class FeatureRepoContexts(FeatureBase):
-    name: str = 'repo-contexts'
-    ocm_repo_mappings: list[cnudie.retrieve.OcmRepositoryMappingEntry] = None
+class FeatureOcmRepositoryCfgs(FeatureBase):
+    name: str = 'ocm-repository-cfgs'
+    ocm_repository_cfgs: list[lookups.OciOcmRepositoryCfg | lookups.VirtualOcmRepositoryCfg] = None
 
-    def get_ocm_repos(self) -> collections.abc.Generator[ocm.OciOcmRepository, None, None] | None:
+    def iter_resolved_ocm_repository_cfgs(self) -> collections.abc.Iterable[dict]:
         if self.state is FeatureStates.UNAVAILABLE:
-            return None
+            return
 
-        yield from { # use set for deduplication
-            ocm.OciOcmRepository(baseUrl=mapping.repository)
-            for mapping in self.ocm_repo_mappings
-        }
+        for ocm_repository_cfg in self.ocm_repository_cfgs:
+            ocm_repository_cfg_raw = util.dict_serialisation(ocm_repository_cfg)
+            ocm_repository_cfg_raw['repositories'] = list(ocm_repository_cfg.iter_ocm_repositories(
+                ocm_repository_cfgs=self.ocm_repository_cfgs,
+            ))
+
+            yield ocm_repository_cfg_raw
 
     def serialize(self, profile: Profile | None=None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
-            'cfg': {
-                'repoContexts': list(self.get_ocm_repos()),
-            },
+            'ocm_repository_cfgs': list(self.iter_resolved_ocm_repository_cfgs()),
         }
 
 
@@ -722,19 +720,27 @@ def deserialise_profiles(profiles_raw: dict) -> FeatureProfiles:
     )
 
 
-def deserialise_repo_contexts(
-    ocm_repo_mappings_raw: dict,
-) -> FeatureRepoContexts:
-    ocm_repo_mappings = [
-        dacite.from_dict(
-            data_class=cnudie.retrieve.OcmRepositoryMappingEntry,
-            data=raw_mapping,
-        ) for raw_mapping in ocm_repo_mappings_raw
+def deserialise_ocm_repository_cfgs(
+    ocm_repository_cfgs_raw: dict,
+) -> FeatureOcmRepositoryCfgs:
+    ocm_repository_cfgs = [
+        lookups.OcmRepositoryCfgBase.from_dict(ocm_repository_cfg_raw)
+        for ocm_repository_cfg_raw in ocm_repository_cfgs_raw
     ]
 
-    return FeatureRepoContexts(
+    # insert default `<auto>` virtual repository configuration if not present
+    if not any(
+        ocm_repository_cfg.name == lookups.OcmRepositoryCfgNames.AUTO
+        for ocm_repository_cfg in ocm_repository_cfgs
+        if isinstance(ocm_repository_cfg, lookups.VirtualOcmRepositoryCfg)
+    ):
+        ocm_repository_cfgs.insert(0, lookups.VirtualOcmRepositoryCfg(
+            name=lookups.OcmRepositoryCfgNames.AUTO,
+        ))
+
+    return FeatureOcmRepositoryCfgs(
         FeatureStates.AVAILABLE,
-        ocm_repo_mappings=ocm_repo_mappings,
+        ocm_repository_cfgs=ocm_repository_cfgs,
     )
 
 
@@ -900,16 +906,16 @@ def apply_raw_cfg():
 
     if (
         (ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True))
-        and (ocm_repo_mappings_raw := util.parse_yaml_file(ocm_repo_mappings_path))
+        and (ocm_repository_cfgs_raw := util.parse_yaml_file(ocm_repo_mappings_path))
     ):
-        ocm_repo_mappings_feature = deserialise_repo_contexts(
-            ocm_repo_mappings_raw=ocm_repo_mappings_raw,
+        ocm_repository_cfgs_feature = deserialise_ocm_repository_cfgs(
+            ocm_repository_cfgs_raw=ocm_repository_cfgs_raw,
         )
     else:
-        ocm_repo_mappings_feature = FeatureRepoContexts(FeatureStates.UNAVAILABLE)
+        ocm_repository_cfgs_feature = FeatureOcmRepositoryCfgs(FeatureStates.UNAVAILABLE)
 
-    feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureRepoContexts)]
-    feature_cfgs.append(ocm_repo_mappings_feature)
+    feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureOcmRepositoryCfgs)]
+    feature_cfgs.append(ocm_repository_cfgs_feature)
 
     if (
         (profiles_path := paths.profiles_path(absent_ok=True))
