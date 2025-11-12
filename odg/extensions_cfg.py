@@ -912,9 +912,6 @@ class OsId(BacklogItemMixins):
 
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
-            ocm.AccessType.OCI_BLOB,
-            ocm.AccessType.LOCAL_BLOB,
-            ocm.AccessType.S3,
         )
 
         if access_type and access_type not in supported_access_types:
