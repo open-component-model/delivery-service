@@ -107,8 +107,8 @@ def base_image_osid(
 
     if not manifest.layers:
         raise ValueError(f'no layers found in manifest for {image_reference}')
-    
-    last_os_info: odg.model.OperatingSystemId = odg.model.OperatingSystemId( NAME = 'unknown')
+
+    last_os_info: odg.model.OperatingSystemId = odg.model.OperatingSystemId(NAME='unknown')
 
     for layer in manifest.layers:
         layer_blob = oci_client.blob(
@@ -238,7 +238,8 @@ def process_artefact(
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{access.type} is not supported by the OSID extension, maybe the filter '
-                'configurations have to be adjusted to filter out this access type'            )
+                'configurations have to be adjusted to filter out this access type'
+            )
         return
 
     osid: odg.model.OperatingSystemId | None = base_image_osid(
