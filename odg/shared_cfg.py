@@ -118,7 +118,7 @@ def shared_cfg_lookup(
         if ocm_ref.ocm_repo:
             component = component_descriptor_lookup(
                 ocm_ref.component_id,
-                ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_ref.ocm_repo),
+                ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_ref.ocm_repo),
             ).component
         else:
             component = component_descriptor_lookup(ocm_ref.component_id).component
