@@ -498,25 +498,36 @@ async def component_versions(
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
     db_session: sqlasync.session.AsyncSession=None, # required for db-cache
-) -> list[str]:
-    if not ocm_repo:
-        raise ValueError('`ocm_repo` must be specified')
+) -> set[str]:
+    if not oci_client:
+        oci_client = lookups.semver_sanitising_oci_client_async()
 
-    if ocm_repo:
-        if not isinstance(ocm_repo, ocm.OciOcmRepository):
-            raise NotImplementedError(ocm_repo)
+    ocm_repository_cfgs = lookups.resolve_ocm_repository_cfgs(ocm_repo)
 
-        if not oci_client:
-            oci_client = lookups.semver_sanitising_oci_client_async()
+    included_versions = set()
+
+    for ocm_repository_cfg in ocm_repository_cfgs:
+        if not ocm_repository_cfg.prefix_matches(component_name):
+            continue
 
         try:
-            return await cnudie.retrieve_async.component_versions(
+            versions = await cnudie.retrieve_async.component_versions(
                 component_name=component_name,
-                ocm_repo=ocm_repo,
+                ocm_repo=ocm_repository_cfg.ocm_repository,
                 oci_client=oci_client,
             )
-        except aiohttp.ClientResponseError:
-            return []
+        except aiohttp.ClientResponseError as e:
+            image_reference = ocm_repository_cfg.ocm_repository.component_oci_ref(component_name)
+            if e.status == cnudie.retrieve.error_code_indicating_not_found(
+                image_reference=image_reference,
+            ):
+                continue # no versions found
+
+            raise
+
+        included_versions.update(ocm_repository_cfg.iter_matching_versions(versions))
+
+    return included_versions
 
 
 async def greatest_component_version(
