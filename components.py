@@ -710,7 +710,7 @@ async def resolve_component_dependencies(
     ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
 ) -> collections.abc.AsyncGenerator[ocm.iter.ComponentNode, None, None]:
-    descriptor = await util.retrieve_component_descriptor(
+    component_descriptor = await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
             name=component_name,
             version=component_version,
@@ -718,38 +718,44 @@ async def resolve_component_dependencies(
         component_descriptor_lookup=component_descriptor_lookup,
         ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
     )
-    component = descriptor.component
+    component = component_descriptor.component
 
     try:
-        component_nodes = await _components(
-            component_name=component.name,
-            component_version=component.version,
-            component_descriptor_lookup=component_descriptor_lookup,
-            ocm_repo=ocm_repo,
+        async for component_node in ocm.iter_async.iter(
+            component=component,
+            lookup=component_descriptor_lookup,
             recursion_depth=recursion_depth,
-        )
+            prune_unique=False,
+            node_filter=ocm.iter.Filter.components,
+        ):
+            # add repo classification label if not present in component labels
+            label_present = False
+            # if no sources present we cannot add the source
+            if not len(component_node.component.sources) > 0:
+                yield component_node
+                continue
+
+            for source in component_node.component.sources:
+                if 'cloud.gardener/cicd/source' in [label.name for label in source.labels]:
+                    label_present = True
+                    break
+            if not label_present:
+                component_node.component.sources[0].labels.append(ocm.Label(
+                    name='cloud.gardener/cicd/source',
+                    value={'repository-classification': 'main'},
+                ))
+
+            yield component_node
     except dacite.exceptions.MissingValueError as e:
         raise aiohttp.web.HTTPFailedDependency(text=str(e))
-
-    # add repo classification label if not present in component labels
-    async for component_node in component_nodes:
-        label_present = False
-        # if no sources present we cannot add the source
-        if not len(component_node.component.sources) > 0:
-            yield component_node
-            continue
-
-        for source in component_node.component.sources:
-            if 'cloud.gardener/cicd/source' in [label.name for label in source.labels]:
-                label_present = True
-                break
-        if not label_present:
-            component_node.component.sources[0].labels.append(ocm.Label(
-                name='cloud.gardener/cicd/source',
-                value={'repository-classification': 'main'},
-            ))
-
-        yield component_node
+    except om.OciImageNotFoundException:
+        err_str = (
+            f'Error occurred during retrieval of component dependencies of {component.identity()}'
+        )
+        logger.warning(err_str)
+        raise aiohttp.web.HTTPUnprocessableEntity(
+            text=err_str,
+        )
 
 
 class UpgradePRs(aiohttp.web.View):
@@ -1044,40 +1050,6 @@ class ComponentDescriptorDiff(aiohttp.web.View):
                 ],
             },
             dumps=util.dict_to_json_factory,
-        )
-
-
-async def _components(
-    component_name: str,
-    component_version: str,
-    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repo: ocm.OcmRepository=None,
-    recursion_depth: int=-1,
-) -> collections.abc.AsyncGenerator[ocm.iter.ComponentNode, None, None]:
-    component_descriptor = await util.retrieve_component_descriptor(
-        ocm.ComponentIdentity(
-            name=component_name,
-            version=component_version,
-        ),
-        component_descriptor_lookup=component_descriptor_lookup,
-        ocm_repo=ocm_repo,
-    )
-
-    try:
-        return ocm.iter_async.iter(
-            component=component_descriptor,
-            lookup=component_descriptor_lookup,
-            recursion_depth=recursion_depth,
-            prune_unique=False,
-            node_filter=ocm.iter.Filter.components,
-        )
-    except om.OciImageNotFoundException:
-        err_str = 'Error occurred during retrieval of component dependencies of ' \
-        f'{component_descriptor.component.name=} in {component_descriptor.component.version=}'
-        logger.warning(err_str)
-        raise aiohttp.web.HTTPUnprocessableEntity(
-            reason='Error occurred during retrieval of component dependencies',
-            text=err_str,
         )
 
 
