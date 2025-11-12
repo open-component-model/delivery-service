@@ -557,16 +557,56 @@ extensions_cfg:
     on_unsupported: warning
 
 
-# @section ocm_repo_mappings mapping between OCM components and their respective OCM repository
+# @section ocm_repo_mappings mapping between OCM components and their respective OCM repository.
+# Allows to define repository-specific version filtering rules as well as "virtual" repositories
+# combining multiple repositories together. If no "virtual" repository named "<auto>" is defined,
+# it will be added implicitly and will include all "oci" repositories.
 ocm_repo_mappings:
-    # @param ocm_repo_mappings.prefix prefix of the OCM component name for which the OCM repository
-    # should be used
-    # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
-  - prefix: ""
-    # @param ocm_repo_mappings.repository the OCM repository
+    # @param ocm_repo_mappings[].type the type of the repository mapping
+    # options:
+    # - oci: an OCM OCI repository with optional configuration options (default) (see below)
+    # - virtual: a combined view on multiple OCM repositories (e.g. for auto-lookup)
+  - type: oci
+    # @param ocm_repo_mappings[].repository the OCM repository
     # e.g.
     # repository: europe-docker.pkg.dev/gardener-project/releases
     repository: ""
+    # @param ocm_repo_mappings[].prefixes the prefix(es) of OCM component name(s) for which the OCM
+    # repository should be used. Use `null` or the empty string "" as "match-all"
+    # note: The prefixes are _not_ evaluated as a regex
+    prefixes: null
+    # @param ocm_repo_mappings[].labels optional label(s) which can be used as selector for
+    # "virtual" OCM repositories
+    labels: null
+    # @param ocm_repo_mappings[].version_filter specifies which versions are considered from this OCM
+    # repository
+    # options:
+    # - any: all versions are considered (default)
+    # - semver_any: only versions which are SemVer compatible
+    # - semver_non_releases: only versions which contain either SemVer prerelease or build suffix
+    # - semver_releases: only versions which contain neither SemVer prerelease or build suffix
+    # - <custom-regex>: use a custom regex to filter versions
+    version_filter: any
+    # @param ocm_repo_mappings[].type the type of the repository mapping
+    # options:
+    # - oci: an OCM OCI repository with optional configuration options (default)
+    # - virtual: a combined view on multiple OCM repositories (e.g. for auto-lookup) (see below)
+  - type: virtual
+    # @param ocm_repo_mappings[].name the name of the virtual OCM repository
+    # e.g.
+    # name: <auto>
+    name: ""
+    # @param ocm_repo_mappings[].selectors optional selectors to restrict the virtual OCM repository
+    # to a subset of non-virtual repositories or to overwrite existing version filters (multiple
+    # selectors are combined using an "OR" expression)
+    selectors:
+        # @param ocm_repo_mappings[].selectors[].required_labels only include repositories which are
+        # labeled accordingly (multiple labels are combined using an "AND" expression). Use a falsy
+        # value as "match-all"
+      - required_labels: null
+        # @param ocm_repo_mappings[].selectors[].version_filter_overwrite overwrites the default
+        # version filter defined at ocm_repo_mappings[].version_filter
+        version_filter_overwrite: null
 
 
 # @section addressbook used to lookup additional information for responsibles, e.g. full name, email,
