@@ -543,29 +543,18 @@ async def greatest_component_version(
         db_session=db_session,
     )
 
-    greatest_candidate = None
-    greatest_candidate_semver = None
-    for candidate in versions:
-        if isinstance(candidate, str):
-            candidate_semver = versionutil.parse_to_semver(
-                version=candidate,
-            )
+    if not versions:
+        return None
 
-            if not candidate_semver:
-                continue
-        else:
-            candidate_semver = candidate
+    def version_key(version: str) -> str:
+        try:
+            version = versionutil.parse_to_semver(version)
+        except ValueError:
+            version = versionutil.parse_to_semver('0.0')
 
-        if not greatest_candidate_semver:
-            greatest_candidate_semver = candidate_semver
-            greatest_candidate = candidate
-            continue
+        return version
 
-        if candidate_semver > greatest_candidate_semver:
-            greatest_candidate_semver = candidate_semver
-            greatest_candidate = candidate
-
-    return greatest_candidate
+    return sorted(versions, key=version_key)[-1]
 
 
 async def greatest_component_versions(
@@ -586,23 +575,15 @@ async def greatest_component_versions(
         db_session=db_session,
     )
 
-    if not versions:
-        return []
+    def version_key(version: str) -> str:
+        try:
+            version = versionutil.parse_to_semver(version)
+        except ValueError:
+            version = versionutil.parse_to_semver('0.0')
 
-    versions = [
-        v for v in versions
-        if versionutil.parse_to_semver(
-            version=v,
-        )
-    ]
+        return version
 
-    versions = sorted(versions, key=lambda v: versionutil.parse_to_semver(
-        version=v,
-    ))
-
-    # If no end_date is provided, default to now
-    if not end_date:
-        end_date = datetime.date.today().isoformat()
+    versions = sorted(versions, key=version_key)
 
     # Handle date range filtering only if start_date is provided
     if start_date:
@@ -613,13 +594,13 @@ async def greatest_component_versions(
                         name=component_name,
                         version=version,
                     ),
-                    component_descriptor_lookup
+                    component_descriptor_lookup=component_descriptor_lookup,
                 )
                 creation_date = util.get_creation_date(
                     component_descriptor.component
                 ).strftime('%Y-%m-%d')
 
-                if creation_date > end_date:
+                if end_date and creation_date > end_date:
                     continue
 
                 if creation_date < start_date:
@@ -632,7 +613,7 @@ async def greatest_component_versions(
             in filter_by_date_range(versions)
         ]
 
-    if greatest_version:
+    if greatest_version in versions:
         versions = versions[:versions.index(greatest_version) + 1]
 
     if not start_date:
