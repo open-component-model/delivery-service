@@ -1,0 +1,10 @@
+release_notes:
+  - type: standard
+    audience: operator
+    category: bugfix
+    mimetype: text/markdown
+    contents: Fix missing import of `ocm.util` module in GHAS extension
+    author:
+      hostname: github.com
+      type: githubUser
+      username: 8R0WNI3

@@ -17,6 +17,7 @@ import ci.log
 import cnudie.retrieve
 import delivery.client
 import ocm
+import ocm.util
 
 import ctx_util
 import k8s.logging
