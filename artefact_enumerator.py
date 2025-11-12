@@ -89,7 +89,7 @@ def _iter_ocm_artefacts(
             if ocm_repo := component.ocm_repo:
                 component_descriptor = component_descriptor_lookup(
                     component_id,
-                    ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+                    ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
                 ).component
             else:
                 component_descriptor = component_descriptor_lookup(component_id).component

@@ -125,16 +125,8 @@ async def _component_descriptor(
         version=version,
     )
 
-    if ocm_repo_url:
-        ocm_repos = (ocm_repo_url,)
-    else:
-        if not (lookup := lookups.init_ocm_repository_lookup()):
-            raise ValueError('either ocm_repo_url, or ocm_repository_lookup must be passed')
-
-        ocm_repos = cnudie.retrieve.iter_ocm_repositories(
-            component_id,
-            lookup,
-        )
+    ocm_repository_lookup = lookups.init_ocm_repository_lookup(ocm_repo_url)
+    ocm_repos = list(ocm_repository_lookup(component_name))
 
     if raw or ignore_cache:
         # in both cases fetch directly from oci-registry
@@ -180,7 +172,7 @@ async def _component_descriptor(
         descriptor = await util.retrieve_component_descriptor(
             component_id,
             component_descriptor_lookup=component_descriptor_lookup,
-            ocm_repo=ocm_repo,
+            ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
         )
     except dacite.exceptions.MissingValueError as e:
         raise aiohttp.web.HTTPFailedDependency(
@@ -724,7 +716,7 @@ async def resolve_component_dependencies(
             version=component_version,
         ),
         component_descriptor_lookup=component_descriptor_lookup,
-        ocm_repo=ocm_repo,
+        ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
     )
     component = descriptor.component
 
@@ -826,7 +818,7 @@ class UpgradePRs(aiohttp.web.View):
                     version=component_version,
                 ),
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
-                ocm_repo=ocm_repo,
+                ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
             )
             component = component_descriptor.component
             source = cnudie.util.main_source(
