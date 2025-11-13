@@ -903,10 +903,23 @@ class OsId(BacklogItemMixins):
     def is_supported(
         self,
         artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
     ) -> bool:
+
         supported_artefact_kinds = (
             odg.model.ArtefactKind.RESOURCE,
         )
+
+        supported_access_types = (
+            ocm.AccessType.OCI_REGISTRY,
+        )
+
+        if access_type and access_type not in supported_access_types:
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{access_type=} is not supported for OS_ID scans, {supported_access_types=}'
+                )
+            return False
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:

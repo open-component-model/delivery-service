@@ -87,26 +87,6 @@ def determine_os_status(
     return odg.model.OsStatus.PATCHLEVEL_BEHIND, greatest_version, eol_date
 
 
-def determine_osid(
-    resource: ocm.Resource,
-    oci_client: oci.client.Client,
-) -> odg.model.OperatingSystemId | None:
-
-    if resource.type != ocm.ArtefactType.OCI_IMAGE:
-        return
-
-    if not resource.access:
-        return
-
-    if resource.access.type != ocm.AccessType.OCI_REGISTRY:
-        return
-
-    return base_image_osid(
-        oci_client=oci_client,
-        resource=resource,
-    )
-
-
 def base_image_osid(
     oci_client: oci.client.Client,
     resource: ocm.Resource,
@@ -125,7 +105,10 @@ def base_image_osid(
         image_reference = oci.model.OciImageReference(image_reference)
         manifest = oci_client.manifest(image_reference.with_tag(manifest.digest))
 
-    last_os_info = None
+    if not manifest.layers:
+        raise ValueError(f'no layers found in manifest for {image_reference}')
+
+    last_os_info: odg.model.OperatingSystemId = odg.model.OperatingSystemId(NAME='unknown')
 
     for layer in manifest.layers:
         layer_blob = oci_client.blob(
@@ -137,7 +120,7 @@ def base_image_osid(
         )
         tf = tarfile.open(fileobj=fileproxy, mode='r|*')
         if (os_info := osidscan.determine_osinfo(tf)):
-            last_os_info = os_info
+            last_os_info: odg.model.OperatingSystemId = os_info
 
     return last_os_info
 
@@ -164,10 +147,6 @@ def create_artefact_metadata(
         data={},
         discovery_date=time_now.date(),
     )
-
-    if not osid:
-        logger.info('No osid found, uploading artefact-scan-info only')
-        return
 
     logger.info(f'Processing {osid=}')
     os_status, greatest_version, eol_date = determine_os_status(
@@ -249,14 +228,23 @@ def process_artefact(
             )
         return
 
-    resource = k8s.util.get_ocm_node(
+    resource_node = k8s.util.get_ocm_node(
         component_descriptor_lookup=component_descriptor_lookup,
         artefact=artefact,
-    ).resource
+    )
+    access = resource_node.resource.access
 
-    osid = determine_osid(
-        resource=resource,
+    if not extension_cfg.is_supported(access_type=access.type):
+        if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+            raise TypeError(
+                f'{access.type} is not supported by the OSID extension, maybe the filter '
+                'configurations have to be adjusted to filter out this access type'
+            )
+        return
+
+    osid: odg.model.OperatingSystemId | None = base_image_osid(
         oci_client=oci_client,
+        resource=resource_node.resource,
     )
 
     logger.info(f'uploading os-info for {artefact}')
@@ -265,7 +253,7 @@ def process_artefact(
         osid=osid,
         osid_finding_config=osid_finding_config,
         eol_client=eol_client,
-        relation=resource.relation,
+        relation=resource_node.resource.relation,
     )
 
     delivery_client.update_metadata(data=osid_metadata)
