@@ -496,6 +496,7 @@ class ComponentResponsibles(aiohttp.web.View):
 async def component_versions(
     component_name: str,
     ocm_repo: ocm.OcmRepository=None,
+    version_filter: lookups.VersionFilter | str | None=None,
     oci_client: oci.client_async.Client=None,
     db_session: sqlasync.session.AsyncSession=None, # required for db-cache
 ) -> set[str]:
@@ -525,7 +526,10 @@ async def component_versions(
 
             raise
 
-        included_versions.update(ocm_repository_cfg.iter_matching_versions(versions))
+        included_versions.update(ocm_repository_cfg.iter_matching_versions(
+            versions=versions,
+            version_filter_overwrite=version_filter,
+        ))
 
     return included_versions
 
@@ -564,6 +568,7 @@ async def greatest_component_versions(
     max_versions: int=5,
     greatest_version: str=None,
     oci_client: oci.client_async.Client=None,
+    version_filter: lookups.VersionFilter | str | None=None,
     start_date: datetime.date=None,
     end_date: datetime.date=None,
     db_session: sqlasync.session.AsyncSession=None,
@@ -571,6 +576,7 @@ async def greatest_component_versions(
     versions = await component_versions(
         component_name=component_name,
         ocm_repo=ocm_repo,
+        version_filter=version_filter,
         oci_client=oci_client,
         db_session=db_session,
     )
@@ -656,6 +662,16 @@ class GreatestComponentVersions(aiohttp.web.View):
           name: end_date
           type: string
           required: false
+        - in: query
+          name: version_filter
+          type: string
+          enum:
+          - all
+          - non_releases_only
+          - releases_only
+          - semver_all
+          - <custom-regex>
+          required: false
         responses:
           "200":
             description: Successful operation.
@@ -675,6 +691,12 @@ class GreatestComponentVersions(aiohttp.web.View):
         ocm_repo_url = util.param(params, 'ocm_repo_url')
         ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
+        version_filter = util.param(params, 'version_filter')
+        try:
+            version_filter = lookups.VersionFilter(version_filter)
+        except ValueError:
+            pass # in this case the provided version filter is to be interpreted as custom regex
+
         try:
             versions = await greatest_component_versions(
                 component_name=component_name,
@@ -682,6 +704,7 @@ class GreatestComponentVersions(aiohttp.web.View):
                 ocm_repo=ocm_repo,
                 max_versions=int(max_version),
                 greatest_version=version,
+                version_filter=version_filter,
                 start_date=start_date,
                 end_date=end_date,
                 db_session=self.request.get(consts.REQUEST_DB_SESSION),
