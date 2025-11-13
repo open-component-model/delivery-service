@@ -102,6 +102,48 @@ extensions_cfg:
     # - warning: skip processing and log a warning message (default)
     on_unsupported: warning
 
+  # @param extensions_cfg.blackduck workers which re-upload BDBA results to BlackDuck and fetch
+  # results/findings (e.g. "ip" findings)
+  blackduck:
+    # @param extensions_cfg.blackduck.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.blackduck.delivery_service_url url to access the delivery-service
+    # (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.blackduck.interval time (in seconds) after which a component should be
+    # re-scanned the latest
+    interval: 86400 # 24h
+    # @param extensions_cfg.blackduck.mappings list of component prefixes that should be processed
+    # together with some individual configuration
+    mappings:
+        # @param extensions_cfg.blackduck.mappings[].prefix prefix of the OCM component name
+        # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
+      - prefix: ""
+        # @param extensions_cfg.blackduck.mappings[].targets the BlackDuck targets to upload the
+        # results to and retrieve the findings from
+        targets:
+            # @param extensions_cfg.blackduck.mappings[].targets[].group_id the BlackDuck group id
+          - group_id: ""
+            # @param extensions_cfg.blackduck.mappings[].targets[].host the hostname of the BlackDuck
+            # instance
+            host: ""
+        # @param extensions_cfg.blackduck.mappings[].group_id_bdba the BDBA group id to retrieve the
+        # scan results from
+        group_id_bdba: -1
+        # @param extensions_cfg.blackduck.mappings[].processing_mode the behaviour in case the BDBA
+        # scan already exists
+        # options:
+        # - rescan: re-use already uploaded binary and retrieve updated scan results
+        # - force_upload: always re-upload binary and retrieve updated scan results
+        processing_mode: rescan
+        # @param extensions_cfg.blackduck.mappings[].aws_secret_name in case the resources are stored
+        # in AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws
+        # secret to use must be specified
+        aws_secret_name: null
+
   # @param extensions_cfg.cache_manager cronjob which regularly updates the persistent cache entries
   # and purges stale cache entries if required
   cache_manager:
@@ -165,7 +207,7 @@ extensions_cfg:
           # number of versions that should be tracked
           max_versions_limit: 1
 
-  # @param extensions_cfg.clamav worker which interact with use ClamAV to create malware findings
+  # @param extensions_cfg.clamav workers which use ClamAV to create malware findings
   clamav:
     # @param extensions_cfg.clamav.enabled allows disabling of extension without removing its
     # configuration
@@ -1290,6 +1332,18 @@ secrets:
       group_ids: []
       # @param secrets.bdba.<name>.tls_verify
       tls_verify: true
+
+  # @param secrets.blackduck mapping of a secret-name (freely selectable) and the BlackDuck
+  # secret-values
+  blackduck:
+    primary:
+      # @param secrets.blackduck.<name>.api_url the api url of the desired BlackDuck instance
+      api_url: str
+      # @param secrets.blackduck.<name>.group_id the BlackDuck group id these credentials should
+      # be used for
+      group_id: str
+      # @param secrets.blackduck.<name>.token the BlackDuck access token
+      token: str
 
   # @param secrets.delivery-db mapping of a secret-name (freely selectable) and the delivery-db
   # secret-values. There must be exactly _one_ secret
