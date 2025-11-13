@@ -11,11 +11,23 @@ artefact_enumerator:
     - component_name: ocm.software/ocm-gear
       ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
 
+backlog_controller:
+  enabled: False
+
 bdba:
   enabled: False
   mappings:
     - prefix: ''
       group_id: 0 # <int> must be set
+
+blackduck:
+  enabled: False
+  mappings:
+    - prefix: ''
+      group_id_bdba: 0 # <int> must be set
+      targets:
+        - group_id: '' # <str> must be set
+          host: '' # <str> must be set
 
 cache_manager:
   enabled: False
@@ -59,6 +71,11 @@ issue_replicator:
     - prefix: ''
       github_repository: my-github-repository # <str> must be set
 
+odg_operator:
+  enabled: False
+  required_extension_names: []
+  extension_ocm_references: []
+
 osid:
   enabled: False
 
@@ -73,8 +90,3 @@ responsibles:
 
 sast:
   enabled: False
-
-odg_operator:
-  enabled: False
-  required_extension_names: []
-  extension_ocm_references: []

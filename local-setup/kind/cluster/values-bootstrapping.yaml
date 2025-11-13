@@ -8,6 +8,8 @@ extensions_cfg:
     components:
       - component_name: ocm.software/ocm-gear
       - component_name: ocm.software/ocmcli
+  backlog_controller:
+    enabled: True
   bdba:
     enabled: False # disable in default because of missing BDBA credentials
     mappings:
@@ -44,6 +46,8 @@ extensions_cfg:
     ocm_repo_url: ''
     backup_retention_count: 1
   ghas:
+    enabled: False
+  odg_operator:
     enabled: False
   osid:
     enabled: False # disable in default because of high memory
