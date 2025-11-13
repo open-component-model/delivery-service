@@ -247,7 +247,7 @@ class BlackDuckConfig(BacklogItemMixins):
     delivery_service_url: str
     mappings: list[BlackDuckExtensionMapping]
     interval: int = 60 * 60 * 24 # 24h
-    on_supported: WarningVerbosities = WarningVerbosities.WARNING
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> BlackDuckExtensionMapping:
         for mapping in self.mappings:
@@ -274,14 +274,14 @@ class BlackDuckConfig(BacklogItemMixins):
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
-            if self.on_supported is WarningVerbosities.WARNING:
+            if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for BD scans, {supported_artefact_kinds=}'
                 )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
-            if self.on_supported is WarningVerbosities.WARNING:
+            if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{access_type=} is not supported for BD scans, {supported_access_types=}'
                 )
