@@ -185,8 +185,10 @@ definitions:
       - finding/crypto
       - finding/diki
       - finding/falco
+      - finding/kyverno
       - finding/ghas
       - finding/inventory
+      - finding/ip
       - finding/license
       - finding/malware
       - finding/osid
