@@ -94,6 +94,13 @@ extensions_cfg:
         # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
         # to use must be specified
         aws_secret_name: null
+    # @param extensions_cfg.bdba.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.cache_manager cronjob which regularly updates the persistent cache entries
   # and purges stale cache entries if required
@@ -181,6 +188,13 @@ extensions_cfg:
         # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
         # to use must be specified
         aws_secret_name: null
+    # @param extensions_cfg.clamav.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.crypto workers which identify cryptographic assets and create crypto
   # findings
@@ -245,6 +259,13 @@ extensions_cfg:
         # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
         # to use must be specified
         aws_secret_name: null
+    # @param extensions_cfg.crypto.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.delivery_db_backup cronjob which regularly creates a backup of the
   # PostgreSQL delivery-db and stores it as local blob of an OCM component
@@ -303,6 +324,13 @@ extensions_cfg:
         # orgs: ["open-component-model"]
         orgs:
           - ""
+    # @param extensions_cfg.ghas.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.issue_replicator worker which takes care of the GitHub issue lifecycle for
   # detected findings
@@ -389,6 +417,13 @@ extensions_cfg:
     # @param extensions_cfg.osid.interval time (in seconds) after which a component should be
     # re-scanned the latest
     interval: 86400 # 24h
+    # @param extensions_cfg.osid.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.responsibles workers which determine the OCM component responsibles based
   # on the configured rules
@@ -487,6 +522,13 @@ extensions_cfg:
     # @param extensions_cfg.sast.interval time (in seconds) after which a component should be
     # re-scanned the latest
     interval: 86400 # 24h
+    # @param extensions_cfg.sast.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
 
 # @section ocm_repo_mappings mapping between OCM components and their respective OCM repository
