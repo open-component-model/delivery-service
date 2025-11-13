@@ -583,7 +583,7 @@ class CryptoConfig(BacklogItemMixins):
             ocm.AccessType.S3,
         )
         supported_artefact_types_by_access_type = {
-            ocm.AccessType.OCI_REGISTRY: ('ociImage',),
+            ocm.AccessType.OCI_REGISTRY: ('ociImage','ociArtifact'),
             ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
         }
 
