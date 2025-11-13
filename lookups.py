@@ -141,7 +141,10 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
     def iter_matching_versions(
         self,
         versions: collections.abc.Iterable[str],
+        version_filter_overwrite: VersionFilter | str | None=None,
     ) -> collections.abc.Iterable[str]:
+        version_filter = version_filter_overwrite or self.version_filter
+
         for version in versions:
             version_semver = versionutil.parse_to_semver(
                 version=version,
@@ -173,7 +176,7 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
                     )
 
             else:
-                raise TypeError(self.version_filter)
+                raise TypeError(version_filter)
 
             yield version
 
