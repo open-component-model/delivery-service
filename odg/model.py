@@ -671,8 +671,12 @@ class CryptoAssetTypes(enum.StrEnum):
 class Primitives(enum.StrEnum):
     BLOCK_CIPHER = 'block-cipher'
     HASH = 'hash'
-    PKE = 'pke'
+    KDF = 'kdf' # key derivation function
+    KEY_AGREE = 'key-agree'
+    MAC = 'mac' # message authentication code
+    PKE = 'pke' # public key encryption
     SIGNATURE = 'signature'
+    STREAM_CIPHER = 'stream-cipher'
 
 
 @dataclasses.dataclass

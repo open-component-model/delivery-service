@@ -1,6 +1,7 @@
 import collections.abc
 import dataclasses
 import enum
+import logging
 import re
 import textwrap
 import typing
@@ -8,6 +9,9 @@ import typing
 import crypto_extension.config as cc
 import odg.findings
 import odg.model
+
+
+logger = logging.getLogger(__name__)
 
 
 class FindingRatings(enum.StrEnum):
@@ -425,7 +429,7 @@ def validate_algorithm(
         )
 
     else:
-        raise ValueError(algorithm_properties.primitive)
+        logger.warning(f'missing validation for {algorithm_properties.primitive=}')
 
 
 def validate_certificate(
