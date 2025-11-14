@@ -22,7 +22,6 @@ import ocm
 import ocm.iter
 import ocm.iter_async
 import ocm.oci
-import version as versionutil
 
 import compliance_summary as cs
 import consts
@@ -550,15 +549,7 @@ async def greatest_component_version(
     if not versions:
         return None
 
-    def version_key(version: str) -> str:
-        try:
-            version = versionutil.parse_to_semver(version)
-        except ValueError:
-            version = versionutil.parse_to_semver('0.0')
-
-        return version
-
-    return sorted(versions, key=version_key)[-1]
+    return sorted(versions, key=util.version_sorting_key)[-1]
 
 
 async def greatest_component_versions(
@@ -581,15 +572,7 @@ async def greatest_component_versions(
         db_session=db_session,
     )
 
-    def version_key(version: str) -> str:
-        try:
-            version = versionutil.parse_to_semver(version)
-        except ValueError:
-            version = versionutil.parse_to_semver('0.0')
-
-        return version
-
-    versions = sorted(versions, key=version_key)
+    versions = sorted(versions, key=util.version_sorting_key)
 
     # Handle date range filtering only if start_date is provided
     if start_date:

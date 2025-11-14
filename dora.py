@@ -207,17 +207,9 @@ async def all_versions_sorted(
         db_session=db_session,
     )
 
-    def version_key(version: str) -> str:
-        try:
-            version = versionutil.parse_to_semver(version)
-        except ValueError:
-            version = versionutil.parse_to_semver('0.0')
-
-        return version
-
     return sorted(
         versions,
-        key=version_key,
+        key=util.version_sorting_key,
         reverse=sorting_direction == 'desc',
     )
 
