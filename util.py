@@ -10,12 +10,14 @@ import urllib.parse
 
 import aiohttp.web
 import dateutil.parser
+import semver
 import yaml
 
 import cnudie.retrieve_async
 import oci.model as om
 import ocm
 import ocm.iter
+import version as versionutil
 
 
 logger = logging.getLogger(__name__)
@@ -324,3 +326,15 @@ def merge_dicts(base: dict, *other: dict, list_semantics='merge'):
         [base, *other],
         {},
     )
+
+
+def version_sorting_key(
+    version: str,
+    fallback_version: str='0.0',
+) -> semver.VersionInfo:
+    try:
+        version = versionutil.parse_to_semver(version)
+    except ValueError:
+        version = versionutil.parse_to_semver(fallback_version)
+
+    return version
