@@ -73,6 +73,14 @@ def _iter_rescorings_for_finding(
             ):
                 continue
 
+        elif finding.meta.type == odg.model.Datatype.IP_FINDING:
+            if (
+                rescoring.data.finding.license.name != finding.data.license.name
+                or rescoring.data.finding.package_name != finding.data.package_name
+                or rescoring.data.finding.policy_violation.name != finding.data.policy_violation.name
+                or sorted(rescoring.data.finding.labels) != sorted(finding.data.labels)
+            ):
+                continue
         else:
             if rescoring.data.finding.key != finding.data.key:
                 continue
