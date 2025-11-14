@@ -1,0 +1,48 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2723.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: other
+  contents: Consistently support `RELATIVE_OCI_REFERENCE` access type in CTT
+  mimetype: text/markdown
+  reference: '[#1447](https://github.com/gardener/cc-utils/pull/1447)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: bugfix
+  contents: Upgrade-PRs are now closed (again) if their "whence"-version is behind
+    the currently referenced component version
+  mimetype: text/markdown
+  reference: '[#1441](https://github.com/gardener/cc-utils/pull/1441)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: bugfix
+  contents: export-ocm-fragment would auto-inject `inode/symlink` as mimetype for
+    inline-blobs w/o explicitly-declared type, as an unintended side-effect from a
+    previous change (to avoid clashes between equally-named local-blobfiles).
+  mimetype: text/markdown
+  reference: '[#1445](https://github.com/gardener/cc-utils/pull/1445)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: 'print friendler error-message if oci-auth-action is used in a job that
+    misses `id-token: write`-permission.'
+  mimetype: text/markdown
+  reference: '[#1446](https://github.com/gardener/cc-utils/pull/1446)'
+  type: standard

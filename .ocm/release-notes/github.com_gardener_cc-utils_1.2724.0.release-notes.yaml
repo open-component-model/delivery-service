@@ -1,0 +1,26 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2724.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: feature
+  contents: Added `automatic` version operation option to release workflow which uses
+    the `.ocm/branch-info.yaml` file to determine the version part to bump
+  mimetype: text/markdown
+  reference: '[#1449](https://github.com/gardener/cc-utils/pull/1449)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: other
+  contents: The source OCM repository is now patched into the OCM component descriptor
+    (if missing) as part of the OCI lookup
+  mimetype: text/markdown
+  reference: '[#1450](https://github.com/gardener/cc-utils/pull/1450)'
+  type: standard
