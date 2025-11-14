@@ -397,7 +397,7 @@ class BDBAMixin:
 
 
 @dataclasses.dataclass
-class PoliceViolationRef:
+class PolicyViolationRef:
     name: str
     id: str | None
     url: str | None
@@ -445,7 +445,7 @@ class IPFinding(Finding):
     package_name: str
     package_version: str | None
     license: License
-    policy_violation: PoliceViolationRef
+    policy_violation: PolicyViolationRef
     labels: list[str]
     host: str
 
@@ -480,6 +480,24 @@ class VulnerabilityFinding(Finding, BDBAMixin):
     @property
     def key(self) -> str:
         return _as_key(self.package_name, self.package_version, self.cve)
+
+
+@dataclasses.dataclass
+class RescoringIPFinding:
+    package_name: str
+    license: License
+    policy_violation: PolicyViolationRef
+    labels: list[str]
+
+    @property
+    def key(self) -> str:
+        labels_key = ','.join(sorted(self.labels))
+        return _as_key(
+            self.package_name,
+            self.license.name,
+            labels_key,
+            self.policy_violation.name
+        )
 
 
 @dataclasses.dataclass
@@ -870,6 +888,7 @@ class CustomRescoring:
         | RescoringFalcoFinding
         | RescoringKyvernoFinding
         | RescoreGitHubSecretFinding
+        | RescoringIPFinding
     )
     referenced_type: str
     severity: str
