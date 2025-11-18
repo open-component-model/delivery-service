@@ -224,6 +224,7 @@ class BDBAConfig(BacklogItemMixins):
 @dataclasses.dataclass
 class BlackDuckTarget:
     group_id: str
+    bd_instance: odg.model.BlackDuckInstance
     host: str
 
 

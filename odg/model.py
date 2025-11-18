@@ -133,6 +133,11 @@ class UserTypes(enum.StrEnum):
     PERSONAL_NAME = 'personalName'
 
 
+class BlackDuckInstance(enum.StrEnum):
+    CTP = 'ctp'
+    FOSS = 'foss'
+
+
 @dataclasses.dataclass
 class UserIdentifierBase:
     source: str
@@ -446,6 +451,7 @@ class IPFinding(Finding):
     package_version: str | None
     license: License
     policy_violation: PoliceViolationRef
+    bd_instance: BlackDuckInstance
     host: str
 
     @property
@@ -454,7 +460,7 @@ class IPFinding(Finding):
             self.package_name,
             self.package_version,
             self.license.name,
-            self.host,
+            self.bd_instance,
             self.policy_violation.name,
         )
 
