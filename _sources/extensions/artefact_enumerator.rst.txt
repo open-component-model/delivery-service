@@ -90,9 +90,8 @@ Configuration
   artefact_enumerator:
     components:
       - component_name: example.org/my-component
-        ocm_repo_url: europe-docker.pkgk.dev/gardener-project/releases
+        ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
         version: greatest
-        version_filter: releases_only
         max_versions_limit: 1
 
 .. _example-backlog-item:
