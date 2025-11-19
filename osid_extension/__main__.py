@@ -108,7 +108,7 @@ def base_image_osid(
     if not manifest.layers:
         raise ValueError(f'no layers found in manifest for {image_reference}')
 
-    last_os_info: odg.model.OperatingSystemId = odg.model.OperatingSystemId(NAME='unknown')
+    last_os_info: odg.model.OperatingSystemId = odg.model.OperatingSystemId()
 
     for layer in manifest.layers:
         layer_blob = oci_client.blob(
