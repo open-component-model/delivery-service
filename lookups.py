@@ -170,7 +170,7 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
                 try:
                     if not re.fullmatch(version_filter, version):
                         continue
-                except re.PatternError:
+                except Exception:
                     raise aiohttp.web.HTTPBadRequest(
                         reason=f'Invalid regular expression as version filter: {version_filter}',
                     )
