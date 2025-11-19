@@ -104,6 +104,7 @@ class GHASFindingSelector:
 @dataclasses.dataclass
 class IPFindingSelector:
     policy_violation_ids: list[str]
+    labels: list[str]
 
 
 @dataclasses.dataclass
@@ -931,6 +932,7 @@ def default_rescoring_ruleset(
 def categorise_finding(
     finding_cfg: Finding,
     finding_property,
+    **kwargs,
 ) -> FindingCategorisation | None:
     '''
     Used to find the categorisation a finding belongs to according to the passed `finding_property`.
@@ -953,9 +955,28 @@ def categorise_finding(
                     return categorisation
 
         elif isinstance(selector, IPFindingSelector):
-            for policy_violation_id in selector.policy_violation_ids:
-                if re.fullmatch(policy_violation_id, finding_property, re.IGNORECASE):
-                    return categorisation
+            if selector.policy_violation_ids:
+                for policy_violation_id in selector.policy_violation_ids:
+                    if re.fullmatch(policy_violation_id, finding_property or '', re.IGNORECASE):
+                        break
+                else:
+                    continue
+
+            labels = kwargs.get('labels') or []
+
+            if selector.labels:
+                for label_pattern in selector.labels:
+                    for label in labels:
+                        if re.fullmatch(label_pattern, label, re.IGNORECASE):
+                            break
+                    else:
+                        continue
+
+                    break
+                else:
+                    continue
+
+            return categorisation
 
         elif isinstance(selector, LicenseFindingSelector):
             for license_name in selector.license_names:
