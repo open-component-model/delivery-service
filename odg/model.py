@@ -995,7 +995,7 @@ class FalcoEventGroup:
     :param group_hash str:
         hash of the group (event fiields and values that form the group),
         can be reconstructed from a sample event and the fields property.
-    :param fields dict[str, str]:
+    :param fields dict[str, str | None]:
         Identical fields that form the group
     :param events list[FalcoEvent]:
         list of events in this group (possibly truncated).
@@ -1012,7 +1012,7 @@ class FalcoEventGroup:
     last_event: datetime.datetime
     count: int
     group_hash: str
-    fields: dict[str, str]
+    fields: dict[str, str | None]
     events: list[FalcoEvent]
     exception: str
 
