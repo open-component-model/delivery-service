@@ -446,15 +446,17 @@ class IPFinding(Finding):
     package_version: str | None
     license: License
     policy_violation: PoliceViolationRef
+    labels: list[str]
     host: str
 
     @property
     def key(self) -> str:
+        labels_key = ','.join(sorted(self.labels))
         return _as_key(
             self.package_name,
             self.package_version,
             self.license.name,
-            self.host,
+            labels_key,
             self.policy_violation.name,
         )
 

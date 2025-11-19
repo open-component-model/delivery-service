@@ -2,6 +2,7 @@ import collections.abc
 import dataclasses
 import enum
 import logging
+import re
 import typing
 
 import cachetools
@@ -222,6 +223,43 @@ class BDBAConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
+class BlackDuckLabelRuleSelector:
+    host: str | None = None
+    policy_violation_id: str | None = None
+    license_name: str | None = None
+
+    def matches(
+        self,
+        host: str,
+        policy_violation_id: str,
+        license_name: str,
+    ) -> bool:
+        if self.host is not None:
+            if not re.fullmatch(self.host, host, re.IGNORECASE):
+                return False
+
+        if self.policy_violation_id is not None:
+            if policy_violation_id is None or not re.fullmatch(
+                self.policy_violation_id,
+                policy_violation_id,
+                re.IGNORECASE,
+            ):
+                return False
+
+        if self.license_name is not None:
+            if not re.fullmatch(self.license_name, license_name, re.IGNORECASE):
+                return False
+
+        return True
+
+
+@dataclasses.dataclass
+class BlackDuckLabelRule:
+    name: str
+    selector: BlackDuckLabelRuleSelector
+
+
+@dataclasses.dataclass
 class BlackDuckTarget:
     group_id: str
     host: str
@@ -240,6 +278,7 @@ class BlackDuckConfig(BacklogItemMixins):
     service: Services = Services.BLACKDUCK
     delivery_service_url: str
     mappings: list[BlackDuckExtensionMapping]
+    label_rules: list[BlackDuckLabelRule]
     interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
