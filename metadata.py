@@ -27,6 +27,7 @@ types_with_reusable_discovery_dates = (
     odg.model.Datatype.DIKI_FINDING,
     odg.model.Datatype.OSID_FINDING,
     odg.model.Datatype.CRYPTO_FINDING,
+    odg.model.Datatype.IP_FINDING,
 )
 
 
@@ -526,6 +527,19 @@ def reuse_discovery_date_if_possible(
             new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
             and new_metadata.data.get('license').get('name')
                 == old_metadata.data.get('license').get('name')
+        ):
+            # found the same license in existing entry, independent of the component-/
+            # resource-/package-version, so we must re-use its discovery date
+            return old_metadata.discovery_date
+
+    elif new_metadata.type == odg.model.Datatype.IP_FINDING:
+        if (
+            new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
+            and new_metadata.data.get('license').get('name')
+                == old_metadata.data.get('license').get('name')
+            and new_metadata.data.get('host') == old_metadata.data.get('host')
+            and new_metadata.data.get('policy_violation').get('name')
+                == old_metadata.data.get('policy_violation').get('name')
         ):
             # found the same license in existing entry, independent of the component-/
             # resource-/package-version, so we must re-use its discovery date
