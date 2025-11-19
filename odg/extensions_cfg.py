@@ -577,7 +577,7 @@ class CryptoConfig(BacklogItemMixins):
             ocm.AccessType.S3,
         )
         supported_artefact_types_by_access_type = {
-            ocm.AccessType.OCI_REGISTRY: ('ociImage',),
+            ocm.AccessType.OCI_REGISTRY: (ocm.ArtefactType.OCI_IMAGE,),
             ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
         }
 
@@ -898,31 +898,51 @@ class OsId(BacklogItemMixins):
         self,
         artefact_kind: odg.model.ArtefactKind | None=None,
         access_type: ocm.AccessType | None=None,
+        artefact_type: str | None=None,
     ) -> bool:
-
         supported_artefact_kinds = (
             odg.model.ArtefactKind.RESOURCE,
         )
-
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
         )
+        supported_artefact_types_by_access_type = {
+            ocm.AccessType.OCI_REGISTRY: (ocm.ArtefactType.OCI_IMAGE,),
+        }
+
+        is_supported = True
 
         if access_type and access_type not in supported_access_types:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{access_type=} is not supported for OS_ID scans, {supported_access_types=}'
                 )
-            return False
+            is_supported = False
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for OS_ID scans, {supported_artefact_kinds=}'
                 )
-            return False
+            is_supported = False
 
-        return True
+        if (
+            artefact_type
+            and access_type
+            and (artefact_types := supported_artefact_types_by_access_type.get(access_type))
+        ):
+            if not any(
+                artefact_type.startswith(supported_artefact_type)
+                for supported_artefact_type in artefact_types
+            ):
+                if self.on_unsupported is WarningVerbosities.WARNING:
+                    logger.warning(
+                        f'{artefact_type=} is not supported for OS_ID scans with {access_type=}, '
+                        f'{supported_artefact_types_by_access_type=}'
+                    )
+                is_supported = False
+
+        return is_supported
 
 
 @dataclasses.dataclass

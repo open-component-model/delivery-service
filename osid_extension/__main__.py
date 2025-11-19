@@ -242,6 +242,20 @@ def process_artefact(
             )
         return
 
+    # only check if the resource type is supported if no specific filter is set
+    # -> default to only scan resources of type `ociImage`
+    if not osid_finding_config.filter and not extension_cfg.is_supported(
+        access_type=access.type,
+        artefact_type=resource_node.resource.type,
+    ):
+        if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+            raise TypeError(
+                f'{access.type} with {resource_node.resource.type=} is not supported by the OSID '
+                'extension, maybe the filter configurations have to be adjusted to filter out these '
+                'types'
+            )
+        return
+
     osid: odg.model.OperatingSystemId | None = base_image_osid(
         oci_client=oci_client,
         resource=resource_node.resource,
