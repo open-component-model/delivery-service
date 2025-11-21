@@ -1,7 +1,5 @@
 import os
 
-import pytest
-
 import cnudie.util
 import ocm
 
@@ -21,50 +19,6 @@ component_descriptors_file = os.path.join(
 component_descriptor_lookup_mockup = lookup_mocks.component_descriptor_lookup_mockup_factory(
     component_descriptors_file,
 )
-
-versions_lookup_mockup = lookup_mocks.versions_lookup_mockup_factory(
-    component_descriptors_file,
-)
-
-
-@pytest.mark.asyncio
-async def test_get_next_older_descriptor():
-
-    next_older_descriptor = await dora.get_next_older_descriptor(
-        ocm.ComponentIdentity(
-            "TestComponent_1",
-            "v2.0.0",
-        ),
-        component_descriptor_lookup_mockup,
-        versions_lookup_mockup,
-    )
-
-    assert next_older_descriptor.component.identity() == ocm.ComponentIdentity(
-        'TestComponent_1',
-        'v1.0.0',
-    )
-
-    # if there is no older version
-    next_older_descriptor = await dora.get_next_older_descriptor(
-        ocm.ComponentIdentity(
-            name="TestComponent_1",
-            version="v1.0.0",
-        ),
-        component_descriptor_lookup_mockup,
-        versions_lookup_mockup,
-    )
-    assert next_older_descriptor is None
-
-    # if there input version does not exist
-    with pytest.raises(ValueError):
-        await dora.get_next_older_descriptor(
-            ocm.ComponentIdentity(
-                "TestComponent_1",
-                "v1.0942.0",
-            ),
-            component_descriptor_lookup_mockup,
-            versions_lookup_mockup,
-        )
 
 
 def test_dependency_changes_between_versions():

@@ -35,6 +35,7 @@ import odg.extensions_cfg
 import odg.util
 import paths
 import util
+import version as versionutil
 
 
 ci.log.configure_default_logging()
@@ -909,7 +910,24 @@ if __name__ == '__main__':
             ):
                 resource_nodes.append(resource_node)
 
+    # deduplicate resource nodes by component name in case a component is referenced multiple times
+    # in different versions -> use the greatest version only. Also, assume there is only ever one
+    # extension definition artefact per component (which may contain multiple extensions)
+    greatest_resource_nodes: dict[ocm.ComponentName, ocm.iter.ResourceNode] = {}
+
     for resource_node in resource_nodes:
+        cid = resource_node.component_id
+
+        if current := greatest_resource_nodes.get(cid.name):
+            candidate_version = versionutil.parse_to_semver(cid.version)
+            current_version = versionutil.parse_to_semver(current.component_id.version)
+
+            if candidate_version > current_version:
+                greatest_resource_nodes[cid.name] = resource_node
+        else:
+            greatest_resource_nodes[cid.name] = resource_node
+
+    for resource_node in greatest_resource_nodes.values():
         extension_definitions.extend(_iter_extension_definitions_from_resource_node(
             resource_node=resource_node,
             oci_client=oci_client,

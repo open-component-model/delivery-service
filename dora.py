@@ -15,6 +15,7 @@ import aiohttp.web
 import cachetools.keys
 import dateutil.parser
 import github3
+import sqlalchemy.ext.asyncio as sqlasync
 
 import cnudie.retrieve_async
 import cnudie.util
@@ -130,11 +131,9 @@ async def versions_descriptors_newer_than(
     component_name: str,
     date: datetime.datetime,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
-    only_releases: bool = True,
-    invalid_semver_ok: bool = False,
-    sorting_direction: typing.Literal['asc', 'desc'] = 'desc'
-):
+    sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
+    db_session: sqlasync.session.AsyncSession=None,
+) -> list[ocm.ComponentDescriptor]:
     '''
     This function retrieves the component descriptors for the versions
     of a specific Component, which are newer then the given date.
@@ -154,9 +153,7 @@ async def versions_descriptors_newer_than(
     versions = await all_versions_sorted(
         component=component_name,
         sorting_direction='desc',
-        invalid_semver_ok=invalid_semver_ok,
-        only_releases=only_releases,
-        version_lookup=version_lookup,
+        db_session=db_session,
     )
 
     descriptors: list[ocm.ComponentDescriptor] = []
@@ -178,15 +175,11 @@ async def versions_descriptors_newer_than(
 
 def _cache_key_gen_all_versions_sorted(
     component: cnudie.util.ComponentName,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
-    only_releases: bool = True,
-    invalid_semver_ok: bool = False,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
+    db_session: sqlasync.session.AsyncSession=None,
 ):
     return cachetools.keys.hashkey(
         cnudie.util.to_component_name(component),
-        only_releases,
-        invalid_semver_ok,
         sorting_direction,
     )
 
@@ -197,10 +190,8 @@ def _cache_key_gen_all_versions_sorted(
 )
 async def all_versions_sorted(
     component: cnudie.util.ComponentName,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
-    only_releases: bool = True,
-    invalid_semver_ok: bool = False,
-    sorting_direction: typing.Literal['asc', 'desc'] = 'desc'
+    sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
+    db_session: sqlasync.session.AsyncSession=None,
 ) -> list[str]:
     '''
     This is a convenience function for looking up all versions of a specific
@@ -211,45 +202,27 @@ async def all_versions_sorted(
     '''
     component_name = cnudie.util.to_component_name(component)
 
-    def filter_version(version: str, invalid_semver_ok: bool, only_releases:bool):
-        if not (parsed_version := versionutil.parse_to_semver(
-            version=version,
-            invalid_semver_ok=invalid_semver_ok,
-        )):
-            return False
-
-        if only_releases:
-            return versionutil.is_final(parsed_version)
-
-        return True
-
-    versions = (
-        version for version
-        in await version_lookup(component_name)
-        if filter_version(version, invalid_semver_ok, only_releases)
+    versions = await components.component_versions(
+        component_name=component_name,
+        db_session=db_session,
     )
 
-    versions = sorted(
+    return sorted(
         versions,
-        key=lambda v: versionutil.parse_to_semver(
-            version=v,
-            invalid_semver_ok=invalid_semver_ok,
-        ),
+        key=util.version_sorting_key,
         reverse=sorting_direction == 'desc',
     )
-
-    return versions
 
 
 async def get_next_older_descriptor(
     component_id: ocm.ComponentIdentity,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    component_version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
+    db_session: sqlasync.session.AsyncSession=None,
 ) -> ocm.ComponentDescriptor | None:
     all_versions = await all_versions_sorted(
         component=component_id,
-        version_lookup=component_version_lookup,
         sorting_direction='desc',
+        db_session=db_session,
     )
 
     if (version_index := all_versions.index(component_id.version)) != len(all_versions) - 1:
@@ -802,19 +775,17 @@ class DoraMetrics(aiohttp.web.View):
         filter_component_names = params.getall('filter_component_names', default=[])
 
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
-        version_lookup = self.request.app[consts.APP_VERSION_LOOKUP]
+        db_session = self.request.get(consts.REQUEST_DB_SESSION)
 
         await components.check_if_component_exists(
             component_name=target_component_name,
-            version_lookup=version_lookup,
-            raise_http_error=True,
+            db_session=db_session,
         )
 
         for filter_component_name in filter_component_names:
             await components.check_if_component_exists(
                 component_name=filter_component_name,
-                version_lookup=version_lookup,
-                raise_http_error=True,
+                db_session=db_session,
             )
 
         # get all component descriptors of component versions of target component within time span
@@ -822,8 +793,8 @@ class DoraMetrics(aiohttp.web.View):
             component_name=target_component_name,
             date=datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=time_span_days),
             component_descriptor_lookup=component_descriptor_lookup,
-            version_lookup=version_lookup,
             sorting_direction='asc',
+            db_session=db_session,
         )
 
         # Add the next older version, which is not within the time span anymore (if one exists)
@@ -836,7 +807,7 @@ class DoraMetrics(aiohttp.web.View):
                 target_descriptors_in_time_span[0].component.version,
             ),
             component_descriptor_lookup=component_descriptor_lookup,
-            component_version_lookup=version_lookup,
+            db_session=db_session,
         )):
             target_descriptors_in_time_span.insert(0, next_older_descriptor)
 

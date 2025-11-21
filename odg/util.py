@@ -68,12 +68,6 @@ class Arguments:
         'name': '--cache-dir',
         'default': default_cache_dir,
     }
-    INVALID_SEMVER_OK = {
-        'name': '--invalid-semver-ok',
-        'action': 'store_true',
-        'default': os.environ.get('INVALID_SEMVER_OK') or False,
-        'help': 'whether to raise on invalid (semver) version when resolving greatest version',
-    }
 
 
 scan_extension_arguments = [

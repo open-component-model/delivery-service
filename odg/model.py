@@ -446,15 +446,17 @@ class IPFinding(Finding):
     package_version: str | None
     license: License
     policy_violation: PoliceViolationRef
+    labels: list[str]
     host: str
 
     @property
     def key(self) -> str:
+        labels_key = ','.join(sorted(self.labels))
         return _as_key(
             self.package_name,
             self.package_version,
             self.license.name,
-            self.host,
+            labels_key,
             self.policy_violation.name,
         )
 
@@ -995,7 +997,7 @@ class FalcoEventGroup:
     :param group_hash str:
         hash of the group (event fiields and values that form the group),
         can be reconstructed from a sample event and the fields property.
-    :param fields dict[str, str]:
+    :param fields dict[str, str | None]:
         Identical fields that form the group
     :param events list[FalcoEvent]:
         list of events in this group (possibly truncated).
@@ -1012,7 +1014,7 @@ class FalcoEventGroup:
     last_event: datetime.datetime
     count: int
     group_hash: str
-    fields: dict[str, str]
+    fields: dict[str, str | None]
     events: list[FalcoEvent]
     exception: str
 
