@@ -1,0 +1,14 @@
+ocm:
+  component_name: ocm.software/ocm-gear/freshclam
+  component_version: 1.12.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.wdf.sap.corp
+    type: githubUser
+    username: I538859
+  category: other
+  contents: Migrated `freshclam` Concourse pipelines to GitHub-Actions
+  mimetype: text/markdown
+  reference: '[#1](https://github.wdf.sap.corp/kubernetes-cicd/freshclam/pull/1)'
+  type: standard
