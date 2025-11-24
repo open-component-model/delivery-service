@@ -101,14 +101,6 @@ installation:
       value: True
       value_type: literal
     - helm_chart_name: extensions
-      helm_attribute: clamav.freshclam.image.repository
-      value: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/freshclam
-      value_type: literal
-    - helm_chart_name: extensions
-      helm_attribute: clamav.freshclam.image.tag
-      value: 1.9.0 # use image-mapping once helm-chart and oci-image are included in the same ocm component
-      value_type: literal
-    - helm_chart_name: extensions
       helm_attribute: clamav.target_namespace
       value: ${target_namespace}
       value_type: python-string-template
