@@ -26,6 +26,9 @@ dependencies:
   - name: delivery-db-backup
     repository: file://charts/delivery-db-backup
     condition: delivery-db-backup.enabled
+  - name: findings-report
+    repository: file://charts/findings-report
+    condition: findings-report.enabled
   - name: ghas
     repository: file://charts/ghas
     condition: ghas.enabled

@@ -463,6 +463,10 @@ jobs:
                 attribute: odg-operator.image.repository
               - ref: ocm-resource:extensions.tag
                 attribute: odg-operator.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: findings-report.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: findings-report.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             mappings: []
