@@ -5,7 +5,6 @@ import collections.abc
 import datetime
 import logging
 import os
-import pprint
 import time
 import traceback
 
@@ -28,8 +27,6 @@ import ocm
 import odg.extensions_cfg
 import odg.findings
 import odg.model
-
-import saf
 
 
 ci.log.configure_default_logging()
@@ -254,11 +251,6 @@ def parse_args():
         help='OCM Repository Context',
     )
     parser.add_argument(
-        '--github-token',
-        default=None,
-        help='github-token for authenticating against SAF-API, if absent do not report towards SAF',
-    )
-    parser.add_argument(
         '--commit-markdown',
         default=False,
         action='store_true',
@@ -345,53 +337,6 @@ def filter_by_root_component(
         resource_node
         for resource_node in resource_nodes
         if resource_node.path[0].component.identity() == component_id
-    )
-
-
-def report_to_saf_api(
-    component_name: str,
-    component_versions: collections.abc.Iterable[str],
-    resource_nodes: collections.abc.Iterable[cnudie.iter.ResourceNode],
-    scanned_resource_nodes: collections.abc.Iterable[cnudie.iter.ResourceNode],
-    github_token: str,
-):
-    evidences = []
-
-    for component_version in component_versions:
-        component_id = ocm.ComponentIdentity(
-            name=component_name,
-            version=component_version,
-        )
-
-        resource_nodes_count = len(tuple(filter_by_root_component(
-            component_id=component_id,
-            resource_nodes=resource_nodes,
-        )))
-
-        scanned_resource_nodes_count = len(tuple(filter_by_root_component(
-            component_id=component_id,
-            resource_nodes=scanned_resource_nodes,
-        )))
-
-        evidence_entry = saf.SafEvidenceEntry(
-            ocm_component_name=component_name,
-            ocm_component_version=component_version,
-            creation_date=datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
-            artefacts_total_count=resource_nodes_count,
-            artefacts_scanned_count=scanned_resource_nodes_count,
-        )
-        evidences.append(evidence_entry)
-
-    pprint.pprint(evidences)
-
-    access_token = saf.retrieve_auth_token(
-        github_token=github_token,
-    )
-
-    logger.info('uploading evidences to SAF-API')
-    saf.upload_evidences(
-        evidences=evidences,
-        access_token=access_token,
     )
 
 
@@ -700,21 +645,6 @@ def main():
         r = git.repo.Repo(outpath)
         r.git.add('--all')
         r.index.commit('Update mm06 information')
-
-    if parsed.github_token:
-        try:
-            report_to_saf_api(
-                resource_nodes=total_resource_nodes,
-                scanned_resource_nodes=scanned,
-                component_name=parsed.component_name,
-                component_versions=list(component_versions)[-10:],
-                github_token=parsed.github_token,
-            )
-        except Exception:
-            traceback.print_exc()
-            logger.error(
-                'encountered error during upload of evidences to SAF-api, ignoring for now...'
-            )
 
 
 if __name__ == '__main__':
