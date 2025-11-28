@@ -31,6 +31,7 @@ import odg.findings
 import odg.model
 import odg.util
 import paths
+import rescore.utility
 import util
 
 
@@ -272,6 +273,7 @@ def write_github_pages(
     not_scanned: collections.abc.Iterable[EnrichedComponentArtefactId],
     with_findings: collections.abc.Iterable[EnrichedComponentArtefactId],
     issue_urls_by_component_artefact_id: dict[EnrichedComponentArtefactId, set[str]],
+    dashboard_url_by_component_artefact_id: dict[EnrichedComponentArtefactId, str],
 ):
     template = mako.template.Template(
         filename=overview_report_path,
@@ -290,6 +292,7 @@ def write_github_pages(
             not_scanned=not_scanned,
             with_findings=with_findings,
             issue_urls_by_component_artefact_id=issue_urls_by_component_artefact_id,
+            dashboard_url_by_component_artefact_id=dashboard_url_by_component_artefact_id,
             reports_dirname=reports_dirname,
         ))
 
@@ -422,6 +425,7 @@ def generate_report_for_component_and_finding_type(
     total_with_findings: list[EnrichedComponentArtefactId] = []
     total_without_findings: list[EnrichedComponentArtefactId] = []
     issue_urls_by_component_artefact_id: dict[EnrichedComponentArtefactId, set[str]] = {}
+    dashboard_url_by_component_artefact_id: dict[EnrichedComponentArtefactId, str] = {}
 
     for component_artefact_id in total_scanned:
         if not (filtered_findings := tuple(iter_findings_for_component_artefact_id(
@@ -443,6 +447,14 @@ def generate_report_for_component_and_finding_type(
 
         issue_urls_by_component_artefact_id[component_artefact_id] = set(filtered_issue_urls)
 
+        delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
+            base_url=issue_replicator_config.delivery_dashboard_url,
+            component_artefact_id=component_artefact_id,
+            finding_type=finding_cfg.type,
+        )
+
+        dashboard_url_by_component_artefact_id[component_artefact_id] = delivery_dashboard_url
+
     logger.info(f'{len(total_with_findings)=}')
     logger.info(f'{len(total_without_findings)=}')
 
@@ -461,6 +473,7 @@ def generate_report_for_component_and_finding_type(
         not_scanned=total_not_scanned,
         with_findings=total_with_findings,
         issue_urls_by_component_artefact_id=issue_urls_by_component_artefact_id,
+        dashboard_url_by_component_artefact_id=dashboard_url_by_component_artefact_id,
     )
 
     if trigger_absent_scans and total_not_scanned:
@@ -504,6 +517,7 @@ def generate_report_for_component_and_finding_type(
                 not_scanned=not_scanned,
                 with_findings=with_findings,
                 issue_urls_by_component_artefact_id=issue_urls_by_component_artefact_id,
+                dashboard_url_by_component_artefact_id=dashboard_url_by_component_artefact_id,
             ))
 
 

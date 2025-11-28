@@ -16,10 +16,10 @@ Between ${start_date.isoformat()} and ${end_date.isoformat()},
 <details>
   <summary><h1>🦠 ${finding_name.capitalize()} findings (${len(with_findings)})</h1></summary>
 
-| Component | Artefact | Details |
-|----|----|----|
+| Component | Artefact | Dashboard | Issues |
+|----|----|----|----|
 % for component_artefact_id in with_findings:
-| `${component_artefact_id.component_name}:${component_artefact_id.component_version}` | ${component_artefact_id.artefact_str} | ${'<br>'.join(issue_urls_by_component_artefact_id.get(component_artefact_id, ['no issue found']))} |
+| `${component_artefact_id.component_name}:${component_artefact_id.component_version}` | ${component_artefact_id.artefact_str} | [Delivery-Dashboard](${dashboard_url_by_component_artefact_id.get(component_artefact_id)}) | ${'<br>'.join(issue_urls_by_component_artefact_id.get(component_artefact_id, ['no issue found']))} |
 % endfor
 
 </details>
