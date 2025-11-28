@@ -6,11 +6,9 @@ import enum
 import datetime
 import functools
 import hashlib
-import json
 import logging
 import re
 import textwrap
-import urllib.parse
 
 import github3
 import github3.issues.issue
@@ -95,7 +93,7 @@ class FindingGroup:
         ''')
 
         if delivery_dashboard_url:
-            delivery_dashboard_url = _delivery_dashboard_url(
+            delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                 base_url=delivery_dashboard_url,
                 component_artefact_id=self.artefact,
                 finding_type=finding_cfg.type,
@@ -153,46 +151,6 @@ def _artefact_url(
     )
 
     return '<details><summary>Artefact-URL</summary><pre>' + artefact_url + '</pre></details>'
-
-
-def _delivery_dashboard_url(
-    base_url: str,
-    component_artefact_id: odg.model.ComponentArtefactId,
-    finding_type: odg.model.Datatype,
-    sprint_name: str=None,
-):
-    url = util.urljoin(
-        base_url,
-        '#/component'
-    )
-
-    query_params = {
-        'name': component_artefact_id.component_name,
-        'version': component_artefact_id.component_version,
-        'view': 'bom',
-        'rootExpanded': True,
-        'findingType': finding_type,
-    }
-
-    if sprint_name:
-        query_params['sprints'] = sprint_name
-
-    if artefact_id := component_artefact_id.artefact:
-        rescore_artefacts = (
-            f'{artefact_id.artefact_name}|{artefact_id.artefact_version}|'
-            f'{artefact_id.artefact_type}|{component_artefact_id.artefact_kind}'
-        )
-
-        if artefact_id.artefact_extra_id:
-            rescore_artefacts += f'|{json.dumps(artefact_id.artefact_extra_id)}'
-
-        query_params['rescoreArtefacts'] = rescore_artefacts
-
-    query = urllib.parse.urlencode(
-        query=query_params,
-    )
-
-    return f'{url}?{query}'
 
 
 def _severity_str(
@@ -585,7 +543,7 @@ def diki_summary(
                 finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
-                delivery_dashboard_url = _delivery_dashboard_url(
+                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
@@ -694,7 +652,7 @@ def falco_summary(
                 finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
-                delivery_dashboard_url = _delivery_dashboard_url(
+                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
@@ -822,7 +780,7 @@ def inventory_summary(
                 finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
-                delivery_dashboard_url = _delivery_dashboard_url(
+                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
@@ -898,7 +856,7 @@ def kyverno_summary(
                 finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
-                delivery_dashboard_url = _delivery_dashboard_url(
+                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
@@ -1322,7 +1280,7 @@ def template_issue_body(
 
     artefact = sorted_artefacts[0]
 
-    rescoring_url = _delivery_dashboard_url(
+    rescoring_url = rescore.utility.delivery_dashboard_rescoring_url(
         base_url=delivery_dashboard_url,
         component_artefact_id=artefact,
         finding_type=finding_cfg.type,

@@ -1,6 +1,8 @@
 import collections.abc
 import datetime
+import json
 import re
+import urllib.parse
 
 import ocm.iter
 
@@ -10,6 +12,7 @@ import odg.findings
 import odg.labels
 import odg.model
 import rescore.model
+import util
 
 
 def _iter_rescorings_for_finding(
@@ -276,3 +279,40 @@ def rescoring_for_sast_finding(
             allowed_processing_time=rescored_categorisation.allowed_processing_time_raw,
         ),
     )
+
+
+def delivery_dashboard_rescoring_url(
+    base_url: str,
+    component_artefact_id: odg.model.ComponentArtefactId,
+    finding_type: odg.model.Datatype,
+    sprint_name: str | None=None,
+) -> str:
+    url = util.urljoin(base_url, '#/component')
+
+    query_params = {
+        'name': component_artefact_id.component_name,
+        'version': component_artefact_id.component_version,
+        'view': 'bom',
+        'rootExpanded': True,
+        'findingType': finding_type,
+    }
+
+    if sprint_name:
+        query_params['sprints'] = sprint_name
+
+    if artefact_id := component_artefact_id.artefact:
+        rescore_artefacts = (
+            f'{artefact_id.artefact_name}|{artefact_id.artefact_version}|'
+            f'{artefact_id.artefact_type}|{component_artefact_id.artefact_kind}'
+        )
+
+        if artefact_id.artefact_extra_id:
+            rescore_artefacts += f'|{json.dumps(artefact_id.artefact_extra_id)}'
+
+        query_params['rescoreArtefacts'] = rescore_artefacts
+
+    query = urllib.parse.urlencode(
+        query=query_params,
+    )
+
+    return f'{url}?{query}'
