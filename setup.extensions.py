@@ -34,6 +34,7 @@ def packages():
     return [
         'bdba_extension',
         'crypto_extension',
+        'findings_report_extension',
         'issue_replicator',
         'malware',
         'odg_operator',

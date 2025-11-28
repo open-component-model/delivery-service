@@ -45,6 +45,14 @@ extensions_cfg:
     component_name: ''
     ocm_repo_url: ''
     backup_retention_count: 1
+  findings_report:
+    enabled: False # disable in default because of missing `github_repository`
+    mappings:
+      - type: finding/malware
+        component:
+          component_name: ocm.software/ocm-gear
+          time_range: {}
+        github_repository: ''
   ghas:
     enabled: False
   odg_operator:
