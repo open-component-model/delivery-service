@@ -236,10 +236,12 @@ Findings (deviations from rulesets) typically have to be processed within an
 allowed timeframe. Hence, the date of first discovery is stored to allow for
 the calculation for latest due-dates. Thereby, the initial `discovery_date`
 must be retained during subsequent updates. Therefore, the `discovery_date` is
-part of the `ArtefactMetadata` model. To re-use the initial `discovery_date` of
-a finding, and don't reset it as part of every new scan, it must be defined
-when a finding is to be interpreted as equal so that the `discovery_date` must
-be re-used.
+part of the `ArtefactMetadata` model. By default, the initial `discovery_date`
+of a finding is re-used in case the OCM identity (except its version and extra
+identity) and the `key` property of the finding match. In case it is desired to
+deviate from this defalt behaviour (e.g. in case the `key` contains a package
+version which should not be considered for the re-use), a custom check must be
+implemented as part of the upload metadata route.
 
 Considerations
 ^^^^^^^^^^^^^^
