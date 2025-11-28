@@ -1,25 +1,25 @@
 # Overview for ${component_name}
 
-# Resource scan overview
+# Artefact scan overview
 
-Between ${start_date} and ${end_date},
+Between ${start_date.isoformat()} and ${end_date.isoformat()},
 
-ℹ️ ${len(resource_nodes)} Resources have been identified
+ℹ️ ${len(total)} Artefacts have been identified
 
-✅ ${len(scanned)} Resources have been scanned
+✅ ${len(scanned)} Artefacts have been scanned
 
-❌ ${len(not_scanned)} Resources have not been scanned
+❌ ${len(not_scanned)} Artefacts have not been scanned
 
-🦠 ${len(with_findings)} Resources yielded malware findings
+🦠 ${len(with_findings)} Artefacts yielded ${finding_name} findings
 
 % if len(with_findings) > 0:
 <details>
-  <summary><h1>🦠 Malware findings (${len(with_findings)})</h1></summary>
+  <summary><h1>🦠 ${finding_name.capitalize()} findings (${len(with_findings)})</h1></summary>
 
-| Component | Resource | Details |
+| Component | Artefact | Details |
 |----|----|----|
-% for resource_node in with_findings:
-| ${resource_node.component.name}:`${resource_node.component.version}` | [${resource_node.resource.name}:`${resource_node.resource.version}`](${resource_node.resource.access.imageReference}) | ${issue_url_for_resource_node.get(resource_node.resource.identity(peers=resource_node.component.resources), 'no issue found')} |
+% for component_artefact_id in with_findings:
+| `${component_artefact_id.component_name}:${component_artefact_id.component_version}` | ${component_artefact_id.artefact_str} | ${'<br>'.join(issue_urls_by_component_artefact_id.get(component_artefact_id, ['no issue found']))} |
 % endfor
 
 </details>
@@ -30,15 +30,16 @@ Between ${start_date} and ${end_date},
 <details>
   <summary><h1>❌ Missing scans (${len(not_scanned)})</h1></summary>
 
-| Landscape version | Component | Resource |
-|----|----|----|
-% for resource_node in not_scanned:
-| ${resource_node.path[0].component.version} | ${resource_node.component.name}:`${resource_node.component.version}` | [${resource_node.resource.name}:`${resource_node.resource.version}`](${resource_node.resource.access.imageReference}) |
+| Component | Artefact |
+|----|----|
+% for component_artefact_id in not_scanned:
+| `${component_artefact_id.component_name}:${component_artefact_id.component_version}` | ${component_artefact_id.artefact_str} |
 % endfor
 </details>
 % endif
+
 # Detailed scan list
 
 % for component_version in component_versions:
-* [${component_name}:`${component_version}`](${f'./mm06_reports/{component_version}'})
+* [`${component_name}:${component_version}`](${f'./{reports_dirname}/{component_version}'})
 % endfor

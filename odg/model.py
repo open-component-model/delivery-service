@@ -64,6 +64,9 @@ class Datatype(enum.StrEnum):
             Datatype.VULNERABILITY_FINDING: Datasource.BDBA,
         }[self]
 
+    def display_name(self) -> str:
+        return self.removeprefix('finding/').removeprefix('meta/')
+
 
 class Datasource(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefact-enumerator'
