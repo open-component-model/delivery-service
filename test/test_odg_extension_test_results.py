@@ -1,7 +1,10 @@
+import os
 import pytest
-
+import dacite
+import enum
 import ocm
-
+import odg.model
+import odg.findings
 import test_results
 
 
@@ -25,18 +28,55 @@ def component_descriptor() -> ocm.ComponentDescriptor:
                 {
                     'access': {
                         'localReference': 'foo',
-                        'mediaType': 'application/data',                                                                                                                   'referenceName': None,
+                        'mediaType': 'application/data',
+                        'referenceName': None,
                         'type': 'localBlob/v1'
                     },
                     'labels': [
+                        {
+                            'name': 'gardener.cloud/test-policy',
+                            'value': False
+                        },
                         {
                             'name': 'gardener.cloud/purposes',
                             'signing': False,
                             'value': ['test'],
                             'version': None
+                        },
+                        {
+                            'name': 'gardener.cloud/test-scope',
+                            'value': ['job-image-1', 'job-image-2', 'job-image-4']
                         }
                     ],
-                    'name': 'test-results',
+                    'name': 'job-image-test-1',
+                    'relation': 'local',
+                    'type': 'application/gzip',
+                    'version': '1.2710.0'
+                },
+                {
+                    'access': {
+                        'localReference': 'bar',
+                        'mediaType': 'application/data',
+                        'referenceName': None,
+                        'type': 'localBlob/v1'
+                    },
+                    'labels': [
+                        {
+                            'name': 'gardener.cloud/test-policy',
+                            'value': False
+                        },
+                        {
+                            'name': 'gardener.cloud/purposes',
+                            'signing': False,
+                            'value': ['test'],
+                            'version': None
+                        },
+                        {
+                            'name': 'gardener.cloud/test-scope',
+                            'value': ['job-image-2']
+                        }
+                    ],
+                    'name': 'job-image-test-2',
                     'relation': 'local',
                     'type': 'application/gzip',
                     'version': '1.2710.0'
@@ -46,9 +86,48 @@ def component_descriptor() -> ocm.ComponentDescriptor:
                         'imageReference': 'foo',
                         'type': 'ociRegistry'
                     },
-                    'name': 'job-image',
+                    'labels': [
+                        {
+                         'name': 'gardener.cloud/test-policy',
+                         'value': True
+                        }
+                    ],
+                    'name': 'job-image-1',
+                    'relation': 'local',
                     'version': '1.2710.0',
-                    'type': 'ociImage',
+                    'type': 'ociImage'
+                },
+                {
+                    'access': {
+                        'imageReference': 'bar',
+                        'type': 'ociRegistry'
+                    },
+                    'labels': [
+                        {
+                         'name': 'gardener.cloud/test-policy',
+                         'value': True
+                        }
+                    ],
+                    'name': 'job-image-2',
+                    'relation': 'local',
+                    'version': '1.2710.0',
+                    'type': 'ociImage'
+                },
+                {
+                    'access': {
+                        'imageReference': 'bar',
+                        'type': 'ociRegistry'
+                    },
+                    'labels': [
+                        {
+                         'name': 'gardener.cloud/test-policy',
+                         'value': False
+                        }
+                    ],
+                    'name': 'job-image-3',
+                    'relation': 'external',
+                    'version': '1.2710.0',
+                    'type': 'helmChart/v1'
                 },
             ],
             'sources': [],
@@ -58,24 +137,64 @@ def component_descriptor() -> ocm.ComponentDescriptor:
         'schemaVersion': 'v2',
     }
 }
+    return dacite.from_dict(
+        data=raw,
+        data_class=ocm.ComponentDescriptor,
+        config=dacite.Config(
+            cast=[enum.Enum]
+        )
+    )
 
-    return ocm.ComponentDescriptor.from_dict(raw)
 
-def test_artefact_test_results(
+def test_artefact_test_results_filter(
     component_descriptor: ocm.ComponentDescriptor,
 ):
-    import pprint
-    pprint.pprint(component_descriptor)
-    assert True
 
-    # artefacts_requiring_tests = test_results.foo()
-    # artefacts_containing_tests = bar()
+    resources_req_tests = test_results.find_artefact_with_truthy_test_policy_label(
+        component=component_descriptor)
 
-    # for artefact in artefacts_requiring_tests:
-    #     if has_tests_for(
-    #         artefact=artefact,
-    #         test_artefacts=artefacts_containing_tests,
-    #     ):
-    #         print('no finding')
-    #     else:
-    #         print('finding')
+    test_resources = test_results.find_test_artefacts(
+        component=component_descriptor)
+
+    assert len(resources_req_tests) == len(test_resources)
+
+ # mismatching test scope
+    test_scope_values = component_descriptor.component.resources[0].labels[2].value
+
+    test_scope_values.remove("job-image-1")
+
+    test_resources = test_results.find_test_artefacts(
+        component=component_descriptor)
+
+    test_coverage = test_results.iter_artefacts_for_test_coverage(
+        component=component_descriptor, artefact=odg.model.ComponentArtefactId, categorisation=odg.findings.FindingCategorisation)
+
+    assert len(test_coverage) == 1
+
+# no test scope
+
+    labels = component_descriptor.component.resources[0].labels
+    labels = [label for label in labels if not label.name ==
+        'gardener.cloud/test-scope']
+
+    component_descriptor.component.resources[0].labels = labels
+
+    test_resources = test_results.find_test_artefacts(
+        component=component_descriptor)
+
+    test_coverage = test_results.iter_artefacts_for_test_coverage(
+        component=component_descriptor, artefact=odg.model.ComponentArtefactId, categorisation=odg.findings.FindingCategorisation)
+
+    assert test_coverage == None
+
+# let's remove the test results
+    component_descriptor.component.resources = [
+        resource
+        for resource in component_descriptor.component.resources
+        if not resource.name == 'job-image-test-2' and not resource.name == 'job-image-test-1'
+    ]
+
+    test_resources = test_results.find_test_artefacts(
+        component=component_descriptor)
+
+    assert len(resources_req_tests) != len(test_resources)

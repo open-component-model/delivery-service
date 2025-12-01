@@ -129,6 +129,15 @@ class SASTFindingSelector:
 
 
 @dataclasses.dataclass
+class TestResultFindingSelector:
+    '''
+    :param list[str] sub_types:
+        List of regexes to determine matching missing linter findings.
+    '''
+    status: list[str]
+
+
+@dataclasses.dataclass
 class VulnerabilityFindingSelector:
     '''
     :param MinMaxRange cve_score_range:
@@ -187,6 +196,7 @@ class FindingCategorisation:
         | SASTFindingSelector
         | VulnerabilityFindingSelector
         | OsIdFindingSelector
+        | TestResultFindingSelector
         | None
     )
 
@@ -960,6 +970,11 @@ def categorise_finding(
                 return categorisation
 
         elif isinstance(selector, OsIdFindingSelector):
+            for status in selector.status:
+                if re.fullmatch(status, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, TestResultFindingSelector):
             for status in selector.status:
                 if re.fullmatch(status, finding_property, re.IGNORECASE):
                     return categorisation

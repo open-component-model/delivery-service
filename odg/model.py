@@ -40,6 +40,7 @@ class Datatype(enum.StrEnum):
     OSID_FINDING = 'finding/osid'
     SAST_FINDING = 'finding/sast'
     VULNERABILITY_FINDING = 'finding/vulnerability'
+    TEST_RESULT = 'finding/test'
 
     # informational datatypes
     CRYPTO_ASSET = 'crypto_asset'
@@ -59,6 +60,7 @@ class Datatype(enum.StrEnum):
             Datatype.OSID_FINDING: Datasource.OSID,
             Datatype.SAST_FINDING: Datasource.SAST,
             Datatype.VULNERABILITY_FINDING: Datasource.BDBA,
+            Datatype.TEST_RESULT: Datasource.TEST_RESULT
         }[self]
 
 
@@ -76,6 +78,7 @@ class Datasource(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    TEST_RESULT = 'test-result'
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
@@ -116,6 +119,7 @@ class Datasource(enum.StrEnum):
             Datasource.SAST: (
                 Datatype.SAST_FINDING,
             ),
+            Datasource.TEST_RESULT: (Datatype.TEST_RESULT)
         }.get(self, tuple())
 
 
@@ -172,6 +176,10 @@ class UserIdentity:
 
 class SastStatus(enum.StrEnum):
     NO_LINTER = 'no-linter'
+
+
+class TestStatus(enum.StrEnum):
+    NO_TEST = 'no-test'
 
 
 class SastSubType(enum.StrEnum):
@@ -432,6 +440,15 @@ class LicenseFinding(Finding, BDBAMixin):
     @property
     def key(self) -> str:
         return _as_key(self.package_name, self.package_version, self.license.name)
+
+
+@dataclasses.dataclass
+class TestResultMissingFinding(Finding):
+    test_status: TestStatus
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.test_status)
 
 
 @dataclasses.dataclass
@@ -1363,6 +1380,7 @@ FindingModels = (
     | OsIdFinding
     | SastFinding
     | VulnerabilityFinding
+    | TestResultMissingFinding
 )
 InformationalModels = (
     StructureInfo
