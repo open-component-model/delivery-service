@@ -7,7 +7,6 @@ import pprint
 import tabulate
 
 import cnudie.access
-import oci
 import ocm
 import ocm.iter
 import tarutil
@@ -155,7 +154,7 @@ def scan(
             access = resource_node.resource.access
 
             if access.type is ocm.AccessType.OCI_REGISTRY:
-                content_iterator = oci.image_layers_as_tarfile_generator(
+                content_iterator = ocm_util.image_layers_as_tarfile_generator(
                     image_reference=access.imageReference,
                     oci_client=oci_client,
                     include_config_blob=False,
