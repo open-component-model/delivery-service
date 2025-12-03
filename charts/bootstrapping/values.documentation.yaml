@@ -326,6 +326,63 @@ extensions_cfg:
     # extra_pg_dump_args: ["--my-arg", "value"]
     extra_pg_dump_args: []
 
+  # @param extensions_cfg.findings_report cronjob which regularly creates a report for the configured
+  # component, finding type and interval
+  findings_report:
+    # @param extensions_cfg.findings_report.enabled allows disabling of extension without removing
+    # its configuration
+    enabled: true
+    # @param extensions_cfg.findings_report.delivery_service_url url to access the delivery-service
+    # (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.findings_report.mappings list of finding types, components and a time
+    # interval for which a report should be generated and published to the configured GitHub
+    # repository
+    mappings:
+        # @param extensions_cfg.findings_report.mappings[].type the finding type
+      - type: finding/malware
+        # @param extensions_cfg.findings_report.mappings[].component an OCM component for which the
+        # report should be generated
+        component:
+          # @param extensions_cfg.findings_report.mappings[].component.component_name
+          # e.g.
+          # component_name: ocm.software/open-delivery-gear
+          component_name: ""
+          # @param extensions_cfg.findings_report.mappings[].component.ocm_repo_url may be used to
+          # overwrite the default lookup via ocm_repo_mappings
+          ocm_repo_url: null
+          # @param extensions_cfg.findings_report.mappings[].component.time_range the time interval
+          # which is used to retrieve the component versions which are included in the report
+          time_range:
+            days_from: -365
+            days_to: 0
+        # @param extensions_cfg.findings_report.mappings[].github_repository name of the GitHub
+        # repository where the report should be published
+        # e.g.
+        # github_repository: github.com/<org-name>/<repository-name>
+        github_repository: ""
+        # @param extensions_cfg.findings_report.mappings[].branch the name of the branch to publish
+        # the report to
+        branch: gh-pages
+        # @param extensions_cfg.findings_report.mappings[].filename the relativ path in the target
+        # repository to a file containing the overview report
+        filename: report.md
+        # @param extensions_cfg.findings_report.mappings[].dirname the relativ path in the target
+        # repository to a directory containing the detailed reports per component version
+        dirname: reports
+        # @param extensions_cfg.findings_report.mappings[].auto_merge whether or not to automatically
+        # merge the pull request which updates the generated report
+        auto_merge: false
+        # @param extensions_cfg.findings_report.mappings[].trigger_absent_scans whether or not to
+        # automatically create backlog items to trigger scans for artefacts which were identified to
+        # be missing scans
+        trigger_absent_scans: false
+        # @param extensions_cfg.findings_report.mappings[].report_to_saf whether or not to upload the
+        # latest results to the SAF API
+        report_to_saf: false
+
   # @param extensions_cfg.ghas cronjob which regularly checks GitHub secret alerts and takes care of
   # the lifecycle of respective findings
   ghas:

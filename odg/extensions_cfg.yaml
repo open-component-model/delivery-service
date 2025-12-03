@@ -62,6 +62,15 @@ delivery_db_backup:
   component_name: my-component # <str> must be set
   ocm_repo_url: my-ocm-repo # <str> must be set
 
+findings_report:
+  enabled: False
+  mappings:
+    - type: finding/malware
+      component:
+        component_name: ocm.software/ocm-gear
+        time_range: {}
+      github_repository: my-github-repository # <str> must be set
+
 ghas:
   enabled: False
 
