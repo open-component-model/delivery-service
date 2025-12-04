@@ -634,6 +634,8 @@ class Finding:
                 self._validate_malware()
             case odg.model.Datatype.SAST_FINDING:
                 self._validate_sast()
+            case odg.model.Datatype.TEST_RESULT_FINDING:
+                self._validate_test_result()
             case odg.model.Datatype.VULNERABILITY_FINDING:
                 self._validate_vulnerabilty()
             case odg.model.Datatype.INVENTORY_FINDING:
