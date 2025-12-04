@@ -211,6 +211,13 @@ class ResourceGroupProcessor:
             logger.error(f'scan of {scanned_element=} failed; {scan_result=}')
             return
 
+        if not (scan_result.binary_bytes and scan_result.scanned_bytes):
+            logger.error(
+                f'scan of {scanned_element=} failed: uploaded or scanned file is empty '
+                f'({scan_result.binary_bytes=}, {scan_result.scanned_bytes=})'
+            )
+            return
+
         logger.info(
             f'scan of {scan_result.display_name} succeeded, going to post-process results'
         )
