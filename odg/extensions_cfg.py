@@ -41,6 +41,7 @@ class Services(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    TEST_RESULT_FINDING = 'testResult'
     ODG_OPERATOR = 'odg-operator'
 
 
@@ -1024,6 +1025,13 @@ class OsId(BacklogItemMixins):
                 is_supported = False
 
         return is_supported
+
+
+@dataclasses.dataclass(kw_only=True)
+class TestResult(BacklogItemMixins):
+    def is_supported(self, artefact_kind, access_type):
+        # do something
+        return super().is_supported(artefact_kind, access_type)
 
 
 @dataclasses.dataclass

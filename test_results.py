@@ -31,17 +31,16 @@ def find_test_artefacts(component: ocm.ComponentDescriptor) -> list[ocm.Artifact
 
 def create_missing_test_finding(
         artefact: odg.model.ComponentArtefactId,
+        sub_type: odg.model.TestStatus,
         categorisation: odg.findings.FindingCategorisation,
         creation_timestamp: datetime.datetime=datetime.datetime.now(
         tz=datetime.timezone.utc)
 ) -> odg.model.ArtefactMetadata | None:
-    # this function is to be discussed and is still being worked on :-)
-    print('Test Result Missing for', artefact, '!!!!')
     return odg.model.ArtefactMetadata(
         artefact=artefact,
         meta=odg.model.Metadata(
-            datasource=odg.model.Datasource.TEST_RESULT,
-            type=odg.model.Datatype.TEST_RESULT,
+            datasource=odg.model.Datasource.TEST_RESULT_FINDING,
+            type=odg.model.Datatype.TEST_RESULT_FINDING,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
         ),
@@ -53,11 +52,18 @@ def create_missing_test_finding(
 
 
 def iter_artefacts_for_test_coverage(component: ocm.ComponentDescriptor,
+    test_result_finding_config: odg.findings.Finding,
+    sub_type: odg.model.TestStatus,
     artefact: odg.model.ComponentArtefactId,
-        categorisation: odg.findings.FindingCategorisation,
-        creation_timestamp: datetime.datetime=datetime.datetime.now(
-        tz=datetime.timezone.utc)
+    creation_timestamp: datetime.datetime=datetime.datetime.now(
+        datetime.timezone.utc)
     ):
+
+    categorisation = odg.findings.categorise_finding(
+        finding_cfg=test_result_finding_config,
+        finding_property=sub_type
+    )
+
     artefacts_req_tests = find_artefact_with_truthy_test_policy_label(
         component)
 
@@ -77,8 +83,7 @@ def iter_artefacts_for_test_coverage(component: ocm.ComponentDescriptor,
     for artefact_requiring_tests in artefacts_req_tests:
         if artefact_requiring_tests.name not in artefacts_with_tests:
             findings.append(
-                #create_missing_test_finding()
-                #the below string is a placeholder to make tests work, as create_missing_test_finding() is not fully implemented yet
-                'Oh no!'
+                create_missing_test_finding(
+                    artefact, sub_type, categorisation, creation_timestamp)
                 )
         return findings

@@ -1,4 +1,3 @@
-import os
 import pytest
 import dacite
 import enum
@@ -146,8 +145,40 @@ def component_descriptor() -> ocm.ComponentDescriptor:
     )
 
 
+@pytest.fixture
+def missing_test_result_finding_cfg() -> odg.findings.Finding:
+    selector = odg.findings.TestResultFindingSelector(status=['.*'])
+
+    categorisations = [
+        odg.findings.FindingCategorisation(
+            id='NONE',
+            display_name='test exists and has no findings',
+            value=0,
+            allowed_processing_time=0,
+            rescoring=None,
+            selector=None,
+        ),
+        odg.findings.FindingCategorisation(
+            id='BLOCKER',
+            display_name='Test result is missing',
+            value=16,
+            allowed_processing_time=0,
+            rescoring=None,
+            selector=selector,
+        ),
+    ]
+
+    return odg.findings.Finding(
+        type=odg.model.Datatype.TEST_RESULT_FINDING,
+        categorisations=categorisations,
+        filter=None,
+        rescoring_ruleset=None
+    )
+
+
 def test_artefact_test_results_filter(
     component_descriptor: ocm.ComponentDescriptor,
+    missing_test_result_finding_cfg: odg.findings.Finding
 ):
 
     resources_req_tests = test_results.find_artefact_with_truthy_test_policy_label(
@@ -167,7 +198,10 @@ def test_artefact_test_results_filter(
         component=component_descriptor)
 
     test_coverage = test_results.iter_artefacts_for_test_coverage(
-        component=component_descriptor, artefact=odg.model.ComponentArtefactId, categorisation=odg.findings.FindingCategorisation)
+        test_result_finding_config=missing_test_result_finding_cfg,
+        component=component_descriptor,
+        artefact=odg.model.ComponentArtefactId,
+        sub_type=odg.model.TestStatus.NO_TEST)
 
     assert len(test_coverage) == 1
 
@@ -183,7 +217,10 @@ def test_artefact_test_results_filter(
         component=component_descriptor)
 
     test_coverage = test_results.iter_artefacts_for_test_coverage(
-        component=component_descriptor, artefact=odg.model.ComponentArtefactId, categorisation=odg.findings.FindingCategorisation)
+        component=component_descriptor,
+        artefact=odg.model.ComponentArtefactId,
+        test_result_finding_config=missing_test_result_finding_cfg,
+        sub_type=odg.model.TestStatus.NO_TEST)
 
     assert test_coverage == None
 
