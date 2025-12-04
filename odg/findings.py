@@ -712,6 +712,18 @@ class Finding:
         e.add_note('\n'.join(violations))
         raise e
 
+    def _validate_test_result(self):
+        violations = self._validate_categorisations(
+            expected_selector=TestResultFindingSelector,
+        )
+
+        if not violations:
+            return
+
+        e = ModelValidationError('test result finding violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
+
     def _validate_sast(self):
         violations = self._validate_categorisations(
             expected_selector=SASTFindingSelector,
