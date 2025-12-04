@@ -16,11 +16,11 @@ import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.sql.elements
 
 import ci.log
-import cnudie.iter
-import cnudie.iter_async
 import cnudie.retrieve_async
 import oci.client_async
 import ocm
+import ocm.iter
+import ocm.iter_async
 
 import compliance_summary
 import components as components_module
@@ -148,28 +148,20 @@ async def prefill_compliance_summary_cache(
 async def prefill_compliance_summary_caches(
     components: collections.abc.Iterable[odg.extensions_cfg.Component],
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
-    invalid_semver_ok: bool,
     db_session: sqlasync.session.AsyncSession,
 ):
     seen_component_ids = set()
 
     for component in components:
-        if not (version_filter := component.version_filter):
-            version_filter = odg.extensions_cfg.VersionFilter.RELEASES_ONLY
-
         versions = await components_module.greatest_component_versions(
             component_name=component.component_name,
             component_descriptor_lookup=component_descriptor_lookup,
             ocm_repo=component.ocm_repo,
-            version_lookup=version_lookup,
             max_versions=component.max_versions_limit,
             greatest_version=component.version,
             oci_client=oci_client,
-            version_filter=version_filter,
-            invalid_semver_ok=invalid_semver_ok,
             db_session=db_session,
         )
 
@@ -179,10 +171,10 @@ async def prefill_compliance_summary_caches(
                 version=version,
             ))
 
-            async for component_node in cnudie.iter_async.iter(
+            async for component_node in ocm.iter_async.iter(
                 component=component_descriptor.component,
                 lookup=component_descriptor_lookup,
-                node_filter=cnudie.iter.Filter.components,
+                node_filter=ocm.iter.Filter.components,
             ):
                 component_id = component_node.component_id
 
@@ -200,13 +192,11 @@ async def prefill_compliance_summary_caches(
 
 async def prefill_component_versions_caches(
     components: collections.abc.Iterable[odg.extensions_cfg.Component],
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     db_session: sqlasync.session.AsyncSession,
 ):
     for component in components:
         await components_module.component_versions(
             component_name=component.component_name,
-            version_lookup=version_lookup,
             ocm_repo=component.ocm_repo,
             db_session=db_session,
         )
@@ -216,10 +206,8 @@ async def prefill_function_caches(
     function_names: collections.abc.Iterable[odg.extensions_cfg.FunctionNames],
     components: collections.abc.Iterable[odg.extensions_cfg.Component],
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
     oci_client: oci.client_async.Client,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
-    invalid_semver_ok: bool,
     db_session: sqlasync.session.AsyncSession,
 ):
     for function_name in function_names:
@@ -230,17 +218,14 @@ async def prefill_function_caches(
                 await prefill_compliance_summary_caches(
                     components=components,
                     component_descriptor_lookup=component_descriptor_lookup,
-                    version_lookup=version_lookup,
                     oci_client=oci_client,
                     finding_cfgs=finding_cfgs,
-                    invalid_semver_ok=invalid_semver_ok,
                     db_session=db_session,
                 )
 
             case odg.extensions_cfg.FunctionNames.COMPONENT_VERSIONS:
                 await prefill_component_versions_caches(
                     components=components,
-                    version_lookup=version_lookup,
                     db_session=db_session,
                 )
 
@@ -253,7 +238,6 @@ async def main():
             odg.util.Arguments.K8S_NAMESPACE,
             odg.util.Arguments.EXTENSIONS_CFG_PATH,
             odg.util.Arguments.FINDINGS_CFG_PATH,
-            odg.util.Arguments.INVALID_SEMVER_OK,
             odg.util.Arguments.CACHE_DIR,
         ),
     )
@@ -302,11 +286,6 @@ async def main():
         oci_client=oci_client,
     )
 
-    version_lookup = lookups.init_version_lookup_async(
-        oci_client=oci_client,
-        default_absent_ok=True,
-    )
-
     db_session = await deliverydb.sqlalchemy_session(db_url)
     try:
         cache_size_bytes = await db_size(db_session=db_session)
@@ -325,10 +304,8 @@ async def main():
             function_names=cache_manager_cfg.prefill_function_caches.functions,
             components=cache_manager_cfg.prefill_function_caches.components,
             component_descriptor_lookup=component_descriptor_lookup,
-            version_lookup=version_lookup,
             oci_client=oci_client,
             finding_cfgs=finding_cfgs,
-            invalid_semver_ok=parsed_arguments.invalid_semver_ok,
             db_session=db_session,
         )
     finally:

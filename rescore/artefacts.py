@@ -42,6 +42,15 @@ class LicenseFinding(odg.model.Finding):
 
 
 @dataclasses.dataclass
+class IPFinding(odg.model.Finding):
+    package_name: str
+    package_versions: tuple[str, ...] # "..." for dacite.from_dict
+    license: odg.model.License
+    policy_violation: odg.model.PolicyViolationRef
+    labels: list[str]
+
+
+@dataclasses.dataclass
 class VulnerabilityFinding(odg.model.Finding):
     package_name: str
     package_versions: tuple[str, ...] # "..." for dacite.from_dict
@@ -58,6 +67,7 @@ class RescoringProposal:
     finding: (
         LicenseFinding
         | VulnerabilityFinding
+        | IPFinding
         | odg.model.FindingModels
     )
     finding_type: odg.model.Datatype
@@ -312,6 +322,7 @@ async def _iter_rescoring_proposals(
         if finding_cfg.type in (
             odg.model.Datatype.VULNERABILITY_FINDING,
             odg.model.Datatype.LICENSE_FINDING,
+            odg.model.Datatype.IP_FINDING,
         ):
             artefact_metadata_with_same_ocm = tuple(
                 matching_am for matching_am in artefact_metadata
@@ -431,6 +442,51 @@ async def _iter_rescoring_proposals(
                             'severity': severity,
                             'license': license,
                             'filesystem_paths': filesystem_paths,
+                        },
+                        'finding_type': finding_cfg.type,
+                        'severity': current_severity,
+                        'matching_rules': matching_rule_names,
+                        'applicable_rescorings': serialised_current_rescorings,
+                        'discovery_date': am.discovery_date.isoformat(),
+                        'due_date': due_date,
+                        'sprint': sprint,
+                    },
+                )
+            elif finding_cfg.type is odg.model.Datatype.IP_FINDING:
+                license = am.data.license
+
+                am_across_package_versions = tuple(
+                    matching_am for matching_am in artefact_metadata_with_same_ocm
+                    if (
+                        matching_am.data.license.name == license.name and
+                        matching_am.data.package_name == package_name and
+                        sorted(matching_am.data.labels) == sorted(am.data.labels) and
+                        matching_am.data.policy_violation.name == am.data.policy_violation.name
+                    )
+                )
+                seen_ids.update(
+                    tuple(
+                        local_am.id for local_am
+                        in am_across_package_versions
+                    )
+                )
+
+                package_versions, _ = _package_versions_and_filesystem_paths(
+                    artefact_metadata_across_package_version=am_across_package_versions,
+                    artefact_metadata=artefact_metadata,
+                    finding=am,
+                )
+
+                yield dacite.from_dict(
+                    data_class=RescoringProposal,
+                    data={
+                        'finding': {
+                            'package_name': package_name,
+                            'package_versions': package_versions,
+                            'severity': severity,
+                            'license': license,
+                            'policy_violation': am.data.policy_violation,
+                            'labels': am.data.labels,
                         },
                         'finding_type': finding_cfg.type,
                         'severity': current_severity,

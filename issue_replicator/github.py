@@ -18,7 +18,6 @@ import github3.issues.issue
 import github3.issues.milestone
 import github3.repos
 
-import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import delivery.model
@@ -26,8 +25,8 @@ import github.compliance.milestone as gcmi
 import github.limits
 import github.retry
 import github.util
+import ocm.iter
 import ocm.util
-import version
 
 import k8s.util
 import odg.extensions_cfg
@@ -202,7 +201,7 @@ def _artefact_to_str(
 
 
 def _artefact_url(
-    ocm_node: cnudie.iter.ArtefactNode | None,
+    ocm_node: ocm.iter.ArtefactNode | None,
 ) -> str:
     if not ocm_node:
         return ''
@@ -613,6 +612,9 @@ def diki_summary(
 
             if rule_desc:
                 finding_str += f'| Rule Description | {rule_desc} |\n'
+
+            if discovery_date := aggregated_finding.finding.discovery_date:
+                finding_str += f'| Initial Discovery Date | {discovery_date.isoformat()} |\n'
 
             finding_str += f'| Severity | {severity} |\n'
 
@@ -1246,10 +1248,7 @@ def vulnerability_summary(
             f'`{package_version}`'
             for package_version in sorted(
                 aggregated_finding.finding.data.package_version,
-                key=lambda package_version: version.parse_to_semver(
-                    version=package_version or '0.0',
-                    invalid_semver_ok=True,
-                ),
+                key=util.version_sorting_key,
             )
         )
 
@@ -1389,7 +1388,7 @@ def template_issue_body(
         sprint_name=sprint_name,
     )
 
-    summary = textwrap.dedent('''\
+    artefact_summary = textwrap.dedent('''\
         # Compliance Status Summary
 
         |    |    |
@@ -1403,22 +1402,22 @@ def template_issue_body(
     )
 
     if component_name := artefact_group_properties.component_name:
-        summary += f'| Component | {component_name} |\n'
+        artefact_summary += f'| Component | {component_name} |\n'
     if component_version := artefact_group_properties.component_version:
-        summary += f'| Component-Version | {component_version} |\n'
+        artefact_summary += f'| Component-Version | {component_version} |\n'
     if artefact_kind := artefact_group_properties.artefact_kind:
-        summary += f'| Artefact-Kind | {artefact_kind} |\n'
+        artefact_summary += f'| Artefact-Kind | {artefact_kind} |\n'
     if artefact_name := artefact_group_properties.artefact.artefact_name:
-        summary += f'| Artefact | {artefact_name} |\n'
+        artefact_summary += f'| Artefact | {artefact_name} |\n'
     if artefact_version := artefact_group_properties.artefact.artefact_version:
-        summary += f'| Artefact-Version | {artefact_version} |\n'
+        artefact_summary += f'| Artefact-Version | {artefact_version} |\n'
     if artefact_type := artefact_group_properties.artefact.artefact_type:
-        summary += f'| Artefact-Type | {artefact_type} |\n'
+        artefact_summary += f'| Artefact-Type | {artefact_type} |\n'
     if artefact_extra_id := artefact_group_properties.artefact.artefact_extra_id:
         id_str = '<br>'.join(sorted(f'{k}: {v}' for k, v in artefact_extra_id.items()))
-        summary += f'| Artefact-Extra-Id | <pre>{id_str}</pre> |\n'
+        artefact_summary += f'| Artefact-Extra-Id | <pre>{id_str}</pre> |\n'
 
-    summary += f'| Due Date | {due_date} |\n'
+    artefact_summary += f'| Due Date | {due_date} |\n'
 
     # assign the findings to the artefact of the group they belong to
     finding_groups: list[FindingGroup] = []
@@ -1485,8 +1484,10 @@ def template_issue_body(
         for artefact_non_group_properties in artefacts_non_group_properties
     )
 
+    artefact_summary_long = artefact_summary_short = artefact_summary
+
     if artefacts_non_group_properties:
-        summary += f'| {util.pluralise('ID', len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n' # noqa: E501
+        artefact_summary_long += f'| {util.pluralise('ID', len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n' # noqa: E501
 
     # lastly, display the artefacts which were not scanned yet
     artefacts_without_scan_str = ''.join(
@@ -1495,7 +1496,7 @@ def template_issue_body(
     )
 
     if sorted_artefacts_without_scan:
-        summary += f'| {util.pluralise('Artefact', len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
+        artefact_summary_long += f'| {util.pluralise('Artefact', len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
 
     template_variables = {
         'component_name': component_name,
@@ -1509,17 +1510,17 @@ def template_issue_body(
     }
 
     if not findings and not historical_findings:
-        summary += (
+        artefact_summary_long += (
             '**The scan of the recent artefact version is currently pending, '
             'hence no findings may show up.**'
         )
 
-        template_variables['summary'] = summary
+        template_variables['summary'] = artefact_summary_long
 
         return finding_cfg.issues.template.format(**template_variables)
 
     elif findings:
-        summary += (
+        artefact_summary_long += (
             f'The aforementioned {util.pluralise('artefact', len(artefacts_non_group_properties))} '
             'yielded findings relevant for future release decisions.\n'
         )
@@ -1553,11 +1554,13 @@ def template_issue_body(
         sprint_name=sprint_name,
     )
 
-    for summary_variant in summary_variants:
-        template_variables['summary'] = summary + summary_variant
-        issue_body = finding_cfg.issues.template.format(**template_variables)
-        if len(issue_body) <= github.limits.issue_body:
-            return issue_body
+    # order is important -> prefer long version
+    for artefact_summary_variant in (artefact_summary_long, artefact_summary_short):
+        for summary_variant in summary_variants:
+            template_variables['summary'] = artefact_summary_variant + summary_variant
+            issue_body = finding_cfg.issues.template.format(**template_variables)
+            if len(issue_body) <= github.limits.issue_body:
+                return issue_body
 
     raise RuntimeError(f'{len(issue_body)=} exceeds {github.limits.issue_body=}')
 
@@ -1750,9 +1753,13 @@ def _create_or_update_issue(
         labels.add(IssueLabels.OVERDUE)
 
     if not is_scanned:
+        if not issue:
+            # there is no scan yet but we have no open issue either -> nothing to do (yet)
+            return
+
         labels.add(IssueLabels.SCAN_PENDING)
 
-    if not is_scanned or issue:
+    if issue:
         return update_issue(
             issue=issue,
             body=body,

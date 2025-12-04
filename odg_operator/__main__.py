@@ -21,9 +21,9 @@ import urllib3
 import yaml
 
 import ci.log
-import cnudie.iter
 import oci.client
 import ocm
+import ocm.iter
 
 import ctx_util
 import k8s.util
@@ -35,6 +35,7 @@ import odg.extensions_cfg
 import odg.util
 import paths
 import util
+import version as versionutil
 
 
 ci.log.configure_default_logging()
@@ -73,7 +74,7 @@ def find_extension_definition(
     if absent_ok:
         return None
 
-    raise ValueError(f'unknown {extension_name=}; known: {extension_definitions}')
+    raise ValueError(f'unknown {extension_name=}; known: {[e.name for e in extension_definitions]}')
 
 
 def iter_missing_dependencies(
@@ -536,7 +537,7 @@ def set_odg_state(
 
 
 def reconcile(
-    extension_definitions: list[odgm.ExtensionDefinition],
+    extension_definitions: collections.abc.Iterable[odgm.ExtensionDefinition],
     required_extensions: list[str],
     component_descriptor_lookup,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -775,7 +776,7 @@ def reconcile(
 
 
 def _iter_extension_definitions_from_resource_node(
-    resource_node: cnudie.iter.ResourceNode,
+    resource_node: ocm.iter.ResourceNode,
     oci_client: oci.client.Client,
 ) -> collections.abc.Generator[odgm.ExtensionDefinition, None, None]:
     odg_extension_tar_stream = oci_client.blob(
@@ -898,10 +899,9 @@ if __name__ == '__main__':
 
         component_id = f'{extension_ref.component_name}:{extension_ref.component_version}'
         component = component_descriptor_lookup(component_id).component
-        for resource_node in cnudie.iter.iter(
+        for resource_node in ocm.iter.iter_resources(
             component=component,
             recursion_depth=recursion_depth,
-            node_filter=cnudie.iter.Filter.resources,
             lookup=component_descriptor_lookup,
         ):
             if (
@@ -910,12 +910,33 @@ if __name__ == '__main__':
             ):
                 resource_nodes.append(resource_node)
 
+    # deduplicate resource nodes by component name in case a component is referenced multiple times
+    # in different versions -> use the greatest version only. Also, assume there is only ever one
+    # extension definition artefact per component (which may contain multiple extensions)
+    greatest_resource_nodes: dict[ocm.ComponentName, ocm.iter.ResourceNode] = {}
+
     for resource_node in resource_nodes:
+        cid = resource_node.component_id
+
+        if current := greatest_resource_nodes.get(cid.name):
+            candidate_version = versionutil.parse_to_semver(cid.version)
+            current_version = versionutil.parse_to_semver(current.component_id.version)
+
+            if candidate_version > current_version:
+                greatest_resource_nodes[cid.name] = resource_node
+        else:
+            greatest_resource_nodes[cid.name] = resource_node
+
+    for resource_node in greatest_resource_nodes.values():
         extension_definitions.extend(_iter_extension_definitions_from_resource_node(
             resource_node=resource_node,
             oci_client=oci_client,
         ))
 
+    extension_definitions = sorted(
+        set(extension_definitions), # ensure there are no duplicates
+        key=lambda extension_definition: extension_definition.name,
+    )
     logger.info(f'known extension definitions: {[e.name for e in extension_definitions]}')
     kubernetes_api = k8s.util.kubernetes_api(kubeconfig_path=parsed.kubeconfig)
 

@@ -3,7 +3,7 @@ categorisations:
     gardener:
       - id: NONE
         display_name: Not Exploitable / Accept
-        value: 0
+        value: 0 # required to be able to import triages made in BDBA
         rescoring: manual
       - id: postpone
         display_name: Postpone

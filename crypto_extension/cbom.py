@@ -105,7 +105,14 @@ def find_cbom_or_create(
         )
         s3_client = aws_secret.session.client('s3')
 
-        fileobj = s3_client.get_object(Bucket=access.bucketName, Key=access.objectKey)['Body']
+        if isinstance(access, ocm.LegacyS3Access):
+            bucket = access.bucketName
+            key = access.objectKey
+        else:
+            bucket = access.bucket
+            key = access.key
+
+        fileobj = s3_client.get_object(Bucket=bucket, Key=key)['Body']
 
         def tar_filter(member: tarfile.TarInfo, dest_path: str) -> tarfile.TarInfo | None:
             if member.islnk() or member.issym():

@@ -1,13 +1,18 @@
 - name: default
   finding_types:
-    - finding/vulnerability
+    - finding/crypto
+    - finding/diki
+    - finding/falco
+    - finding/kyverno
+    - finding/ghas
+    - finding/inventory
+    - finding/ip
     - finding/license
     - finding/malware
-    - finding/sast
-    - finding/diki
-    - finding/crypto
     - finding/osid
     - finding/ghas
     - finding/test-result
+    - finding/sast
+    - finding/vulnerability
   special_component_ids:
     - 03e237b4-434e-4e1c-b786-5ceb6cc76c1c

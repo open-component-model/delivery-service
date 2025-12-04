@@ -30,18 +30,10 @@ extensions_cfg:
       - component_name: ""
         # @param extensions_cfg.artefact_enumerator.components[].version version of the OCM
         # component, if "null" or "greatest" is specified, resolves to the greatest available version
-        # considering extensions_cfg.artefact_enumerator.components[].version_filter as well
         version: null
         # @param extensions_cfg.artefact_enumerator.components[].ocm_repo_url may be used to
         # overwrite the default lookup via ocm_repo_mappings
         ocm_repo_url: null
-        # @param extensions_cfg.artefact_enumerator.components[].version_filter may be used to
-        # overwrite the default version filter features_cfg.versionFilter
-        # options:
-        # - null: use version filter specified via features_cfg.versionFilter
-        # - releases_only: only consider SemVer release versions when resolving "greatest"
-        # - all: consider all versions when resolving "greatest"
-        version_filter: null
         # @param extensions_cfg.artefact_enumerator.components[].max_versions_limit number of
         # versions that should be tracked
         max_versions_limit: 1
@@ -94,6 +86,55 @@ extensions_cfg:
         # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
         # to use must be specified
         aws_secret_name: null
+    # @param extensions_cfg.bdba.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
+
+  # @param extensions_cfg.blackduck workers which re-upload BDBA results to BlackDuck and fetch
+  # results/findings (e.g. "ip" findings)
+  blackduck:
+    # @param extensions_cfg.blackduck.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.blackduck.delivery_service_url url to access the delivery-service
+    # (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.blackduck.interval time (in seconds) after which a component should be
+    # re-scanned the latest
+    interval: 86400 # 24h
+    # @param extensions_cfg.blackduck.mappings list of component prefixes that should be processed
+    # together with some individual configuration
+    mappings:
+        # @param extensions_cfg.blackduck.mappings[].prefix prefix of the OCM component name
+        # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
+      - prefix: ""
+        # @param extensions_cfg.blackduck.mappings[].targets the BlackDuck targets to upload the
+        # results to and retrieve the findings from
+        targets:
+            # @param extensions_cfg.blackduck.mappings[].targets[].group_id the BlackDuck group id
+          - group_id: ""
+            # @param extensions_cfg.blackduck.mappings[].targets[].host the hostname of the BlackDuck
+            # instance
+            host: ""
+        # @param extensions_cfg.blackduck.mappings[].group_id_bdba the BDBA group id to retrieve the
+        # scan results from
+        group_id_bdba: -1
+        # @param extensions_cfg.blackduck.mappings[].processing_mode the behaviour in case the BDBA
+        # scan already exists
+        # options:
+        # - rescan: re-use already uploaded binary and retrieve updated scan results
+        # - force_upload: always re-upload binary and retrieve updated scan results
+        processing_mode: rescan
+        # @param extensions_cfg.blackduck.mappings[].aws_secret_name in case the resources are stored
+        # in AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws
+        # secret to use must be specified
+        aws_secret_name: null
 
   # @param extensions_cfg.cache_manager cronjob which regularly updates the persistent cache entries
   # and purges stale cache entries if required
@@ -141,24 +182,16 @@ extensions_cfg:
         - component_name: ""
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version version
           # of the OCM component, if "null" or "greatest" is specified, resolves to the greatest
-          # available version considering
-          # extensions_cfg.cache_manager.prefill_function_caches.components[].version_filter as well
+          # available version
           version: null
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].ocm_repo_url may
           # be used to overwrite the default lookup via ocm_repo_mappings
           ocm_repo_url: null
-          # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version_filter
-          # may be used to overwrite the default version filter features_cfg.versionFilter
-          # options:
-          # - null: use version filter specified via features_cfg.versionFilter
-          # - releases_only: only consider SemVer release versions when resolving "greatest"
-          # - all: consider all versions when resolving "greatest"
-          version_filter: null
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].max_versions_limit
           # number of versions that should be tracked
           max_versions_limit: 1
 
-  # @param extensions_cfg.clamav worker which interact with use ClamAV to create malware findings
+  # @param extensions_cfg.clamav workers which use ClamAV to create malware findings
   clamav:
     # @param extensions_cfg.clamav.enabled allows disabling of extension without removing its
     # configuration
@@ -181,6 +214,13 @@ extensions_cfg:
         # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
         # to use must be specified
         aws_secret_name: null
+    # @param extensions_cfg.clamav.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.crypto workers which identify cryptographic assets and create crypto
   # findings
@@ -245,6 +285,13 @@ extensions_cfg:
         # AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws secret
         # to use must be specified
         aws_secret_name: null
+    # @param extensions_cfg.crypto.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.delivery_db_backup cronjob which regularly creates a backup of the
   # PostgreSQL delivery-db and stores it as local blob of an OCM component
@@ -303,6 +350,13 @@ extensions_cfg:
         # orgs: ["open-component-model"]
         orgs:
           - ""
+    # @param extensions_cfg.ghas.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.issue_replicator worker which takes care of the GitHub issue lifecycle for
   # detected findings
@@ -389,6 +443,13 @@ extensions_cfg:
     # @param extensions_cfg.osid.interval time (in seconds) after which a component should be
     # re-scanned the latest
     interval: 86400 # 24h
+    # @param extensions_cfg.osid.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
   # @param extensions_cfg.responsibles workers which determine the OCM component responsibles based
   # on the configured rules
@@ -487,18 +548,65 @@ extensions_cfg:
     # @param extensions_cfg.sast.interval time (in seconds) after which a component should be
     # re-scanned the latest
     interval: 86400 # 24h
+    # @param extensions_cfg.sast.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
 
 
-# @section ocm_repo_mappings mapping between OCM components and their respective OCM repository
+# @section ocm_repo_mappings mapping between OCM components and their respective OCM repository.
+# Allows to define repository-specific version filtering rules as well as "virtual" repositories
+# combining multiple repositories together. If no "virtual" repository named "<auto>" is defined,
+# it will be added implicitly and will include all "oci" repositories.
 ocm_repo_mappings:
-    # @param ocm_repo_mappings.prefix prefix of the OCM component name for which the OCM repository
-    # should be used
-    # note: The prefixes are _not_ evaluated as a regex, use the empty string "" as "match-all"
-  - prefix: ""
-    # @param ocm_repo_mappings.repository the OCM repository
+    # @param ocm_repo_mappings[].type the type of the repository mapping
+    # options:
+    # - oci: an OCM OCI repository with optional configuration options (default) (see below)
+    # - virtual: a combined view on multiple OCM repositories (e.g. for auto-lookup)
+  - type: oci
+    # @param ocm_repo_mappings[].repository the OCM repository
     # e.g.
     # repository: europe-docker.pkg.dev/gardener-project/releases
     repository: ""
+    # @param ocm_repo_mappings[].prefixes the prefix(es) of OCM component name(s) for which the OCM
+    # repository should be used. Use `null` or the empty string "" as "match-all"
+    # note: The prefixes are _not_ evaluated as a regex
+    prefixes: null
+    # @param ocm_repo_mappings[].labels optional label(s) which can be used as selector for
+    # "virtual" OCM repositories
+    labels: null
+    # @param ocm_repo_mappings[].version_filter specifies which versions are considered from this OCM
+    # repository
+    # options:
+    # - any: all versions are considered (default)
+    # - semver_any: only versions which are SemVer compatible
+    # - semver_non_releases: only versions which contain either SemVer prerelease or build suffix
+    # - semver_releases: only versions which contain neither SemVer prerelease or build suffix
+    # - <custom-regex>: use a custom regex to filter versions
+    version_filter: any
+    # @param ocm_repo_mappings[].type the type of the repository mapping
+    # options:
+    # - oci: an OCM OCI repository with optional configuration options (default)
+    # - virtual: a combined view on multiple OCM repositories (e.g. for auto-lookup) (see below)
+  - type: virtual
+    # @param ocm_repo_mappings[].name the name of the virtual OCM repository
+    # e.g.
+    # name: <auto>
+    name: ""
+    # @param ocm_repo_mappings[].selectors optional selectors to restrict the virtual OCM repository
+    # to a subset of non-virtual repositories or to overwrite existing version filters (multiple
+    # selectors are combined using an "OR" expression)
+    selectors:
+        # @param ocm_repo_mappings[].selectors[].required_labels only include repositories which are
+        # labeled accordingly (multiple labels are combined using an "AND" expression). Use a falsy
+        # value as "match-all"
+      - required_labels: null
+        # @param ocm_repo_mappings[].selectors[].version_filter_overwrite overwrites the default
+        # version filter defined at ocm_repo_mappings[].version_filter
+        version_filter_overwrite: null
 
 
 # @section addressbook used to lookup additional information for responsibles, e.g. full name, email,
@@ -616,13 +724,6 @@ features_cfg:
           # @param features_cfg.specialComponents[].version.source.postprocess if set, the version
           # will be appended by the current's commit sha, i.e. "{version}-{sha}"
           postprocess: false
-      # @param features_cfg.specialComponents[].versionFilter may be used to overwrite the default
-      # version filter features_cfg.versionFilter
-      # options:
-      # - null: use version filter specified via features_cfg.versionFilter
-      # - releases_only: only consider SemVer release versions when resolving "greatest"
-      # - all: consider all versions when resolving "greatest"
-      versionFilter: null
       # @param features_cfg.specialComponents[].icon icon is displayed next to the component on the
       # landing page of the delivery-dashboard
       # options:
@@ -825,13 +926,6 @@ features_cfg:
   # component-diff tab in the delivery-dashboard and shows detected upgrade-PRs
   upgradePRs: false
 
-  # @param features_cfg.versionFilter specifies which versions should be included in lookup when
-  # resolving "greatest" version
-  # options:
-  # - releases_only: only consider SemVer release versions when resolving "greatest"
-  # - all: consider all versions when resolving "greatest"
-  versionFilter: releases_only
-
 
 # @section findings only the configured types of finding will be available
 findings:
@@ -840,8 +934,10 @@ findings:
     # - finding/crypto
     # - finding/diki
     # - finding/falco
+    # - finding/kyverno
     # - finding/ghas
     # - finding/inventory
+    # - finding/ip
     # - finding/license
     # - finding/malware
     # - finding/osid
@@ -1207,8 +1303,10 @@ profiles:
     # - finding/crypto
     # - finding/diki
     # - finding/falco
+    # - finding/kyverno
     # - finding/ghas
     # - finding/inventory
+    # - finding/ip
     # - finding/license
     # - finding/malware
     # - finding/osid
@@ -1248,6 +1346,18 @@ secrets:
       group_ids: []
       # @param secrets.bdba.<name>.tls_verify
       tls_verify: true
+
+  # @param secrets.blackduck mapping of a secret-name (freely selectable) and the BlackDuck
+  # secret-values
+  blackduck:
+    primary:
+      # @param secrets.blackduck.<name>.api_url the api url of the desired BlackDuck instance
+      api_url: str
+      # @param secrets.blackduck.<name>.group_id the BlackDuck group id these credentials should
+      # be used for
+      group_id: str
+      # @param secrets.blackduck.<name>.token the BlackDuck access token
+      token: str
 
   # @param secrets.delivery-db mapping of a secret-name (freely selectable) and the delivery-db
   # secret-values. There must be exactly _one_ secret

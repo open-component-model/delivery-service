@@ -109,7 +109,7 @@ def template_and_resolve_jsonpath(
     '''
     Processes provided value according to its type.
     - `literal` is returned as-is
-    - `template` is substituted via `substituion_context`
+    - `python-string-template` is substituted via `substituion_context`
     - `jsonpath` is replaced using JSONPath semantics and provided `jsonpaths` dict
 
     list and dicts are recursively processed, for dicts both key and values are processed.

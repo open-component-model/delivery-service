@@ -12,6 +12,7 @@ spec:
   failedJobsHistoryLimit: {{ default 1 .Values.failed_jobs_history_limit }}
   jobTemplate:
     spec:
+      backoffLimit: 0
       ttlSecondsAfterFinished: {{ default 43200 .Values.ttl_seconds_after_finished }} # 43200 -> 12h
       template:
         metadata:
@@ -26,12 +27,6 @@ spec:
             - python3
             - -m
             - cache_manager
-            {{- if default list .Values.args }}
-            args:
-            {{- range $arg := .Values.args }}
-            - {{ $arg }}
-            {{- end }}
-            {{- end }}
             securityContext:
               allowPrivilegeEscalation: false
             env:

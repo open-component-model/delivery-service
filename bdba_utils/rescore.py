@@ -1,6 +1,6 @@
 import logging
 
-import cnudie.iter
+import ocm.iter
 
 import bdba.client
 import bdba.model as bm
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def rescore(
     bdba_client: bdba.client.BDBAApi,
     scan_result: bm.AnalysisResult,
-    scanned_element: cnudie.iter.ResourceNode,
+    scanned_element: ocm.iter.ResourceNode,
     vulnerability_cfg: odg.findings.Finding,
 ) -> bool:
     '''

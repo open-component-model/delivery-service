@@ -6,11 +6,11 @@ import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.sql.elements as sqle
 
-import cnudie.iter
-import cnudie.iter_async
 import cnudie.retrieve_async
 import oci.model
 import ocm
+import ocm.iter
+import ocm.iter_async
 
 import deliverydb.model as dm
 import odg.model
@@ -161,9 +161,9 @@ class ArtefactMetadataQueries:
                     component: ocm.Component = component_descriptor.component
 
                 artefacts = [
-                    artefact_node.artefact async for artefact_node in cnudie.iter_async.iter(
+                    artefact_node.artefact async for artefact_node in ocm.iter_async.iter(
                         component=component,
-                        node_filter=cnudie.iter.Filter.artefacts,
+                        node_filter=ocm.iter.Filter.artefacts,
                         recursion_depth=0,
                     )
                 ]

@@ -54,7 +54,7 @@ def _iter_findings_for_artefact(
     chunk_size: int=10,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
     findings: list[odg.model.ArtefactMetadata] = []
-    rescorings: list[odg.model.ArtefactMetadata] = []
+    rescorings: set[odg.model.ArtefactMetadata] = set()
 
     for idx in range(0, len(artefacts), chunk_size):
         chunked_artefacts = artefacts[idx:min(idx + chunk_size, len(artefacts))]
@@ -67,7 +67,7 @@ def _iter_findings_for_artefact(
             )
         ])
 
-        rescorings.extend([
+        rescorings.update([
             odg.model.ArtefactMetadata.from_dict(raw)
             for raw in delivery_client.query_metadata(
                 artefacts=chunked_artefacts,

@@ -6,10 +6,10 @@ import datetime
 import logging
 
 import ci.log
-import cnudie.iter
 import cnudie.retrieve
 import delivery.client
 import ocm
+import ocm.iter
 
 import k8s.backlog
 import k8s.logging
@@ -78,7 +78,6 @@ def _iter_ocm_artefacts(
             max_versions=component.max_versions_limit,
             greatest_version=component.version,
             ocm_repo=component.ocm_repo,
-            version_filter=component.version_filter,
         )
 
         for version in versions:
@@ -90,15 +89,15 @@ def _iter_ocm_artefacts(
             if ocm_repo := component.ocm_repo:
                 component_descriptor = component_descriptor_lookup(
                     component_id,
-                    ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+                    ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
                 ).component
             else:
                 component_descriptor = component_descriptor_lookup(component_id).component
 
-            for artefact_node in cnudie.iter.iter(
+            for artefact_node in ocm.iter.iter(
                 component=component_descriptor,
                 lookup=component_descriptor_lookup,
-                node_filter=cnudie.iter.Filter.artefacts,
+                node_filter=ocm.iter.Filter.artefacts,
             ):
                 yield odg.model.component_artefact_id_from_ocm(
                     component=artefact_node.component,
@@ -585,6 +584,8 @@ def main():
         extensions_cfg_path = paths.extensions_cfg_path()
 
     extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration
+    logger.info(f'{extensions_cfg.enabled_extensions()=}')
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
         findings_cfg_path = paths.findings_cfg_path()

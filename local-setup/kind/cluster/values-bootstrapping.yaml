@@ -8,6 +8,8 @@ extensions_cfg:
     components:
       - component_name: ocm.software/ocm-gear
       - component_name: ocm.software/ocmcli
+  backlog_controller:
+    enabled: True
   bdba:
     enabled: False # disable in default because of missing BDBA credentials
     mappings:
@@ -44,6 +46,8 @@ extensions_cfg:
     ocm_repo_url: ''
     backup_retention_count: 1
   ghas:
+    enabled: False
+  odg_operator:
     enabled: False
   osid:
     enabled: False # disable in default because of high memory
@@ -90,12 +94,14 @@ findings:
     default_scope: single
 
 ocm_repo_mappings:
-  - prefix: ocm.software/ocmcli
-    repository: ghcr.io/open-component-model/ocm
-  - prefix: ''
-    repository: europe-docker.pkg.dev/gardener-project/releases
-  - prefix: ''
-    repository: europe-docker.pkg.dev/gardener-project/snapshots
+  - type: virtual
+    name: <auto>
+    selectors:
+      - version_filter_overwrite: semver_releases
+  - repository: ghcr.io/open-component-model/ocm
+    prefixes: ocm.software/ocmcli
+  - repository: europe-docker.pkg.dev/gardener-project/releases
+  - repository: europe-docker.pkg.dev/gardener-project/snapshots
 
 features_cfg:
   specialComponents:
@@ -134,13 +140,17 @@ github_mappings:
 profiles:
   - name: default
     finding_types:
-      - finding/vulnerability
+      - finding/crypto
+      - finding/diki
+      - finding/falco
+      - finding/kyverno
+      - finding/ghas
+      - finding/inventory
       - finding/license
       - finding/malware
-      - finding/sast
-      - finding/crypto
       - finding/osid
-      - finding/ghas
+      - finding/sast
+      - finding/vulnerability
     special_component_ids:
       - f7e84fdb-69fe-4837-b1c2-58cf4e58e5c7
       - 8ca887cf-0d09-4f28-bc88-727aa3e30a26

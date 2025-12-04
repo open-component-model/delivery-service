@@ -1,12 +1,17 @@
+import abc
 import collections.abc
 import dacite
 import dataclasses
 import datetime
+import enum
 import functools
 import logging
+import re
+import typing
 import urllib.parse
 
 import aiohttp
+import aiohttp.web
 import github3.apps
 import github3.github
 import github3.repos
@@ -20,6 +25,7 @@ import delivery.client
 import oci.client
 import oci.client_async
 import ocm
+import version as versionutil
 
 import ctx_util
 import deliverydb_cache.model as dcm
@@ -32,6 +38,315 @@ import util
 
 
 logger = logging.getLogger(__name__)
+
+
+class OcmRepositoryCfgNames(enum.StrEnum):
+    AUTO = '<auto>'
+
+
+class VersionFilter(enum.StrEnum):
+    ANY = 'any'
+    SEMVER_ANY = 'semver_any'
+    SEMVER_NON_RELEASES = 'semver_non_releases'
+    SEMVER_RELEASES = 'semver_releases'
+
+
+class OcmRepositoryCfgType(enum.StrEnum):
+    OCI = 'oci'
+    VIRTUAL = 'virtual'
+
+
+@dataclasses.dataclass
+class OcmRepositoryCfgBase:
+    type: OcmRepositoryCfgType
+
+    @staticmethod
+    def from_dict(raw: dict) -> typing.Union['OciOcmRepositoryCfg', 'VirtualOcmRepositoryCfg']:
+        data_class = {
+            OcmRepositoryCfgType.OCI: OciOcmRepositoryCfg,
+            OcmRepositoryCfgType.VIRTUAL: VirtualOcmRepositoryCfg,
+        }[OcmRepositoryCfgType(raw.get('type', OcmRepositoryCfgType.OCI))]
+
+        return dacite.from_dict(
+            data_class=data_class,
+            data=raw,
+            config=dacite.Config(
+                cast=[enum.Enum],
+            ),
+        )
+
+    @abc.abstractmethod
+    def iter_ocm_repository_cfgs(
+        self,
+        ocm_repository_cfgs: collections.abc.Sequence[typing.Self],
+    ) -> collections.abc.Iterable[typing.Self]:
+        raise NotImplementedError('must be implemented by its subclasses')
+
+    def iter_ocm_repositories(
+        self,
+        ocm_repository_cfgs: collections.abc.Sequence[typing.Self],
+    ) -> collections.abc.Iterable[str]:
+        for ocm_repository_cfg in self.iter_ocm_repository_cfgs(
+            ocm_repository_cfgs=ocm_repository_cfgs,
+        ):
+            yield ocm_repository_cfg.repository
+
+
+@dataclasses.dataclass(kw_only=True)
+class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
+    type: OcmRepositoryCfgType = OcmRepositoryCfgType.OCI
+    repository: str
+    prefix: list[str] | str | None = None # for backwards compatibility -> TODO drop eventually
+    prefixes: list[str] | str | None = None
+    labels: list[str] | str | None = None
+    version_filter: VersionFilter | str = VersionFilter.ANY
+
+    def __post_init__(self):
+        if self.prefix and not self.prefixes:
+            self.prefixes = self.prefix # for backwards compatibility -> TODO drop eventually
+
+        if isinstance(self.prefixes, str):
+            self.prefixes = [self.prefixes]
+        if isinstance(self.labels, str):
+            self.labels = [self.labels]
+
+    @property
+    def ocm_repository(self) -> ocm.OciOcmRepository:
+        return ocm.OciOcmRepository(
+            baseUrl=self.repository,
+        )
+
+    def labels_match(
+        self,
+        labels: collections.abc.Iterable[str],
+    ) -> bool:
+        if self.labels is None:
+            return False
+
+        return set(labels).issubset(set(self.labels))
+
+    def prefix_matches(
+        self,
+        component_name: str,
+    ) -> bool:
+        if self.prefixes is None:
+            return True
+
+        for prefix in self.prefixes:
+            if component_name.startswith(prefix):
+                return True
+
+        return False
+
+    def iter_matching_versions(
+        self,
+        versions: collections.abc.Iterable[str],
+        version_filter_overwrite: VersionFilter | str | None=None,
+    ) -> collections.abc.Iterable[str]:
+        version_filter = version_filter_overwrite or self.version_filter
+
+        for version in versions:
+            version_semver = versionutil.parse_to_semver(
+                version=version,
+                invalid_semver_ok=True,
+            )
+
+            if version_filter is VersionFilter.ANY:
+                pass # all versions are included
+
+            elif version_filter is VersionFilter.SEMVER_ANY:
+                if not version_semver:
+                    continue
+
+            elif version_filter is VersionFilter.SEMVER_NON_RELEASES:
+                if not version_semver or not (version_semver.prerelease or version_semver.build):
+                    continue
+
+            elif version_filter is VersionFilter.SEMVER_RELEASES:
+                if not version_semver or version_semver.prerelease or version_semver.build:
+                    continue
+
+            elif isinstance(version_filter, str):
+                try:
+                    if not re.fullmatch(version_filter, version):
+                        continue
+                except Exception:
+                    raise aiohttp.web.HTTPBadRequest(
+                        reason=f'Invalid regular expression as version filter: {version_filter}',
+                    )
+
+            else:
+                raise TypeError(version_filter)
+
+            yield version
+
+    def iter_ocm_repository_cfgs(
+        self,
+        ocm_repository_cfgs: collections.abc.Sequence[typing.Self],
+    ) -> collections.abc.Iterable[typing.Self]:
+        yield self
+
+
+@dataclasses.dataclass
+class VirtualOcmRepositoryCfgSelector:
+    required_labels: list[str] | str | None = None
+    version_filter_overwrite: VersionFilter | str | None = None
+
+    def __post_init__(self):
+        if isinstance(self.required_labels, str):
+            self.required_labels = [self.required_labels]
+
+
+@dataclasses.dataclass(kw_only=True)
+class VirtualOcmRepositoryCfg(OcmRepositoryCfgBase):
+    type: OcmRepositoryCfgType = OcmRepositoryCfgType.VIRTUAL
+    name: str
+    selectors: list[VirtualOcmRepositoryCfgSelector] | VirtualOcmRepositoryCfgSelector | None = None
+
+    def __post_init__(self):
+        if isinstance(self.selectors, VirtualOcmRepositoryCfgSelector):
+            self.selectors = [self.selectors]
+        elif self.selectors is None:
+            self.selectors = [VirtualOcmRepositoryCfgSelector()] # match all
+
+    def iter_ocm_repository_cfgs(
+        self,
+        ocm_repository_cfgs: collections.abc.Sequence[OciOcmRepositoryCfg],
+    ) -> collections.abc.Iterable[OciOcmRepositoryCfg]:
+        for selector in self.selectors:
+            found = False
+
+            for ocm_repository_cfg in ocm_repository_cfgs:
+                if not isinstance(ocm_repository_cfg, OciOcmRepositoryCfg):
+                    continue # skip other virtual repository configurations
+
+                if (
+                    selector.required_labels
+                    and not ocm_repository_cfg.labels_match(selector.required_labels)
+                ):
+                    continue # required labels do not match
+
+                found = True
+                yield dataclasses.replace(
+                    ocm_repository_cfg,
+                    version_filter=(
+                        selector.version_filter_overwrite
+                        or ocm_repository_cfg.version_filter
+                    ),
+                )
+
+            if not found:
+                raise ValueError(f'Could not resolve {selector=} in {ocm_repository_cfgs=}')
+
+
+@functools.cache
+def parse_ocm_repository_cfgs(
+    default_repo: VirtualOcmRepositoryCfg=VirtualOcmRepositoryCfg(name=OcmRepositoryCfgNames.AUTO),
+) -> tuple[OciOcmRepositoryCfg | VirtualOcmRepositoryCfg]:
+    '''
+    Reads and parses the OCM repository configurations from the known default locations. In case no
+    `<auto>` virtual repository configuration is found, the default one is added.
+    '''
+    ocm_repository_cfgs_path = paths.ocm_repo_mappings_path()
+    ocm_repository_cfgs_raw = util.parse_yaml_file(ocm_repository_cfgs_path) or ()
+
+    ocm_repository_cfgs = [
+        OcmRepositoryCfgBase.from_dict(ocm_repository_cfg_raw)
+        for ocm_repository_cfg_raw in ocm_repository_cfgs_raw
+    ]
+
+    # insert default `<auto>` virtual repository configuration if not present
+    if not any(
+        ocm_repository_cfg.name == OcmRepositoryCfgNames.AUTO
+        for ocm_repository_cfg in ocm_repository_cfgs
+        if isinstance(ocm_repository_cfg, VirtualOcmRepositoryCfg)
+    ):
+        ocm_repository_cfgs.insert(0, default_repo)
+
+    return tuple(ocm_repository_cfgs)
+
+
+def filter_ocm_repository_cfgs(
+    ocm_repo: str | None,
+    ocm_repository_cfgs: collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg],
+) -> collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg]:
+    '''
+    Filters the provided `ocm_repository_cfgs` based on the passed `ocm_repo` parameter. In case of
+    virtual repository configurations, the `name` attribute is used for filtering. Otherwise, it is
+    filtered based on the `repository` attribute.
+    '''
+    for ocm_repository_cfg in ocm_repository_cfgs:
+        if isinstance(ocm_repository_cfg, VirtualOcmRepositoryCfg):
+            if ocm_repo is None and ocm_repository_cfg.name == OcmRepositoryCfgNames.AUTO:
+                yield ocm_repository_cfg
+
+            elif ocm_repository_cfg.name == ocm_repo:
+                yield ocm_repository_cfg
+
+        elif isinstance(ocm_repository_cfg, OciOcmRepositoryCfg):
+            if ocm_repository_cfg.repository == ocm_repo:
+                yield ocm_repository_cfg
+
+        else:
+            raise TypeError(ocm_repository_cfg)
+
+
+def resolve_ocm_repository_cfgs(
+    ocm_repo: ocm.OciOcmRepository | str | None=None,
+    ocm_repository_cfgs: collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg] | None=None, # noqa: E501
+) -> collections.abc.Iterable[OciOcmRepositoryCfg]:
+    '''
+    Filters the existing `ocm_repository_cfgs` (either passed-in or read from default file location)
+    based on the passed `ocm_repo` parameter, and resolves virtual repository configurations to
+    concrete ones. If the `ocm_repo` is not specified, the default `<auto>` virtual repository will
+    be used.
+    '''
+    if not ocm_repository_cfgs:
+        ocm_repository_cfgs = parse_ocm_repository_cfgs()
+
+    if isinstance(ocm_repo, ocm.OciOcmRepository):
+        ocm_repo = ocm_repo.oci_ref
+
+    filtered_ocm_repository_cfgs = list(filter_ocm_repository_cfgs(
+        ocm_repo=ocm_repo,
+        ocm_repository_cfgs=ocm_repository_cfgs,
+    ))
+
+    if not filtered_ocm_repository_cfgs:
+        logger.warning(f'No OCM repository configurations found for {ocm_repo=}, using default cfg')
+        filtered_ocm_repository_cfgs.append(OciOcmRepositoryCfg(repository=ocm_repo))
+
+    for ocm_repository_cfg in filtered_ocm_repository_cfgs:
+        yield from ocm_repository_cfg.iter_ocm_repository_cfgs(
+            ocm_repository_cfgs=ocm_repository_cfgs,
+        )
+
+
+def init_ocm_repository_lookup(
+    ocm_repo: ocm.OciOcmRepository | str | None=None,
+    ocm_repository_cfgs: collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg] | None=None, # noqa: E501
+) -> ocm.OcmRepositoryLookup:
+    resolved_ocm_repository_cfgs = list(resolve_ocm_repository_cfgs(
+        ocm_repo=ocm_repo,
+        ocm_repository_cfgs=ocm_repository_cfgs,
+    ))
+
+    def ocm_repository_lookup(
+        component: ocm.ComponentName,
+        /,
+    ) -> collections.abc.Iterable[str]:
+        component_name = cnudie.util.to_component_name(component)
+        repositories = set()
+
+        for ocm_repository_cfg in resolved_ocm_repository_cfgs:
+            if not ocm_repository_cfg.prefix_matches(component_name):
+                continue
+
+            repositories.add(ocm_repository_cfg.repository)
+
+        yield from repositories
+
+    return ocm_repository_lookup
 
 
 @functools.cache
@@ -96,33 +411,6 @@ def semver_sanitising_oci_client_async(
         tag_preprocessing_callback=cnudie.util.sanitise_version,
         tag_postprocessing_callback=cnudie.util.desanitise_version,
     )
-
-
-@functools.cache
-def init_ocm_repository_lookup() -> cnudie.retrieve.OcmRepositoryLookup:
-    if ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True):
-        ocm_repo_mappings_raw = util.parse_yaml_file(ocm_repo_mappings_path) or tuple()
-    else:
-        ocm_repo_mappings_raw = tuple()
-
-    ocm_repo_mappings = tuple(
-        dacite.from_dict(
-            data_class=cnudie.retrieve.OcmRepositoryMappingEntry,
-            data=raw_mapping,
-        ) for raw_mapping in ocm_repo_mappings_raw
-    )
-
-    def ocm_repository_lookup(component: ocm.ComponentIdentity, /):
-        for mapping in ocm_repo_mappings:
-            if not mapping.prefix:
-                yield mapping.repository
-                continue
-
-            component_name = cnudie.util.to_component_name(component)
-            if component_name.startswith(mapping.prefix):
-                yield mapping.repository
-
-    return ocm_repository_lookup
 
 
 def db_cache_component_descriptor_lookup_async(
@@ -356,42 +644,6 @@ def init_component_descriptor_lookup_async(
     return cnudie.retrieve_async.composite_component_descriptor_lookup(
         lookups=lookups,
         ocm_repository_lookup=ocm_repository_lookup,
-        default_absent_ok=default_absent_ok,
-    )
-
-
-def init_version_lookup(
-    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    oci_client: oci.client.Client=None,
-    default_absent_ok: bool=False,
-) -> cnudie.retrieve.VersionLookupByComponent:
-    if not ocm_repository_lookup:
-        ocm_repository_lookup = init_ocm_repository_lookup()
-
-    if not oci_client:
-        oci_client = semver_sanitising_oci_client()
-
-    return cnudie.retrieve.version_lookup(
-        ocm_repository_lookup=ocm_repository_lookup,
-        oci_client=oci_client,
-        default_absent_ok=default_absent_ok,
-    )
-
-
-def init_version_lookup_async(
-    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    oci_client: oci.client_async.Client=None,
-    default_absent_ok: bool=False,
-) -> cnudie.retrieve_async.VersionLookupByComponent:
-    if not ocm_repository_lookup:
-        ocm_repository_lookup = init_ocm_repository_lookup()
-
-    if not oci_client:
-        oci_client = semver_sanitising_oci_client_async()
-
-    return cnudie.retrieve_async.version_lookup(
-        ocm_repository_lookup=ocm_repository_lookup,
-        oci_client=oci_client,
         default_absent_ok=default_absent_ok,
     )
 

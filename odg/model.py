@@ -9,6 +9,7 @@ import typing
 import dacite
 
 import ocm
+import ocm.iter
 
 import odg.cvss
 
@@ -35,6 +36,7 @@ class Datatype(enum.StrEnum):
     KYVERNO_FINDING = 'finding/kyverno'
     GHAS_FINDING = 'finding/ghas'
     INVENTORY_FINDING = 'finding/inventory'
+    IP_FINDING = 'finding/ip'
     LICENSE_FINDING = 'finding/license'
     MALWARE_FINDING = 'finding/malware'
     OSID_FINDING = 'finding/osid'
@@ -55,6 +57,7 @@ class Datatype(enum.StrEnum):
             Datatype.KYVERNO_FINDING: Datasource.KYVERNO,
             Datatype.GHAS_FINDING: Datasource.GHAS,
             Datatype.INVENTORY_FINDING: Datasource.INVENTORY,
+            Datatype.IP_FINDING: Datasource.BLACKDUCK,
             Datatype.LICENSE_FINDING: Datasource.BDBA,
             Datatype.MALWARE_FINDING: Datasource.CLAMAV,
             Datatype.OSID_FINDING: Datasource.OSID,
@@ -67,6 +70,7 @@ class Datatype(enum.StrEnum):
 class Datasource(enum.StrEnum):
     ARTEFACT_ENUMERATOR = 'artefact-enumerator'
     BDBA = 'bdba'
+    BLACKDUCK = 'blackduck'
     CLAMAV = 'clamav'
     CRYPTO = 'crypto'
     DELIVERY_DASHBOARD = 'delivery-dashboard'
@@ -82,6 +86,9 @@ class Datasource(enum.StrEnum):
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
+            Datasource.BLACKDUCK: (
+                Datatype.IP_FINDING,
+            ),
             Datasource.BDBA: (
                 Datatype.LICENSE_FINDING,
                 Datatype.STRUCTURE_INFO,
@@ -400,8 +407,16 @@ class BDBAMixin:
 
 
 @dataclasses.dataclass
+class PolicyViolationRef:
+    name: str
+    id: str | None
+    url: str | None
+
+
+@dataclasses.dataclass
 class License:
     name: str
+    id: str | None = None
 
 
 @dataclasses.dataclass
@@ -436,6 +451,27 @@ class Finding:
 
 
 @dataclasses.dataclass
+class IPFinding(Finding):
+    package_name: str
+    package_version: str | None
+    license: License
+    policy_violation: PolicyViolationRef
+    labels: list[str]
+    host: str
+
+    @property
+    def key(self) -> str:
+        labels_key = ','.join(sorted(self.labels))
+        return _as_key(
+            self.package_name,
+            self.package_version,
+            self.license.name,
+            labels_key,
+            self.policy_violation.name,
+        )
+
+
+@dataclasses.dataclass
 class LicenseFinding(Finding, BDBAMixin):
     license: License
 
@@ -463,6 +499,24 @@ class VulnerabilityFinding(Finding, BDBAMixin):
     @property
     def key(self) -> str:
         return _as_key(self.package_name, self.package_version, self.cve)
+
+
+@dataclasses.dataclass
+class RescoringIPFinding:
+    package_name: str
+    license: License
+    policy_violation: PolicyViolationRef
+    labels: list[str]
+
+    @property
+    def key(self) -> str:
+        labels_key = ','.join(sorted(self.labels))
+        return _as_key(
+            self.package_name,
+            self.license.name,
+            labels_key,
+            self.policy_violation.name
+        )
 
 
 @dataclasses.dataclass
@@ -656,8 +710,12 @@ class CryptoAssetTypes(enum.StrEnum):
 class Primitives(enum.StrEnum):
     BLOCK_CIPHER = 'block-cipher'
     HASH = 'hash'
-    PKE = 'pke'
+    KDF = 'kdf' # key derivation function
+    KEY_AGREE = 'key-agree'
+    MAC = 'mac' # message authentication code
+    PKE = 'pke' # public key encryption
     SIGNATURE = 'signature'
+    STREAM_CIPHER = 'stream-cipher'
 
 
 @dataclasses.dataclass
@@ -849,6 +907,7 @@ class CustomRescoring:
         | RescoringFalcoFinding
         | RescoringKyvernoFinding
         | RescoreGitHubSecretFinding
+        | RescoringIPFinding
     )
     referenced_type: str
     severity: str
@@ -976,7 +1035,7 @@ class FalcoEventGroup:
     :param group_hash str:
         hash of the group (event fiields and values that form the group),
         can be reconstructed from a sample event and the fields property.
-    :param fields dict[str, str]:
+    :param fields dict[str, str | None]:
         Identical fields that form the group
     :param events list[FalcoEvent]:
         list of events in this group (possibly truncated).
@@ -993,7 +1052,7 @@ class FalcoEventGroup:
     last_event: datetime.datetime
     count: int
     group_hash: str
-    fields: dict[str, str]
+    fields: dict[str, str | None]
     events: list[FalcoEvent]
     exception: str
 
@@ -1378,6 +1437,7 @@ FindingModels = (
     | KyvernoFinding
     | GitHubSecretFinding
     | InventoryFinding
+    | IPFinding
     | LicenseFinding
     | OsIdFinding
     | SastFinding
@@ -1453,9 +1513,12 @@ class ArtefactMetadata:
             usedforsecurity=False,
         ).hexdigest()
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 def artefact_scan_info(
-    artefact_node: 'cnudie.iter.ArtefactNode',
+    artefact_node: ocm.iter.ArtefactNode,
     datasource: Datasource,
     data: dict={},
     responsibles: list[UserIdentity] | None=None,

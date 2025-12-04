@@ -12,8 +12,6 @@ import dacite.exceptions
 import sqlalchemy.ext.asyncio as sqlasync
 import yaml
 
-import cnudie.iter
-import cnudie.iter_async
 import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
@@ -21,15 +19,15 @@ import github.pullrequest
 import oci.client_async
 import oci.model as om
 import ocm
+import ocm.iter
+import ocm.iter_async
 import ocm.oci
-import version as versionutil
 
 import compliance_summary as cs
 import consts
 import deliverydb.cache
 import features
 import lookups
-import odg.extensions_cfg
 import responsibles
 import responsibles.labels
 import util
@@ -54,51 +52,46 @@ cache_existing_components = []
 
 async def check_if_component_exists(
     component_name: str,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
-    raise_http_error: bool=False,
-):
+    absent_ok: bool=False,
+    db_session: sqlasync.session.AsyncSession=None,
+) -> bool:
     if component_name in cache_existing_components:
         return True
 
-    for _ in await version_lookup(
-        ocm.ComponentIdentity(
-            name=component_name,
-            version=None,
-        )
-    ):
+    versions = await component_versions(
+        component_name=component_name,
+        db_session=db_session,
+    )
+
+    if versions:
         cache_existing_components.append(component_name)
         return True
 
-    if raise_http_error:
+    if not absent_ok:
         raise aiohttp.web.HTTPNotFound(text=f'{component_name=} not found')
+
     return False
 
 
 async def greatest_version_if_none(
     component_name: str,
     version: str,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
-    version_filter: odg.extensions_cfg.VersionFilter=odg.extensions_cfg.VersionFilter.RELEASES_ONLY,
-    invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ):
     if version is None:
         version = await greatest_component_version(
             component_name=component_name,
-            version_lookup=version_lookup,
             ocm_repo=ocm_repo,
             oci_client=oci_client,
-            version_filter=version_filter,
-            invalid_semver_ok=invalid_semver_ok,
             db_session=db_session,
         )
 
     if not version:
         raise aiohttp.web.HTTPNotFound(
             reason='No greatest version found',
-            text=f'No greatest version found for {component_name=}; {version_filter=}',
+            text=f'No greatest version found for {component_name=} in {ocm_repo=}',
         )
 
     return version
@@ -107,9 +100,6 @@ async def greatest_version_if_none(
 async def _component_descriptor(
     params: dict,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent,
-    version_filter: odg.extensions_cfg.VersionFilter,
-    invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ) -> ocm.ComponentDescriptor:
     component_name = util.param(params, 'component_name', required=True)
@@ -121,20 +111,11 @@ async def _component_descriptor(
     raw = util.param_as_bool(params, 'raw')
     ignore_cache = util.param_as_bool(params, 'ignore_cache')
 
-    version_filter = util.param(params, 'version_filter', default=version_filter)
-    version_filter = util.get_enum_value_or_raise(
-        value=version_filter,
-        enum_type=odg.extensions_cfg.VersionFilter,
-    )
-
     if version == 'greatest':
         version = await greatest_version_if_none(
             component_name=component_name,
             version=None,
-            version_lookup=version_lookup,
             ocm_repo=ocm_repo,
-            version_filter=version_filter,
-            invalid_semver_ok=invalid_semver_ok,
             db_session=db_session,
         )
 
@@ -143,16 +124,8 @@ async def _component_descriptor(
         version=version,
     )
 
-    if ocm_repo_url:
-        ocm_repos = (ocm_repo_url,)
-    else:
-        if not (lookup := lookups.init_ocm_repository_lookup()):
-            raise ValueError('either ocm_repo_url, or ocm_repository_lookup must be passed')
-
-        ocm_repos = cnudie.retrieve.iter_ocm_repositories(
-            component_id,
-            lookup,
-        )
+    ocm_repository_lookup = lookups.init_ocm_repository_lookup(ocm_repo_url)
+    ocm_repos = list(ocm_repository_lookup(component_name))
 
     if raw or ignore_cache:
         # in both cases fetch directly from oci-registry
@@ -198,7 +171,7 @@ async def _component_descriptor(
         descriptor = await util.retrieve_component_descriptor(
             component_id,
             component_descriptor_lookup=component_descriptor_lookup,
-            ocm_repo=ocm_repo,
+            ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
         )
     except dacite.exceptions.MissingValueError as e:
         raise aiohttp.web.HTTPFailedDependency(
@@ -240,22 +213,12 @@ class Component(aiohttp.web.View):
           type: boolean
           required: false
           default: false
-        - in: query
-          name: version_filter
-          type: string
-          enum:
-          - all
-          - releases_only
-          required: false
         '''
         params = self.request.rel_url.query
 
         component_descriptor = await _component_descriptor(
             params=params,
             component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
-            version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
-            version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
-            invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
             db_session=self.request.get(consts.REQUEST_DB_SESSION),
         )
 
@@ -295,13 +258,6 @@ class ComponentDependencies(aiohttp.web.View):
           - componentReferences
           required: false
           default: all
-        - in: query
-          name: version_filter
-          type: string
-          enum:
-          - all
-          - releases_only
-          required: false
         '''
         params = self.request.rel_url.query
 
@@ -314,24 +270,11 @@ class ComponentDependencies(aiohttp.web.View):
 
         version = util.param(params, 'version', default='greatest')
 
-        version_filter = util.param(
-            params=params,
-            name='version_filter',
-            default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
-        )
-        version_filter = util.get_enum_value_or_raise(
-            value=version_filter,
-            enum_type=odg.extensions_cfg.VersionFilter,
-        )
-
         if version == 'greatest':
             version = await greatest_version_if_none(
                 component_name=component_name,
                 version=None,
-                version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
                 ocm_repo=ocm_repo,
-                version_filter=version_filter,
-                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 db_session=self.request.get(consts.REQUEST_DB_SESSION),
             )
 
@@ -418,13 +361,6 @@ class ComponentResponsibles(aiohttp.web.View):
           type: boolean
           required: false
           default: false
-        - in: query
-          name: version_filter
-          type: string
-          enum:
-          - all
-          - releases_only
-          required: false
         responses:
           "200":
             description: Successful operation.
@@ -439,9 +375,6 @@ class ComponentResponsibles(aiohttp.web.View):
         component_descriptor = await _component_descriptor(
             params=params,
             component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
-            version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
-            version_filter=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
-            invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
             db_session=self.request.get(consts.REQUEST_DB_SESSION),
         )
         component = component_descriptor.component
@@ -557,141 +490,89 @@ class ComponentResponsibles(aiohttp.web.View):
 # unnecessary load.
 @deliverydb.cache.dbcached_function(
     ttl_seconds=60,
-    exclude_kwargs=('version_lookup', 'oci_client'),
+    exclude_kwargs=('oci_client'),
 )
 async def component_versions(
     component_name: str,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
+    version_filter: lookups.VersionFilter | str | None=None,
     oci_client: oci.client_async.Client=None,
     db_session: sqlasync.session.AsyncSession=None, # required for db-cache
-) -> list[str]:
-    if not ocm_repo and not version_lookup:
-        raise ValueError('At least one of `ocm_repo` and `version_lookup` must be specified')
+) -> set[str]:
+    if not oci_client:
+        oci_client = lookups.semver_sanitising_oci_client_async()
 
-    if ocm_repo:
-        if not isinstance(ocm_repo, ocm.OciOcmRepository):
-            raise NotImplementedError(ocm_repo)
+    ocm_repository_cfgs = lookups.resolve_ocm_repository_cfgs(ocm_repo)
 
-        if not oci_client:
-            oci_client = lookups.semver_sanitising_oci_client_async()
+    included_versions = set()
+
+    for ocm_repository_cfg in ocm_repository_cfgs:
+        if not ocm_repository_cfg.prefix_matches(component_name):
+            continue
 
         try:
-            return await cnudie.retrieve_async.component_versions(
+            versions = await cnudie.retrieve_async.component_versions(
                 component_name=component_name,
-                ocm_repo=ocm_repo,
+                ocm_repo=ocm_repository_cfg.ocm_repository,
                 oci_client=oci_client,
             )
-        except aiohttp.ClientResponseError:
-            return []
+        except aiohttp.ClientResponseError as e:
+            image_reference = ocm_repository_cfg.ocm_repository.component_oci_ref(component_name)
+            if e.status == cnudie.retrieve.error_code_indicating_not_found(
+                image_reference=image_reference,
+            ):
+                continue # no versions found
 
-    return await version_lookup(
-        component_id=ocm.ComponentIdentity(
-            name=component_name,
-            version=None
-        ),
-    )
+            raise
+
+        included_versions.update(ocm_repository_cfg.iter_matching_versions(
+            versions=versions,
+            version_filter_overwrite=version_filter,
+        ))
+
+    return included_versions
 
 
 async def greatest_component_version(
     component_name: str,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
     ocm_repo: ocm.OcmRepository=None,
     oci_client: oci.client_async.Client=None,
-    version_filter: odg.extensions_cfg.VersionFilter=odg.extensions_cfg.VersionFilter.RELEASES_ONLY,
-    invalid_semver_ok: bool=False,
     db_session: sqlasync.session.AsyncSession=None,
 ) -> str | None:
     versions = await component_versions(
         component_name=component_name,
-        version_lookup=version_lookup,
-        ocm_repo=ocm_repo,
-        oci_client=oci_client,
-        db_session=db_session,
-    )
-
-    greatest_candidate = None
-    greatest_candidate_semver = None
-    for candidate in versions:
-        if isinstance(candidate, str):
-            candidate_semver = versionutil.parse_to_semver(
-                version=candidate,
-                invalid_semver_ok=invalid_semver_ok,
-            )
-
-            if not candidate_semver:
-                continue
-        else:
-            candidate_semver = candidate
-
-        if (
-            version_filter is odg.extensions_cfg.VersionFilter.RELEASES_ONLY
-            and (candidate_semver.prerelease or candidate_semver.build)
-        ):
-            continue
-
-        if not greatest_candidate_semver:
-            greatest_candidate_semver = candidate_semver
-            greatest_candidate = candidate
-            continue
-
-        if candidate_semver > greatest_candidate_semver:
-            greatest_candidate_semver = candidate_semver
-            greatest_candidate = candidate
-
-    return greatest_candidate
-
-
-async def greatest_component_versions(
-    component_name: str,
-    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repo: ocm.OcmRepository=None,
-    version_lookup: cnudie.retrieve_async.VersionLookupByComponent=None,
-    max_versions: int=5,
-    greatest_version: str=None,
-    oci_client: oci.client_async.Client=None,
-    version_filter: odg.extensions_cfg.VersionFilter=odg.extensions_cfg.VersionFilter.RELEASES_ONLY,
-    invalid_semver_ok: bool=False,
-    start_date: datetime.date=None,
-    end_date: datetime.date=None,
-    db_session: sqlasync.session.AsyncSession=None,
-) -> list[str]:
-    versions = await component_versions(
-        component_name=component_name,
-        version_lookup=version_lookup,
         ocm_repo=ocm_repo,
         oci_client=oci_client,
         db_session=db_session,
     )
 
     if not versions:
-        return []
+        return None
 
-    versions = [
-        v for v in versions
-        if versionutil.parse_to_semver(
-            version=v,
-            invalid_semver_ok=invalid_semver_ok,
-        )
-    ]
+    return sorted(versions, key=util.version_sorting_key)[-1]
 
-    if version_filter is odg.extensions_cfg.VersionFilter.RELEASES_ONLY:
-        versions = [
-            v for v in versions
-            if not (pv := versionutil.parse_to_semver(
-                version=v,
-                invalid_semver_ok=invalid_semver_ok,
-            )).prerelease and not pv.build
-        ]
 
-    versions = sorted(versions, key=lambda v: versionutil.parse_to_semver(
-        version=v,
-        invalid_semver_ok=invalid_semver_ok,
-    ))
+async def greatest_component_versions(
+    component_name: str,
+    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
+    ocm_repo: ocm.OcmRepository=None,
+    max_versions: int=5,
+    greatest_version: str=None,
+    oci_client: oci.client_async.Client=None,
+    version_filter: lookups.VersionFilter | str | None=None,
+    start_date: datetime.date=None,
+    end_date: datetime.date=None,
+    db_session: sqlasync.session.AsyncSession=None,
+) -> list[str]:
+    versions = await component_versions(
+        component_name=component_name,
+        ocm_repo=ocm_repo,
+        version_filter=version_filter,
+        oci_client=oci_client,
+        db_session=db_session,
+    )
 
-    # If no end_date is provided, default to now
-    if not end_date:
-        end_date = datetime.date.today().isoformat()
+    versions = sorted(versions, key=util.version_sorting_key)
 
     # Handle date range filtering only if start_date is provided
     if start_date:
@@ -702,13 +583,13 @@ async def greatest_component_versions(
                         name=component_name,
                         version=version,
                     ),
-                    component_descriptor_lookup
+                    component_descriptor_lookup=component_descriptor_lookup,
                 )
                 creation_date = util.get_creation_date(
                     component_descriptor.component
                 ).strftime('%Y-%m-%d')
 
-                if creation_date > end_date:
+                if end_date and creation_date > end_date:
                     continue
 
                 if creation_date < start_date:
@@ -721,7 +602,7 @@ async def greatest_component_versions(
             in filter_by_date_range(versions)
         ]
 
-    if greatest_version:
+    if greatest_version in versions:
         versions = versions[:versions.index(greatest_version) + 1]
 
     if not start_date:
@@ -769,7 +650,10 @@ class GreatestComponentVersions(aiohttp.web.View):
           type: string
           enum:
           - all
+          - non_releases_only
           - releases_only
+          - semver_all
+          - <custom-regex>
           required: false
         responses:
           "200":
@@ -790,26 +674,20 @@ class GreatestComponentVersions(aiohttp.web.View):
         ocm_repo_url = util.param(params, 'ocm_repo_url')
         ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
-        version_filter = util.param(
-            params=params,
-            name='version_filter',
-            default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
-        )
-        version_filter = util.get_enum_value_or_raise(
-            value=version_filter,
-            enum_type=odg.extensions_cfg.VersionFilter,
-        )
+        version_filter = util.param(params, 'version_filter')
+        try:
+            version_filter = lookups.VersionFilter(version_filter)
+        except ValueError:
+            pass # in this case the provided version filter is to be interpreted as custom regex
 
         try:
             versions = await greatest_component_versions(
                 component_name=component_name,
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
                 ocm_repo=ocm_repo,
-                version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
                 max_versions=int(max_version),
                 greatest_version=version,
                 version_filter=version_filter,
-                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 start_date=start_date,
                 end_date=end_date,
                 db_session=self.request.get(consts.REQUEST_DB_SESSION),
@@ -829,47 +707,53 @@ async def resolve_component_dependencies(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     ocm_repo: ocm.OcmRepository=None,
     recursion_depth: int=-1,
-) -> collections.abc.AsyncGenerator[cnudie.iter.ComponentNode, None, None]:
-    descriptor = await util.retrieve_component_descriptor(
+) -> collections.abc.AsyncGenerator[ocm.iter.ComponentNode, None, None]:
+    component_descriptor = await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
             name=component_name,
             version=component_version,
         ),
         component_descriptor_lookup=component_descriptor_lookup,
-        ocm_repo=ocm_repo,
+        ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
     )
-    component = descriptor.component
+    component = component_descriptor.component
 
     try:
-        component_nodes = await _components(
-            component_name=component.name,
-            component_version=component.version,
-            component_descriptor_lookup=component_descriptor_lookup,
-            ocm_repo=ocm_repo,
+        async for component_node in ocm.iter_async.iter(
+            component=component,
+            lookup=component_descriptor_lookup,
             recursion_depth=recursion_depth,
-        )
+            prune_unique=False,
+            node_filter=ocm.iter.Filter.components,
+        ):
+            # add repo classification label if not present in component labels
+            label_present = False
+            # if no sources present we cannot add the source
+            if not len(component_node.component.sources) > 0:
+                yield component_node
+                continue
+
+            for source in component_node.component.sources:
+                if 'cloud.gardener/cicd/source' in [label.name for label in source.labels]:
+                    label_present = True
+                    break
+            if not label_present:
+                component_node.component.sources[0].labels.append(ocm.Label(
+                    name='cloud.gardener/cicd/source',
+                    value={'repository-classification': 'main'},
+                ))
+
+            yield component_node
     except dacite.exceptions.MissingValueError as e:
         raise aiohttp.web.HTTPFailedDependency(text=str(e))
-
-    # add repo classification label if not present in component labels
-    async for component_node in component_nodes:
-        label_present = False
-        # if no sources present we cannot add the source
-        if not len(component_node.component.sources) > 0:
-            yield component_node
-            continue
-
-        for source in component_node.component.sources:
-            if 'cloud.gardener/cicd/source' in [label.name for label in source.labels]:
-                label_present = True
-                break
-        if not label_present:
-            component_node.component.sources[0].labels.append(ocm.Label(
-                name='cloud.gardener/cicd/source',
-                value={'repository-classification': 'main'},
-            ))
-
-        yield component_node
+    except om.OciImageNotFoundException:
+        err_str = (
+            f'Error occurred during retrieval of component dependencies of {component.identity()}'
+        )
+        logger.warning(err_str)
+        raise aiohttp.web.HTTPUnprocessableEntity(
+            text=err_str,
+        )
 
 
 class UpgradePRs(aiohttp.web.View):
@@ -908,13 +792,6 @@ class UpgradePRs(aiohttp.web.View):
           name: ocmRepo
           type: string
           required: false
-        - in: query
-          name: version_filter
-          type: string
-          enum:
-          - all
-          - releases_only
-          required: false
         '''
         params = self.request.rel_url.query
 
@@ -926,16 +803,6 @@ class UpgradePRs(aiohttp.web.View):
         ocm_repo_url = util.param(params, 'ocmRepo')
         ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
-        version_filter = util.param(
-            params=params,
-            name='version_filter',
-            default=self.request.app[consts.APP_VERSION_FILTER_CALLBACK](),
-        )
-        version_filter = util.get_enum_value_or_raise(
-            value=version_filter,
-            enum_type=odg.extensions_cfg.VersionFilter,
-        )
-
         if not (bool(component_name) ^ bool(repo_url)):
             raise aiohttp.web.HTTPBadRequest(
                 text='Exactly one of componentName and repoUrl must be passed',
@@ -945,10 +812,7 @@ class UpgradePRs(aiohttp.web.View):
             component_version = await greatest_version_if_none(
                 component_name=component_name,
                 version=component_version,
-                version_lookup=self.request.app[consts.APP_VERSION_LOOKUP],
                 ocm_repo=ocm_repo,
-                version_filter=version_filter,
-                invalid_semver_ok=self.request.app[consts.APP_INVALID_SEMVER_OK],
                 db_session=self.request.get(consts.REQUEST_DB_SESSION),
             )
 
@@ -958,7 +822,7 @@ class UpgradePRs(aiohttp.web.View):
                     version=component_version,
                 ),
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
-                ocm_repo=ocm_repo,
+                ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
             )
             component = component_descriptor.component
             source = cnudie.util.main_source(
@@ -1187,40 +1051,6 @@ class ComponentDescriptorDiff(aiohttp.web.View):
         )
 
 
-async def _components(
-    component_name: str,
-    component_version: str,
-    component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repo: ocm.OcmRepository=None,
-    recursion_depth: int=-1,
-) -> collections.abc.AsyncGenerator[cnudie.iter.ComponentNode, None, None]:
-    component_descriptor = await util.retrieve_component_descriptor(
-        ocm.ComponentIdentity(
-            name=component_name,
-            version=component_version,
-        ),
-        component_descriptor_lookup=component_descriptor_lookup,
-        ocm_repo=ocm_repo,
-    )
-
-    try:
-        return cnudie.iter_async.iter(
-            component=component_descriptor,
-            lookup=component_descriptor_lookup,
-            recursion_depth=recursion_depth,
-            prune_unique=False,
-            node_filter=cnudie.iter.Filter.components,
-        )
-    except om.OciImageNotFoundException:
-        err_str = 'Error occurred during retrieval of component dependencies of ' \
-        f'{component_descriptor.component.name=} in {component_descriptor.component.version=}'
-        logger.warning(err_str)
-        raise aiohttp.web.HTTPUnprocessableEntity(
-            reason='Error occurred during retrieval of component dependencies',
-            text=err_str,
-        )
-
-
 class ComplianceSummary(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
@@ -1252,13 +1082,6 @@ class ComplianceSummary(aiohttp.web.View):
           type: string
           required: false
         - in: query
-          name: version_filter
-          type: string
-          enum:
-          - all
-          - releases_only
-          required: false
-        - in: query
           name: recursion_depth
           type: integer
           required: false
@@ -1282,9 +1105,6 @@ class ComplianceSummary(aiohttp.web.View):
         '''
         params = self.request.rel_url.query
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
-        invalid_semver_ok = self.request.app[consts.APP_INVALID_SEMVER_OK]
-        version_filter_callback = self.request.app[consts.APP_VERSION_FILTER_CALLBACK]
-        version_lookup = self.request.app[consts.APP_VERSION_LOOKUP]
 
         component_name = util.param(params, 'component_name', required=True)
 
@@ -1292,12 +1112,6 @@ class ComplianceSummary(aiohttp.web.View):
         ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
 
         version = util.param(params, 'version', required=True)
-
-        version_filter = util.param(params, 'version_filter', default=version_filter_callback())
-        version_filter = util.get_enum_value_or_raise(
-            value=version_filter,
-            enum_type=odg.extensions_cfg.VersionFilter,
-        )
 
         recursion_depth = int(util.param(params, 'recursion_depth', default=-1))
 
@@ -1307,10 +1121,7 @@ class ComplianceSummary(aiohttp.web.View):
             version = await greatest_version_if_none(
                 component_name=component_name,
                 version=None,
-                version_lookup=version_lookup,
                 ocm_repo=ocm_repo,
-                version_filter=version_filter,
-                invalid_semver_ok=invalid_semver_ok,
                 db_session=db_session,
             )
 

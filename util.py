@@ -10,13 +10,14 @@ import urllib.parse
 
 import aiohttp.web
 import dateutil.parser
+import semver
 import yaml
 
-import cnudie.iter
-import cnudie.retrieve
 import cnudie.retrieve_async
 import oci.model as om
 import ocm
+import ocm.iter
+import version as versionutil
 
 
 logger = logging.getLogger(__name__)
@@ -105,18 +106,24 @@ async def retrieve_component_descriptor(
     component_id: ocm.ComponentIdentity,
     /,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repo: ocm.OcmRepository=None,
+    ocm_repository_lookup: ocm.OcmRepositoryLookup | None=None,
 ) -> ocm.ComponentDescriptor:
     try:
-        if ocm_repo:
+        if ocm_repository_lookup:
             return await component_descriptor_lookup(
                 component_id,
-                ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+                ocm_repository_lookup=ocm_repository_lookup,
             )
         return await component_descriptor_lookup(component_id)
     except om.OciImageNotFoundException:
-        err_str = f'Component descriptor "{component_id.name}" in version "' \
-        f'{component_id.version}" not found in {ocm_repo=}.'
+        err_str = (
+            f'Component descriptor "{component_id.name}" in version "{component_id.version}" not '
+            'found'
+        )
+        if ocm_repository_lookup:
+            ocm_repos = list(ocm_repository_lookup(component_id.name))
+            err_str += f' in OCM repositories: {ocm_repos}'
+
         logger.debug(err_str)
         raise aiohttp.web.HTTPNotFound(
             reason='Component descriptor not found',
@@ -125,11 +132,11 @@ async def retrieve_component_descriptor(
 
 
 def artefact_node_to_str(
-    artefact_node: cnudie.iter.Node | cnudie.iter.ArtefactNode,
+    artefact_node: ocm.iter.Node | ocm.iter.ArtefactNode,
 ) -> str:
     component_id = artefact_node.component.identity()
 
-    if isinstance(artefact_node, cnudie.iter.SourceNode):
+    if isinstance(artefact_node, ocm.iter.SourceNode):
         artefact_id = artefact_node.artefact.identity(peers=artefact_node.component.sources)
     else:
         artefact_id = artefact_node.artefact.identity(peers=artefact_node.component.resources)
@@ -319,3 +326,15 @@ def merge_dicts(base: dict, *other: dict, list_semantics='merge'):
         [base, *other],
         {},
     )
+
+
+def version_sorting_key(
+    version: str,
+    fallback_version: str='0.0',
+) -> semver.VersionInfo:
+    try:
+        version = versionutil.parse_to_semver(version)
+    except ValueError:
+        version = versionutil.parse_to_semver(fallback_version)
+
+    return version

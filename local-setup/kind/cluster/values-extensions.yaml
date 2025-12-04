@@ -18,6 +18,8 @@ ghas:
   enabled: False
 issue-replicator:
   enabled: False
+odg-operator:
+  enabled: False
 osid:
   enabled: True
 responsibles:

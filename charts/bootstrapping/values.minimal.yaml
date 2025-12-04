@@ -34,8 +34,7 @@ features_cfg:
           offset_days: -1
 
 ocm_repo_mappings:
-  - prefix: ''
-    repository: europe-docker.pkg.dev/gardener-project/releases
+  - repository: europe-docker.pkg.dev/gardener-project/releases
 
 findings:
   - type: finding/malware

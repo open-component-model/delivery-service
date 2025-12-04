@@ -22,7 +22,48 @@ spec:
           properties:
             spec:
               type: object
-              x-kubernetes-preserve-unknown-fields: true
+              properties:
+                context:
+                  type: object
+                  properties:
+                    base_url:
+                      type: string
+                    deliveryServiceMaxReplicas:
+                      type: integer
+                    deliveryServiceMinReplicas:
+                      type: integer
+                    target_namespace:
+                      type: string
+                    keep_clusterwide_objects:
+                      type: boolean
+                      default: false
+                  required:
+                    - base_url
+                    - target_namespace
+                extensions:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                    - access-manager
+                    - artefact-enumerator
+                    - backlog-controller
+                    - bdba
+                    - blackduck
+                    - cache-manager
+                    - crypto
+                    - delivery-dashboard
+                    - delivery-db
+                    - delivery-db-backup
+                    - delivery-service
+                    - ghas
+                    - issue-replicator
+                    - malware-scanner
+                    - nginx-ingress-controller
+                    - osid
+                    - prometheus-operator
+                    - responsibles
+                    - sast
             status:
               type: object
               properties:

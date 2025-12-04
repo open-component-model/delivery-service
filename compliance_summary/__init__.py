@@ -14,6 +14,7 @@ import ocm
 
 import deliverydb.cache
 import deliverydb.util
+import lookups
 import odg.findings
 import odg.model
 import rescore.utility
@@ -259,7 +260,7 @@ async def component_datatype_summaries(
     if ocm_repo:
         component = (await component_descriptor_lookup(
             component,
-            ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
+            ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
         )).component
     else:
         component = (await component_descriptor_lookup(component)).component

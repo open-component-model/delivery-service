@@ -53,12 +53,6 @@ def parse_args():
     parser.add_argument('--delivery-db-url', default=None)
     parser.add_argument('--cache-dir', default=default_cache_dir)
     parser.add_argument(
-        '--invalid-semver-ok',
-        action='store_true',
-        default=False,
-        help='whether to raise on invalid (semver) version when resolving greatest version',
-    )
-    parser.add_argument(
         '--k8s-cfg-name',
         help='specify kubernetes cluster to interact with extensions (and logs)',
     )
@@ -104,11 +98,6 @@ def add_app_context_vars(
     parsed_arguments,
 ) -> aiohttp.web.Application:
     oci_client = lookups.semver_sanitising_oci_client_async(secret_factory)
-
-    version_lookup = lookups.init_version_lookup_async(
-        oci_client=oci_client,
-        default_absent_ok=True,
-    )
 
     delivery_db_feature = features.get_feature(features.FeatureDeliveryDB)
     if delivery_db_feature.state is features.FeatureStates.AVAILABLE:
@@ -169,10 +158,6 @@ def add_app_context_vars(
         sprints = []
         sprints_metadata = None
 
-    version_filter_callback = features.get_feature(
-        feature_type=features.FeatureVersionFilter,
-    ).get_version_filter
-
     base_url = get_base_url(
         is_productive=parsed_arguments.productive,
         kubernetes_api=kubernetes_api_callback() if kubernetes_api_callback else None,
@@ -191,7 +176,6 @@ def add_app_context_vars(
     app[consts.APP_FINDING_CFGS] = finding_cfgs
     app[consts.APP_GITHUB_API_LOOKUP] = github_api_lookup
     app[consts.APP_GITHUB_REPO_LOOKUP] = github_repo_lookup
-    app[consts.APP_INVALID_SEMVER_OK] = parsed_arguments.invalid_semver_ok
     app[consts.APP_KUBERNETES_API_CALLBACK] = kubernetes_api_callback
     app[consts.APP_NAMESPACE_CALLBACK] = namespace_callback
     app[consts.APP_OCI_CLIENT] = oci_client
@@ -200,8 +184,6 @@ def add_app_context_vars(
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
     app[consts.APP_SPRINTS] = sprints
     app[consts.APP_SPRINTS_METADATA] = sprints_metadata
-    app[consts.APP_VERSION_FILTER_CALLBACK] = version_filter_callback
-    app[consts.APP_VERSION_LOOKUP] = version_lookup
 
     return app
 

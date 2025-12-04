@@ -102,6 +102,12 @@ class GHASFindingSelector:
 
 
 @dataclasses.dataclass
+class IPFindingSelector:
+    policy_violation_ids: list[str]
+    labels: list[str]
+
+
+@dataclasses.dataclass
 class LicenseFindingSelector:
     '''
     :param list[str] license_names:
@@ -191,6 +197,7 @@ class FindingCategorisation:
     selector: (
         CryptoFindingSelector
         | GHASFindingSelector
+        | IPFindingSelector
         | LicenseFindingSelector
         | MalwareFindingSelector
         | SASTFindingSelector
@@ -640,6 +647,8 @@ class Finding:
                 self._validate_vulnerabilty()
             case odg.model.Datatype.INVENTORY_FINDING:
                 self._validate_inventory()
+            case odg.model.Datatype.IP_FINDING:
+                self._validate_ip()
             case _:
                 pass
 
@@ -685,6 +694,18 @@ class Finding:
             return
 
         e = ModelValidationError('ghas finding model violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
+
+    def _validate_ip(self):
+        violations = self._validate_categorisations(
+            expected_selector=IPFindingSelector,
+        )
+
+        if not violations:
+            return
+
+        e = ModelValidationError('ip finding model violations found:')
         e.add_note('\n'.join(violations))
         raise e
 
@@ -748,6 +769,12 @@ class Finding:
             expected_selector=VulnerabilityFindingSelector,
         )
 
+        if not self.none_categorisation:
+            violations.append(
+                'there must be at least one categorisation with "value=0" to express that a '
+                'finding is not relevant anymore'
+            )
+
         if self.rescoring_ruleset:
             if not isinstance(self.rescoring_ruleset, rm.CveRescoringRuleSet):
                 violations.append(f'rescoring rule set must be of type {rm.CveRescoringRuleSet}')
@@ -788,12 +815,6 @@ class Finding:
                     f'the prefix "{consts.RESCORING_OPERATOR_SET_TO_PREFIX}" is reserved for '
                     'operations defined in the rescoring ruleset'
                 )
-
-        if not self.none_categorisation:
-            violations.append(
-                'there must be at least one categorisation with "value=0" to express that a '
-                'finding is not relevant anymore'
-            )
 
         return violations
 
@@ -847,7 +868,7 @@ class Finding:
         return violations
 
     @property
-    def none_categorisation(self) -> FindingCategorisation:
+    def none_categorisation(self) -> FindingCategorisation | None:
         '''
         Returns the category which marks a finding as "not relevant anymore", e.g. if it is assessed
         as a false-positive.
@@ -855,11 +876,6 @@ class Finding:
         for categorisation in self.categorisations:
             if categorisation.value == 0:
                 return categorisation
-
-        raise RuntimeError(
-            'did not find any categorisation with value=0, this is probably a bug as initial '
-            'validation should have checked that at least one such categorisation exists'
-        )
 
     def categorisation_by_id(
         self,
@@ -940,6 +956,7 @@ def default_rescoring_ruleset(
 def categorise_finding(
     finding_cfg: Finding,
     finding_property,
+    **kwargs,
 ) -> FindingCategorisation | None:
     '''
     Used to find the categorisation a finding belongs to according to the passed `finding_property`.
@@ -960,6 +977,30 @@ def categorise_finding(
                         return categorisation
                 elif re.fullmatch(resolution, finding_property, re.IGNORECASE):
                     return categorisation
+
+        elif isinstance(selector, IPFindingSelector):
+            if selector.policy_violation_ids:
+                for policy_violation_id in selector.policy_violation_ids:
+                    if re.fullmatch(policy_violation_id, finding_property or '', re.IGNORECASE):
+                        break
+                else:
+                    continue
+
+            labels = kwargs.get('labels') or []
+
+            if selector.labels:
+                for label_pattern in selector.labels:
+                    for label in labels:
+                        if re.fullmatch(label_pattern, label, re.IGNORECASE):
+                            break
+                    else:
+                        continue
+
+                    break
+                else:
+                    continue
+
+            return categorisation
 
         elif isinstance(selector, LicenseFindingSelector):
             for license_name in selector.license_names:

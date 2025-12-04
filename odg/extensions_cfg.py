@@ -2,6 +2,7 @@ import collections.abc
 import dataclasses
 import enum
 import logging
+import re
 import typing
 
 import cachetools
@@ -46,11 +47,6 @@ class VersionAliases(enum.StrEnum):
     GREATEST = 'greatest'
 
 
-class VersionFilter(enum.StrEnum):
-    ALL = 'all'
-    RELEASES_ONLY = 'releases_only'
-
-
 class WarningVerbosities(enum.StrEnum):
     FAIL = 'fail'
     IGNORE = 'ignore'
@@ -82,7 +78,6 @@ class Component:
     component_name: str
     version: str | None
     ocm_repo_url: str | None
-    version_filter: VersionFilter | None
     max_versions_limit: int = 1
 
     def __post_init__(self):
@@ -229,8 +224,51 @@ class BDBAConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass
+class BlackDuckLabelRuleSelector:
+    host: str | None = None
+    policy_violation_id: str | None = None
+    license_name: str | None = None
+
+    def matches(
+        self,
+        host: str,
+        policy_violation_id: str,
+        license_name: str,
+    ) -> bool:
+        if self.host is not None:
+            if not re.fullmatch(self.host, host, re.IGNORECASE):
+                return False
+
+        if self.policy_violation_id is not None:
+            if policy_violation_id is None or not re.fullmatch(
+                self.policy_violation_id,
+                policy_violation_id,
+                re.IGNORECASE,
+            ):
+                return False
+
+        if self.license_name is not None:
+            if not re.fullmatch(self.license_name, license_name, re.IGNORECASE):
+                return False
+
+        return True
+
+
+@dataclasses.dataclass
+class BlackDuckLabelRule:
+    name: str
+    selector: BlackDuckLabelRuleSelector
+
+
+@dataclasses.dataclass
+class BlackDuckTarget:
+    group_id: str
+    host: str
+
+
+@dataclasses.dataclass
 class BlackDuckExtensionMapping(Mapping):
-    group_id_blackduck: str
+    targets: list[BlackDuckTarget]
     group_id_bdba: int
     aws_secret_name: str | None
     processing_mode: str = 'rescan'
@@ -241,8 +279,9 @@ class BlackDuckConfig(BacklogItemMixins):
     service: Services = Services.BLACKDUCK
     delivery_service_url: str
     mappings: list[BlackDuckExtensionMapping]
+    label_rules: list[BlackDuckLabelRule]
     interval: int = 60 * 60 * 24 # 24h
-    on_supported: WarningVerbosities = WarningVerbosities.WARNING
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> BlackDuckExtensionMapping:
         for mapping in self.mappings:
@@ -269,14 +308,14 @@ class BlackDuckConfig(BacklogItemMixins):
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             is_supported = False
-            if self.on_supported is WarningVerbosities.WARNING:
+            if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for BD scans, {supported_artefact_kinds=}'
                 )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
-            if self.on_supported is WarningVerbosities.WARNING:
+            if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{access_type=} is not supported for BD scans, {supported_access_types=}'
                 )
@@ -578,7 +617,7 @@ class CryptoConfig(BacklogItemMixins):
             ocm.AccessType.S3,
         )
         supported_artefact_types_by_access_type = {
-            ocm.AccessType.OCI_REGISTRY: ('ociImage',),
+            ocm.AccessType.OCI_REGISTRY: ('ociImage','ociArtifact'),
             ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
         }
 
@@ -898,19 +937,52 @@ class OsId(BacklogItemMixins):
     def is_supported(
         self,
         artefact_kind: odg.model.ArtefactKind | None=None,
+        access_type: ocm.AccessType | None=None,
+        artefact_type: str | None=None,
     ) -> bool:
         supported_artefact_kinds = (
             odg.model.ArtefactKind.RESOURCE,
         )
+        supported_access_types = (
+            ocm.AccessType.OCI_REGISTRY,
+        )
+        supported_artefact_types_by_access_type = {
+            ocm.AccessType.OCI_REGISTRY: (ocm.ArtefactType.OCI_IMAGE,),
+        }
+
+        is_supported = True
+
+        if access_type and access_type not in supported_access_types:
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{access_type=} is not supported for OS_ID scans, {supported_access_types=}'
+                )
+            is_supported = False
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for OS_ID scans, {supported_artefact_kinds=}'
                 )
-            return False
+            is_supported = False
 
-        return True
+        if (
+            artefact_type
+            and access_type
+            and (artefact_types := supported_artefact_types_by_access_type.get(access_type))
+        ):
+            if not any(
+                artefact_type.startswith(supported_artefact_type)
+                for supported_artefact_type in artefact_types
+            ):
+                if self.on_unsupported is WarningVerbosities.WARNING:
+                    logger.warning(
+                        f'{artefact_type=} is not supported for OS_ID scans with {access_type=}, '
+                        f'{supported_artefact_types_by_access_type=}'
+                    )
+                is_supported = False
+
+        return is_supported
 
 
 @dataclasses.dataclass(kw_only=True)

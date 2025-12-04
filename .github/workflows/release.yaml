@@ -5,6 +5,7 @@ on:
       next-version:
         type: choice
         options:
+          - automatic
           - bump-minor
           - bump-patch
 

@@ -2,13 +2,10 @@
 
 import os
 
-import yaml
-
 
 repo_dir = os.path.abspath(os.environ['REPO_DIR'])
 REQUIREMENTS_EXTENSIONS_FILE = os.path.join(repo_dir, 'requirements.extensions.txt')
 REQUIREMENTS_UTILS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
-EXTENSIONS_CHART_DIR = os.path.join(repo_dir, 'charts', 'extensions')
 
 dependency_name = os.environ['DEPENDENCY_NAME']
 dependency_version = os.environ['DEPENDENCY_VERSION']
@@ -54,12 +51,7 @@ def main():
         )
 
     elif dependency_name == 'ocm.software/ocm-gear/freshclam':
-        with open(os.path.join(EXTENSIONS_CHART_DIR, 'values.yaml'), 'r+') as values_file:
-            values = yaml.safe_load(values_file)
-            values['clamav']['freshclam']['image']['tag'] = dependency_version.strip()
-            values_file.seek(0)
-            values_file.write(yaml.safe_dump(values))
-            values_file.truncate()
+        pass # nothing to do here
 
     else:
         raise RuntimeError(f"Don't know how to upgrade dependency: {dependency_name}")

@@ -7,9 +7,8 @@ import pprint
 import tabulate
 
 import cnudie.access
-import cnudie.iter
-import oci
 import ocm
+import ocm.iter
 import tarutil
 
 import bdba.client
@@ -68,10 +67,10 @@ def ls_products(
 
     root_component_descriptor = ocm_lookup(ocm_component)
 
-    for ocm_node in cnudie.iter.iter(
+    for ocm_node in ocm.iter.iter(
         component=root_component_descriptor,
         lookup=ocm_lookup,
-        node_filter=cnudie.iter.Filter.components,
+        node_filter=ocm.iter.Filter.components,
     ):
         component = ocm_node.component
 
@@ -138,10 +137,9 @@ def scan(
     )
 
     def iter_resource_scans() -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
-        for resource_node in cnudie.iter.iter(
+        for resource_node in ocm.iter.iter_resources(
             component=component_descriptor.component,
             lookup=lookup,
-            node_filter=cnudie.iter.Filter.resources,
         ):
             known_scan_results = bdba_utils.scan.retrieve_existing_scan_results(
                 bdba_client=bdba_client,
@@ -156,7 +154,7 @@ def scan(
             access = resource_node.resource.access
 
             if access.type is ocm.AccessType.OCI_REGISTRY:
-                content_iterator = oci.image_layers_as_tarfile_generator(
+                content_iterator = ocm_util.image_layers_as_tarfile_generator(
                     image_reference=access.imageReference,
                     oci_client=oci_client,
                     include_config_blob=False,
