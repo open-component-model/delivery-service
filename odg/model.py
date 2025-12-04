@@ -129,7 +129,9 @@ class Datasource(enum.StrEnum):
             Datasource.SAST: (
                 Datatype.SAST_FINDING,
             ),
-            Datasource.TEST_RESULT: (Datatype.TEST_RESULT)
+            Datasource.TEST_RESULT_FINDING: (
+                Datatype.TEST_RESULT_FINDING
+            )
         }.get(self, tuple())
 
 
