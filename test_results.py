@@ -25,15 +25,17 @@ def find_test_artefacts(component: ocm.ComponentDescriptor) -> list[ocm.Artifact
 
 
 def create_missing_test_finding(
-    artefact: odg.model.ComponentArtefactId,
-    sub_type: odg.model.TestStatus,
-    categorisation: odg.findings.FindingCategorisation,
-    creation_timestamp: datetime.datetime=datetime.datetime.now(
-    tz=datetime.timezone.utc)
+        artefact: odg.model.ComponentArtefactId,
+        sub_type: odg.model.TestStatus,
+        categorisation: odg.findings.FindingCategorisation,
+        creation_timestamp: datetime.datetime=datetime.datetime.now(
+        tz=datetime.timezone.utc)
 ) -> odg.model.ArtefactMetadata | None:
     return odg.model.ArtefactMetadata(
         artefact=artefact,
         meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.TEST_RESULT_FINDING,
+            type=odg.model.Datatype.TEST_RESULT_FINDING,
             datasource=odg.model.Datasource.TEST_RESULT_FINDING,
             type=odg.model.Datatype.TEST_RESULT_FINDING,
             creation_date=creation_timestamp,
