@@ -13,6 +13,7 @@ import delivery.client
 import delivery.model
 import github.user
 
+import github_util
 import issue_replicator.github
 import k8s.logging
 import odg.extensions_cfg
@@ -480,11 +481,11 @@ def replicate_issue(
         return
 
     # cache clear is necessary to prevent creating duplicated issues
-    issue_replicator.github._all_issues.cache_clear()
+    github_util.all_issues.cache_clear()
 
     mapping = extension_cfg.mapping(artefact.component_name)
     gh_api = odg.extensions_cfg.github_api(mapping.github_repository)
-    issue_replicator.github.wait_for_quota_if_required(gh_api=gh_api)
+    github_util.wait_for_quota_if_required(gh_api=gh_api)
 
     for finding_cfg in finding_cfgs:
         replicate_issue_for_finding_type(

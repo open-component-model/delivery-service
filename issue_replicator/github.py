@@ -6,12 +6,9 @@ import enum
 import datetime
 import functools
 import hashlib
-import json
 import logging
 import re
 import textwrap
-import time
-import urllib.parse
 
 import github3
 import github3.issues.issue
@@ -28,6 +25,7 @@ import github.util
 import ocm.iter
 import ocm.util
 
+import github_util
 import k8s.util
 import odg.extensions_cfg
 import odg.findings
@@ -95,7 +93,7 @@ class FindingGroup:
         ''')
 
         if delivery_dashboard_url:
-            delivery_dashboard_url = _delivery_dashboard_url(
+            delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                 base_url=delivery_dashboard_url,
                 component_artefact_id=self.artefact,
                 finding_type=finding_cfg.type,
@@ -104,65 +102,6 @@ class FindingGroup:
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
         return summary
-
-
-def is_remaining_quota_too_low(
-    gh_api: github3.GitHub,
-    relative_gh_quota_minimum: float=0.2,
-) -> bool:
-    rate_limit = gh_api.rate_limit().get('resources', dict()).get('core', dict()).get('limit', -1)
-    rate_limit_remaining = gh_api.ratelimit_remaining
-    logger.info(f'{rate_limit_remaining=} {rate_limit=}')
-    if rate_limit_remaining < relative_gh_quota_minimum * rate_limit:
-        return True
-    return False
-
-
-def wait_for_quota_if_required(
-    gh_api: github3.GitHub,
-    relative_gh_quota_minimum: float=0.2,
-):
-    if not is_remaining_quota_too_low(
-        gh_api=gh_api,
-        relative_gh_quota_minimum=relative_gh_quota_minimum,
-    ):
-        return
-
-    reset_timestamp = gh_api.rate_limit().get('resources', dict()).get('core', dict()).get('reset')
-    if not reset_timestamp:
-        return
-
-    reset_datetime = datetime.datetime.fromtimestamp(reset_timestamp, tz=datetime.timezone.utc)
-    time_until_reset = reset_datetime - datetime.datetime.now(tz=datetime.timezone.utc)
-    logger.warning(f'github quota too low, will sleep {time_until_reset} until {reset_datetime}')
-    time.sleep(time_until_reset.total_seconds())
-
-
-@functools.cache
-@github.retry.retry_and_throttle
-def _all_issues(
-    repository,
-    state: str='all',
-    number: int=-1, # -1 means all issues
-):
-    return set(repository.issues(state=state, number=number))
-
-
-def filter_issues_for_labels(
-    issues: collections.abc.Iterable[github3.issues.issue.ShortIssue],
-    labels: collections.abc.Iterable[str],
-) -> tuple[github3.issues.ShortIssue]:
-    labels = set(labels)
-
-    def filter_issue(issue: github3.issues.issue.ShortIssue):
-        issue_labels = set(label.name for label in issue.original_labels)
-
-        return issue_labels & labels == labels
-
-    return tuple(
-        issue for issue in issues
-        if filter_issue(issue)
-    )
 
 
 def _issue_milestone(
@@ -214,46 +153,6 @@ def _artefact_url(
     return '<details><summary>Artefact-URL</summary><pre>' + artefact_url + '</pre></details>'
 
 
-def _delivery_dashboard_url(
-    base_url: str,
-    component_artefact_id: odg.model.ComponentArtefactId,
-    finding_type: odg.model.Datatype,
-    sprint_name: str=None,
-):
-    url = util.urljoin(
-        base_url,
-        '#/component'
-    )
-
-    query_params = {
-        'name': component_artefact_id.component_name,
-        'version': component_artefact_id.component_version,
-        'view': 'bom',
-        'rootExpanded': True,
-        'findingType': finding_type,
-    }
-
-    if sprint_name:
-        query_params['sprints'] = sprint_name
-
-    if artefact_id := component_artefact_id.artefact:
-        rescore_artefacts = (
-            f'{artefact_id.artefact_name}|{artefact_id.artefact_version}|'
-            f'{artefact_id.artefact_type}|{component_artefact_id.artefact_kind}'
-        )
-
-        if artefact_id.artefact_extra_id:
-            rescore_artefacts += f'|{json.dumps(artefact_id.artefact_extra_id)}'
-
-        query_params['rescoreArtefacts'] = rescore_artefacts
-
-    query = urllib.parse.urlencode(
-        query=query_params,
-    )
-
-    return f'{url}?{query}'
-
-
 def _severity_str(
     aggregated_finding: AggregatedFinding,
     finding_group: FindingGroup,
@@ -300,7 +199,7 @@ def _issue_ref(
     if additional_labels:
         labels.extend(additional_labels)
 
-    if not (matching_issues := filter_issues_for_labels(
+    if not (matching_issues := github_util.filter_issues_for_labels(
         issues=known_issues,
         labels=labels,
     )):
@@ -644,7 +543,7 @@ def diki_summary(
                 finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
-                delivery_dashboard_url = _delivery_dashboard_url(
+                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
@@ -753,7 +652,7 @@ def falco_summary(
                 finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
-                delivery_dashboard_url = _delivery_dashboard_url(
+                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
@@ -881,7 +780,7 @@ def inventory_summary(
                 finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
-                delivery_dashboard_url = _delivery_dashboard_url(
+                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
@@ -957,7 +856,7 @@ def kyverno_summary(
                 finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
-                delivery_dashboard_url = _delivery_dashboard_url(
+                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
@@ -1381,7 +1280,7 @@ def template_issue_body(
 
     artefact = sorted_artefacts[0]
 
-    rescoring_url = _delivery_dashboard_url(
+    rescoring_url = rescore.utility.delivery_dashboard_rescoring_url(
         base_url=delivery_dashboard_url,
         component_artefact_id=artefact,
         finding_type=finding_cfg.type,
@@ -1821,7 +1720,7 @@ def _create_or_update_or_close_issue_per_finding(
 
         labels_for_filtering = (issue_id, finding_cfg.type, data_digest)
 
-        finding_issues = filter_issues_for_labels(
+        finding_issues = github_util.filter_issues_for_labels(
             issues=set(issues) | created_issues,
             labels=labels_for_filtering,
         )
@@ -1885,16 +1784,16 @@ def create_or_update_or_close_issue(
 
     repository = odg.extensions_cfg.github_repository(mapping.github_repository)
 
-    known_issues = _all_issues(
+    known_issues = github_util.all_issues(
         repository=repository,
         state='open',
-    ) | _all_issues(
+    ) | github_util.all_issues(
         repository=repository,
         state='closed',
         number=mapping.number_included_closed_issues,
     )
 
-    issues = filter_issues_for_labels(
+    issues = github_util.filter_issues_for_labels(
         issues=known_issues,
         labels=(issue_id, finding_cfg.type),
     )
