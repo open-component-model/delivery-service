@@ -46,6 +46,24 @@
         malware_names:
           - .*
 
+- type: finding/testresults 
+  issues:
+    enable_assignees: False # should be true?
+  categorisations:
+    - id: NONE
+      display_name: NONE
+      value: 0
+      allowed_processing_time: ~
+      #rescoring: manual # do we need this?
+    - id: BLOCKER
+      display_name: BLOCKER
+      value: 16
+      allowed_processing_time: 0
+      #rescoring: manual # do we need this?
+      selector:
+        sub_types:
+          - .*
+
 - type: finding/sast
   issues:
     enable_issues: False
