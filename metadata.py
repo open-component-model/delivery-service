@@ -21,16 +21,6 @@ import odg.model
 import util
 
 
-types_with_reusable_discovery_dates = (
-    odg.model.Datatype.VULNERABILITY_FINDING,
-    odg.model.Datatype.LICENSE_FINDING,
-    odg.model.Datatype.DIKI_FINDING,
-    odg.model.Datatype.OSID_FINDING,
-    odg.model.Datatype.CRYPTO_FINDING,
-    odg.model.Datatype.IP_FINDING,
-)
-
-
 class ArtefactMetadataQuery(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
@@ -382,10 +372,8 @@ class ArtefactMetadata(aiohttp.web.View):
                 if not found:
                     for existing_entry in existing_entries:
                         if (
-                            (
-                                metadata_entry.type not in types_with_reusable_discovery_dates
-                                or discovery_date
-                            ) and metadata_entry.artefact_version not in existing_artefact_versions
+                            discovery_date
+                            and metadata_entry.artefact_version not in existing_artefact_versions
                         ):
                             # there is no need to search any further -> we won't find any existing
                             # entry with the same artefact version and we don't have to find any
@@ -510,9 +498,6 @@ def reuse_discovery_date_if_possible(
         if last_update + reuse_discovery_date.max_reuse_time < datetime.datetime.now():
             return None
 
-    if new_metadata.type not in types_with_reusable_discovery_dates:
-        return None
-
     if new_metadata.type == odg.model.Datatype.VULNERABILITY_FINDING:
         if (
             new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
@@ -546,16 +531,6 @@ def reuse_discovery_date_if_possible(
             # resource-/package-version, so we must re-use its discovery date
             return old_metadata.discovery_date
 
-    elif new_metadata.type == odg.model.Datatype.DIKI_FINDING:
-        if (
-            new_metadata.data.get('provider_id') == old_metadata.data.get('provider_id')
-            and new_metadata.data.get('ruleset_id') == old_metadata.data.get('ruleset_id')
-            and new_metadata.data.get('rule_id') == old_metadata.data.get('rule_id')
-        ):
-            # found the same finding in existing entry, independent of the component-/
-            # resource-/ruleset-version, so we must re-use its discovery date
-            return old_metadata.discovery_date
-
     elif new_metadata.type == odg.model.Datatype.OSID_FINDING:
         if (
             new_metadata.data.get('osid').get('VERSION_ID')
@@ -566,16 +541,11 @@ def reuse_discovery_date_if_possible(
             # found the same version and name in existing entry, so we must re-use its discovery date
             return old_metadata.discovery_date
 
-    elif new_metadata.type == odg.model.Datatype.CRYPTO_FINDING:
-        if new_metadata.data_key == old_metadata.data_key:
-            # found the same finding in existing entry, so we must re-use its discovery date
-            return old_metadata.discovery_date
+    elif new_metadata.data_key == old_metadata.data_key:
+        # found the same finding in existing entry, so we must re-use its discovery date
+        return old_metadata.discovery_date
 
-    else:
-        raise ValueError(
-            f're-usage of discovery dates is configured for "{new_metadata.type}" but there is no '
-            'special handling implemented to check when to re-use existing dates'
-        )
+    return None
 
 
 def _fill_default_values(
