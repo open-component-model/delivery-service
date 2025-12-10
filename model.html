@@ -296,10 +296,12 @@ delivery-service.</p>
 allowed timeframe. Hence, the date of first discovery is stored to allow for
 the calculation for latest due-dates. Thereby, the initial <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code>
 must be retained during subsequent updates. Therefore, the <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code> is
-part of the <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> model. To re-use the initial <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code> of
-a finding, and don’t reset it as part of every new scan, it must be defined
-when a finding is to be interpreted as equal so that the <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code> must
-be re-used.</p>
+part of the <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> model. By default, the initial <code class="code docutils literal notranslate"><span class="pre">discovery_date</span></code>
+of a finding is re-used in case the OCM identity (except its version and extra
+identity) and the <code class="code docutils literal notranslate"><span class="pre">key</span></code> property of the finding match. In case it is desired to
+deviate from this defalt behaviour (e.g. in case the <code class="code docutils literal notranslate"><span class="pre">key</span></code> contains a package
+version which should not be considered for the re-use), a custom check must be
+implemented as part of the upload metadata route.</p>
 <section id="considerations">
 <h3>Considerations<a class="headerlink" href="#considerations" title="Link to this heading"></a></h3>
 <p>In the most trivial example, this is the case when the <code class="code docutils literal notranslate"><span class="pre">data</span></code> key is equal.
