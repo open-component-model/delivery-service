@@ -1,0 +1,15 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2730.0
+release_notes:
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: CTT (fka CNUDIE Transport-Tool) is now built as a separate package, into
+    a dedicated OCI-Image
+  mimetype: text/markdown
+  reference: '[#1478](https://github.com/gardener/cc-utils/pull/1478)'
+  type: standard
