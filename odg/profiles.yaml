@@ -10,6 +10,8 @@
     - finding/license
     - finding/malware
     - finding/osid
+    - finding/ghas
+    - finding/test-result
     - finding/sast
     - finding/vulnerability
   special_component_ids:
