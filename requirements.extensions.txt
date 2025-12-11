@@ -1,3 +1,3 @@
-bdba==0.7.0
+bdba==0.8.0
 cyclonedx-python-lib
 jsonpath-ng
