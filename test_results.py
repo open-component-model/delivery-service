@@ -51,13 +51,13 @@ def create_missing_test_finding(
     )
 
 
-def iter_artefacts_for_test_coverage(component: ocm.ComponentDescriptor,
+def iter_artefacts_for_test_coverage(
+    component: ocm.ComponentDescriptor,
     test_result_finding_config: odg.findings.Finding,
     sub_type: odg.model.TestStatus,
     artefact: odg.model.ComponentArtefactId,
-    creation_timestamp: datetime.datetime=datetime.datetime.now(
-        datetime.timezone.utc)
-    ):
+    creation_timestamp: datetime.datetime=datetime.datetime.now(datetime.timezone.utc)
+) -> <typehint>:
 
     categorisation = odg.findings.categorise_finding(
         finding_cfg=test_result_finding_config,
