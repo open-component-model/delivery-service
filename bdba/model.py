@@ -246,8 +246,8 @@ class AnalysisResult(Result):
     fail_reason: str | None
     components: list[Component] = dataclasses.field(default_factory=list)
     custom_data: dict[str, str] = dataclasses.field(default_factory=dict)
-    binary_bytes: int | None
-    scanned_bytes: int | None
+    binary_bytes: int | None = None
+    scanned_bytes: int | None = None
 
 
 @dataclasses.dataclass
