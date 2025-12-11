@@ -181,7 +181,7 @@ def test_artefact_test_results_filter(
     missing_test_result_finding_cfg: odg.findings.Finding
 ):
 
-    resources_req_tests = test_results.find_artefact_with_truthy_test_policy_label(
+    resources_req_tests = test_results.iter_artefacts_requiring_tests(
         component=component_descriptor)
 
     test_resources = test_results.find_test_artefacts(

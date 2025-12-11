@@ -4,37 +4,32 @@ import odg.findings
 import odg.model
 
 
-def find_artefact_with_truthy_test_policy_label(component: ocm.ComponentDescriptor) -> list[ocm.Artifact] | None:
-    artefacts = []
+def iter_artefacts_requiring_tests(component: ocm.ComponentDescriptor) -> list[ocm.Artifact] | None:
     for resource in component.component.resources:
         if resource.relation == 'local': # !!WE NEED TO DISCUSS THIS IN THE TEAM!
             label = resource.find_label(name='gardener.cloud/test-policy')
             if label and label.value:
-                artefacts.append(resource)
-
+                yield resource
             else:
                 if resource.type == ocm.ArtefactType.OCI_IMAGE:
-                    artefacts.append(resource)
+                    yield resource
                 else:
                     continue
-    return artefacts
 
 
 def find_test_artefacts(component: ocm.ComponentDescriptor) -> list[ocm.Artifact]:
-    artefacts = []
     for resource in component.component.resources:
         for label in resource.labels:
             if label.name == 'gardener.cloud/purposes' and 'test' in label.value:
-                artefacts.append(resource)
-    return artefacts
+                yield resource
 
 
 def create_missing_test_finding(
-        artefact: odg.model.ComponentArtefactId,
-        sub_type: odg.model.TestStatus,
-        categorisation: odg.findings.FindingCategorisation,
-        creation_timestamp: datetime.datetime=datetime.datetime.now(
-        tz=datetime.timezone.utc)
+    artefact: odg.model.ComponentArtefactId,
+    sub_type: odg.model.TestStatus,
+    categorisation: odg.findings.FindingCategorisation,
+    creation_timestamp: datetime.datetime=datetime.datetime.now(
+    tz=datetime.timezone.utc)
 ) -> odg.model.ArtefactMetadata | None:
     return odg.model.ArtefactMetadata(
         artefact=artefact,
@@ -64,8 +59,7 @@ def iter_artefacts_for_test_coverage(
         finding_property=sub_type
     )
 
-    artefacts_req_tests = find_artefact_with_truthy_test_policy_label(
-        component)
+    artefacts_req_tests = iter_artefacts_requiring_tests(component)
 
     test_artefacts = find_test_artefacts(component)
 
