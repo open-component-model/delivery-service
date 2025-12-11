@@ -568,7 +568,8 @@ def main():
 
     extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration
-    logger.info(f'{extensions_cfg.enabled_extensions()=}')
+    enabled_extensions = list(extensions_cfg.enabled_extensions())
+    logger.info(f'{enabled_extensions=}')
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):
         findings_cfg_path = paths.findings_cfg_path()
