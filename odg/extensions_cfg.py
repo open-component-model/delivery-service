@@ -1,5 +1,6 @@
 import collections.abc
 import dataclasses
+import datetime
 import enum
 import logging
 import re
@@ -34,6 +35,7 @@ class Services(enum.StrEnum):
     CLAMAV = 'clamav'
     CRYPTO = 'crypto'
     DELIVERY_DB_BACKUP = 'deliveryDbBackup'
+    FINDINGS_REPORT = 'findingsReport'
     GHAS = 'ghas'
     ISSUE_REPLICATOR = 'issueReplicator'
     OSID = 'osid'
@@ -73,11 +75,28 @@ class BacklogItemMixins(ExtensionCfgMixins):
 
 
 @dataclasses.dataclass
+class TimeRange:
+    days_from: int = -365
+    days_to: int = 0
+
+    @property
+    def start_date(self) -> datetime.date:
+        today = datetime.date.today()
+        return today + datetime.timedelta(days=self.days_from)
+
+    @property
+    def end_date(self) -> datetime.date:
+        today = datetime.date.today()
+        return today + datetime.timedelta(days=self.days_to)
+
+
+@dataclasses.dataclass
 class Component:
     component_name: str
     version: str | None
     ocm_repo_url: str | None
     max_versions_limit: int = 1
+    time_range: TimeRange | None = None
 
     def __post_init__(self):
         # "version=None" will be treated from subsequent functions like "greatest"
@@ -689,6 +708,29 @@ class DeliveryDBBackup(ExtensionCfgMixins):
 
 
 @dataclasses.dataclass
+class FindingsReportMapping:
+    type: odg.model.Datatype
+    component: Component
+    github_repository: str
+    branch: str
+    filename: str = 'report.md'
+    dirname: str = 'reports'
+    auto_merge: bool = False
+    trigger_absent_scans: bool = False
+    report_to_saf: bool = False
+
+
+@dataclasses.dataclass(kw_only=True)
+class FindingsReportConfig(ExtensionCfgMixins):
+    service: Services = Services.FINDINGS_REPORT
+    delivery_service_url: str
+    mappings: list[FindingsReportMapping]
+    schedule: str = '0 2 * * *' # every day at 02:00 AM
+    successful_jobs_history_limit: int = 1
+    failed_jobs_history_limit: int = 1
+
+
+@dataclasses.dataclass
 class GitHubInstance:
     hostname: str
     orgs: list[str]
@@ -994,6 +1036,7 @@ class ExtensionsConfiguration:
     clamav: ClamAVConfig | None
     crypto: CryptoConfig | None
     delivery_db_backup: DeliveryDBBackup | None
+    findings_report: FindingsReportConfig | None
     ghas: GHASConfig | None
     issue_replicator: IssueReplicatorConfig | None
     odg_operator: OdgOperatorConfig | None
