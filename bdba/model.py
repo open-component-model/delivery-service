@@ -273,3 +273,8 @@ class UploadStatus(enum.IntEnum):
     SKIPPED = 1
     PENDING = 2
     DONE = 4
+
+class SBomFormats(enum.StrEnum):
+    CYCLONEDX = 'cyclonedx'
+    SPDX = 'spdx'
+    BDIO = 'bdio'
