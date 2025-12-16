@@ -12,6 +12,9 @@
     - finding/osid
     - finding/sast
     - finding/vulnerability
+    - finding/diki
+    - finding/crypto
+    - finding/osid
     - finding/ghas
     - finding/test-result
   special_component_ids:

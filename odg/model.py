@@ -129,9 +129,7 @@ class Datasource(enum.StrEnum):
             Datasource.SAST: (
                 Datatype.SAST_FINDING,
             ),
-            Datasource.TEST_RESULT_FINDING: (
-                Datatype.TEST_RESULT_FINDING
-            )
+            Datasource.TEST_RESULT: (Datatype.TEST_RESULT)
         }.get(self, tuple())
 
 
@@ -183,7 +181,8 @@ class UserIdentity:
     '''
     Collection of identities that refer to the same user
     '''
-    identifiers: list[EmailAddress | GithubUser | MetaOrigin | PersonalName | UserIdentifierBase]
+    identifiers: list[EmailAddress | GithubUser |
+        MetaOrigin | PersonalName | UserIdentifierBase]
 
 
 class SastStatus(enum.StrEnum):
@@ -1275,7 +1274,8 @@ class KyvernoRuleResult:
     skip: int = 0
     error: int = 0
     warn: int = 0
-    violations: typing.List[KyvernoViolation] = dataclasses.field(default_factory=list)
+    violations: typing.List[KyvernoViolation] = dataclasses.field(
+        default_factory=list)
 
 
 @dataclasses.dataclass
@@ -1297,7 +1297,8 @@ class KyvernoReportSummary:
         dataclasses.field(default_factory=dict) # namespace -> NamespaceSummary
     )
     policy_results: dict[str, dict[str, dict[str, KyvernoRuleResult]]] = (
-        dataclasses.field(default_factory=dict) # namespace -> policy -> rule -> RuleResult
+        # namespace -> policy -> rule -> RuleResult
+        dataclasses.field(default_factory=dict)
     )
 
 
@@ -1478,7 +1479,8 @@ class ArtefactMetadata:
     artefact: ComponentArtefactId
     meta: Metadata
     data: FindingModels | InformationalModels | MetaModels
-    discovery_date: datetime.date | None = None # required for finding specific SLA tracking
+    # required for finding specific SLA tracking
+    discovery_date: datetime.date | None = None
     allowed_processing_time: str | None = None
 
     @staticmethod
