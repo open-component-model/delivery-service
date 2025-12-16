@@ -17,10 +17,14 @@ def iter_artefacts_requiring_tests(component: ocm.ComponentDescriptor) -> list[o
                     continue
 
 
+PURPOSE_LABEL_NAME = 'gardener.cloud/purposes'
+PURPOSE_LABEL_VALUE = 'test'
+
+
 def find_test_artefacts(component: ocm.ComponentDescriptor) -> list[ocm.Artifact]:
     for resource in component.component.resources:
         for label in resource.labels:
-            if label.name == 'gardener.cloud/purposes' and 'test' in label.value:
+            if label.name == PURPOSE_LABEL_NAME and PURPOSE_LABEL_VALUEs in label.value:
                 yield resource
 
 
