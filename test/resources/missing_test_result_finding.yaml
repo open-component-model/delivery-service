@@ -1,0 +1,17 @@
+categorisations:
+  - id: NONE
+    display_name: test exists and has no findings
+    value: 0
+    allowed_processing_time: 0
+    rescoring: null
+    selector: null
+
+  - id: BLOCKER
+    display_name: Test result is missing
+    value: 16
+    allowed_processing_time: 0
+    rescoring: null
+    selector:
+      type: finding/testresults
+      status:
+        - ".*"
