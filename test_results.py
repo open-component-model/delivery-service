@@ -51,8 +51,9 @@ def iter_artefacts_for_test_coverage(
     test_result_finding_config: odg.findings.Finding,
     sub_type: odg.model.TestStatus,
     artefact: odg.model.ComponentArtefactId,
-    creation_timestamp: datetime.datetime=datetime.datetime.now(datetime.timezone.utc)
-) -> <typehint>:
+    creation_timestamp: datetime.datetime=datetime.datetime.now(
+        datetime.timezone.utc)
+) -> odg.model.ComponentArtefactId | odg.findings.Finding:
 
     categorisation = odg.findings.categorise_finding(
         finding_cfg=test_result_finding_config,
@@ -69,7 +70,7 @@ def iter_artefacts_for_test_coverage(
     for ta in test_artefacts:
         if not ta.find_label(name='gardener.cloud/test-scope'):
             # if label is absent, assume tests are scoping *all* resources within this component
-            return
+            return []
         for label in ta.labels:
             if label.name == 'gardener.cloud/test-scope':
                 artefacts_with_tests.append(label.value)
