@@ -26,6 +26,7 @@ def modules():
         'ctx_util',
         'dockerutil',
         'eol',
+        'github_util',
         'lookups',
         'ocm_util',
         'paths',
