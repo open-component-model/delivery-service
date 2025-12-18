@@ -585,7 +585,7 @@ extensions_cfg:
                 # @param extensions_cfg.responsibles.rules[].strategies[].responsibles[].teamname
                 # name of the GitHub teams whose members should be used as responsibles
                 # e.g.
-                # teamname: <org-name>/<teamname>
+                # teamname: <org-name>/<team-slug>
                 teamname: ""
                 # @param extensions_cfg.responsibles.rules[].strategies[].responsibles[].username
                 # name of the GitHub user who should be used as responsible
@@ -1540,10 +1540,10 @@ secrets:
           subjects:
               # @param secrets.oauth-cfg.<name>.role_bindings[].subjects[].type the type of subject
               # options:
-              # - github-app: name is expected as <app-name>
+              # - github-app: name is expected as <app-slug>
               # - github-user: name is expected as <username>
               # - github-org: name is expected as <org-name>
-              # - github-team: name is expected as <org-name>/<team-name>
+              # - github-team: name is expected as <org-name>/<team-slug>
             - type: ""
               # @param secrets.oauth-cfg.<name>.role_bindings[].subjects[].name the name of subject
               name: ""
