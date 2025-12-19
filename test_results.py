@@ -45,8 +45,6 @@ def create_missing_test_finding(
         meta=odg.model.Metadata(
             datasource=odg.model.Datasource.TEST_RESULT_FINDING,
             type=odg.model.Datatype.TEST_RESULT_FINDING,
-            datasource=odg.model.Datasource.TEST_RESULT_FINDING,
-            type=odg.model.Datatype.TEST_RESULT_FINDING,
             creation_date=creation_timestamp,
             last_update=creation_timestamp,
         ),
