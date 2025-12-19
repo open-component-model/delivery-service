@@ -2,11 +2,16 @@ import datetime
 import ocm
 import odg.findings
 import odg.model
+import odg.extensions_cfg
 
 
-def iter_artefacts_requiring_tests(component: ocm.ComponentDescriptor) -> list[ocm.Artifact] | None:
+def iter_artefacts_requiring_tests(
+    component: ocm.ComponentDescriptor,
+    test_result_config: odg.extensions_cfg.MissingTestResultsConfig,
+) -> list[ocm.Artifact] | None:
     for resource in component.component.resources:
-        if resource.relation == 'local': # !!WE NEED TO DISCUSS THIS IN THE TEAM!
+        # if it's an external OCI image we don't need to check this
+        if test_result_config.is_supported(resource=resource):
             label = resource.find_label(name='gardener.cloud/test-policy')
             if label and label.value:
                 yield resource
@@ -24,7 +29,7 @@ PURPOSE_LABEL_VALUE = 'test'
 def find_test_artefacts(component: ocm.ComponentDescriptor) -> list[ocm.Artifact]:
     for resource in component.component.resources:
         for label in resource.labels:
-            if label.name == PURPOSE_LABEL_NAME and PURPOSE_LABEL_VALUEs in label.value:
+            if label.name == PURPOSE_LABEL_NAME and PURPOSE_LABEL_VALUE in label.value:
                 yield resource
 
 
@@ -56,7 +61,7 @@ def iter_artefacts_for_test_coverage(
     component: ocm.ComponentDescriptor,
     test_result_finding_config: odg.findings.Finding,
     sub_type: odg.model.TestStatus,
-    artefact: odg.model.ComponentArtefactId,
+    test_result_config: odg.extensions_cfg.MissingTestResultsConfig,
     creation_timestamp: datetime.datetime=datetime.datetime.now(
         datetime.timezone.utc)
 ) -> odg.model.ComponentArtefactId | odg.findings.Finding:
@@ -66,7 +71,10 @@ def iter_artefacts_for_test_coverage(
         finding_property=sub_type
     )
 
-    artefacts_req_tests = iter_artefacts_requiring_tests(component)
+    artefacts_req_tests = iter_artefacts_requiring_tests(
+        component,
+        test_result_config=test_result_config,
+    )
 
     test_artefacts = find_test_artefacts(component)
 
@@ -85,6 +93,6 @@ def iter_artefacts_for_test_coverage(
         if artefact_requiring_tests.name not in artefacts_with_tests:
             findings.append(
                 create_missing_test_finding(
-                    artefact, sub_type, categorisation, creation_timestamp)
+                    artefact_requiring_tests, sub_type, categorisation, creation_timestamp)
                 )
         return findings

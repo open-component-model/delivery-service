@@ -962,6 +962,20 @@ class SASTConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass(kw_only=True)
+class MissingTestResultsConfig(BacklogItemMixins):
+    service: Services = Services.TEST_RESULT_FINDING
+    delivery_service_url: str
+    includeExternalArtefacts: bool
+    interval: int = 60 * 60 * 24 #
+
+    def is_supported(self, resource) -> bool:
+        if self.includeExternalArtefacts:
+            print(f'this is the self.service {self.service}')
+            if resource.relation == 'local':
+                return True
+
+
+@dataclasses.dataclass(kw_only=True)
 class OsId(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -1027,13 +1041,6 @@ class OsId(BacklogItemMixins):
         return is_supported
 
 
-@dataclasses.dataclass(kw_only=True)
-class TestResult(BacklogItemMixins):
-    def is_supported(self, artefact_kind, access_type):
-        # do something
-        return super().is_supported(artefact_kind, access_type)
-
-
 @dataclasses.dataclass
 class ExtensionsConfiguration:
     access_manager: AccessManagerConfig | None
@@ -1051,6 +1058,7 @@ class ExtensionsConfiguration:
     osid: OsId | None
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
+    test_result: MissingTestResultsConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod

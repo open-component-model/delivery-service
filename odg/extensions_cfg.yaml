@@ -99,3 +99,6 @@ responsibles:
 
 sast:
   enabled: False
+
+test_result:
+  includeExternalArtefacts: True

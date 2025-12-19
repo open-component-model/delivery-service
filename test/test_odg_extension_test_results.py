@@ -4,6 +4,7 @@ import enum
 import ocm
 import odg.model
 import odg.findings
+import odg.extensions_cfg
 import test_results
 import yaml
 from pathlib import Path
@@ -19,6 +20,20 @@ def component_descriptor() -> ocm.ComponentDescriptor:
     return dacite.from_dict(
         data=raw,
         data_class=ocm.ComponentDescriptor,
+        config=dacite.Config(cast=[enum.Enum])
+    )
+
+
+@pytest.fixture
+def test_result_config() -> odg.extensions_cfg.MissingTestResultsConfig:
+    raw = {
+        'delivery_service_url': 'http://localhost:5000',
+        'includeExternalArtefacts': True
+    }
+
+    return dacite.from_dict(
+        data=raw,
+        data_class=odg.extensions_cfg.MissingTestResultsConfig,
         config=dacite.Config(cast=[enum.Enum])
     )
 
@@ -61,11 +76,12 @@ def missing_test_result_finding_cfg() -> odg.findings.Finding:
 
 def test_artefact_test_results_filter(
     component_descriptor: ocm.ComponentDescriptor,
-    missing_test_result_finding_cfg: odg.findings.Finding
+    missing_test_result_finding_cfg: odg.findings.Finding,
+    test_result_config: odg.extensions_cfg.MissingTestResultsConfig
 ):
 
     resources_req_tests = list(test_results.iter_artefacts_requiring_tests(
-        component=component_descriptor))
+        component=component_descriptor, test_result_config=test_result_config))
 
     test_resources = list(test_results.find_test_artefacts(
         component=component_descriptor))
@@ -81,9 +97,9 @@ def test_artefact_test_results_filter(
         component=component_descriptor)
 
     test_coverage = test_results.iter_artefacts_for_test_coverage(
-        test_result_finding_config=missing_test_result_finding_cfg,
         component=component_descriptor,
-        artefact=odg.model.ComponentArtefactId,
+        test_result_config=test_result_config,
+        test_result_finding_config=missing_test_result_finding_cfg,
         sub_type=odg.model.TestStatus.NO_TEST)
 
     assert len(test_coverage) == 1
@@ -101,7 +117,7 @@ def test_artefact_test_results_filter(
 
     test_coverage = test_results.iter_artefacts_for_test_coverage(
         component=component_descriptor,
-        artefact=odg.model.ComponentArtefactId,
+        test_result_config=test_result_config,
         test_result_finding_config=missing_test_result_finding_cfg,
         sub_type=odg.model.TestStatus.NO_TEST)
 
