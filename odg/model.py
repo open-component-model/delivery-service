@@ -42,6 +42,7 @@ class Datatype(enum.StrEnum):
     OSID_FINDING = 'finding/osid'
     SAST_FINDING = 'finding/sast'
     VULNERABILITY_FINDING = 'finding/vulnerability'
+    TEST_RESULT_FINDING = 'finding/testresults'
 
     # informational datatypes
     CRYPTO_ASSET = 'crypto_asset'
@@ -62,6 +63,7 @@ class Datatype(enum.StrEnum):
             Datatype.OSID_FINDING: Datasource.OSID,
             Datatype.SAST_FINDING: Datasource.SAST,
             Datatype.VULNERABILITY_FINDING: Datasource.BDBA,
+            Datatype.TEST_RESULT_FINDING: Datasource.TEST_RESULT_FINDING
         }[self]
 
     def display_name(self) -> str:
@@ -83,6 +85,7 @@ class Datasource(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    TEST_RESULT_FINDING = 'test-result'
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
@@ -126,6 +129,7 @@ class Datasource(enum.StrEnum):
             Datasource.SAST: (
                 Datatype.SAST_FINDING,
             ),
+            Datasource.TEST_RESULT_FINDING: (Datatype.TEST_RESULT_FINDING)
         }.get(self, tuple())
 
 
@@ -177,11 +181,16 @@ class UserIdentity:
     '''
     Collection of identities that refer to the same user
     '''
-    identifiers: list[EmailAddress | GithubUser | MetaOrigin | PersonalName | UserIdentifierBase]
+    identifiers: list[EmailAddress | GithubUser |
+        MetaOrigin | PersonalName | UserIdentifierBase]
 
 
 class SastStatus(enum.StrEnum):
     NO_LINTER = 'no-linter'
+
+
+class TestStatus(enum.StrEnum):
+    NO_TEST = 'no-test'
 
 
 class SastSubType(enum.StrEnum):
@@ -471,6 +480,15 @@ class LicenseFinding(Finding, BDBAMixin):
     @property
     def key(self) -> str:
         return _as_key(self.package_name, self.package_version, self.license.name)
+
+
+@dataclasses.dataclass
+class TestResultMissingFinding(Finding):
+    test_status: TestStatus
+
+    @property
+    def key(self) -> str:
+        return _as_key(self.test_status)
 
 
 @dataclasses.dataclass
@@ -1256,7 +1274,8 @@ class KyvernoRuleResult:
     skip: int = 0
     error: int = 0
     warn: int = 0
-    violations: typing.List[KyvernoViolation] = dataclasses.field(default_factory=list)
+    violations: typing.List[KyvernoViolation] = dataclasses.field(
+        default_factory=list)
 
 
 @dataclasses.dataclass
@@ -1278,7 +1297,8 @@ class KyvernoReportSummary:
         dataclasses.field(default_factory=dict) # namespace -> NamespaceSummary
     )
     policy_results: dict[str, dict[str, dict[str, KyvernoRuleResult]]] = (
-        dataclasses.field(default_factory=dict) # namespace -> policy -> rule -> RuleResult
+        # namespace -> policy -> rule -> RuleResult
+        dataclasses.field(default_factory=dict)
     )
 
 
@@ -1426,6 +1446,7 @@ FindingModels = (
     | OsIdFinding
     | SastFinding
     | VulnerabilityFinding
+    | TestResultMissingFinding
 )
 InformationalModels = (
     StructureInfo
@@ -1458,7 +1479,8 @@ class ArtefactMetadata:
     artefact: ComponentArtefactId
     meta: Metadata
     data: FindingModels | InformationalModels | MetaModels
-    discovery_date: datetime.date | None = None # required for finding specific SLA tracking
+    # required for finding specific SLA tracking
+    discovery_date: datetime.date | None = None
     allowed_processing_time: str | None = None
 
     @staticmethod
