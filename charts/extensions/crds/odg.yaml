@@ -56,6 +56,7 @@ spec:
                     - delivery-db
                     - delivery-db-backup
                     - delivery-service
+                    - findings-report
                     - ghas
                     - issue-replicator
                     - malware-scanner
