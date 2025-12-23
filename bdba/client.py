@@ -109,7 +109,10 @@ class BDBAApiRoutes:
         return self._api_url('key/')
 
     def export_product(self, product_id: int | str, format: str = 'bdio'):
-        return self._api_url('product', str(product_id), f'?format={format}')
+        url = self._api_url('product', str(product_id), f'?format={format}')
+        if format is bm.SBomFormats.CYCLONEDX:
+            url = f'{url.rstrip("/")}/json'
+        return url
 
     # ---- "rest" routes (undocumented API)
 
@@ -611,28 +614,26 @@ class BDBAApi:
                 entries=raw_data.get('@graph'),
             ),
         )
-
-    # SBOM-Export-Methods 
-    def cyclonedx_sbom_export(self, product_id: int | str) -> dict:
-        """Export SBOM in CycloneDX format from BDBA scan results"""
-        url = self._routes.export_product(product_id, format='cyclonedx')
-        url = url.rstrip('/') + '/json'
+    
+    def export_sbom(
+        self,
+        product_id: int | str,
+        sbom_format: bm.SBomFormats
+        ) -> dict | bm.BDIO:
+        url = self._routes.export_product(product_id, format=sbom_format)
+                
         response = self._get(url=url)
-        response.raise_for_status()
-        return response.json()
+        response_raw = response.json()
 
-    def spdx_sbom_export(self, product_id: int | str) -> dict:
-        """Export SBOM in SPDX format from BDBA scan results"""  
-        url = self._routes.export_product(product_id, format='spdx')
-        response = self._get(url=url)
-        response.raise_for_status()
-        return response.json()
-
-    def sbom_export(self, product_id: int | str, format: str = 'cyclonedx') -> dict:
-        """Generic SBOM export method supporting multiple formats"""
-        if format.lower() == 'cyclonedx':
-            return self.cyclonedx_sbom_export(product_id)
-        elif format.lower() == 'spdx':
-            return self.spdx_sbom_export(product_id)
-        else:
-            raise ValueError(f"Unsupported SBOM format: {format}. Use 'cyclonedx' or 'spdx'")
+        if sbom_format is bm.SBomFormats.BDIO:
+            return dacite.from_dict(
+                data_class=bm.BDIO,
+                data=dict(
+                    **response_raw,
+                    id=response_raw.get('@id'),
+                    publisher_version=response_raw.get('publisherVersion'),
+                    creation_datetime=response_raw.get('creationDateTime'),
+                    entries=response_raw.get('@graph'),
+                ),
+            )
+        return response_raw
