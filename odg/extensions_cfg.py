@@ -297,7 +297,7 @@ class BlackDuckConfig(BacklogItemMixins):
     service: Services = Services.BLACKDUCK
     delivery_service_url: str
     mappings: list[BlackDuckExtensionMapping]
-    label_rules: list[BlackDuckLabelRule]
+    label_rules: list[BlackDuckLabelRule] = dataclasses.field(default_factory=list)
     interval: int = 60 * 60 * 24 # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
