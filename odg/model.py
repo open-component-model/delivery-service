@@ -631,8 +631,8 @@ class GitHubSecretFinding(Finding):
     secret_type: str
     secret_type_display_name: str
     resolution: str | None
-    path: str
-    line: int
+    path: str | None
+    line: int | None
     location_type: str
     url: str
 

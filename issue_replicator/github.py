@@ -681,8 +681,8 @@ def ghas_summary(
     finding_table_callback = {
         'Secret Type': lambda f, _: f'`{f.finding.data.secret_type}`',
         'Secret': lambda f, _: f'`{f.finding.data.secret}`',
-        'Path': lambda f, _: f'`{f.finding.data.path}`',
-        'Line': lambda f, _: f'`{f.finding.data.line}`',
+        'Path': lambda f, _: f'`{f.finding.data.path}`' if f.finding.data.path else '',
+        'Line': lambda f, _: f'`{f.finding.data.line}`' if f.finding.data.line else '',
         'Display Name': lambda f, _: f'`{f.finding.data.secret_type_display_name}`',
         'Ref': lambda f, _: f'[ref]({f.finding.data.html_url})',
         'Severity': lambda f, g: _severity_str(
