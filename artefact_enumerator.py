@@ -360,6 +360,23 @@ def _process_compliance_snapshot_of_artefact(
             uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     if (
+        extensions_cfg.test_results
+        and extensions_cfg.test_results.enabled
+        and extensions_cfg.test_results.is_supported(artefact_kind=artefact.artefact_kind)
+    ):
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item_for_extension(
+            finding_cfgs=finding_cfgs,
+            finding_types=(odg.model.Datatype.TEST_RESULT_FINDING,),
+            artefact=artefact,
+            compliance_snapshot=compliance_snapshot,
+            service=odg.extensions_cfg.Services.TEST_RESULT_FINDING,
+            interval_seconds=extensions_cfg.osid.interval,
+            now=now,
+        )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
+
+    if (
         extensions_cfg.osid
         and extensions_cfg.osid.enabled
         and extensions_cfg.osid.is_supported(artefact_kind=artefact.artefact_kind)

@@ -88,3 +88,10 @@ sast:
   image:
     repository: null
     tag: null
+test-results:
+  deployment:
+    annotations: []
+  enabled: false
+  image:
+    repository: null
+    tag: null

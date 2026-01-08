@@ -41,6 +41,19 @@ class ScanningHint(LabelValue):
 
 
 @dataclasses.dataclass(frozen=True)
+class TestPolicy(Label):
+    name = 'gardener.cloud/test-policy'
+    value: tuple[str, ...]
+
+
+@dataclasses.dataclass(frozen=True)
+class TestHint(LabelValue): # do I need this?
+    policy: TestPolicy
+    path_config: PathRegexes | None
+    comment: str | None
+
+
+@dataclasses.dataclass(frozen=True)
 class BinaryIdScanLabel(Label):
     name = 'cloud.gardener.cnudie/dso/scanning-hints/binary_id/v1'
     value: ScanningHint
@@ -53,9 +66,22 @@ class SourceScanLabel(Label):
 
 
 @dataclasses.dataclass(frozen=True)
+class TestResultLabel(Label):
+    # where do I get this from?
+    name = 'cloud.gardener/testresults'
+    value: TestHint # do I need this?
+
+
+@dataclasses.dataclass(frozen=True)
 class PurposeLabel(Label):
     name = 'gardener.cloud/purposes'
     value: tuple[str, ...]
+
+
+@dataclasses.dataclass(frozen=True)
+class TestScope(Label):
+    name = 'gardener.cloud/test-scope'
+    value: bool
 
 
 @dataclasses.dataclass(frozen=True)

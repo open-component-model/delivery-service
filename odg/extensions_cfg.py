@@ -41,6 +41,7 @@ class Services(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    TEST_RESULT_FINDING = 'testResult'
     ODG_OPERATOR = 'odg-operator'
 
 
@@ -961,6 +962,20 @@ class SASTConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass(kw_only=True)
+class MissingTestResultsConfig(BacklogItemMixins):
+    service: Services = Services.TEST_RESULT_FINDING
+    delivery_service_url: str
+    includeExternalArtefacts: bool
+    interval: int = 60 * 60 * 24 #
+
+    def is_supported(self, resource) -> bool:
+        if self.includeExternalArtefacts:
+            print(f'this is the self.service {self.service}')
+            if resource.relation == 'local':
+                return True
+
+
+@dataclasses.dataclass(kw_only=True)
 class OsId(BacklogItemMixins):
     '''
     :param str delivery_service_url
@@ -1043,6 +1058,7 @@ class ExtensionsConfiguration:
     osid: OsId | None
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
+    test_result: MissingTestResultsConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod

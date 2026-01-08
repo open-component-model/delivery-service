@@ -1,0 +1,86 @@
+component:
+  name: ThisIsMyComponent
+  version: v1.2710.0
+  repositoryContexts:
+    - baseUrl: foo
+      subPath: None
+      type: ociRegistry
+  provider: Any
+  sources: []
+  componentReferences: []
+  resources:
+    - access:
+        localReference: foo
+        mediaType: application/data
+        referenceName: None
+        type: localBlob/v1s
+      labels:
+        - name: gardener.cloud/test-policy
+          value: false
+        - name: gardener.cloud/purposes
+          signing: false
+          value:
+            - test
+          version: None
+        - name: gardener.cloud/test-scope
+          value:
+            - job-image-1
+            - job-image-2
+      name: job-image-test-1
+      relation: local
+      type: application/gzip
+      version: v1.2710.0
+    - access:
+        localReference: bar
+        mediaType: application/data
+        referenceName: None
+        type: localBlob/v1
+      labels:
+        - name: gardener.cloud/test-policy
+          value: false
+        - name: gardener.cloud/purposes
+          signing: false
+          value:
+            - test
+          version: None
+        - name: gardener.cloud/test-scope
+          value:
+            - job-image-2
+      name: job-image-test-2
+      relation: local
+      type: application/gzip
+      version: v1.2710.0
+    - access:
+        localReference: foo
+        type: ociRegistry
+      labels:
+        - name: gardener.cloud/test-policy
+          value: true
+      name: job-image-1
+      relation: local
+      type: ociImage
+      version: v1.2710.0
+    - access:
+        localReference: bar
+        type: ociRegistry
+      labels:
+        - name: gardener.cloud/test-policy
+          value: true
+      name: job-image-2
+      relation: local
+      type: ociImage
+      version: v1.2710.0
+    - access:
+        localReference: bar
+        type: ociRegistry
+      labels:
+        - name: gardener.cloud/test-policy
+          value: false
+      name: job-image-3
+      relation: local
+      type: helmChart/v1
+      version: v1.2710.0
+  labels: []
+meta: 
+  schemaVersion: v2
+
