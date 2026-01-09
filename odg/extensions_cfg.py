@@ -712,7 +712,7 @@ class FindingsReportMapping:
     type: odg.model.Datatype
     component: Component
     github_repository: str
-    branch: str
+    branch: str = 'master'
     filename: str = 'report.md'
     dirname: str = 'reports'
     auto_merge: bool = False
