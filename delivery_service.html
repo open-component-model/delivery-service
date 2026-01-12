@@ -1,0 +1,156 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Using the delivery-service HTTP API &mdash; Open Delivery Gear  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Data Model" href="model.html" />
+    <link rel="prev" title="Contribute a new Extension" href="contribute_extension.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Open Delivery Gear
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="local_setup.html">Setup Local Development Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribute_extension.html">Contribute a new Extension</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Using the delivery-service HTTP API</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="model.html">Data Model</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="extensions/artefact_enumerator.html">Artefact-Enumerator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/diki.html">Diki</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/issue_replicator.html">Issue-Replicator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/responsibles.html">Responsibles</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Open Delivery Gear</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Using the delivery-service HTTP API</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/delivery_service.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="using-the-delivery-service-http-api">
+<h1>Using the delivery-service HTTP API<a class="headerlink" href="#using-the-delivery-service-http-api" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The delivery-service is an HTTP API that provides OCM and ODG related functionalities.</p>
+<p><strong>Authentication</strong>: The delivery-service uses authentication based on GitHub API tokens. Users authenticate by providing their GitHub personal access tokens, which are then used to verify access permissions and generate bearer tokens.</p>
+<p><strong>Documentation</strong>: Complete API documentation is available as an OpenAPI specification document at: <code class="docutils literal notranslate"><span class="pre">https://{DELIVERY_SERVICE_URL}/api/v1/doc</span></code></p>
+</section>
+<section id="curl">
+<h2>cURL<a class="headerlink" href="#curl" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Authenticate</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">DELIVERY_SERVICE_URL</span><span class="o">=</span><span class="s1">&#39;https://&lt;my-delivery-service&gt;&#39;</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">GITHUB_TOKEN</span><span class="o">=</span><span class="s1">&#39;ghp_XXX&#39;</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">GITHUB_API_URL</span><span class="o">=</span><span class="s1">&#39;https://api.github.com&#39;</span>
+<span class="nv">DELIVERY_SERVICE_API_TOKEN</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-c<span class="w"> </span>-<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DELIVERY_SERVICE_URL</span><span class="si">}</span><span class="s2">/auth?api_url=</span><span class="si">${</span><span class="nv">GITHUB_API_URL</span><span class="si">}</span><span class="s2">&amp;access_token=</span><span class="si">${</span><span class="nv">GITHUB_TOKEN</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">&#39;/bearer_token/ {print $NF}&#39;</span><span class="k">)</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Make requests</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-v<span class="w"> </span>-k<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="si">${</span><span class="nv">DELIVERY_SERVICE_API_TOKEN</span><span class="si">}</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">DELIVERY_SERVICE_URL</span><span class="si">}</span><span class="s2">/ocm/component?component_name=github.com/gardener/gardener&amp;version=greatest&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="python-package">
+<h2>Python Package<a class="headerlink" href="#python-package" title="Link to this heading"></a></h2>
+<p>A Python client implementation for the delivery-service is available at:</p>
+<p><a class="reference external" href="https://github.com/gardener/cc-utils/blob/f3bf7a0c5610b9148719de691cf99e52f51a147a/delivery/client.py#L128">delivery/client.py</a></p>
+<p>This client provides comprehensive functionality including:</p>
+<ul class="simple">
+<li><p><strong>Authentication</strong>: Automatic authentication handling with the delivery-service</p></li>
+<li><p><strong>Session refresh</strong>: Automatic token refresh to maintain active sessions</p></li>
+<li><p><strong>Multiple endpoints</strong>: Support for most delivery-service API endpoints</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="contribute_extension.html" class="btn btn-neutral float-left" title="Contribute a new Extension" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="model.html" class="btn btn-neutral float-right" title="Data Model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SAP SE or an SAP affiliate company.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
