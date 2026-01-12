@@ -11,6 +11,7 @@ Getting Started
 
    local_setup
    contribute_extension
+   delivery_service
 
 Data Model
 ==========
