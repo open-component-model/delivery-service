@@ -1555,6 +1555,14 @@ secrets:
               # @param secrets.oauth-cfg.<name>.role_bindings[].subjects[].name the name of subject
               name: ""
 
+  # @param secrets.ppms mapping of named PPMS credentials (name is freely selectable)
+  ppms:
+    primary:
+      # @param secrets.ppms.<name>.username username for PPMS authentication
+      username: ""
+      # @param secrets.ppms.<name>.password password for PPMS authentication
+      password: ""
+
   # @param secrets.rbac mapping of a secret-name (freely selectable) and the rbac configuration.
   # There must be at most _one_ secret
   rbac:

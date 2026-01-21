@@ -60,6 +60,9 @@ def default_secret_type_to_class(secret_type: str) -> object:
         case 'kubernetes':
             import secret_mgmt.kubernetes
             return secret_mgmt.kubernetes.Kubernetes
+        case 'ppms':
+            import secret_mgmt.ppms
+            return secret_mgmt.ppms.PPMS
         case 'oauth-cfg':
             import secret_mgmt.oauth_cfg
             return secret_mgmt.oauth_cfg.OAuthCfg
@@ -165,6 +168,12 @@ class SecretFactory:
                     import secret_mgmt.kubernetes
                     secrets_dict[key][element._name] = secret_mgmt.kubernetes.Kubernetes(
                         kubeconfig=element.kubeconfig(),
+                    )
+                elif cfg_type == 'ppms':
+                    import secret_mgmt.ppms
+                    secrets_dict[key][element._name] = secret_mgmt.ppms.PPMS(
+                        username=element.username(),
+                        password=element.password(),
                     )
                 elif cfg_type == 'delivery':
                     if rbac_cfg := getattr(element, 'rbac', None):
