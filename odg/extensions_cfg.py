@@ -16,6 +16,7 @@ import ocm
 
 import crypto_extension.config
 import lookups
+import odg.filter
 import odg.model
 import odg.shared_cfg
 import responsibles_extension.filters as ref
@@ -39,6 +40,7 @@ class Services(enum.StrEnum):
     GHAS = 'ghas'
     ISSUE_REPLICATOR = 'issueReplicator'
     OSID = 'osid'
+    PPMS = 'ppms'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
     ODG_OPERATOR = 'odg-operator'
@@ -339,6 +341,26 @@ class BlackDuckConfig(BacklogItemMixins):
                 )
 
         return is_supported
+
+
+@dataclasses.dataclass(kw_only=True)
+class PpmsReplication(ExtensionCfgMixins):
+    service: Services = Services.PPMS
+    delivery_service_url: str
+
+    components: list[Component]
+
+    blackduck_host: str
+
+    ppms_scv_id: str
+    ppms_scv_name: str
+    ppms_build_version_name: str
+
+    artefact_filters: list[odg.filter.ComponentArtefactFilter] = dataclasses.field(
+        default_factory=list
+    )
+
+    schedule: str = '0 0 * * *' # daily at 00:00
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1041,6 +1063,7 @@ class ExtensionsConfiguration:
     issue_replicator: IssueReplicatorConfig | None
     odg_operator: OdgOperatorConfig | None
     osid: OsId | None
+    ppms_replication: PpmsReplication | None
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
