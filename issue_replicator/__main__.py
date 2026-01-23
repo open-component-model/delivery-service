@@ -451,6 +451,7 @@ def replicate_issue_for_finding_type(
         milestone = gcmi.find_milestone_for_due_date(
             milestones=milestones,
             due_date=due_date,
+            offset=finding_cfg.sprint_assignment_offset,
         )
 
         issue_replicator.github.create_or_update_or_close_issue(

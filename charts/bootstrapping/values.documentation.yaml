@@ -1348,6 +1348,13 @@ findings:
       # - years: a
       max_reuse_time: null
 
+    # @param findings[].sprint_assignment_offset specifies the offset to which sprint relative to the
+    # due date of a finding, the finding should be assigned to. The default (offset=0) means that the
+    # finding is assigned to the *next* sprint *after* the calculated due date. In contrast,
+    # offset=-1 would mean that the finding is assigned to the sprint which ends directly *before*
+    # the calculated due date.
+    sprint_assignment_offset: 0
+
 
 # @section profiles allow pre-filtered views within the delivery-dashboard
 profiles:
