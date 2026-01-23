@@ -281,9 +281,7 @@ jobs:
           echo "installing packages"
           if ! pip3 install --pre --upgrade --break-system-packages \
             --find-links /tmp/dist \
-            -r requirements.extensions.txt \
-            -r requirements.service.txt \
-            -r requirements.utils.txt \
+            -r requirements-dev.txt \
             pytest \
             pytest-asyncio \
               > /tmp/pip3-install.log; then
