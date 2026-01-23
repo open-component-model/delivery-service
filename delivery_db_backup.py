@@ -223,7 +223,7 @@ def delete_old_backup_versions(
     )
 
     lookup = cnudie.retrieve.oci_component_descriptor_lookup(
-        ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
+        ocm_repository_lookup=cnudie.retrieve.ocm_repository_lookup(ocm_repo),
         oci_client=oci_client,
     )
 
