@@ -531,6 +531,11 @@ class Finding:
         Default scope selection to be used for rescoring via the Delivery-Dashboard.
     :param ReuseDiscoveryDate reuse_discovery_date:
         Specifies the behaviour of reusing discovery dates of existing findings.
+    :param int sprint_assignment_offset:
+        Specifies the offset to which sprint relative to the due date of a finding, the finding
+        should be assigned to. The default (offset=0) means that the finding is assigned to the
+        *next* sprint *after* the calculated due date. In contrast, offset=-1 would mean that the
+        finding is assigned to the sprint which ends directly *before* the calculated due date.
     '''
     type: odg.model.Datatype
     categorisations: SharedCfgReference | list[FindingCategorisation]
@@ -541,6 +546,7 @@ class Finding:
         default_factory=lambda: RescoringSpecificity.ARTEFACT
     )
     reuse_discovery_date: ReuseDiscoveryDate = dataclasses.field(default_factory=ReuseDiscoveryDate)
+    sprint_assignment_offset: int = 0
 
     @staticmethod
     def from_dict(

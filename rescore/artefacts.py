@@ -209,26 +209,34 @@ def filesystem_paths_for_finding(
 def sprint_for_finding(
     due_date: datetime.date | None,
     sprints: list[yp.Sprint],
+    sprint_assignment_offset: int=0,
 ) -> yp.Sprint | None:
     '''
-    Returns the sprint with the closest future end date compared to the provided
-    `due_date`. In case the `due_date` is `None` (this might be the case if a finding already
-    belongs to a category which is to be interpreted as "assessed") or no such sprint can be found,
-    `None` is returned instead.
+    Returns the sprint with the closest future end date compared to the provided `due_date`,
+    acknowledging the configured `sprint_assignment_offset`. In case the `due_date` is `None` (this
+    might be the case if a finding already belongs to a category which is to be interpreted as
+    "assessed") or no such sprint can be found, `None` is returned instead.
     '''
     if not due_date or not sprints:
         return None
 
-    for sprint in sorted(sprints, key=lambda sprint: sprint.end_date):
+    sorted_sprints = sorted(sprints, key=lambda sprint: sprint.end_date)
+
+    for idx, sprint in enumerate(sorted_sprints):
         end_date = sprint.end_date
 
         if isinstance(end_date, datetime.datetime):
             end_date = end_date.date()
 
         if end_date > due_date:
-            return sprint
+            tgt_idx = idx + sprint_assignment_offset
 
-    logger.warning(f'could not determine target sprint for {due_date=}')
+            if tgt_idx >= 0 and tgt_idx < len(sorted_sprints):
+                return sorted_sprints[tgt_idx]
+
+    logger.warning(
+        f'could not determine target sprint for {due_date=} and {sprint_assignment_offset=}'
+    )
     return None
 
 
@@ -306,6 +314,7 @@ async def _iter_rescoring_proposals(
         sprint = sprint_for_finding(
             due_date=due_date,
             sprints=sprints,
+            sprint_assignment_offset=finding_cfg.sprint_assignment_offset,
         )
 
         if due_date:

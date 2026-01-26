@@ -18,7 +18,6 @@ import github3.repos
 import cnudie.retrieve
 import delivery.client
 import delivery.model
-import github.compliance.milestone as gcmi
 import github.limits
 import github.retry
 import github.util
@@ -102,25 +101,6 @@ class FindingGroup:
             summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
 
         return summary
-
-
-def _issue_milestone(
-    mapping: odg.extensions_cfg.IssueReplicatorMapping,
-    delivery_client: delivery.client.DeliveryServiceClient,
-    due_date: datetime.date,
-) -> tuple[github3.issues.milestone.Milestone | None, list[github3.issues.milestone.Milestone]]:
-    sprints = gcmi.target_sprints(
-        delivery_svc_client=delivery_client,
-        due_date=due_date,
-    )
-
-    repo = odg.extensions_cfg.github_repository(mapping.github_repository)
-
-    return gcmi.find_or_create_sprint_milestone(
-        repo=repo,
-        sprints=sprints,
-        milestone_cfg=mapping.milestones,
-    )
 
 
 def _artefact_to_str(
@@ -1533,7 +1513,6 @@ def create_issue(
     body: str,
     title: str,
     milestone: github3.issues.milestone.Milestone | None,
-    failed_milestones: list[github3.issues.milestone.Milestone],
     assignees: set[str],
     assignees_statuses: set[delivery.model.Status] | None,
     labels: set[str],
@@ -1558,17 +1537,6 @@ def create_issue(
 
             issue.create_comment(comment_body)
 
-        if failed_milestones:
-            milestone_comment = (
-                'Failed to automatically assign ticket to one of these milestones: '
-                f'{", ".join([milestone.title for milestone in failed_milestones])}. '
-                'Milestones were probably closed before all associated findings were assessed. '
-            )
-            if milestone:
-                milestone_comment += f'Ticket was assigned to {milestone.title} as a fallback.'
-
-            issue.create_comment(milestone_comment)
-
         return issue
 
     except github3.exceptions.GitHubError as ghe:
@@ -1588,7 +1556,6 @@ def _create_or_update_issue(
     historical_findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone | None,
-    failed_milestones: list[github3.issues.milestone.Milestone],
     due_date: datetime.date,
     is_scanned: bool,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
@@ -1676,7 +1643,6 @@ def _create_or_update_issue(
         body=body,
         title=title,
         milestone=milestone,
-        failed_milestones=failed_milestones,
         assignees=assignees,
         assignees_statuses=assignees_statuses,
         labels=labels,
@@ -1694,7 +1660,6 @@ def _create_or_update_or_close_issue_per_finding(
     issue_id: str,
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone,
-    failed_milestones: None | list[github3.issues.milestone.Milestone],
     due_date: datetime.date,
     is_scanned: bool,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
@@ -1736,7 +1701,6 @@ def _create_or_update_or_close_issue_per_finding(
             historical_findings=historical_findings,
             issues=finding_issues,
             milestone=milestone,
-            failed_milestones=failed_milestones,
             due_date=due_date,
             is_scanned=is_scanned,
             artefacts_without_scan=artefacts_without_scan,
@@ -1762,12 +1726,12 @@ def create_or_update_or_close_issue(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     findings: tuple[AggregatedFinding],
     historical_findings: tuple[AggregatedFinding],
     issue_id: str,
     due_date: datetime.date,
+    milestone: github3.repos.repo.milestone.Milestone | None,
     is_in_bom: bool,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
@@ -1842,12 +1806,6 @@ def create_or_update_or_close_issue(
             # not scanned yet but no open issue found either -> nothing to do
             return
 
-    milestone, failed_milestones = _issue_milestone(
-        mapping=mapping,
-        delivery_client=delivery_client,
-        due_date=due_date,
-    )
-
     if milestone:
         sprint_name = milestone.title.lstrip('sprint-')
     else:
@@ -1865,7 +1823,6 @@ def create_or_update_or_close_issue(
             issue_id=issue_id,
             issues=issues,
             milestone=milestone,
-            failed_milestones=failed_milestones,
             due_date=due_date,
             is_scanned=is_scanned,
             artefacts_without_scan=artefacts_without_scan,
@@ -1887,7 +1844,6 @@ def create_or_update_or_close_issue(
         historical_findings=historical_findings,
         issues=issues,
         milestone=milestone,
-        failed_milestones=failed_milestones,
         due_date=due_date,
         is_scanned=is_scanned,
         artefacts_without_scan=artefacts_without_scan,

@@ -11,6 +11,7 @@ import ci.log
 import cnudie.retrieve
 import delivery.client
 import delivery.model
+import github.compliance.milestone as gcmi
 import github.user
 
 import github_util
@@ -32,10 +33,9 @@ k8s.logging.configure_kubernetes_logging()
 
 @functools.cache
 def sprint_dates(
-    delivery_client: delivery.client.DeliveryServiceClient,
+    sprints: collections.abc.Iterable[delivery.model.Sprint],
     date_name: str='release_decision',
 ) -> tuple[datetime.date]:
-    sprints = delivery_client.sprints()
     sprint_dates = tuple(
         sprint.find_sprint_date(name=date_name).value.date()
         for sprint in sprints
@@ -333,6 +333,7 @@ def replicate_issue_for_finding_type(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_dashboard_url: str,
     due_dates: collections.abc.Iterable[datetime.date],
+    milestones: collections.abc.Sequence[github3.repos.repo.milestone.Milestone],
 ):
     finding_type = finding_cfg.type
     finding_source = finding_type.datasource()
@@ -447,16 +448,22 @@ def replicate_issue_for_finding_type(
             due_date=due_date,
         )
 
+        milestone = gcmi.find_milestone_for_due_date(
+            milestones=milestones,
+            due_date=due_date,
+            offset=finding_cfg.sprint_assignment_offset,
+        )
+
         issue_replicator.github.create_or_update_or_close_issue(
             mapping=mapping,
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_client=delivery_client,
             artefacts=artefacts,
             findings=findings,
             historical_findings=historical_findings,
             issue_id=issue_id,
-            due_date=due_date,
+            due_date=milestone.due_on.date() if milestone else due_date,
+            milestone=milestone,
             is_in_bom=is_in_bom,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
@@ -476,7 +483,11 @@ def replicate_issue(
 ):
     logger.info(f'starting issue replication of {artefact}')
 
-    if not (due_dates := sprint_dates(delivery_client=delivery_client)):
+    sprints = tuple(gcmi.sprints_cached(
+        delivery_svc_client=delivery_client,
+    ))
+
+    if not (due_dates := sprint_dates(sprints=sprints)):
         logger.warning('did not find any sprints, exiting...')
         return
 
@@ -485,7 +496,15 @@ def replicate_issue(
 
     mapping = extension_cfg.mapping(artefact.component_name)
     gh_api = odg.extensions_cfg.github_api(mapping.github_repository)
+    repo = odg.extensions_cfg.github_repository(mapping.github_repository)
     github_util.wait_for_quota_if_required(gh_api=gh_api)
+
+    logger.debug(f'creating missing GitHub milestones (if any) for {len(sprints)} sprints')
+    milestones = list(gcmi.iter_and_create_github_milestones(
+        sprints=sprints,
+        repo=repo,
+        milestone_cfg=mapping.milestones,
+    ))
 
     for finding_cfg in finding_cfgs:
         replicate_issue_for_finding_type(
@@ -496,6 +515,7 @@ def replicate_issue(
             mapping=mapping,
             delivery_dashboard_url=extension_cfg.delivery_dashboard_url,
             due_dates=due_dates,
+            milestones=milestones,
         )
 
     logger.info(f'finished issue replication of {artefact}')
