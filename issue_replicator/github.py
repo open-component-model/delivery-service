@@ -176,7 +176,7 @@ def _rescoring_comment(
     if not (comment := aggregated_finding.rescorings[0].data.comment):
         return ''
 
-    return comment
+    return comment.replace('\n', '<br>')
 
 
 def _issue_ref(
