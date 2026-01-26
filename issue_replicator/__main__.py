@@ -454,6 +454,16 @@ def replicate_issue_for_finding_type(
             offset=finding_cfg.sprint_assignment_offset,
         )
 
+        if milestone and milestone.due_on.date() < due_date:
+            # if the assigned milestone is stricter than the usual due date (offset=0), use the
+            # stricter milestone due date instead
+            due_date = milestone.due_on.date()
+        else:
+            # if the due date is stricter than the assigned milestone, we must not use the milestone
+            # due date as it will always be in the future (we ignore closed milestones) and hence
+            # findings would be never marked as "overdue"
+            pass
+
         issue_replicator.github.create_or_update_or_close_issue(
             mapping=mapping,
             finding_cfg=finding_cfg,
@@ -462,7 +472,7 @@ def replicate_issue_for_finding_type(
             findings=findings,
             historical_findings=historical_findings,
             issue_id=issue_id,
-            due_date=milestone.due_on.date() if milestone else due_date,
+            due_date=due_date,
             milestone=milestone,
             is_in_bom=is_in_bom,
             artefacts_without_scan=artefacts_without_scan,
