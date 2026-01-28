@@ -12,8 +12,8 @@ Fixes #
 
 Format of block header: <category> <target_group>
 Possible values:
-- category:       improvement|noteworthy|action
-- target_group:   user|operator|developer
+- category:       action|breaking|noteworthy|feature|bugfix|fix|improvement|other|documentation
+- target_group:   operator|user|developer|dependency
 -->
 ```improvement operator
 
