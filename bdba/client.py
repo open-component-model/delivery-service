@@ -108,9 +108,9 @@ class BDBAApiRoutes:
     def api_key(self):
         return self._api_url('key/')
 
-    def export_product(self, product_id: int | str, format: str = 'bdio'):
-        url = self._api_url('product', str(product_id), f'?format={format}')
-        if format is bm.SBomFormats.CYCLONEDX:
+    def export_product(self, product_id: int | str, sbom_format: bm.SBomFormats=bm.SBomFormats.BDIO):
+        url = self._api_url('product', str(product_id), f'?format={sbom_format}')
+        if bm.SBomFormats(sbom_format)  is bm.SBomFormats.CYCLONEDX:
             url = f'{url.rstrip("/")}/json'
         return url
 
@@ -620,7 +620,7 @@ class BDBAApi:
         product_id: int | str,
         sbom_format: bm.SBomFormats
         ) -> dict | bm.BDIO:
-        url = self._routes.export_product(product_id, format=sbom_format)
+        url = self._routes.export_product(product_id, sbom_format=sbom_format)
                 
         response = self._get(url=url)
         response_raw = response.json()
