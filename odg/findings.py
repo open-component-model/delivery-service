@@ -9,6 +9,7 @@ import dacite
 import yaml
 
 import consts
+import odg.filter
 import odg.model
 import odg.shared_cfg
 import rescore.model as rm
@@ -397,87 +398,6 @@ class FindingIssues:
         )
 
 
-class FindingFilterSemantics(enum.StrEnum):
-    INCLUDE = 'include'
-    EXCLUDE = 'exclude'
-
-
-@dataclasses.dataclass
-class FindingFilter:
-    '''
-    The filter can be used to stop detection of the specified findings for certain components. If
-    only "include" filters are configured, all other components will be ignored. If only "exclude"
-    filters are configured, all other components will be considered. If a combination of "include"
-    and "exclude" filters is configured, all included components which are not specifically excluded
-    as well will be considered.
-
-    Note: All properties, except `artefact_kind` and `artefact_extra_id`, will be compared as
-    regexes. The `name` parameter is only used for informational purposes, such as logging.
-    '''
-    semantics: FindingFilterSemantics
-    name: str | None
-    component_name: list[str] | str | None
-    component_version: list[str] | str | None
-    artefact_kind: list[odg.model.ArtefactKind] | odg.model.ArtefactKind | None
-    artefact_name: list[str] | str | None
-    artefact_version: list[str] | str | None
-    artefact_type: list[str] | str | None
-    artefact_extra_id: list[dict] | dict | None
-
-    def __post_init__(self):
-        if isinstance(self.component_name, str):
-            self.component_name = [self.component_name]
-        if isinstance(self.component_version, str):
-            self.component_version = [self.component_version]
-        if isinstance(self.artefact_kind, odg.model.ArtefactKind):
-            self.artefact_kind = [self.artefact_kind]
-        if isinstance(self.artefact_name, str):
-            self.artefact_name = [self.artefact_name]
-        if isinstance(self.artefact_version, str):
-            self.artefact_version = [self.artefact_version]
-        if isinstance(self.artefact_type, str):
-            self.artefact_type = [self.artefact_type]
-        if isinstance(self.artefact_extra_id, dict):
-            self.artefact_extra_id = [self.artefact_extra_id]
-
-        self.artefact_extra_id = [
-            odg.model.normalise_artefact_extra_id(artefact_extra_id)
-            for artefact_extra_id in self.artefact_extra_id or []
-        ]
-
-    def matches(self, artefact: odg.model.ComponentArtefactId) -> bool:
-        def match_regexes(patterns: list[str], string: str) -> bool:
-            if not patterns:
-                return True
-            if not string:
-                # considering the case there is only an "exclude" filter, then artefacts whose
-                # property is empty should not be filtered-out although the pattern would match;
-                # in contrast, when there is an "include" filter, then artefacts whose property is
-                # empty should also be included
-                return self.semantics is FindingFilterSemantics.INCLUDE
-            return any(re.fullmatch(pattern, string, re.IGNORECASE) for pattern in patterns)
-
-        if not match_regexes(self.component_name, artefact.component_name):
-            return False
-        if not match_regexes(self.component_version, artefact.component_version):
-            return False
-        if self.artefact_kind and artefact.artefact_kind not in self.artefact_kind:
-            return False
-        if not match_regexes(self.artefact_name, artefact.artefact.artefact_name):
-            return False
-        if not match_regexes(self.artefact_version, artefact.artefact.artefact_version):
-            return False
-        if not match_regexes(self.artefact_type, artefact.artefact.artefact_type):
-            return False
-        if (
-            self.artefact_extra_id
-            and artefact.artefact.normalised_artefact_extra_id not in self.artefact_extra_id
-        ):
-            return False
-
-        return True
-
-
 @dataclasses.dataclass
 class SharedCfgReference:
     cfg_name: str
@@ -519,7 +439,7 @@ class Finding:
         The available categories for this type of findings and information on how to assign the
         findings to one of these categories. If a string is given, the corresponding standard
         categorisations are automatically set after instantiation of this class.
-    :param list[FindingFilter] filter:
+    :param list[odg.filter.ComponentArtefactFilter] filter:
         An optional filter to restrict detection of findings to certain artefacts.
     :param RuleSet rescoring_ruleset:
         Based on the finding type, there might be a ruleset available to automatically suggest/do
@@ -539,7 +459,7 @@ class Finding:
     '''
     type: odg.model.Datatype
     categorisations: SharedCfgReference | list[FindingCategorisation]
-    filter: list[FindingFilter] | None
+    filter: list[odg.filter.ComponentArtefactFilter] | None
     rescoring_ruleset: SharedCfgReference | dict | None
     issues: FindingIssues = dataclasses.field(default_factory=FindingIssues)
     default_scope: RescoringSpecificity = dataclasses.field(
@@ -879,15 +799,15 @@ class Finding:
 
         # we need to check whether there is at least one "include" filter because if there is none,
         # all not explicitly excluded artefacts are automatically included
-        is_include_filter = FindingFilterSemantics.INCLUDE in (f.semantics for f in self.filter)
+        is_include_filter = odg.filter.FilterSemantics.INCLUDE in (f.semantics for f in self.filter)
 
         is_included = False
         is_excluded = False
 
         for filter in self.filter:
-            if filter.semantics is FindingFilterSemantics.INCLUDE and filter.matches(artefact):
+            if filter.semantics is odg.filter.FilterSemantics.INCLUDE and filter.matches(artefact):
                 is_included = True
-            elif filter.semantics is FindingFilterSemantics.EXCLUDE and filter.matches(artefact):
+            elif filter.semantics is odg.filter.FilterSemantics.EXCLUDE and filter.matches(artefact):
                 is_excluded = True
 
         return not is_excluded and (not is_include_filter or is_included)
