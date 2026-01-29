@@ -46,6 +46,25 @@
         malware_names:
           - .*
 
+- type: finding/test-evidence
+  issues:
+    enable_assignees: False
+  categorisations:
+    - id: NONE
+      display_name: No Tests required
+      value: 0
+      allowed_processing_time: ~
+      rescoring: manual
+
+    - id: BLOCKER
+      display_name: No Test Evidence
+      value: 16
+      allowed_processing_time: 0
+      rescoring: manual
+      selector:
+        status:
+          - .*
+
 - type: finding/sast
   issues:
     enable_issues: False

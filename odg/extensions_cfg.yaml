@@ -99,3 +99,6 @@ responsibles:
 
 sast:
   enabled: False
+
+test_evidence:
+  external_artefacts_require_tests: False
