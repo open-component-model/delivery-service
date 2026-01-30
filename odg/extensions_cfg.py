@@ -718,6 +718,7 @@ class FindingsReportMapping:
     auto_merge: bool = False
     trigger_absent_scans: bool = False
     report_to_saf: bool = False
+    github_app_id_for_saf_auth: int | None = None
 
 
 @dataclasses.dataclass(kw_only=True)
