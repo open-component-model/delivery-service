@@ -245,7 +245,7 @@ def github_api(
 
     github_api.login_as_app_installation(
         private_key_pem=private_key_pem,
-        app_id=github_app_cfg.app_id,
+        app_id=str(github_app_cfg.app_id),
         installation_id=installation_id,
     )
 
