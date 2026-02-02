@@ -737,5 +737,5 @@ def github_auth_token_lookup(url: str, /) -> str | None:
 
     return github3.apps.create_token(
         private_key_pem=github_app_cfg.private_key.encode('utf-8'),
-        app_id=github_app_cfg.app_id,
+        app_id=str(github_app_cfg.app_id),
     )
