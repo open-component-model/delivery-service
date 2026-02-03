@@ -25,7 +25,10 @@ ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
 
 
-SUPPORTED_SBOM_FORMATS = [bdba.model.SBomFormats.CYCLONEDX, bdba.model.SBomFormats.SPDX]
+SUPPORTED_SBOM_FORMATS = [
+    bdba.model.SBomFormats.CYCLONEDX,
+    bdba.model.SBomFormats.SPDX
+    ]
 
 
 def get_or_create_bdba_scan(
@@ -36,23 +39,26 @@ def get_or_create_bdba_scan(
     delivery_client: delivery.client.DeliveryServiceClient,
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
-    processing_mode: bdba.model.ProcessingMode, 
+    processing_mode: bdba.model.ProcessingMode,
     create_new_scan_if_missing: bool=False,
-) -> int:    
+) -> int:
     existing_scans = bdba_utils.scan.retrieve_existing_scan_results(
         bdba_client=bdba_api,
         group_id=group_id,
         resource_node=resource_node,
     )
-    
+
     if existing_scans:
         product_id = existing_scans[0].product_id
         logger.info(f"Found existing BDBA scan: product_id={product_id}")
         return product_id
-    
+
     if create_new_scan_if_missing:
-        logger.info(f"No existing BDBA scan found, creating a new BDBA scan for: {resource_node.resource.name}")
-    
+        logger.info(
+            f"No existing BDBA scan found, creating a new BDBA scan for: "
+            f"{resource_node.resource.name}"
+        )
+
         metadata_generator = bdba_utils.scan.run_scan(
             aws_secret_name=aws_secret_name,
             bdba_client=bdba_api,
@@ -60,22 +66,23 @@ def get_or_create_bdba_scan(
             processing_mode=processing_mode,
             resource_node=resource_node,
             secret_factory=secret_factory,
-            oci_client=oci_client, 
-            delivery_client=delivery_client, 
+            oci_client=oci_client,
+            delivery_client=delivery_client,
         )
 
         for metadata in metadata_generator:
-            if hasattr(metadata, 'data') and hasattr(metadata.data, 'product_id'):
+            if hasattr(metadata, 'data') and \
+                    hasattr(metadata.data, 'product_id'):
                 product_id = metadata.data.product_id
                 logger.info(f"Created new BDBA scan: product_id={product_id}")
                 return product_id
-        
+
         logger.error("BDBA scan created but no product_id was returned")
         raise RuntimeError("BDBA scan created but no product_id was returned")
-        
+
 
 def generate_sbom_for_resource_node(
-    resource_node: ocm.iter.ResourceNode, 
+    resource_node: ocm.iter.ResourceNode,
     aws_secret_name: str | None,
     delivery_client: delivery.client.DeliveryServiceClient,
     oci_client: oci.client.Client,
@@ -84,7 +91,7 @@ def generate_sbom_for_resource_node(
     processing_mode: bdba.model.ProcessingMode,
     output_format: str = bdba.model.SBomFormats.CYCLONEDX,
     create_new_scan_if_missing: bool=False,
-) -> dict[str, any]: 
+) -> dict[str, any]:
     if not (bdba_secret := secret_mgmt.bdba.find_cfg(
         secret_factory=secret_factory,
         group_id=group_id,
@@ -97,7 +104,7 @@ def generate_sbom_for_resource_node(
     )
 
     product_id = get_or_create_bdba_scan(
-        resource_node=resource_node, 
+        resource_node=resource_node,
         bdba_api=bdba_api,
         group_id=group_id,
         aws_secret_name=aws_secret_name,
@@ -109,32 +116,37 @@ def generate_sbom_for_resource_node(
     )
 
     if not product_id:
-        raise ValueError(f"No BDBA scan available for resource '{resource_node.resource.name}' "
-                        f"in component '{resource_node.component.name}:{resource_node.component.version}'")
-    
+        raise ValueError(f"No BDBA scan available "
+                         f"for resource '{resource_node.resource.name}' "
+                        f"in component '{resource_node.component.name}:"
+                        f"{resource_node.component.version}'")
+
     logger.info(f"Waiting for scan completion: product_id={product_id}")
-    
+
     scan_result = bdba_api.wait_for_scan_result(
         product_id=product_id,
-        polling_interval_seconds=odg.extensions_cfg.SBOMGeneratorConfig.bdba_polling_interval_seconds,
+        polling_interval_seconds=odg.extensions_cfg.SBOMGeneratorConfig
+            .bdba_polling_interval_seconds,
     )
-    logger.info(f"Scan completed: {len(scan_result.components)} components found")
+    logger.info(f"Scan completed: "
+                f"{len(scan_result.components)} components found")
 
     normalized_output_format = output_format.lower()
     if normalized_output_format not in SUPPORTED_SBOM_FORMATS:
         raise ValueError(f"Unsupported SBOM format: {output_format}. "
-                        f"Supported formats: {', '.join(SUPPORTED_SBOM_FORMATS)}")
-    
-    
+                        f"Supported formats: "
+                        f"{', '.join(SUPPORTED_SBOM_FORMATS)}")
+
     sbom = bdba_api.export_sbom(product_id, normalized_output_format)
-    
+
     sbom['_ocm_metadata'] = {
         'component_name': resource_node.component.name,
         'component_version': resource_node.component.version,
         'resource_name': resource_node.resource.name,
         'resource_version': resource_node.resource.version,
         'resource_type': resource_node.resource.type.value,
-        'resource_access': str(resource_node.resource.access) if resource_node.resource.access else None,
+        'resource_access': str(resource_node.resource.access)
+            if resource_node.resource.access else None,
         'bdba_product_id': product_id,
         'sbom_format': output_format,
         'component_path': [
@@ -142,31 +154,35 @@ def generate_sbom_for_resource_node(
             for entry in resource_node.path
         ],
     }
-    
+
     return sbom
 
 
 def generate_sbom_for_artefact(
     artefact: odg.model.ComponentArtefactId,
     extension_cfg: odg.extensions_cfg.SBOMGeneratorConfig,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById, 
-    delivery_client: delivery.client.DeliveryServiceClient, 
-    oci_client: oci.client.Client,  
-    secret_factory: secret_mgmt.SecretFactory, 
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_client: delivery.client.DeliveryServiceClient,
+    oci_client: oci.client.Client,
+    secret_factory: secret_mgmt.SecretFactory,
     **kwargs,
 ) -> dict[str, any]:
     '''
     Generates Software Bill of Materials (SBOM) for a component artefact.
-    Resolves the component descriptor from OCM repositories, retrieves BDBA security scans, 
-    and exports the SBOM in the requested format with OCM metadata.
+    Resolves the component descriptor from OCM repositories,
+    retrieves BDBA security scans, and exports the SBOM
+    in the requested format with OCM metadata.
     '''
-    logger.info(f"Generating SBOM for {artefact.component_name}:{artefact.component_version}")
+    logger.info(f'Generating SBOM for artefact: {artefact}')
 
     if not extension_cfg.is_supported(artefact_kind=artefact.artefact_kind):
-        if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+        if extension_cfg.on_unsupported is \
+            odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
-                f'{artefact.artefact_kind} is not supported by the SBOM Generator extension, maybe the '
-                'filter configurations have to be adjusted to filter out this artefact kind'
+                f'{artefact.artefact_kind} is not supported '
+                'by the SBOM Generator extension,'
+                'maybe the filter configurations have to be adjusted '
+                'to filter out this artefact kind'
             )
         return
 
@@ -174,49 +190,51 @@ def generate_sbom_for_artefact(
         component_descriptor_lookup=component_descriptor_lookup,
         artefact=artefact
     )
-    
+
     if not resource_node:
         logger.info(f'did not find resource node for {artefact=}, skipping...')
         return
-        
+
     if not extension_cfg.is_supported(artefact_kind=artefact.artefact_kind):
-        if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
+        if extension_cfg.on_unsupported is \
+            odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
-                f'{artefact.artefact_kind} is not supported by the BDBA extension, maybe the filter '
-                'configurations have to be adjusted to filter out this access type'
+                f'{artefact.artefact_kind} is not supported '
+                'by the BDBA extension, maybe the filter '
+                'configurations have to be adjusted '
+                'to filter out this access type'
             )
         return
-    
+
     mapping = extension_cfg.mapping(artefact.component_name)
-                
+
     logger.info(f"Scanning {resource_node} resource nodes")
 
     result = generate_sbom_for_resource_node(
-        resource_node=resource_node, 
+        resource_node=resource_node,
         aws_secret_name=mapping.aws_secret_name,
         delivery_client=delivery_client,
         oci_client=oci_client,
         secret_factory=secret_factory,
         output_format=extension_cfg.output_format,
-        create_new_scan_if_missing=extension_cfg.create_new_scan_if_missing,   
+        create_new_scan_if_missing=extension_cfg.create_new_scan_if_missing,
         group_id=mapping.group_id,
         processing_mode=extension_cfg.processing_mode,
     )
-      
-    # TODO(Bedirhan): call delivery_client.update_metadata(...) to upload SBOM to ODG
 
-    safe_name= 'sbom_output.json'
-    
+    safe_name = 'sbom_output.json'
+
     with open(safe_name, 'w', encoding='utf-8') as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
-    
+
     packages_count = len(result.get('packages', result.get('components', [])))
     logger.info(f"  {safe_name}: {packages_count} packages/components")
-        
+
     logger.info(f"\nSBOM files saved to: {safe_name}")
-    
+
     if not result:
-        raise RuntimeError(f"Failed to generate SBOM for {resource_node.resource.name}")
+        raise RuntimeError(f"Failed to generate SBOM for "
+                           f"{resource_node.resource.name}")
     return result
 
 
@@ -228,7 +246,7 @@ def parse_extra_id_params(
         if ':' in param:
             key, value = param.split(":", 1)
             extra_id[key] = value
-        else:                
+        else:
             raise ValueError(f"Invalid extra id parameter: {param}")
     return extra_id
 

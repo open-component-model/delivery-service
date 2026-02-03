@@ -281,4 +281,3 @@ class SBomFormats(enum.StrEnum):
     CYCLONEDX = 'cyclonedx'
     SPDX = 'spdx'
     BDIO = 'bdio'
-    

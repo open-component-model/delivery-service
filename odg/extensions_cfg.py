@@ -1120,7 +1120,7 @@ class SBOMGeneratorMapping(Mapping):
     '''
     group_id: int
     aws_secret_name: str | None
-    
+
 
 @dataclasses.dataclass(kw_only=True)
 class SBOMGeneratorConfig(BacklogItemMixins):
@@ -1145,12 +1145,13 @@ class SBOMGeneratorConfig(BacklogItemMixins):
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{artefact_kind=} is not supported for SBOM Generation, {supported_artefact_kinds=}'
+                    f'{artefact_kind=} is not supported for SBOM Generation, '
+                    f'{supported_artefact_kinds=}'
                 )
             return False
 
         return True
-    
+
     def mapping(self, name: str, /) -> SBOMGeneratorMapping:
         for mapping in self.mappings:
             if name.startswith(mapping.prefix):

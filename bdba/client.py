@@ -614,14 +614,14 @@ class BDBAApi:
                 entries=raw_data.get('@graph'),
             ),
         )
-    
+
     def export_sbom(
         self,
         product_id: int | str,
         sbom_format: bm.SBomFormats
         ) -> dict | bm.BDIO:
         url = self._routes.export_product(product_id, sbom_format=sbom_format)
-                
+
         response = self._get(url=url)
         response_raw = response.json()
 
