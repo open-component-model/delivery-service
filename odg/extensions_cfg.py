@@ -1125,13 +1125,10 @@ class SBOMGeneratorMapping(Mapping):
 @dataclasses.dataclass(kw_only=True)
 class SBOMGeneratorConfig(BacklogItemMixins):
     service: Services = Services.SBOM_GENERATOR
-    delivery_service_url: str
     mappings: list[SBOMGeneratorMapping]
-    bdba_polling_interval_seconds: int = 30
-    bdba_config_key: str = 'default'
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     create_new_scan_if_missing: bool = False
-    output_format: bdba.model.SBomFormats = bdba.model.SBomFormats.CYCLONEDX
+    output_format: bdba.model.SBomFormat = bdba.model.SBomFormat.CYCLONEDX
     processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
 
     def is_supported(
@@ -1142,7 +1139,10 @@ class SBOMGeneratorConfig(BacklogItemMixins):
             odg.model.ArtefactKind.RESOURCE
         )
 
-        if artefact_kind and artefact_kind not in supported_artefact_kinds:
+        if (
+            artefact_kind
+            and artefact_kind not in supported_artefact_kinds
+        ):
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for SBOM Generation, '

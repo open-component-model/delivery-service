@@ -267,6 +267,17 @@ class BDIO:
             '@graph': self.entries,
         }, indent=2).encode('utf-8')
 
+@dataclasses.dataclass
+class SBOMMetadata:
+    component_name: str
+    component_version: str
+    resource_name: str
+    resource_version: str
+    resource_type: str
+    bdba_product_id: int
+    sbom_format: str
+    component_path: list[dict[str, str]]
+    resource_access: str | None = None
 
 #############################################################################
 ## upload result model
@@ -277,7 +288,7 @@ class UploadStatus(enum.IntEnum):
     DONE = 4
 
 
-class SBomFormats(enum.StrEnum):
+class SBomFormat(enum.StrEnum):
     CYCLONEDX = 'cyclonedx'
     SPDX = 'spdx'
     BDIO = 'bdio'

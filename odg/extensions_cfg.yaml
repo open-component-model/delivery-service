@@ -104,4 +104,4 @@ sbom_generator:
   enabled: True
   mappings:
    - prefix: ''
-     group_id: 2758
+     group_id: 0 # <int> must be set
