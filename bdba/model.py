@@ -267,6 +267,7 @@ class BDIO:
             '@graph': self.entries,
         }, indent=2).encode('utf-8')
 
+
 @dataclasses.dataclass
 class SBOMMetadata:
     component_name: str
@@ -276,11 +277,11 @@ class SBOMMetadata:
     resource_type: str
     bdba_product_id: int
     sbom_format: str
-    component_path: list[dict[str, str]]
     resource_access: str | None = None
 
 #############################################################################
 ## upload result model
+
 
 class UploadStatus(enum.IntEnum):
     SKIPPED = 1
