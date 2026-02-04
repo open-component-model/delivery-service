@@ -5,7 +5,7 @@ import logging
 import bdba.client
 import bdba.model
 import bdba_utils.scan
-import bdba_utils
+import bdba_utils.util
 import ci.log
 import cnudie.retrieve
 import delivery.client
@@ -48,9 +48,15 @@ def get_or_create_bdba_scan(
         resource_node=resource_node,
     )
 
-    if existing_scans:
-        product_id = existing_scans[0].product_id
-        logger.info(f'Found existing BDBA scan: product_id={product_id}')
+    component_artefact_metadata = bdba_utils.util.component_artefact_metadata(resource_node)
+
+    product_id = bdba_utils.util._matching_analysis_result_id(
+        component_artefact_metadata=component_artefact_metadata,
+        analysis_results=existing_scans,
+    )
+
+    if product_id:
+        logger.info(f'Found existing BDBA scan: {product_id=}')
         return product_id
 
     if create_new_scan_if_missing:
