@@ -3,13 +3,13 @@ installation:
   ocm_references:
     - helm_chart_name: delivery-service
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: delivery-service
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: delivery-service
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: delivery-service
@@ -87,13 +87,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -119,13 +119,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -144,13 +144,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -170,13 +170,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -196,13 +196,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -222,13 +222,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -254,13 +254,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -286,13 +286,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -317,13 +317,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -349,13 +349,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -381,13 +381,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -413,13 +413,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
@@ -439,13 +439,13 @@ installation:
   ocm_references:
     - helm_chart_name: extensions
       name: ocm.software/ocm-gear/delivery-service
-      version: "0.1262.2-dev"
+      version: "0.1262.2"
       artefact:
         name: extensions
-        version: "0.1262.2-dev"
+        version: "0.1262.2"
       mappings:
         - name: extensions
-          version: "0.1262.2-dev"
+          version: "0.1262.2"
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
