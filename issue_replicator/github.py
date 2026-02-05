@@ -73,7 +73,7 @@ class FindingGroup:
         finding_cfg: odg.findings.Finding,
         delivery_dashboard_url: str | None=None,
         sprint_name: str | None=None,
-    ) -> str:
+    ) -> tuple[str, str, str]:
         ocm_node = k8s.util.get_ocm_node(
             component_descriptor_lookup=component_descriptor_lookup,
             artefact=self.artefact,
@@ -85,11 +85,9 @@ class FindingGroup:
             keep_group_attributes=False,
         )
 
-        summary = textwrap.dedent(f'''\
-            {_artefact_to_str(artefact_non_group_properties)}
-            {_artefact_url(ocm_node=ocm_node)}
-
-        ''')
+        summary_long = summary = _artefact_to_str(artefact_non_group_properties) + '\n'
+        summary_long += _artefact_url(ocm_node=ocm_node) + '\n\n'
+        summary_short = ''
 
         if delivery_dashboard_url:
             delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
@@ -98,9 +96,12 @@ class FindingGroup:
                 finding_type=finding_cfg.type,
                 sprint_name=sprint_name,
             )
-            summary += f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+            url_md = f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
+            summary_long += url_md
+            summary += url_md
+            summary_short += url_md
 
-        return summary
+        return summary_long, summary, summary_short
 
 
 def _artefact_to_str(
@@ -242,15 +243,15 @@ def findings_summary(
     summary_long = summary = summary_short = f'# Summary of found {finding_name} findings\n'
 
     for finding_group in finding_groups:
-        group_summary = finding_group.summary(
+        group_summary_long, group_summary, group_summary_short = finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             finding_cfg=finding_cfg,
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
         )
-        summary_long += group_summary
+        summary_long += group_summary_long
         summary += group_summary
-        summary_short += group_summary
+        summary_short += group_summary_short
 
         if report_urls_callback:
             report_urls = '\n'.join(report_urls_callback(finding_group)) + '\n'
