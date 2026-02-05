@@ -21,7 +21,7 @@ import odg.model
 import odg.shared_cfg
 import responsibles_extension.filters as ref
 import responsibles_extension.strategies as res
-
+import bdba.model
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ class Services(enum.StrEnum):
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
     ODG_OPERATOR = 'odg-operator'
+    SBOM_GENERATOR = 'sbomGenerator'
 
 
 class VersionAliases(enum.StrEnum):
@@ -1050,6 +1051,56 @@ class OsId(BacklogItemMixins):
 
 
 @dataclasses.dataclass
+class SBOMGeneratorMapping(Mapping):
+    '''
+    :param int group_id:
+        BDBA group id to use for scanning.
+    :param str aws_secret_name
+        Name of the AWS secret element to use to retrieve artefacts from S3.
+    '''
+    group_id: int
+    aws_secret_name: str | None
+
+
+@dataclasses.dataclass(kw_only=True)
+class SBOMGeneratorConfig(BacklogItemMixins):
+    service: Services = Services.SBOM_GENERATOR
+    mappings: list[SBOMGeneratorMapping]
+    on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
+    create_new_scan_if_missing: bool = False
+    output_format: bdba.model.SBomFormat = bdba.model.SBomFormat.CYCLONEDX
+    processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
+
+    def is_supported(
+        self,
+        artefact_kind: odg.model.ArtefactKind | None=None,
+    ) -> bool:
+        supported_artefact_kinds = (
+            odg.model.ArtefactKind.RESOURCE
+        )
+
+        if (
+            artefact_kind
+            and artefact_kind not in supported_artefact_kinds
+        ):
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{artefact_kind=} is not supported for SBOM Generation, '
+                    f'{supported_artefact_kinds=}'
+                )
+            return False
+
+        return True
+
+    def mapping(self, name: str, /) -> SBOMGeneratorMapping:
+        for mapping in self.mappings:
+            if name.startswith(mapping.prefix):
+                return mapping
+
+        raise ValueError(f'No matching mapping entry found for {name=}')
+
+
+@dataclasses.dataclass
 class ExtensionsConfiguration:
     access_manager: AccessManagerConfig | None
     artefact_enumerator: ArtefactEnumeratorConfig | None
@@ -1067,6 +1118,7 @@ class ExtensionsConfiguration:
     ppms_replication: PpmsReplication | None
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
+    sbom_generator: SBOMGeneratorConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
 
     @staticmethod

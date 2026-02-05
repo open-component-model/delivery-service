@@ -99,3 +99,9 @@ responsibles:
 
 sast:
   enabled: False
+
+sbom_generator:
+  enabled: True
+  mappings:
+   - prefix: ''
+     group_id: 0 # <int> must be set

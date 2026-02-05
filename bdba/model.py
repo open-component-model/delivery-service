@@ -268,10 +268,28 @@ class BDIO:
         }, indent=2).encode('utf-8')
 
 
+@dataclasses.dataclass
+class SBOMMetadata:
+    component_name: str
+    component_version: str
+    resource_name: str
+    resource_version: str
+    resource_type: str
+    bdba_product_id: int
+    sbom_format: str
+    resource_access: str | None = None
+
 #############################################################################
 ## upload result model
+
 
 class UploadStatus(enum.IntEnum):
     SKIPPED = 1
     PENDING = 2
     DONE = 4
+
+
+class SBomFormat(enum.StrEnum):
+    CYCLONEDX = 'cyclonedx'
+    SPDX = 'spdx'
+    BDIO = 'bdio'
