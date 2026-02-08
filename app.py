@@ -363,6 +363,14 @@ def add_routes(
         path='/cache',
         handler=deliverydb.cache.DeliveryDBCache,
     )
+    app.router.add_view(
+        path='/artefacts/metadata/search/fields',
+        handler=artefacts.ArtefactMetadataSearchFields,
+    )
+    app.router.add_view(
+        path='/artefacts/metadata/search/run',
+        handler=artefacts.ArtefactMetadataSearchRun
+    )
 
     return app
 
