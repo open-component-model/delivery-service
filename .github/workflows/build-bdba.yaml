@@ -144,7 +144,7 @@ jobs:
             flake8 \
             pylama \
             pylint \
-            setuptools \
+            "setuptools<81" \
               > /tmp/pip3-install.log; then
             echo "error while trying to install packages:"
             cat /tmp/pip3-install.log
