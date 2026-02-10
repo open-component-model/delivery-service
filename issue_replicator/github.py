@@ -243,10 +243,12 @@ def findings_summary(
     summary_long = summary = summary_short = f'# Summary of found {finding_name} findings\n'
 
     for finding_group in finding_groups:
+        # only show rescoring URL in case there are actually open findings to rescore
+        show_delivery_dashboard_url = bool(finding_group.findings)
         group_summary_long, group_summary, group_summary_short = finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             finding_cfg=finding_cfg,
-            delivery_dashboard_url=delivery_dashboard_url,
+            delivery_dashboard_url=delivery_dashboard_url if show_delivery_dashboard_url else None,
             sprint_name=sprint_name,
         )
         summary_long += group_summary_long
