@@ -243,28 +243,27 @@ def findings_summary(
     summary_long = summary = summary_short = f'# Summary of found {finding_name} findings\n'
 
     for finding_group in finding_groups:
+        # only show rescoring URL in case there are actually open findings to rescore
+        show_delivery_dashboard_url = bool(finding_group.findings)
         group_summary_long, group_summary, group_summary_short = finding_group.summary(
             component_descriptor_lookup=component_descriptor_lookup,
             finding_cfg=finding_cfg,
-            delivery_dashboard_url=delivery_dashboard_url,
+            delivery_dashboard_url=delivery_dashboard_url if show_delivery_dashboard_url else None,
             sprint_name=sprint_name,
         )
-        summary_long += group_summary_long
-        summary += group_summary
-        summary_short += group_summary_short
 
         if report_urls_callback:
             report_urls = '\n'.join(report_urls_callback(finding_group)) + '\n'
-            summary_long += report_urls
-            summary += report_urls
+            group_summary_long += report_urls
+            group_summary += report_urls
 
         findings_table = table_callback_to_table(
             finding_group=finding_group,
             aggregated_findings=finding_group.findings,
             table_callback=findings_table_callback,
         )
-        summary_long += findings_table
-        summary += findings_table
+        group_summary_long += findings_table
+        group_summary += findings_table
 
         if finding_group.historical_findings and historical_findings_table_callback:
             historical_findings_table = '<details><summary>Historical Findings</summary>\n\n'
@@ -275,11 +274,14 @@ def findings_summary(
             )
             historical_findings_table += '</details>\n'
 
-            summary_long += historical_findings_table
+            group_summary_long += historical_findings_table
 
-        summary_long += '\n---\n'
-        summary += '\n---\n'
-        summary_short += '\n---\n'
+        if group_summary_long:
+            summary_long += f'{group_summary_long}\n---\n'
+        if group_summary:
+            summary += f'{group_summary}\n---\n'
+        if group_summary_short:
+            summary_short += f'{group_summary_short}\n---\n'
 
     return summary_long, summary, summary_short
 
