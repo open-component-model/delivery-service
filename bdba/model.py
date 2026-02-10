@@ -268,8 +268,21 @@ class BDIO:
         }, indent=2).encode('utf-8')
 
 
+class SBomFormat(enum.StrEnum):
+    CYCLONEDX = 'cyclonedx'
+    SPDX = 'spdx'
+    BDIO = 'bdio'
+
+
+@dataclasses.dataclass
+class SBOM:
+    sbom_raw: dict
+    sbom_format: SBomFormat
+
+
 #############################################################################
 ## upload result model
+
 
 class UploadStatus(enum.IntEnum):
     SKIPPED = 1
