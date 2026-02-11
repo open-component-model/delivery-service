@@ -1,0 +1,80 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2742.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: zkdev
+  category: bugfix
+  contents: GitHub milestone caching will now resolve all milestone upfront.
+  mimetype: text/markdown
+  reference: '[#1524](https://github.com/gardener/cc-utils/pull/1524)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: feature
+  contents: The GitHub-Actions runner can now be configured in reusable workflows
+    via the new `github-runs-on` input parameter
+  mimetype: text/markdown
+  reference: '[#1517](https://github.com/gardener/cc-utils/pull/1517)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: voelzmo
+  category: other
+  contents: Fixes an issue that lead to the ocm-upgrade job fail because of a missing
+    parameter
+  mimetype: text/markdown
+  reference: '[#1516](https://github.com/gardener/cc-utils/pull/1516)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: zkdev
+  category: feature
+  contents: '`trusted-checkout` action now exposes `github-server-url` input, allowing
+    to resolve repositories from different GitHub instances.'
+  mimetype: text/markdown
+  reference: '[#1510](https://github.com/gardener/cc-utils/pull/1510)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: voelzmo
+  category: other
+  contents: Pass reference component to PR title parsing
+  mimetype: text/markdown
+  reference: '[#1515](https://github.com/gardener/cc-utils/pull/1515)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: feature
+  contents: In case no AWS credentials are provided, the `send-mail` action will now
+    try to authenticate via OIDC for AWS SES
+  mimetype: text/markdown
+  reference: '[#1525](https://github.com/gardener/cc-utils/pull/1525)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: ocm's CLI now features `ocm normalise` and `ocm validate` commands (which
+    can be used to calculate normalised form of OCM-Component-Descriptors and to validate
+    signatures).
+  mimetype: text/markdown
+  reference: '[#1518](https://github.com/gardener/cc-utils/pull/1518)'
+  type: standard
