@@ -116,10 +116,13 @@ class SecretFactory:
             secret_type_dir = os.path.join(secrets_dir, secret_type)
             secret_type_class = secret_type_to_class(secret_type)
 
-            secrets_dict[secret_type] = {}
-
             for secret_element_name in os.listdir(secret_type_dir):
+                if secret_element_name.endswith('.template.yaml'):
+                    continue
+
                 secret_element_path = os.path.join(secret_type_dir, secret_element_name)
+
+                secret_element_name = secret_element_name.removesuffix('.yaml').removesuffix('.yml')
 
                 if not os.path.isfile(secret_element_path):
                     continue
@@ -139,6 +142,9 @@ class SecretFactory:
                 except dacite.exceptions.DaciteError as e:
                     e.add_note(f'{secret_type=}')
                     raise
+
+                if not secret_type in secrets_dict:
+                    secrets_dict[secret_type] = {}
 
                 secrets_dict[secret_type][secret_element_name] = secret_element
 
@@ -207,7 +213,7 @@ class SecretFactory:
         )
 
     def secret_types(self) -> list[str]:
-        return list(self._secrets_dict.keys())
+        return list(sorted(self._secrets_dict.keys()))
 
     def secret_elements(
         self,

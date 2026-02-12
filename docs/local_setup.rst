@@ -77,12 +77,12 @@ Requirements
 Secrets
 ^^^^^^^
 
-For the local setup, the delivery-service retrieves its secrets from a config
-repository. Therefore, a local copy of the config repository must be available
-and specified via env var `CC_CONFIG_DIR=/path/to/config.d` (see `Gardener's
-configuration management <https://github.com/gardener/cc-utils/tree/master>`_ for more details) (more comprehensive documentation on
-how to obtain secrets TBD). In short: please add `export CC_CONFIG_DIR='<path-to-local-cc-config-repo>/cc-config` 
-to your .zshrc file.
+In case any credentials are required as part of the local setup, they may be
+added to the respective files in the `secrets` directory. Each sub-directory
+reflects a certain secret _type_, whereas each file within a sub-directory
+corresponds to a secret _element_ of that type. If using one of the provided
+template files as a starting point, make sure to rename them as all templates
+ending on `.template.yaml` will be filtered-out automatically.
 
 Certificates
 ^^^^^^^^^^^^
