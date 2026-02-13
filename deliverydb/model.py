@@ -235,3 +235,13 @@ class UserIdentifiers(Base):
                 data_class=UserIdentifier,
                 data=self.identifier,
             )
+
+
+class BlobStore(Base):
+    __tablename__: str = 'blob_store'
+
+    digest = sa.Column(sa.String, primary_key=True)
+    creation_date = sa.Column(sa.DateTime)
+    size = sa.Column(sa.Integer)
+    mime_type = sa.Column(sa.String)
+    blob = sa.Column(sa.LargeBinary)
