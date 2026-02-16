@@ -1,0 +1,12 @@
+release_notes:
+  - audience: developer
+    author:
+      hostname: github.com
+      type: githubUser
+      username: 8R0WNI3
+    category: bugfix
+    contents: The `github` secrets are now mounted to the `cache-manager` pod to allow
+      resolving of `SharedCfgReference`
+    mimetype: text/markdown
+    reference: '[#664](https://github.com/open-component-model/delivery-service/pull/664)'
+    type: standard
