@@ -1,0 +1,12 @@
+release_notes:
+  - audience: user
+    author:
+      hostname: github.com
+      type: githubUser
+      username: 8R0WNI3
+    category: bugfix
+    contents: Fixed a bug where upgrade-PRs of kind `name` (instead of `component`)
+      could not be retrieved due to a missing reference component
+    mimetype: text/markdown
+    reference: '[#665](https://github.com/open-component-model/delivery-service/pull/665)'
+    type: standard
