@@ -831,6 +831,8 @@ class UpgradePRs(aiohttp.web.View):
             )
 
             repo_url = source.access.repoUrl if source else component_name
+        else:
+            component = None
 
         def upgrade_pr_to_dict(
             upgrade_pr: github.pullrequest.UpgradePullRequest,
@@ -876,6 +878,7 @@ class UpgradePRs(aiohttp.web.View):
             upgrade_prs = github.pullrequest.iter_upgrade_pullrequests(
                 repository=repo,
                 state=state,
+                reference_component=component,
             )
 
             return [
