@@ -377,6 +377,9 @@ jobs:
       untar-build-ctx-artefact: distribution-packages.tar.gz
       ctx: oci-images
       ocm-labels: ${{ toJSON(matrix.args.ocm-labels) }}
+      oci-platforms-to-runners-map: |
+        linux/arm64: ubuntu-24.04
+        linux/amd64: ubuntu-latest
 
   helmcharts:
     name: Build Helmcharts
