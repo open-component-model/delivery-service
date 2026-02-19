@@ -387,13 +387,22 @@ async def initialise_app():
         middlewares=middlewares,
     )
 
+    if (available_features := tuple(
+        f for f in features.feature_cfgs
+        if f.state is features.FeatureStates.AVAILABLE
+    )):
+        logger.info(
+            f'The following feature{"s are" if len(available_features) != 1 else " is"} '
+            f'active: {", ".join(sorted(f.name for f in available_features))}'
+        )
+
     if (unavailable_features := tuple(
         f for f in features.feature_cfgs
         if f.state is features.FeatureStates.UNAVAILABLE
     )):
         logger.info(
             f'The following feature{"s are" if len(unavailable_features) != 1 else " is"} '
-            f'inactive: {", ".join(f.name for f in unavailable_features)}'
+            f'inactive: {", ".join(sorted(f.name for f in unavailable_features))}'
         )
         middlewares.append(rfc.feature_check_middleware(unavailable_features))
 

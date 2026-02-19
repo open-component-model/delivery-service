@@ -6,7 +6,6 @@ specialComponents:
   version: greatest
   icon: landscape
   dependencies: []
-upgradePRs: True
 sprints:
   sprint_name_pattern: '%y%S%C'
   meta:

@@ -1,12 +1,15 @@
 import functools
+import logging
 import os
 
 import watchdog.events
 import watchdog.observers.polling
 
-import ci.util
-
 import secret_mgmt
+
+
+logger = logging.getLogger(__name__)
+own_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 class FileChangeEventHandler(watchdog.events.FileSystemEventHandler):
@@ -30,18 +33,25 @@ def watch_for_file_changes(
 
 @functools.cache
 def secret_factory() -> secret_mgmt.SecretFactory:
-    # secret factory creation from k8s secrets
-    if path := os.environ.get('SECRET_FACTORY_PATH'):
-        watch_for_file_changes(path)
-        return secret_mgmt.SecretFactory.from_dir(
-            secrets_dir=path,
-        )
+    local_path = os.path.join(own_dir, 'secrets')
 
-    # fallback: use cfg factory and convert it to secret factory structure
-    # this is handy for local development where the cfg-factory is available
-    try:
-        return secret_mgmt.SecretFactory.from_cfg_factory(
-            cfg_factory=ci.util.ctx().cfg_factory(),
+    # secret factory creation from k8s secrets
+    if not (path := os.environ.get('SECRET_FACTORY_PATH')):
+        path = local_path
+
+    watch_for_file_changes(path)
+    secret_factory = secret_mgmt.SecretFactory.from_dir(
+        secrets_dir=path,
+    )
+
+    if not (secret_types := secret_factory.secret_types()):
+        logger.warning(
+            'Found no directory containing credentials, hence no secrets will be available. If '
+            'secrets are required, consider either setting the `SECRET_FACTORY_PATH` env-var '
+            'pointing to the directory containing the secrets, or use the templates provided at the '
+            f'standard lookup location at "{local_path}".'
         )
-    except ValueError:
-        return secret_mgmt.SecretFactory(secrets_dict={}) # no secrets found
+    else:
+        logger.info(f'Found secrets of the following types: {secret_types}')
+
+    return secret_factory
