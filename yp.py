@@ -232,6 +232,46 @@ def inject_github_users(
     )
 
 
+def inject_email_address(
+    addressbook_source: str | None,
+    addressbook_entries: collections.abc.Iterable[AddressbookEntry],
+    addressbook_github_mappings: collections.abc.Iterable[dict],
+    user_id: odg.model.UserIdentity,
+) -> odg.model.UserIdentity:
+    '''
+    Injects the email address looked-up in the passed `addressbook_entries` into the given `user_id`
+    if no email address is already present.
+    '''
+    addressbook_entry = find_addressbook_entry(
+        addressbook_entries=addressbook_entries,
+        addressbook_github_mappings=addressbook_github_mappings,
+        user_id=user_id,
+    )
+
+    if not addressbook_entry or not addressbook_entry.email:
+        return user_id
+
+    def iter_infos() -> collections.abc.Iterable[odg.model.UserIdentifierBase]:
+        has_email_address = False
+        for info in user_id.identifiers:
+            if info.type is odg.model.UserTypes.EMAIL_ADDRESS:
+                has_email_address = True
+            yield info
+
+        if has_email_address:
+            return
+
+        yield odg.model.EmailAddress(
+            source=addressbook_source,
+            email=addressbook_entry.email,
+        )
+
+    return dataclasses.replace(
+        user_id,
+        identifiers=list(iter_infos()),
+    )
+
+
 def inject(
     addressbook_source: str | None,
     addressbook_entries: collections.abc.Iterable[AddressbookEntry],
@@ -245,6 +285,12 @@ def inject(
         user_id=user_id,
     )
     user_id = inject_personal_name(
+        addressbook_source=addressbook_source,
+        addressbook_entries=addressbook_entries,
+        addressbook_github_mappings=addressbook_github_mappings,
+        user_id=user_id,
+    )
+    user_id = inject_email_address(
         addressbook_source=addressbook_source,
         addressbook_entries=addressbook_entries,
         addressbook_github_mappings=addressbook_github_mappings,
