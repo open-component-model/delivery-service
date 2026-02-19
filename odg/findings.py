@@ -136,6 +136,15 @@ class SASTFindingSelector:
 
 
 @dataclasses.dataclass
+class TestEvidenceFindingSelector:
+    '''
+    :param list[str] status:
+        List of regexes to determine matching test-evidence statuses.
+    '''
+    status: list[str]
+
+
+@dataclasses.dataclass
 class VulnerabilityFindingSelector:
     '''
     :param MinMaxRange cve_score_range:
@@ -195,6 +204,7 @@ class FindingCategorisation:
         | SASTFindingSelector
         | VulnerabilityFindingSelector
         | OsIdFindingSelector
+        | TestEvidenceFindingSelector
         | None
     )
 
@@ -557,6 +567,8 @@ class Finding:
                 self._validate_malware()
             case odg.model.Datatype.SAST_FINDING:
                 self._validate_sast()
+            case odg.model.Datatype.TEST_EVIDENCE_FINDING:
+                self._validate_test_result()
             case odg.model.Datatype.VULNERABILITY_FINDING:
                 self._validate_vulnerabilty()
             case odg.model.Datatype.INVENTORY_FINDING:
@@ -644,6 +656,18 @@ class Finding:
             return
 
         e = ModelValidationError('malware finding model violations found:')
+        e.add_note('\n'.join(violations))
+        raise e
+
+    def _validate_test_result(self):
+        violations = self._validate_categorisations(
+            expected_selector=TestEvidenceFindingSelector,
+        )
+
+        if not violations:
+            return
+
+        e = ModelValidationError('test evidence violations found:')
         e.add_note('\n'.join(violations))
         raise e
 
@@ -927,6 +951,11 @@ def categorise_finding(
                 return categorisation
 
         elif isinstance(selector, OsIdFindingSelector):
+            for status in selector.status:
+                if re.fullmatch(status, finding_property, re.IGNORECASE):
+                    return categorisation
+
+        elif isinstance(selector, TestEvidenceFindingSelector):
             for status in selector.status:
                 if re.fullmatch(status, finding_property, re.IGNORECASE):
                     return categorisation
