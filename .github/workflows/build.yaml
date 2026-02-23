@@ -16,7 +16,7 @@ jobs:
   prepare:
     uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
     permissions:
-      contents: read
+      id-token: write
     with:
       mode: ${{ inputs.mode }}
 
@@ -149,6 +149,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - prepare
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - name: Export odg-extension-definitions
@@ -504,17 +506,11 @@ jobs:
     needs:
       - documentation
     permissions:
-      packages: read
+      contents: write
     steps:
-      - uses: actions/create-github-app-token@v2
-        id: app-token
-        with:
-          app-id: ${{ vars.GARDENER_GITHUB_ACTIONS_APP_ID }}
-          private-key: ${{ secrets.GARDENER_GITHUB_ACTIONS_PRIVATE_KEY }}
       - uses: actions/checkout@v6
         with:
           ref: refs/heads/gh-pages
-          token: ${{ steps.app-token.outputs.token }}
       - name: Retrieve Documentation
         uses: actions/download-artifact@v4
         with:

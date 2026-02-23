@@ -17,6 +17,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container: python:alpine
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - name: Install git, setuptools, and semver
