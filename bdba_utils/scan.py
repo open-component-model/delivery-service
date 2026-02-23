@@ -28,6 +28,15 @@ logger = logging.getLogger(__name__)
 ci.log.configure_default_logging(print_thread_id=True)
 
 
+def normalize_display_name(value: str) -> str:
+    return (
+        value
+        .replace('/', '_')
+        .replace('+', '_')
+        .replace(' ', '_')
+    )
+
+
 class ResourceGroupProcessor:
     def __init__(
         self,
@@ -45,11 +54,15 @@ class ResourceGroupProcessor:
     ) -> bdba_utils.model.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
-        display_name = f'{resource.name}_{resource.version}_{component.name}_{resource.type}'.replace('/', '_') # noqa: E501
+        display_name = normalize_display_name(
+            value=f'{resource.name}_{resource.version}_{component.name}_{resource.type}'
+        )
 
         if resource.extraIdentity:
             # peers are not required here as version is considered anyways
-            display_name += f'_{resource.identity(peers=())}'.replace('/', '_')
+            display_name += '_' + normalize_display_name(
+                value=f'{resource.identity(peers=())}'
+            )
 
         component_artefact_metadata = bdba_utils.util.component_artefact_metadata(
             resource_node=resource_node,
