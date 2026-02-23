@@ -101,7 +101,7 @@ sast:
   enabled: False
 
 sbom_generator:
-  enabled: True
+  enabled: False
   mappings:
    - prefix: ''
      group_id: 0 # <int> must be set
