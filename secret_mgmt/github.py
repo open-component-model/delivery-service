@@ -132,7 +132,12 @@ def find_cfg(
     repo_url: str,
     absent_ok: bool=False,
 ) -> GitHub | None:
-    github_cfgs: list[GitHub] = secret_factory.github()
+    try:
+        github_cfgs: list[GitHub] = secret_factory.github()
+    except secret_mgmt.SecretTypeNotFound:
+        if absent_ok:
+            return None
+        raise
 
     matching_cfgs = (
         github_cfg
