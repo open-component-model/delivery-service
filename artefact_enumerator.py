@@ -376,6 +376,21 @@ def _process_compliance_snapshot_of_artefact(
         if uncommitted_backlog_item:
             uncommitted_backlog_items.append(uncommitted_backlog_item)
 
+    if (
+        extensions_cfg.sbom_generator
+        and extensions_cfg.sbom_generator.enabled
+        and extensions_cfg.sbom_generator.is_supported(artefact_kind=artefact.artefact_kind)
+    ):
+        compliance_snapshot, uncommitted_backlog_item = _create_backlog_item(
+            artefact=artefact,
+            compliance_snapshot=compliance_snapshot,
+            service=odg.extensions_cfg.Services.SBOM_GENERATOR,
+            interval_seconds=extensions_cfg.sbom_generator.interval,
+            now=now,
+        )
+        if uncommitted_backlog_item:
+            uncommitted_backlog_items.append(uncommitted_backlog_item)
+
     logger.info(f'updated compliance snapshot ({artefact=})')
     return compliance_snapshot, uncommitted_backlog_items
 
