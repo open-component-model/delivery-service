@@ -76,7 +76,7 @@ def _iter_ocm_artefacts(
         versions = delivery_client.greatest_component_versions(
             component_name=component.component_name,
             max_versions=component.max_versions_limit,
-            greatest_version=component.version,
+            greatest_version=component.resolved_version,
             ocm_repo=component.ocm_repo,
         )
 

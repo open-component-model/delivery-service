@@ -174,7 +174,7 @@ class TimeRange:
 @dataclasses.dataclass
 class Component:
     component_name: str
-    version: str | None
+    version: str | CurrentVersion | None
     ocm_repo_url: str | None
     max_versions_limit: int = 1
     time_range: TimeRange | None = None
@@ -192,6 +192,13 @@ class Component:
         return ocm.OciOcmRepository(
             baseUrl=self.ocm_repo_url,
         )
+
+    @property
+    def resolved_version(self) -> str | None:
+        if isinstance(self.version, CurrentVersion):
+            return self.version.retrieve()
+
+        return self.version
 
 
 @dataclasses.dataclass(kw_only=True)

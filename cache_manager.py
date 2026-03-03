@@ -160,7 +160,7 @@ async def prefill_compliance_summary_caches(
             component_descriptor_lookup=component_descriptor_lookup,
             ocm_repo=component.ocm_repo,
             max_versions=component.max_versions_limit,
-            greatest_version=component.version,
+            greatest_version=component.resolved_version,
             oci_client=oci_client,
             db_session=db_session,
         )
