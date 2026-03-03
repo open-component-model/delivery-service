@@ -32,14 +32,12 @@ class CurrentDependencies(aiohttp.web.View):
                 data={},
             )
 
-        github_api_lookup = self.request.app[consts.APP_GITHUB_API_LOOKUP]
-
         resolved_dependencies = [
             {
                 'name': dependency.name,
                 'displayName': dependency.displayName,
                 'version': (
-                    dependency.currentVersion.retrieve(github_api_lookup)
+                    dependency.currentVersion.retrieve()
                     if dependency.currentVersion
                     else None
                 ),
@@ -51,7 +49,7 @@ class CurrentDependencies(aiohttp.web.View):
                 'displayName': component_cfg.displayName,
                 'componentDependencies': resolved_dependencies,
                 'version': (
-                    component_cfg.currentVersion.retrieve(github_api_lookup)
+                    component_cfg.currentVersion.retrieve()
                     if component_cfg.currentVersion
                     else None
                 ),

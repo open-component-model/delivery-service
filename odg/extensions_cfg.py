@@ -117,7 +117,7 @@ class CurrentVersionSource:
 class CurrentVersion:
     source: CurrentVersionSource
 
-    def retrieve(self, github_api_lookup=None) -> str:
+    def retrieve(self) -> str:
         '''
         Returns the currently referenced version of the component, i.e. the one referenced in the
         repository.
@@ -125,11 +125,7 @@ class CurrentVersion:
         if self.source.type is not CurrentVersionSourceType.GITHUB:
             raise ValueError(f'{self.source.type=} is not supported')
 
-        if not github_api_lookup:
-            github_api_lookup = lookups.github_api_lookup()
-
-        github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
-        repo = github_repo_lookup(self.source.repo)
+        repo = github_repository(self.source.repo)
 
         # every path in the relpath property which is not the last element has
         # to be a submodule. So, get the referenced submodule with the corresponding
@@ -139,7 +135,7 @@ class CurrentVersion:
             submodule = repo.file_contents(path, commit_sha)
             commit_sha = submodule.links['git'].split('/')[-1]
 
-            repo = github_repo_lookup(submodule.links['html'])
+            repo = github_repository(submodule.links['html'])
 
         # the last element of the relpath property has to be a valid path in the
         # current repository. Thus, the referenced file can be returned (which

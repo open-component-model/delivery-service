@@ -377,8 +377,6 @@ class FeatureSpecialComponents(FeatureBase):
         return None
 
     def serialize(self, profile: Profile | None=None) -> dict[str, any]:
-        github_api_lookup = lookups.github_api_lookup()
-
         if profile:
             special_components_for_profile = profile.filter_special_components(
                 special_components=self.special_components,
@@ -389,7 +387,7 @@ class FeatureSpecialComponents(FeatureBase):
         special_components = [
             dataclasses.replace(
                 special_component,
-                version=special_component.version.retrieve(github_api_lookup),
+                version=special_component.version.retrieve(),
             ) if isinstance(special_component.version, odg.extensions_cfg.CurrentVersion)
             else special_component
             for special_component in special_components_for_profile
