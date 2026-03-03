@@ -77,6 +77,60 @@ class BacklogItemMixins(ExtensionCfgMixins):
         raise NotImplementedError('function must be implemented by derived classes')
 
 
+class CurrentVersionSourceType(enum.StrEnum):
+    GITHUB = 'github'
+
+
+@dataclasses.dataclass
+class CurrentVersionSource:
+    type: CurrentVersionSourceType
+    repo: str
+    relpath: list[dict | str]
+    postprocess: bool = False
+
+
+@dataclasses.dataclass
+class CurrentVersion:
+    source: CurrentVersionSource
+
+    def retrieve(self, github_api_lookup=None) -> str:
+        '''
+        Returns the currently referenced version of the component, i.e. the one referenced in the
+        repository.
+        '''
+        if self.source.type is not CurrentVersionSourceType.GITHUB:
+            raise ValueError(f'{self.source.type=} is not supported')
+
+        if not github_api_lookup:
+            github_api_lookup = lookups.github_api_lookup()
+
+        github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
+        repo = github_repo_lookup(self.source.repo)
+
+        # every path in the relpath property which is not the last element has
+        # to be a submodule. So, get the referenced submodule with the corresponding
+        # commit ref and repeat it until no further submodule is specified
+        commit_sha = None
+        for path in self.source.relpath[:-1]:
+            submodule = repo.file_contents(path, commit_sha)
+            commit_sha = submodule.links['git'].split('/')[-1]
+
+            repo = github_repo_lookup(submodule.links['html'])
+
+        # the last element of the relpath property has to be a valid path in the
+        # current repository. Thus, the referenced file can be returned (which
+        # is expected to be a file only containing the version)
+        version = repo.file_contents(
+            path=self.source.relpath[-1],
+            ref=commit_sha,
+        ).decoded.decode('utf-8')
+
+        if self.source.postprocess:
+            version += f'-{next(repo.commits(number=1)).sha}'
+
+        return version.strip()
+
+
 @dataclasses.dataclass
 class TimeRange:
     days_from: int = -365
