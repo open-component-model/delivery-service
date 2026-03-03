@@ -3,6 +3,7 @@ import dataclasses
 import datetime
 import enum
 import logging
+import os
 import re
 import typing
 
@@ -87,6 +88,29 @@ class CurrentVersionSource:
     repo: str
     relpath: list[dict | str]
     postprocess: bool = False
+
+    def __post_init__(self):
+        relpath = []
+        path = ''
+
+        for path_elem in self.relpath:
+            if isinstance(path_elem, dict):
+                if (type := path_elem['type']) == 'submodule':
+                    path = os.path.join(path, path_elem['name'])
+                    relpath.append(path)
+                    path = ''
+                else:
+                    raise ValueError(f'path element of {type=} is not supported')
+
+            elif isinstance(path_elem, str):
+                path = os.path.join(path, path_elem)
+
+            else:
+                raise TypeError(path_elem)
+
+        relpath.append(path)
+
+        self.relpath = relpath
 
 
 @dataclasses.dataclass

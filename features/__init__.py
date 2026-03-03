@@ -691,31 +691,12 @@ def deserialise_ocm_repository_cfgs(
 
 
 def deserialise_special_components(special_components_raw: dict) -> FeatureSpecialComponents:
-    def deserialise_current_version_source(
-        current_version_source: dict,
-    ) -> dict:
-        relpath = []
-        path = ''
-
-        for path_elem in current_version_source['relpath']:
-            if 'type' in path_elem and path_elem['type'] == 'submodule':
-                path = os.path.join(path, path_elem['name'])
-                relpath.append(path)
-                path = ''
-            else:
-                path = os.path.join(path, path_elem)
-        relpath.append(path)
-
-        current_version_source['relpath'] = relpath
-        return current_version_source
-
     special_components = [
         dacite.from_dict(
             data_class=SpecialComponentsCfg,
             data=special_component_raw,
             config=dacite.Config(
                 type_hooks={
-                    odg.extensions_cfg.CurrentVersionSource: lambda cvs: deserialise_current_version_source(cvs),
                     str: lambda s: str(s), # be backwards compatible -> allow plain integers
                 },
                 cast=[enum.Enum],
