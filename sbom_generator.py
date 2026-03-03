@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import datetime
 import json
 import logging
 
@@ -174,6 +175,19 @@ def generate_sbom_for_artefact(
     if not resource_node:
         logger.info(f'did not find resource node for {artefact=}, skipping...')
         return
+
+    delivery_client.update_metadata(data=[
+        odg.model.ArtefactMetadata(
+            artefact=artefact,
+            meta=odg.model.Metadata(
+                datasource=odg.model.Datasource.SBOM_GENERATOR,
+                type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
+                creation_date=datetime.datetime.now(datetime.timezone.utc),
+                last_update=datetime.datetime.now(datetime.timezone.utc),
+            ),
+            data={},
+        )
+    ])
 
     mapping = extension_cfg.mapping(artefact.component_name)
 

@@ -83,6 +83,7 @@ class Datasource(enum.StrEnum):
     OSID = 'osid'
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
+    SBOM_GENERATOR = 'sbom-generator'
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
