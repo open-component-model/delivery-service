@@ -285,6 +285,7 @@ class BlackDuckLabelRule:
 class BlackDuckTarget:
     group_id: str
     host: str
+    distribution_mode_overwrite: str | None = None
 
 
 @dataclasses.dataclass
