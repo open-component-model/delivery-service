@@ -3,6 +3,7 @@ import dataclasses
 import datetime
 import enum
 import logging
+import os
 import re
 import typing
 
@@ -77,6 +78,79 @@ class BacklogItemMixins(ExtensionCfgMixins):
         raise NotImplementedError('function must be implemented by derived classes')
 
 
+class CurrentVersionSourceType(enum.StrEnum):
+    GITHUB = 'github'
+
+
+@dataclasses.dataclass
+class CurrentVersionSource:
+    type: CurrentVersionSourceType
+    repo: str
+    relpath: list[dict | str]
+    postprocess: bool = False
+
+    def __post_init__(self):
+        relpath = []
+        path = ''
+
+        for path_elem in self.relpath:
+            if isinstance(path_elem, dict):
+                if (type := path_elem['type']) == 'submodule':
+                    path = os.path.join(path, path_elem['name'])
+                    relpath.append(path)
+                    path = ''
+                else:
+                    raise ValueError(f'path element of {type=} is not supported')
+
+            elif isinstance(path_elem, str):
+                path = os.path.join(path, path_elem)
+
+            else:
+                raise TypeError(path_elem)
+
+        relpath.append(path)
+
+        self.relpath = relpath
+
+
+@dataclasses.dataclass
+class CurrentVersion:
+    source: CurrentVersionSource
+
+    def retrieve(self) -> str:
+        '''
+        Returns the currently referenced version of the component, i.e. the one referenced in the
+        repository.
+        '''
+        if self.source.type is not CurrentVersionSourceType.GITHUB:
+            raise ValueError(f'{self.source.type=} is not supported')
+
+        repo = github_repository(self.source.repo)
+
+        # every path in the relpath property which is not the last element has
+        # to be a submodule. So, get the referenced submodule with the corresponding
+        # commit ref and repeat it until no further submodule is specified
+        commit_sha = None
+        for path in self.source.relpath[:-1]:
+            submodule = repo.file_contents(path, commit_sha)
+            commit_sha = submodule.links['git'].split('/')[-1]
+
+            repo = github_repository(submodule.links['html'])
+
+        # the last element of the relpath property has to be a valid path in the
+        # current repository. Thus, the referenced file can be returned (which
+        # is expected to be a file only containing the version)
+        version = repo.file_contents(
+            path=self.source.relpath[-1],
+            ref=commit_sha,
+        ).decoded.decode('utf-8')
+
+        if self.source.postprocess:
+            version += f'-{next(repo.commits(number=1)).sha}'
+
+        return version.strip()
+
+
 @dataclasses.dataclass
 class TimeRange:
     days_from: int = -365
@@ -96,7 +170,7 @@ class TimeRange:
 @dataclasses.dataclass
 class Component:
     component_name: str
-    version: str | None
+    version: str | CurrentVersion | None
     ocm_repo_url: str | None
     max_versions_limit: int = 1
     time_range: TimeRange | None = None
@@ -114,6 +188,13 @@ class Component:
         return ocm.OciOcmRepository(
             baseUrl=self.ocm_repo_url,
         )
+
+    @property
+    def resolved_version(self) -> str | None:
+        if isinstance(self.version, CurrentVersion):
+            return self.version.retrieve()
+
+        return self.version
 
 
 @dataclasses.dataclass(kw_only=True)

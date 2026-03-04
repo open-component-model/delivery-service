@@ -51,66 +51,11 @@ class SprintRules:
     frozenWarningOffsetDays: int | None
 
 
-class CurrentVersionSourceType(enum.StrEnum):
-    GITHUB = 'github'
-
-
-@dataclasses.dataclass
-class CurrentVersionSource:
-    type: CurrentVersionSourceType
-    repo: str
-    relpath: list[dict | str]
-    postprocess: bool = False
-
-
-@dataclasses.dataclass(frozen=True)
-class CurrentVersion:
-    source: CurrentVersionSource
-
-    def retrieve(self, github_api_lookup) -> str:
-        '''
-        Returns the currently referenced version of the component, i.e. the one referenced in the
-        repository which may be different to the one referenced in the greatest component descriptor
-        (e.g. if the release is pending).
-        '''
-        if not self.source.type is CurrentVersionSourceType.GITHUB:
-            raise ValueError(f'{self.source.type=} is not supported')
-
-        repo_url = self.source.repo
-
-        github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
-        _, _, repo = self.source.repo.split('/')
-        repo = github_repo_lookup(repo_url)
-
-        # every path in the relpath property which is not the last element has
-        # to be a submodule. So, get the referenced submodule with the corresponding
-        # commit ref and repeat it until no further submodule is specified
-        commit_sha = None
-        for path in self.source.relpath[:-1]:
-            submodule = repo.file_contents(path, commit_sha)
-            commit_sha = submodule.links['git'].split('/')[-1]
-
-            repo = github_repo_lookup(submodule.links['html'])
-
-        # the last element of the relpath property has to be a valid path in the
-        # current repository. Thus, the referenced file can be returned (which
-        # is expected to be a file only containing the version)
-        version = repo.file_contents(
-            path=self.source.relpath[-1],
-            ref=commit_sha,
-        ).decoded.decode('utf-8')
-
-        if self.source.postprocess:
-            version += f'-{next(repo.commits(number=1)).sha}'
-
-        return version
-
-
 @dataclasses.dataclass(frozen=True)
 class SpecialComponentDependency:
     name: str
     displayName: str
-    currentVersion: CurrentVersion | None
+    currentVersion: odg.extensions_cfg.CurrentVersion | None
 
 
 @dataclasses.dataclass
@@ -151,12 +96,12 @@ class SpecialComponentsCfg:
     name: str
     displayName: str
     type: str
-    version: str | CurrentVersion
+    version: odg.extensions_cfg.CurrentVersion | str
     icon: str | None
     releasePipelineUrl: str | None
     sprintRules: SprintRules | None
     ocmRepo: str | None
-    currentVersion: CurrentVersion | None
+    currentVersion: odg.extensions_cfg.CurrentVersion | None
     dependencies: list[SpecialComponentDependency] = dataclasses.field(default_factory=list)
 
 
@@ -432,8 +377,6 @@ class FeatureSpecialComponents(FeatureBase):
         return None
 
     def serialize(self, profile: Profile | None=None) -> dict[str, any]:
-        github_api_lookup = lookups.github_api_lookup()
-
         if profile:
             special_components_for_profile = profile.filter_special_components(
                 special_components=self.special_components,
@@ -444,8 +387,9 @@ class FeatureSpecialComponents(FeatureBase):
         special_components = [
             dataclasses.replace(
                 special_component,
-                version=special_component.version.retrieve(github_api_lookup),
-            ) if isinstance(special_component.version, CurrentVersion) else special_component
+                version=special_component.version.retrieve(),
+            ) if isinstance(special_component.version, odg.extensions_cfg.CurrentVersion)
+            else special_component
             for special_component in special_components_for_profile
         ]
 
@@ -745,31 +689,12 @@ def deserialise_ocm_repository_cfgs(
 
 
 def deserialise_special_components(special_components_raw: dict) -> FeatureSpecialComponents:
-    def deserialise_current_version_source(
-        current_version_source: dict,
-    ) -> dict:
-        relpath = []
-        path = ''
-
-        for path_elem in current_version_source['relpath']:
-            if 'type' in path_elem and path_elem['type'] == 'submodule':
-                path = os.path.join(path, path_elem['name'])
-                relpath.append(path)
-                path = ''
-            else:
-                path = os.path.join(path, path_elem)
-        relpath.append(path)
-
-        current_version_source['relpath'] = relpath
-        return current_version_source
-
     special_components = [
         dacite.from_dict(
             data_class=SpecialComponentsCfg,
             data=special_component_raw,
             config=dacite.Config(
                 type_hooks={
-                    CurrentVersionSource: lambda cvs: deserialise_current_version_source(cvs),
                     str: lambda s: str(s), # be backwards compatible -> allow plain integers
                 },
                 cast=[enum.Enum],

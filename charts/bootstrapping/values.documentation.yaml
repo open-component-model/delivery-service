@@ -29,8 +29,45 @@ extensions_cfg:
         # component_name: ocm.software/open-delivery-gear
       - component_name: ""
         # @param extensions_cfg.artefact_enumerator.components[].version version of the OCM
-        # component, if "null" or "greatest" is specified, resolves to the greatest available version
-        version: null
+        # component, if "null" or "greatest" is specified, resolves to the greatest available
+        # version. To use a version which is specified in a file in a GitHub repository, use the
+        # nested structure instead
+        # e.g.
+        # version: greatest
+        # ---
+        # version: 0.1.0
+        # ---
+        # version:
+        #   source:
+        #     type: github
+        #     repo: github.com/<org-name>/<repository-name>
+        #     relpath:
+        #       - type: submodule
+        #         name: <path>/<to>/<submodule>/<if>/<any>
+        #       - <path>/<to>/<version-file>
+        #     postprocess: false
+        version:
+          # @param extensions_cfg.artefact_enumerator.components[].version.source used to specify a
+          # location from which the version should be read
+          source:
+            # @param extensions_cfg.artefact_enumerator.components[].version.source.type the type of
+            # version location
+            # options:
+            # - github
+            type: ""
+            # @param extensions_cfg.artefact_enumerator.components[].version.source.repo the GitHub
+            # repository name
+            # e.g.
+            # repo: github.com/<org-name>/<repository-name>
+            repo: ""
+            # @param extensions_cfg.artefact_enumerator.components[].version.source.relpath relative
+            # path from repository root to the version-file. In case the path contains a submodule,
+            # it must be specified via a tuple of name and type (see example above), otherwise a
+            # plain string is expected
+            relpath: []
+            # @param extensions_cfg.artefact_enumerator.components[].version.source.postprocess if
+            # set, the version will be appended by the current's commit sha, i.e. "{version}-{sha}"
+            postprocess: false
         # @param extensions_cfg.artefact_enumerator.components[].ocm_repo_url may be used to
         # overwrite the default lookup via ocm_repo_mappings
         ocm_repo_url: null
@@ -182,8 +219,45 @@ extensions_cfg:
         - component_name: ""
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version version
           # of the OCM component, if "null" or "greatest" is specified, resolves to the greatest
-          # available version
-          version: null
+          # available version. To use a version which is specified in a file in a GitHub repository,
+          # use the nested structure instead
+          # e.g.
+          # version: greatest
+          # ---
+          # version: 0.1.0
+          # ---
+          # version:
+          #   source:
+          #     type: github
+          #     repo: github.com/<org-name>/<repository-name>
+          #     relpath:
+          #       - type: submodule
+          #         name: <path>/<to>/<submodule>/<if>/<any>
+          #       - <path>/<to>/<version-file>
+          #     postprocess: false
+          version:
+            # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version.source
+            # used to specify a location from which the version should be read
+            source:
+              # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version.source.type
+              # the type of version location
+              # options:
+              # - github
+              type: ""
+              # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version.source.repo
+              # the GitHub repository name
+              # e.g.
+              # repo: github.com/<org-name>/<repository-name>
+              repo: ""
+              # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version.source.relpath
+              # relative path from repository root to the version-file. In case the path contains a
+              # submodule, it must be specified via a tuple of name and type (see example above),
+              # otherwise a plain string is expected
+              relpath: []
+              # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version.source.postprocess
+              # if set, the version will be appended by the current's commit sha, i.e. "{version}-{sha}"
+              postprocess: false
+
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].ocm_repo_url may
           # be used to overwrite the default lookup via ocm_repo_mappings
           ocm_repo_url: null
