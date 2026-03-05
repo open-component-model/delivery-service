@@ -17,6 +17,7 @@ import dacite
 import dateutil.parser
 import requests
 
+import bdba.limits
 import bdba.model as bm
 import bdba.util as bu
 
@@ -278,7 +279,17 @@ class BDBAApi:
         replace_id: int=None,
         custom_attribs={},
     ) -> bm.Result:
-        url = self._routes.upload(file_name=application_name)
+        if bdba.limits.fits(application_name, limit=bdba.limits.file_name):
+            name = application_name
+        else:
+            # BDBA raises HTTP 500 error in case the _file_ (!= app) name exceeds 241 characters
+            name = bdba.limits.trim(application_name, limit=bdba.limits.file_name)
+            logger.warning(
+                f'{application_name=} exceeds character limit of {bdba.limits.file_name} and was '
+                f'truncated to {name}'
+            )
+
+        url = self._routes.upload(file_name=name)
 
         headers = {'Group': str(group_id)}
         if replace_id:
@@ -513,9 +524,18 @@ class BDBAApi:
     def set_product_name(self, product_id: int, name: str):
         url = self._routes.product(product_id)
 
+        if bdba.limits.fits(name, limit=bdba.limits.app_name):
+            product_name = name
+        else:
+            product_name = bdba.limits.trim(name, limit=bdba.limits.app_name)
+            logger.warning(
+                f'{name=} exceeds character limit of {bdba.limits.app_name} and was truncated '
+                f'to {product_name}'
+            )
+
         self._patch(
             url=url,
-            json={'name': name},
+            json={'name': product_name},
         )
 
     def rescan(self, product_id: int):
