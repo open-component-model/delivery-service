@@ -16,7 +16,6 @@ import github3.issues.milestone
 import github3.repos
 
 import cnudie.retrieve
-import delivery.client
 import delivery.model
 import github.limits
 import github.retry
