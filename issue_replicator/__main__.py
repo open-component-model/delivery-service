@@ -409,7 +409,7 @@ def replicate_issue_for_finding_type(
             keep_group_attributes=False,
         ) for artefact in artefacts
     }
-    scanned_artefacts = {
+    artefacts_with_scan = {
         finding_cfg.issues.strip_artefact(
             artefact=dataclasses.replace(
                 artefact_scan_info.artefact,
@@ -418,7 +418,7 @@ def replicate_issue_for_finding_type(
             keep_group_attributes=False,
         ) for artefact_scan_info in artefact_scan_infos
     }
-    artefacts_without_scan = all_artefacts - scanned_artefacts
+    artefacts_without_scan = all_artefacts - artefacts_with_scan
 
     if (
         finding_cfg.issues.enable_assignees
@@ -475,6 +475,7 @@ def replicate_issue_for_finding_type(
             due_date=due_date,
             milestone=milestone,
             is_in_bom=is_in_bom,
+            artefacts_with_scan=artefacts_with_scan,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
             assignees=github_assignees,
