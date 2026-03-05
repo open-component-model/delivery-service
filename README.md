@@ -37,3 +37,5 @@ Delivery-Service exposes generated documentation through the following route: `/
 
 > [!NOTE]  
 > For a full (-> still WIP) documentation, please visit https://open-component-model.github.io/delivery-service.
+
+<p align="center"><img alt="Bundesministerium für Wirtschaft und Energie (BMWE)-EU funding logo" src="https://apeirora.eu/assets/img/BMWK-EU.png" width="400"/></p>
