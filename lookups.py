@@ -336,15 +336,18 @@ def init_ocm_repository_lookup(
         /,
     ) -> collections.abc.Iterable[str]:
         component_name = cnudie.util.to_component_name(component)
-        repositories = set()
+        seen_repositories = set()
 
         for ocm_repository_cfg in resolved_ocm_repository_cfgs:
             if not ocm_repository_cfg.prefix_matches(component_name):
                 continue
 
-            repositories.add(ocm_repository_cfg.repository)
+            if (repository := ocm_repository_cfg.repository) in seen_repositories:
+                continue
 
-        yield from repositories
+            seen_repositories.add(repository)
+
+            yield repository
 
     return ocm_repository_lookup
 
