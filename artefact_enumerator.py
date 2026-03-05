@@ -73,12 +73,15 @@ def _iter_ocm_artefacts(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> collections.abc.Generator[odg.model.ComponentArtefactId, None, None]:
     for component in components:
-        versions = delivery_client.greatest_component_versions(
-            component_name=component.component_name,
-            max_versions=component.max_versions_limit,
-            greatest_version=component.resolved_version,
-            ocm_repo=component.ocm_repo,
-        )
+        if resolved_version := component.resolved_version:
+            # if an explicit version is specified, use it without any further implict lookup
+            versions = [resolved_version]
+        else:
+            versions = delivery_client.greatest_component_versions(
+                component_name=component.component_name,
+                max_versions=component.max_versions_limit,
+                ocm_repo=component.ocm_repo,
+            )
 
         for version in versions:
             component_id = ocm.ComponentIdentity(

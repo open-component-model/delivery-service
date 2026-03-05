@@ -155,15 +155,18 @@ async def prefill_compliance_summary_caches(
     seen_component_ids = set()
 
     for component in components:
-        versions = await components_module.greatest_component_versions(
-            component_name=component.component_name,
-            component_descriptor_lookup=component_descriptor_lookup,
-            ocm_repo=component.ocm_repo,
-            max_versions=component.max_versions_limit,
-            greatest_version=component.resolved_version,
-            oci_client=oci_client,
-            db_session=db_session,
-        )
+        if resolved_version := component.resolved_version:
+            # if an explicit version is specified, use it without any further implict lookup
+            versions = [resolved_version]
+        else:
+            versions = await components_module.greatest_component_versions(
+                component_name=component.component_name,
+                component_descriptor_lookup=component_descriptor_lookup,
+                ocm_repo=component.ocm_repo,
+                max_versions=component.max_versions_limit,
+                oci_client=oci_client,
+                db_session=db_session,
+            )
 
         for version in versions:
             component_descriptor = await component_descriptor_lookup(ocm.ComponentIdentity(
