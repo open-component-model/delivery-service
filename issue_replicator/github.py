@@ -46,6 +46,12 @@ class IssueLabels(enum.StrEnum):
     SCAN_PENDING = 'scan-pending'
 
 
+class ScanStatus(enum.StrEnum):
+    FULLY_SCANNED = 'fully-scanned'
+    PARTIALLY_SCANNED = 'partially-scanned'
+    NOT_SCANNED = 'not-scanned'
+
+
 @dataclasses.dataclass
 class AggregatedFinding:
     finding: odg.model.ArtefactMetadata
@@ -1560,7 +1566,7 @@ def _create_or_update_issue(
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone | None,
     due_date: datetime.date,
-    is_scanned: bool,
+    scan_status: ScanStatus,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     sprint_name: str,
@@ -1621,11 +1627,11 @@ def _create_or_update_issue(
     if is_overdue:
         labels.add(IssueLabels.OVERDUE)
 
-    if not is_scanned:
-        if not issue:
-            # there is no scan yet but we have no open issue either -> nothing to do (yet)
-            return
+    if scan_status is ScanStatus.NOT_SCANNED and not issue:
+        # there is no scan at all yet and we have no open issue either -> nothing to do (yet)
+        return
 
+    if scan_status is not ScanStatus.FULLY_SCANNED:
         labels.add(IssueLabels.SCAN_PENDING)
 
     if issue:
@@ -1664,7 +1670,7 @@ def _create_or_update_or_close_issue_per_finding(
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone,
     due_date: datetime.date,
-    is_scanned: bool,
+    scan_status: ScanStatus,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     sprint_name: str,
@@ -1705,7 +1711,7 @@ def _create_or_update_or_close_issue_per_finding(
             issues=finding_issues,
             milestone=milestone,
             due_date=due_date,
-            is_scanned=is_scanned,
+            scan_status=scan_status,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
@@ -1717,7 +1723,11 @@ def _create_or_update_or_close_issue_per_finding(
             created_issues.add(created_issue)
 
     for issue in set(issues):
-        if issue not in processed_issues and issue.state == 'open':
+        if (
+            issue not in processed_issues
+            and issue.state == 'open'
+            and scan_status is ScanStatus.FULLY_SCANNED
+        ):
             close_issue_if_present(
                 mapping=mapping,
                 issue=issue,
@@ -1736,13 +1746,19 @@ def create_or_update_or_close_issue(
     due_date: datetime.date,
     milestone: github3.repos.repo.milestone.Milestone | None,
     is_in_bom: bool,
+    artefacts_with_scan: set[odg.model.ComponentArtefactId],
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     assignees: set[str],
     assignees_statuses: set[delivery.model.Status] | None,
     assignee_mode: odg.model.ResponsibleAssigneeModes,
 ):
-    is_scanned = len(artefacts_without_scan) == 0
+    if len(artefacts_without_scan) == 0:
+        scan_status = ScanStatus.FULLY_SCANNED
+    elif len(artefacts_with_scan) == 0:
+        scan_status = ScanStatus.NOT_SCANNED
+    else:
+        scan_status = ScanStatus.PARTIALLY_SCANNED
 
     labels = set(finding_cfg.issues.labels) | {
         issue_id,
@@ -1774,7 +1790,7 @@ def create_or_update_or_close_issue(
             )
         return
 
-    if is_scanned and not findings:
+    if scan_status is ScanStatus.FULLY_SCANNED and not findings:
         for issue in issues:
             if historical_findings:
                 body = template_issue_body(
@@ -1801,9 +1817,10 @@ def create_or_update_or_close_issue(
             )
         return
 
-    if not is_scanned:
+    if scan_status is ScanStatus.NOT_SCANNED:
         for issue in issues:
             if issue.state == 'open':
+                # nothing scanned but we have open issues -> update to "scan-pending"
                 break
         else:
             # not scanned yet but no open issue found either -> nothing to do
@@ -1827,7 +1844,7 @@ def create_or_update_or_close_issue(
             issues=issues,
             milestone=milestone,
             due_date=due_date,
-            is_scanned=is_scanned,
+            scan_status=scan_status,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
             sprint_name=sprint_name,
@@ -1848,7 +1865,7 @@ def create_or_update_or_close_issue(
         issues=issues,
         milestone=milestone,
         due_date=due_date,
-        is_scanned=is_scanned,
+        scan_status=scan_status,
         artefacts_without_scan=artefacts_without_scan,
         delivery_dashboard_url=delivery_dashboard_url,
         sprint_name=sprint_name,
