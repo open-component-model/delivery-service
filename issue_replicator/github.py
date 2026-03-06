@@ -1816,13 +1816,22 @@ def create_or_update_or_close_issue(
             )
         return
 
+    have_open_issues = any(issue.state == 'open' for issue in issues)
+
     if scan_status is ScanStatus.NOT_SCANNED:
-        for issue in issues:
-            if issue.state == 'open':
-                # nothing scanned but we have open issues -> update to "scan-pending"
-                break
+        if have_open_issues:
+            # nothing scanned but we have open issues -> update to "scan-pending"
+            pass
         else:
             # not scanned yet but no open issue found either -> nothing to do
+            return
+
+    elif scan_status is ScanStatus.PARTIALLY_SCANNED:
+        if have_open_issues:
+            # partially scanned and we have open issues -> update to "scan-pending"
+            pass
+        elif not findings:
+            # only partially scanned and no findings yet -> nothing to do
             return
 
     if milestone:
