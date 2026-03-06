@@ -126,6 +126,7 @@ def outputs_as_jsonpath(
 def _helm_template(
     helm_path: str,
     values: dict,
+    namespace: str | None=None,
 ) -> collections.abc.Generator[dict, None, None]:
     values_path = os.path.join(helm_path, 'values-merged.yaml')
     with open (values_path, 'w') as f:
@@ -139,6 +140,9 @@ def _helm_template(
         '-f',
         values_path,
     ]
+
+    if namespace:
+        argv.append('--namespace', namespace)
 
     completed_process = subprocess.run(
         args=argv,
@@ -376,6 +380,7 @@ def create_or_update_odg(
                     merged_installation_values,
                 ),
                 helm_path=helm_chart_path,
+                namespace=odg.context.get('target_namespace'),
             )
             encoded_manifests = tuple(encode_and_split_manifests(manifests))
 
