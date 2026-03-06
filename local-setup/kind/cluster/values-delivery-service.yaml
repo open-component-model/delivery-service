@@ -1,3 +1,4 @@
+host: delivery-service
 ingress:
   class: nginx
   annotations:
