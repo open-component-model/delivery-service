@@ -35,7 +35,7 @@ import secret_mgmt
 import service_extensions
 import special_component
 import sprint
-
+import blobstore.blob
 
 ci.log.configure_default_logging(print_thread_id=True)
 logger = logging.getLogger(__name__)
@@ -364,6 +364,10 @@ def add_routes(
         handler=deliverydb.cache.DeliveryDBCache,
     )
 
+    app.router.add_view(
+        path='/blob',
+        handler=blobstore.blob.Blob
+    )
     return app
 
 
