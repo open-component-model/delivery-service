@@ -1152,6 +1152,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
     create_new_scan_if_missing: bool = False
     output_format: bdba.model.SBomFormat = bdba.model.SBomFormat.CYCLONEDX
     processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
+    interval: int = 60 * 60 * 24 # 24h
 
     def is_supported(
         self,
