@@ -4,3 +4,4 @@ image:
   tag: ~
 deployment:
   annotations: []
+host: delivery-service
