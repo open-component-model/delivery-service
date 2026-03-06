@@ -240,8 +240,8 @@ class UserIdentifiers(Base):
 class BlobStore(Base):
     __tablename__: str = 'blob_store'
 
-    digest = sa.Column(sa.String, primary_key=True)
-    creation_date = sa.Column(sa.DateTime)
+    digest = sa.Column(sa.String(length=256), primary_key=True)
+    creation_date = sa.Column(sa.DateTime(timezone=True))
     size = sa.Column(sa.Integer)
-    mime_type = sa.Column(sa.String)
-    blob = sa.Column(sa.LargeBinary)
+    mime_type = sa.Column(sa.String(length=512))
+    ref = sa.Column(sa.String(length=1024))
