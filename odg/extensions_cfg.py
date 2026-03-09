@@ -1159,7 +1159,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
         artefact_kind: odg.model.ArtefactKind | None=None,
     ) -> bool:
         supported_artefact_kinds = (
-            odg.model.ArtefactKind.RESOURCE
+            odg.model.ArtefactKind.RESOURCE,
         )
 
         if (
