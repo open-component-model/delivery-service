@@ -1147,6 +1147,7 @@ class SBOMGeneratorMapping(Mapping):
 @dataclasses.dataclass(kw_only=True)
 class SBOMGeneratorConfig(BacklogItemMixins):
     service: Services = Services.SBOM_GENERATOR
+    delivery_service_url: str
     mappings: list[SBOMGeneratorMapping]
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     create_new_scan_if_missing: bool = False
