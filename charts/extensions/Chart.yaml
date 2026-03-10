@@ -44,3 +44,6 @@ dependencies:
   - name: odg-operator
     repository: file://charts/odg-operator
     condition: odg-operator.enabled
+  - name: sbom-generator
+    repository: file://charts/sbom-generator
+    condition: sbom-generator.enabled
