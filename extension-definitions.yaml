@@ -13,6 +13,10 @@ installation:
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: delivery-service
+      helm_attribute: host
+      value: delivery-service.${base_url}
+      value_type: python-string-template
+    - helm_chart_name: delivery-service
       helm_attribute: ingress.hosts
       value:
         - delivery-service.${base_url}
