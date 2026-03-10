@@ -142,7 +142,7 @@ def _helm_template(
     ]
 
     if namespace:
-        argv.append('--namespace', namespace)
+        argv.extend(('--namespace', namespace))
 
     completed_process = subprocess.run(
         args=argv,
