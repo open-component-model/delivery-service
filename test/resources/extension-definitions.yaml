@@ -130,3 +130,29 @@ installation:
     value_type: python-string-template
 outputs: []
 dependencies: []
+---
+name: sbom-generator
+installation:
+  ocm_references:
+    - helm_chart_name: extensions
+      name: ocm.software/ocm-gear/delivery-service
+      version: "0.1273.0-dev"
+      artefact:
+        name: extensions
+        version: "0.1273.0-dev"
+      mappings:
+        - name: extensions
+          version: "0.1273.0-dev"
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: extensions
+      helm_attribute: sbom-generator.target_namespace
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: extensions
+      helm_attribute: sbom-generator.enabled
+      value: True
+      value_type: literal
+outputs: []
+dependencies:
+  - delivery-service

@@ -30,7 +30,7 @@ def test_jsonpatch_patch():
 
 
 def test_extensions(extension_definitions):
-    ds, dd, db = [
+    ds, dd, db, sb = [
         dacite.from_dict(
             data=raw,
             data_class=odgm.ExtensionDefinition,
@@ -43,7 +43,7 @@ def test_extensions(extension_definitions):
 
     missing = set(odgc.iter_missing_dependencies(
         requested=(dd,),
-        known=(ds, dd, db),
+        known=(ds, dd, db, sb),
     ))
     assert missing == set([ds, db])
 
@@ -105,3 +105,23 @@ def test_extensions(extension_definitions):
     ) == {
         'foo': 'bar.default-domain.com',
     }
+
+    missing = set(odgc.iter_missing_dependencies(
+        requested=(sb,),
+        known=(ds, dd, db, sb),
+    ))
+    assert missing == {ds, db}
+
+    assert sb.templated_outputs(context) == []
+
+    patched_values = [
+        odgu.template_and_resolve_jsonpath(
+            value=value_template.value,
+            jsonpaths=outputs,
+            substitution_context=context,
+            value_type=value_template.value_type,
+        )
+        for value_template in sb.installation.value_templates
+    ]
+    assert patched_values[0] == 'my-target-namespace'
+    assert patched_values[1] is True

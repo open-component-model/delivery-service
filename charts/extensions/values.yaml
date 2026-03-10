@@ -88,3 +88,11 @@ sast:
   image:
     repository: null
     tag: null
+sbom-generator:
+  deployment:
+    annotations: []
+  enabled: false
+  image:
+    registry: null
+    repository: null
+    tag: null
