@@ -98,6 +98,7 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
     repository: str
     prefix: list[str] | str | None = None # for backwards compatibility -> TODO drop eventually
     prefixes: list[str] | str | None = None
+    component_filter: list[str] | str | None = None
     labels: list[str] | str | None = None
     version_filter: VersionFilter | str = VersionFilter.ANY
 
@@ -105,8 +106,13 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
         if self.prefix and not self.prefixes:
             self.prefixes = self.prefix # for backwards compatibility -> TODO drop eventually
 
+        if self.prefixes and self.component_filter:
+            raise ValueError('At most one of `prefixes` and `component_filter` must be specified')
+
         if isinstance(self.prefixes, str):
             self.prefixes = [self.prefixes]
+        if isinstance(self.component_filter, str):
+            self.component_filter = [self.component_filter]
         if isinstance(self.labels, str):
             self.labels = [self.labels]
 
@@ -125,16 +131,22 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
 
         return set(labels).issubset(set(self.labels))
 
-    def prefix_matches(
+    def component_matches(
         self,
         component_name: str,
     ) -> bool:
-        if self.prefixes is None:
+        if self.prefixes is None and self.component_filter is None:
             return True
 
-        for prefix in self.prefixes:
-            if component_name.startswith(prefix):
-                return True
+        if self.prefixes:
+            for prefix in self.prefixes:
+                if component_name.startswith(prefix):
+                    return True
+
+        if self.component_filter:
+            for filter in self.component_filter:
+                if re.fullmatch(filter, component_name):
+                    return True
 
         return False
 
@@ -339,7 +351,7 @@ def init_ocm_repository_lookup(
         seen_repositories = set()
 
         for ocm_repository_cfg in resolved_ocm_repository_cfgs:
-            if not ocm_repository_cfg.prefix_matches(component_name):
+            if not ocm_repository_cfg.component_matches(component_name):
                 continue
 
             if (repository := ocm_repository_cfg.repository) in seen_repositories:

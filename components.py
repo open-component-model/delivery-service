@@ -507,7 +507,7 @@ async def component_versions(
     included_versions = set()
 
     for ocm_repository_cfg in ocm_repository_cfgs:
-        if not ocm_repository_cfg.prefix_matches(component_name):
+        if not ocm_repository_cfg.component_matches(component_name):
             continue
 
         try:

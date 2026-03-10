@@ -704,8 +704,13 @@ ocm_repo_mappings:
     repository: ""
     # @param ocm_repo_mappings[].prefixes the prefix(es) of OCM component name(s) for which the OCM
     # repository should be used. Use `null` or the empty string "" as "match-all"
-    # note: The prefixes are _not_ evaluated as a regex
+    # note: The prefixes are _not_ evaluated as a regex, use "component_filter" for that
+    # note: At most one of "prefixes" and "component_filter" must be specified
     prefixes: null
+    # @param ocm_repo_mappings[].component_filter regex(es) to filter the OCM component name(s) for
+    # which the OCM repository should be used. Use `null` as "match-all"
+    # note: At most one of "prefixes" and "component_filter" must be specified
+    component_filter: null
     # @param ocm_repo_mappings[].labels optional label(s) which can be used as selector for
     # "virtual" OCM repositories
     labels: null
