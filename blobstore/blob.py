@@ -48,7 +48,7 @@ class Header:
                 'Content-Length': str(self.size)}
 
 
-async def _stream_blob_to_db(db_session: sqlasync.session.AsyncSession,
+async def _stream_blob_to_store(db_session: sqlasync.session.AsyncSession,
                              stream: aiohttp.StreamReader,
                              hash_algorithm: str) -> BlobAttribute:
 
@@ -90,6 +90,7 @@ async def _stream_blob_to_db(db_session: sqlasync.session.AsyncSession,
             parameters={"fd": lo_fd}
         )
 
+        # TODO Make hash alg flexible
         return BlobAttribute(
             digest=f'{Algorithm.sha256.value}:{digest.hexdigest()}',
             ref=int(oid),
@@ -101,7 +102,7 @@ async def _stream_blob_to_db(db_session: sqlasync.session.AsyncSession,
         raise
 
 
-async def _stream_blob_from_db(db_session: sqlasync.session.AsyncSession,
+async def _stream_blob_from_store(db_session: sqlasync.session.AsyncSession,
                                stream: aiohttp.web.StreamResponse,
                                ref: str):
     try:
@@ -241,7 +242,7 @@ class Blob(aiohttp.web.View):
                 text=f'A blob with the digest {request_header.digest} is already available in the blob store')
 
         try:
-            blob_attributes: BlobAttribute = await _stream_blob_to_db(
+            blob_attributes: BlobAttribute = await _stream_blob_to_store(
                                         db_session=db_session,
                                         stream=self.request.content,
                                         hash_algorithm=request_header.digest.split(':')[0])
@@ -444,7 +445,7 @@ class Blob(aiohttp.web.View):
         await stream_response.prepare(self.request)
 
         try:
-            await _stream_blob_from_db(db_session=db_session,
+            await _stream_blob_from_store(db_session=db_session,
                                        stream=stream_response,
                                        ref=blob_metadata[0].ref)
             await stream_response.write_eof()
