@@ -13,6 +13,7 @@ import tarfile
 import tempfile
 import textwrap
 
+import brotli
 import dacite
 import kubernetes.client
 import kubernetes.client.rest
@@ -197,7 +198,7 @@ def encode_manifest(
     if isinstance(manifest, dict):
         manifest = [manifest]
 
-    return base64.b64encode(yaml.dump_all(manifest).encode()).decode()
+    return base64.b64encode(brotli.compress(yaml.dump_all(manifest).encode())).decode()
 
 
 def encode_and_split_manifests(
@@ -438,7 +439,7 @@ def create_or_update_odg(
                         }
                     ),
                     data={
-                        'data.yaml': encoded_manifests[idx],
+                        'data.yaml.br': encoded_manifests[idx],
                     },
                 )
                 core_api = kubernetes_api.core_kubernetes_api
