@@ -446,7 +446,7 @@ class Finding:
 
 @dataclasses.dataclass
 class IPFinding(Finding):
-    package_name: str
+    package_name: str | None
     package_version: str | None
     license: License
     policy_violation: PolicyViolationRef
