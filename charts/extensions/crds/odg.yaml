@@ -66,6 +66,7 @@ spec:
                     - prometheus-operator
                     - responsibles
                     - sast
+                    - sbom-generator
             status:
               type: object
               properties:
