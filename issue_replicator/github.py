@@ -783,6 +783,59 @@ def inventory_summary(
     return summary_long, summary, summary_short
 
 
+def ip_summary(
+    mapping: odg.extensions_cfg.IssueReplicatorMapping,
+    finding_cfg: odg.findings.Finding,
+    finding_groups: list[FindingGroup],
+    known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_dashboard_url: str | None=None,
+    sprint_name: str | None=None,
+) -> tuple[str, str, str]:
+    finding_table_callback = {
+        'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
+        'Package Version': lambda f, _: f'`{f.finding.data.package_version}`',
+        'License': lambda f, _: f'`{f.finding.data.license.name}`',
+        'Policy Violation': lambda f, _: f'[{f.finding.data.policy_violation.name}]({f.finding.data.policy_violation.url})', # noqa: E501
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+    }
+
+    historical_table_callback = {
+        'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
+        'Package Version': lambda f, _: f'`{f.finding.data.package_version}`',
+        'License': lambda f, _: f'`{f.finding.data.license.name}`',
+        'Policy Violation': lambda f, _: f'[{f.finding.data.policy_violation.name}]({f.finding.data.policy_violation.url})', # noqa: E501
+        'Severity': lambda f, g: _severity_str(
+            aggregated_finding=f,
+            finding_group=g,
+            finding_cfg=finding_cfg,
+        ),
+        'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
+        'Reason': _rescoring_comment,
+        'Ref': lambda f, g: _issue_ref(
+            due_date=f.due_date,
+            artefact=g.artefact,
+            finding_cfg=finding_cfg,
+            known_issues=known_issues,
+            mapping=mapping,
+        ),
+    }
+
+    return findings_summary(
+        finding_cfg=finding_cfg,
+        finding_groups=finding_groups,
+        component_descriptor_lookup=component_descriptor_lookup,
+        findings_table_callback=finding_table_callback,
+        historical_findings_table_callback=historical_table_callback,
+        delivery_dashboard_url=delivery_dashboard_url,
+        sprint_name=sprint_name,
+    )
+
+
 def kyverno_summary(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
@@ -1423,6 +1476,7 @@ def template_issue_body(
         odg.model.Datatype.FALCO_FINDING: falco_summary,
         odg.model.Datatype.GHAS_FINDING: ghas_summary,
         odg.model.Datatype.INVENTORY_FINDING: inventory_summary,
+        odg.model.Datatype.IP_FINDING: ip_summary,
         odg.model.Datatype.KYVERNO_FINDING: kyverno_summary,
         odg.model.Datatype.LICENSE_FINDING: license_summary,
         odg.model.Datatype.MALWARE_FINDING: malware_summary,
