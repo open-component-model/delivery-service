@@ -49,8 +49,12 @@ def resolve_image_mappings(
         else:
             tag = image_ref.tag
 
-        yield image_mapping['repository'], image_ref.ref_without_tag
-        yield image_mapping['tag'], tag
+        if 'repository' in image_mapping:
+            yield image_mapping['repository'], image_ref.ref_without_tag
+        if 'tag' in image_mapping:
+            yield image_mapping['tag'], tag
+        if 'image' in image_mapping:
+            yield image_mapping['image'], str(image_ref)
 
 
 def patch_jsonpath_into_dict(
