@@ -452,6 +452,7 @@ class IPFinding(Finding):
     policy_violation: PolicyViolationRef
     labels: list[str]
     host: str
+    href: str | None
 
     @property
     def key(self) -> str:
