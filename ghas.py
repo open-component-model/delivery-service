@@ -96,12 +96,20 @@ def find_token_for_repo_url(
 def github_api_request(
     url: str,
     secret_factory: secret_mgmt.SecretFactory,
-) -> list | dict | None:
+) -> tuple[list | dict | None, str | None]:
+    '''
+    Perform a single authenticated GET request to the GitHub API.
+
+    Returns a tuple of (response_body, next_url), where response_body is the
+    parsed JSON (list or dict) and next_url is the URL of the next page taken
+    from the Link header, or None if there are no further pages. Both values
+    are None if the request fails.
+    '''
     hostname = util.urlparse(url).hostname
     path_parts = util.urlparse(url).path.strip('/').split('/')
     if len(path_parts) < 2:
         logger.error(f'Cannot determine repo/org from URL: {url}')
-        return None
+        return None, None
 
     org = path_parts[3]
     repo_url = f'{hostname}/{org}'
@@ -111,7 +119,7 @@ def github_api_request(
         repo_url=repo_url,
     )
     if not token:
-        return None
+        return None, None
     # setup session with retry configuration
     session = requests.Session()
     retries = urllib3.util.retry.Retry(
@@ -132,10 +140,25 @@ def github_api_request(
             timeout=30
         )
         response.raise_for_status()
-        return response.json()
+        next_url = response.links.get('next', {}).get('url')
+        return response.json(), next_url
     except Exception as e:
         logger.error(f'GitHub API request failed for {url}: {e}')
-        return None
+        return None, None
+
+
+def github_api_request_paginated(
+    url: str,
+    secret_factory: secret_mgmt.SecretFactory,
+) -> collections.abc.Iterable[dict]:
+    while url:
+        page_items, url = github_api_request(
+            url=url,
+            secret_factory=secret_factory,
+        )
+
+        if page_items:
+            yield from page_items
 
 
 def get_secret_alerts(
@@ -146,25 +169,27 @@ def get_secret_alerts(
     '''
     Fetch open secret scanning alerts using authenticated GitHub client.
     '''
-    url = f'https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts?state=open'
-    result = github_api_request(
+    url = (
+        f'https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts'
+        '?state=open&per_page=100'
+    )
+
+    count = 0
+    for alert_raw in github_api_request_paginated(
         url=url,
         secret_factory=secret_factory,
-    )
-    alerts_raw = result if isinstance(result, list) else []
-    logger.info(f'found {len(alerts_raw)} secret alerts for {github_hostname}/{org}')
+    ):
+        count += 1
+        yield dacite.from_dict(SecretAlert, alert_raw)
 
-    return (
-        dacite.from_dict(SecretAlert, alert)
-        for alert in alerts_raw
-    )
+    logger.info(f'found {count} secret alerts for {github_hostname}/{org}')
 
 
 def get_secret_location(
     location_url: str,
     secret_factory: secret_mgmt.SecretFactory,
 ) -> SecretLocation:
-    result = github_api_request(
+    result, _ = github_api_request(
         url=location_url,
         secret_factory=secret_factory,
     )
@@ -382,7 +407,7 @@ def scan(
         html_url = stale_finding.data.html_url
         api_url = stale_finding.data.url
 
-        stale_alert_data = github_api_request(
+        stale_alert_data, _ = github_api_request(
             url=api_url,
             secret_factory=secret_factory,
         )
