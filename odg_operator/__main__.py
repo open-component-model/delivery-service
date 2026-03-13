@@ -364,7 +364,7 @@ def create_or_update_odg(
             installation_values_for_artefact = [
                 iv
                 for iv in extension_instance.values
-                if iv.helm_chart_name == artefact.name
+                if iv.helm_chart_name == installation_artefact.helm_chart_name
             ]
 
             merged_installation_values = {}
