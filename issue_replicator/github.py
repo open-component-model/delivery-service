@@ -657,6 +657,29 @@ def falco_summary(
     return summary_long, summary, summary_short
 
 
+def _redact_secret(
+    secret: str,
+    visible_chars: int=4,
+) -> str:
+    '''
+    Returns a redacted representation of `secret`, keeping the first and last `visible_chars`
+    characters visible and replacing the middle with `***<number-redacted-chars>***`. Characters
+    that would break a markdown table cell (`|`, newlines) are removed from the visible portions.
+    '''
+    def sanitise(s: str) -> str:
+        return s.replace('|', ' ').replace('\n', ' ').replace('\r', ' ')
+
+    if len(secret) <= visible_chars * 2:
+        return f'***{len(secret)}***'
+
+    redacted_count = len(secret) - visible_chars * 2
+    return (
+        f'{sanitise(secret[:visible_chars])}'
+        f'***{redacted_count}***'
+        f'{sanitise(secret[-visible_chars:])}'
+    )
+
+
 def ghas_summary(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     finding_cfg: odg.findings.Finding,
@@ -668,7 +691,7 @@ def ghas_summary(
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'Secret Type': lambda f, _: f'`{f.finding.data.secret_type}`',
-        'Secret': lambda f, _: f'`{f.finding.data.secret}`',
+        'Secret': lambda f, _: f'`{_redact_secret(f.finding.data.secret)}`',
         'Path': lambda f, _: f'`{f.finding.data.path}`' if f.finding.data.path else '',
         'Line': lambda f, _: f'`{f.finding.data.line}`' if f.finding.data.line else '',
         'Display Name': lambda f, _: f'`{f.finding.data.secret_type_display_name}`',
@@ -682,7 +705,7 @@ def ghas_summary(
 
     historical_table_callback = {
         'Secret Type': lambda f, _: f'`{f.finding.data.secret_type}`',
-        'Secret': lambda f, _: f'`{f.finding.data.secret}`',
+        'Secret': lambda f, _: f'`{_redact_secret(f.finding.data.secret)}`',
         'Severity': lambda f, g: _severity_str(
             aggregated_finding=f,
             finding_group=g,
