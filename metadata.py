@@ -1,6 +1,7 @@
 import collections.abc
 import datetime
 import http
+import typing
 
 import aiohttp.web
 import dacite
@@ -12,6 +13,7 @@ import ocm
 import consts
 import deliverydb.cache as dc
 import deliverydb.model as dm
+import deliverydb.search_model as sm
 import deliverydb.util as du
 import deliverydb_cache.model as dcm
 import features
@@ -19,6 +21,922 @@ import middleware.cors
 import odg.findings
 import odg.model
 import util
+
+
+_FIELD_TO_COL = {
+    'id': dm.ArtefactMetaData.id,
+    'type': dm.ArtefactMetaData.type,
+    'datasource': dm.ArtefactMetaData.datasource,
+    'artefact_kind': dm.ArtefactMetaData.artefact_kind,
+    'artefact_name': dm.ArtefactMetaData.artefact_name,
+    'artefact_version': dm.ArtefactMetaData.artefact_version,
+    'artefact_type': dm.ArtefactMetaData.artefact_type,
+    'component_name': dm.ArtefactMetaData.component_name,
+    'component_version': dm.ArtefactMetaData.component_version,
+    'data_key': dm.ArtefactMetaData.data_key,
+
+    'ocm.name': dm.ArtefactMetaData.component_name,
+    'ocm.version': dm.ArtefactMetaData.component_version,
+    'artefact.name': dm.ArtefactMetaData.artefact_name,
+    'artefact.version': dm.ArtefactMetaData.artefact_version,
+    'artefact.type': dm.ArtefactMetaData.artefact_type,
+}
+
+_DEFAULT_SEARCH_FIELDS = [
+    'data.summary',
+    'data.cve',
+    'data.package_name',
+    'data.package_version',
+    'artefact.name',
+    'ocm.name',
+]
+
+
+_SORT_FOR_COL = {
+    'meta.creation_date': lambda: sa.cast(
+        dm.ArtefactMetaData.meta.op('->>')('creation_date'),
+        sa.DateTime(timezone=True),
+    ),
+    'meta.last_update': lambda: sa.cast(
+        dm.ArtefactMetaData.meta.op('->>')('last_update'),
+        sa.DateTime(timezone=True),
+    ),
+    'ocm.name': lambda: dm.ArtefactMetaData.component_name,
+    'ocm.version': lambda: dm.ArtefactMetaData.component_version,
+    'type': lambda: dm.ArtefactMetaData.type,
+    'id': lambda: dm.ArtefactMetaData.id,
+}
+
+
+def _json_text(
+    col: sa.sql.ClauseElement,
+    dotted: str
+):
+    parts = dotted.split('.')
+    expr = col
+    for part in parts[:-1]:
+        expr = expr.op('->')(part)
+    return expr.op('->>')(parts[-1])
+
+
+def _categorisation_value_case(
+    finding_cfgs: collections.abc.Iterable[odg.findings.Finding]
+) -> sa.sql.ClauseElement:
+    severity_id_expr = sa.func.upper(sa.cast(_expr_for_attr('data.severity'), sa.Text))
+    type_expr = sa.cast(dm.ArtefactMetaData.type, sa.Text)
+
+    whens: list[tuple[sa.sql.ClauseElement, int]] = []
+    for cfg in finding_cfgs:
+        for cat in cfg.categorisations:
+            whens.append((
+                sa.and_(type_expr == cfg.type, severity_id_expr == cat.id),
+                cat.value,
+            ))
+
+    return sa.case(*whens, else_=0)
+
+
+def _expr_for_attr(attr: str):
+    '''
+    supports:
+      - meta.<key>  -> JSONB meta as TEXT
+      - data.<path> -> JSONB data (nested) as TEXT
+      - top-level known columns (e.g. type, datasource, artefact_kind)
+      - known aliases from _FIELD_TO_COL
+    '''
+    if attr.startswith('meta.'):
+        key = attr.split('.', 1)[1]
+        return dm.ArtefactMetaData.meta.op('->>')(key)
+
+    if attr.startswith('data.'):
+        dotted = attr.split('.', 1)[1]
+        return _json_text(dm.ArtefactMetaData.data, dotted)
+
+    if attr in _FIELD_TO_COL:
+        return _FIELD_TO_COL[attr]
+
+    raise aiohttp.web.HTTPBadRequest(
+        text=f'unknown {attr=}',
+    )
+
+
+def _escape_like_literal(raw: str) -> str:
+    return (
+        raw.replace('\\', '\\\\')
+           .replace('%', r'\%')
+           .replace('_', r'\_')
+    )
+
+
+def _like_pattern(
+    value: str,
+    wrap_contains: bool
+) -> str:
+    raw = str(value)
+    esc = _escape_like_literal(raw)
+    esc = esc.replace('*', '%')
+
+    if wrap_contains:
+        if not esc.startswith('%'):
+            esc = '%' + esc
+        if not esc.endswith('%'):
+            esc = esc + '%'
+
+    return esc
+
+
+def _pred_like(
+    attr: str,
+    user_pattern: str,
+    wrap_contains: bool = False
+):
+    expr = sa.cast(
+        expression=_expr_for_attr(attr),
+        type_=sa.Text
+    )
+    pat = _like_pattern(
+        value=user_pattern,
+        wrap_contains=wrap_contains
+    )
+    return sa.func.lower(expr).like(sa.func.lower(sa.literal(pat)), escape='\\')
+
+
+def _datetime_or_none(raw: str):
+    try:
+        return datetime.datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
+    except Exception:
+        return None
+
+
+def _split_ocm(component_id: str) -> tuple[str, str | None]:
+    raw_value = str(component_id).strip()
+    if ':' in raw_value:
+        name, version = raw_value.split(':', 1)
+        name = name.strip()
+        version = version.strip()
+        return name, (version or None)
+    return raw_value, None
+
+
+def _pred_ocm(value: str):
+    name, ver = _split_ocm(value)
+    if not name:
+        raise aiohttp.web.HTTPBadRequest(
+            text='ocm component name is required',
+        )
+
+    component_name_col = dm.ArtefactMetaData.component_name
+    component_version_col = dm.ArtefactMetaData.component_version
+    return sa.and_(
+        component_name_col == name,
+        component_version_col == ver
+    ) if ver else (component_name_col == name)
+
+
+def _db_artefact_key_tuple_expr() -> sa.sql.ClauseElement:
+    return sa.tuple_(
+        dm.ArtefactMetaData.artefact_kind,
+        dm.ArtefactMetaData.artefact_name,
+        dm.ArtefactMetaData.artefact_version,
+        dm.ArtefactMetaData.artefact_type,
+        dm.ArtefactMetaData.artefact_extra_id_normalised,
+    )
+
+
+def _pred_for_resolved_ocm_scope(
+    keys_by_component: dict[tuple[str, str], list[tuple]],
+) -> sa.sql.ClauseElement:
+    cn = dm.ArtefactMetaData.component_name
+    cv = dm.ArtefactMetaData.component_version
+
+    per_component_preds: list[sa.sql.ClauseElement] = []
+
+    for (component_name, component_version), artefact_keys in keys_by_component.items():
+        direct = sa.and_(
+            cn == component_name,
+            cv == component_version,
+        )
+
+        if artefact_keys:
+            fallback = sa.and_(
+                cn == component_name,
+                sa.or_(cv.is_(None), cv == ''),
+                _db_artefact_key_tuple_expr().in_(artefact_keys),
+            )
+            per_component_preds.append(sa.or_(direct, fallback))
+        else:
+            per_component_preds.append(direct)
+
+    return sa.or_(*per_component_preds) if per_component_preds else sa.false()
+
+
+def _pred_eq(
+    attr: str,
+    value: typing.Any
+):
+    if isinstance(value, str) and '*' in value:
+        return _pred_like(attr, value, wrap_contains=False)
+    return sa.cast(expression=_expr_for_attr(attr), type_=sa.Text) == str(value)
+
+
+def _pred_in(
+    attr: str,
+    values: list[typing.Any]
+):
+    expr = sa.cast(
+        expression=_expr_for_attr(attr),
+        type_=sa.Text
+    )
+    return expr.in_([str(v) for v in values])
+
+
+def _pred_range(
+    attr: str,
+    gte: str | None,
+    lte: str | None
+):
+    expr_text = sa.cast(
+        expression=_expr_for_attr(attr),
+        type_=sa.Text
+    )
+    clauses = []
+
+    if gte is not None:
+        gte_dt = _datetime_or_none(gte)
+        if gte_dt is None:
+            raise aiohttp.web.HTTPBadRequest(
+                text=f'invalid gte for {attr}: {gte}',
+            )
+        clauses.append(sa.cast(expr_text, sa.DateTime(timezone=True)) >= gte_dt)
+
+    if lte is not None:
+        lte_dt = _datetime_or_none(lte)
+        if lte_dt is None:
+            raise aiohttp.web.HTTPBadRequest(
+                text=f'invalid lte for {attr}: {lte}',
+            )
+        clauses.append(sa.cast(expr_text, sa.DateTime(timezone=True)) <= lte_dt)
+
+    return sa.and_(*clauses) if clauses else sa.true()
+
+
+def _pred_cmp(
+    attr: str,
+    op: str,
+    value: typing.Any,
+    severity_case: sa.sql.ClauseElement | None = None,
+    selected_finding_type: str | None = None,
+    finding_cfgs: collections.abc.Iterable[odg.findings.Finding] | None = None,
+) -> sa.sql.ClauseElement:
+    if attr == 'finding.severity':
+        attr = 'data.severity'
+
+    if attr == 'data.severity':
+        if severity_case is None:
+            raise aiohttp.web.HTTPBadRequest(text='severity comparisons require finding cfgs')
+
+        try:
+            right = int(value)
+        except Exception:
+            if not selected_finding_type:
+                raise aiohttp.web.HTTPBadRequest(
+                    text='data.severity symbolic comparisons require exactly one finding type'
+                )
+            if finding_cfgs is None:
+                raise aiohttp.web.HTTPBadRequest(
+                    text='severity comparisons require finding cfgs'
+                )
+
+            try:
+                right = _severity_value_for_type(
+                    finding_type=selected_finding_type,
+                    severity_id=str(value),
+                    finding_cfgs=finding_cfgs,
+                )
+            except ValueError:
+                raise aiohttp.web.HTTPBadRequest(text='invalid severity value')
+
+        left = severity_case
+    else:
+        left = sa.cast(_expr_for_attr(attr), sa.Text)
+        right = str(value)
+
+    if op == '>=': return left >= right
+    if op == '>':  return left >  right
+    if op == '<=': return left <= right
+    if op == '<':  return left <  right
+    if op == '!=': return left != right
+    if op in ('==', '='): return left == right
+
+    raise aiohttp.web.HTTPBadRequest(text=f'unsupported cmp {op=}')
+
+
+def _pred_for_artefact_metadata(
+    criterion: sm.ArtefactMetadataCriterion,
+    severity_case: sa.sql.ClauseElement | None = None,
+    selected_finding_type: str | None = None,
+    finding_cfgs: collections.abc.Iterable[odg.findings.Finding] | None = None,
+) -> sa.sql.ClauseElement:
+    attr = criterion.attr
+    op = criterion.op
+
+    if op is sm.SearchQueryOperator.EQ:
+        if criterion.value is None:
+            raise aiohttp.web.HTTPBadRequest(text=f'missing value for {attr=}')
+        return _pred_eq(
+            attr=attr,
+            value=criterion.value
+        )
+
+    if op is sm.SearchQueryOperator.IN:
+        if not criterion.values:
+            raise aiohttp.web.HTTPBadRequest(text=f'op=in requires non-empty values for {attr=}')
+        return _pred_in(
+            attr=attr,
+            values=criterion.values
+        )
+
+    if op is sm.SearchQueryOperator.RANGE:
+        return _pred_range(
+            attr=attr,
+            gte=criterion.gte,
+            lte=criterion.lte
+        )
+
+    if op is sm.SearchQueryOperator.CMP:
+        if not criterion.cmp or criterion.value is None:
+            raise aiohttp.web.HTTPBadRequest(text=f'op=cmp requires cmp and value for {attr=}')
+        return _pred_cmp(
+            attr=attr,
+            op=criterion.cmp,
+            value=criterion.value,
+            severity_case=severity_case,
+            selected_finding_type=selected_finding_type,
+            finding_cfgs=finding_cfgs,
+        )
+
+    raise aiohttp.web.HTTPBadRequest(text=f'unsupported {op=} for {attr=}')
+
+
+def _translate_criteria(
+    criteria: list[sm.CriterionType],
+    default_search_fields: list[str] | None = None,
+    severity_case: sa.sql.ClauseElement | None = None,
+    selected_finding_type: str | None = None,
+    finding_cfgs: collections.abc.Iterable[odg.findings.Finding] | None = None,
+) -> sa.sql.ClauseElement:
+    '''
+    translates criteria list into SQLAlchemy WHERE clause.
+
+    semantics:
+      - all criteria types are AND'ed together.
+      - for `type: ocm`:
+          include entries are OR'ed (cn==name [AND cv==ver])
+          exclude entries are NOT(OR(...))
+      - for `type: artefact-metadata`:
+          grouped by attr:
+            include: AND over attrs, each attr is OR over values/ops
+            exclude: AND over attrs, each attr is NOT(OR(...))
+      - for `type: fulltext`:
+          each token -> OR across configured fields (contains-like)
+          multiple tokens are AND'ed (i.e. all tokens must match somewhere)
+          excludes are AND'ed as NOT(OR(...)) per token
+
+    supported entry shapes:
+      - {type:'ocm', value:'acme.org/x:1.2.3', mode:'exclude'?}
+      - {type:'artefact-metadata', attr:'data.cve', op:'eq|in|cmp|range', ... , mode:'exclude'?}
+      - {type:'fulltext', value:'kerberos', mode:'exclude'?, fields:[... optional ...]}
+    '''
+    if not criteria:
+        return sa.true()
+
+    default_fields = default_search_fields or _DEFAULT_SEARCH_FIELDS
+    ands: list[sa.sql.ClauseElement] = []
+
+    ocm_inc: list[sa.sql.ClauseElement] = []
+    ocm_exc: list[sa.sql.ClauseElement] = []
+    for criterion in criteria:
+        if isinstance(criterion, sm.OcmCriterion):
+            pred = _pred_ocm(criterion.value)
+            (ocm_exc if criterion.mode is sm.MatchingMode.EXCLUDE else ocm_inc).append(pred)
+
+    if ocm_inc:
+        ands.append(sa.or_(*ocm_inc))
+    if ocm_exc:
+        ands.append(sa.not_(sa.or_(*ocm_exc)))
+
+    by_attr_inc: dict[str, list[sa.sql.ClauseElement]] = collections.defaultdict(list)
+    by_attr_exc: dict[str, list[sa.sql.ClauseElement]] = collections.defaultdict(list)
+
+    for criterion in criteria:
+        if isinstance(criterion, sm.ArtefactMetadataCriterion):
+            pred = _pred_for_artefact_metadata(
+                criterion=criterion,
+                severity_case=severity_case,
+                selected_finding_type=selected_finding_type,
+                finding_cfgs=finding_cfgs,
+            )
+            target = by_attr_exc if criterion.mode is sm.MatchingMode.EXCLUDE else by_attr_inc
+            target[criterion.attr].append(pred)
+
+    for preds in by_attr_inc.values():
+        if preds:
+            ands.append(sa.or_(*preds))
+    for preds in by_attr_exc.values():
+        if preds:
+            ands.append(sa.not_(sa.or_(*preds)))
+
+    def _pred_fulltext(token: str, fields: list[str]) -> sa.sql.ClauseElement:
+        tok = str(token or '').strip()
+        if not tok:
+            return sa.true()
+        return sa.or_(*[_pred_like(f, tok, wrap_contains=True) for f in fields])
+
+    full_inc: list[sa.sql.ClauseElement] = []
+    full_exc: list[sa.sql.ClauseElement] = []
+    for criterion in criteria:
+        if isinstance(criterion, sm.FulltextCriterion):
+            fields = criterion.fields if criterion.fields is not None else default_fields
+            pred = _pred_fulltext(criterion.value, fields)
+            (full_exc if criterion.mode is sm.MatchingMode.EXCLUDE else full_inc).append(pred)
+
+    if full_inc:
+        ands.append(sa.and_(*full_inc))
+    if full_exc:
+        ands.append(sa.and_(*[sa.not_(p) for p in full_exc]))
+
+    return sa.and_(*ands) if ands else sa.true()
+
+
+def _translate_sort(sort_spec: list[sm.SortSpec] | None):
+    order_by = []
+    for sort_entry in (sort_spec or []):
+        field = sort_entry.field
+        if field not in _SORT_FOR_COL:
+            raise aiohttp.web.HTTPBadRequest(text=f'invalid sort field: {field}')
+        col = _SORT_FOR_COL[field]()
+        order_by.append(col.desc() if sort_entry.order is sm.SortOrder.DESC else col.asc())
+    return order_by
+
+
+def _parse_cursor_value(
+    field: str,
+    raw
+):
+    if raw is None:
+        return None
+    if field in ('meta.creation_date', 'meta.last_update'):
+        dt = _datetime_or_none(raw)
+        if dt is None:
+            raise aiohttp.web.HTTPBadRequest(
+                text=f'invalid cursor datetime for {field}: {raw}',
+            )
+        return dt
+    return str(raw)
+
+
+def _cursor_clause(
+    sort_spec: list[sm.SortSpec],
+    cursor: dict | None,
+):
+    if not cursor:
+        return sa.true()
+
+    cols = []
+    vals = []
+
+    for sort_entry in sort_spec:
+        field = sort_entry.field
+        if field not in _SORT_FOR_COL:
+            raise aiohttp.web.HTTPBadRequest(text=f'invalid sort field: {field}')
+        if field not in cursor:
+            raise aiohttp.web.HTTPBadRequest(text=f'cursor missing field "{field}"')
+
+        cols.append(_SORT_FOR_COL[field]())
+        vals.append(_parse_cursor_value(field=field, raw=cursor[field]))
+
+    left = sa.tuple_(*cols)
+    right = sa.tuple_(*vals)
+
+    # direction depends on FIRST sort key
+    return (left < right) if sort_spec[0].order is sm.SortOrder.DESC else (left > right)
+
+
+def _make_next_cursor(
+    sort_spec: list[sm.SortSpec],
+    obj: dm.ArtefactMetaData,
+) -> dict:
+    out = {}
+    for s in sort_spec:
+        field = s.field
+
+        if field == 'id':
+            out['id'] = str(obj.id)
+        elif field == 'meta.creation_date':
+            out['meta.creation_date'] = (obj.meta or {}).get('creation_date')
+        elif field == 'meta.last_update':
+            out['meta.last_update'] = (obj.meta or {}).get('last_update')
+        elif field == 'type':
+            out['type'] = str(obj.type)
+        elif field == 'ocm.name':
+            out['ocm.name'] = str(obj.component_name)
+        elif field == 'ocm.version':
+            out['ocm.version'] = (
+                None if obj.component_version is None else str(obj.component_version)
+            )
+        else:
+            out[field] = None
+    return out
+
+
+def _iter_component_references(
+    component: ocm.Component
+) -> collections.abc.Iterable[tuple[str, str]]:
+    for ref in component.componentReferences or ():
+        if ref.componentName and ref.version:
+            yield (ref.componentName, ref.version)
+
+
+def _iter_component_artefacts(
+    component: ocm.Component,
+) -> collections.abc.Iterable[tuple[str, ocm.Resource | ocm.Source]]:
+    for res in component.resources or ():
+        yield ('resource', res)
+    for src in component.sources or ():
+        yield ('source', src)
+
+
+def _artefact_key_tuple_from_ocm(
+    artefact_kind: str,
+    artefact: ocm.Resource | ocm.Source,
+) -> tuple[str | None, str | None, str | None, str | None, str]:
+    extra = dict(artefact.extraIdentity or {})
+
+    if artefact.version is not None:
+        extra.setdefault('version', artefact.version)
+
+    local_artefact_id = odg.model.LocalArtefactId(
+        artefact_name=artefact.name,
+        artefact_type=artefact.type,
+        artefact_version=artefact.version,
+        artefact_extra_id=extra,
+    )
+
+    return (
+        artefact_kind,
+        local_artefact_id.artefact_name,
+        local_artefact_id.artefact_version,
+        local_artefact_id.artefact_type,
+        local_artefact_id.normalised_artefact_extra_id,
+    )
+
+
+def _single_included_finding_type(
+    criteria: list[sm.CriterionType],
+) -> str | None:
+    finding_types: set[str] = set()
+
+    for criterion in criteria:
+        if not isinstance(criterion, sm.ArtefactMetadataCriterion):
+            continue
+        if criterion.mode is sm.MatchingMode.EXCLUDE:
+            continue
+        if criterion.attr != 'type':
+            continue
+
+        if criterion.op is sm.SearchQueryOperator.EQ and criterion.value is not None:
+            finding_types.add(str(criterion.value))
+        elif criterion.op is sm.SearchQueryOperator.IN and criterion.values:
+            finding_types.update(str(value) for value in criterion.values)
+
+    return next(iter(finding_types)) if len(finding_types) == 1 else None
+
+
+def _severity_value_for_type(
+    finding_type: str,
+    severity_id: str,
+    finding_cfgs: collections.abc.Iterable[odg.findings.Finding],
+) -> int:
+
+    for cfg in finding_cfgs:
+        if cfg.type != finding_type:
+            continue
+
+        for categorisation in cfg.categorisations:
+            if categorisation.id == severity_id:
+                return categorisation.value
+
+        raise ValueError(
+            f'unknown {severity_id=} for {finding_type=}'
+        )
+
+    raise ValueError(f'no finding cfg for {finding_type=}')
+
+
+async def resolve_component_scope(
+    component_name: str,
+    component_version: str,
+    recursive: bool,
+    component_descriptor_lookup,
+) -> dict[tuple[str, str], list[tuple]]:
+    component_id = ocm.ComponentIdentity(
+        name=component_name,
+        version=component_version,
+    )
+
+    root_descriptor = await component_descriptor_lookup(component_id)
+    if not root_descriptor:
+        raise aiohttp.web.HTTPBadRequest(
+            text=f'could not resolve component descriptor for {component_name}:{component_version}',
+        )
+
+    keys_by_component: dict[tuple[str, str], set[tuple]] = collections.defaultdict(set)
+    queue = [root_descriptor]
+    seen: set[tuple[str, str]] = set()
+
+    while queue:
+        descriptor = queue.pop(0)
+        component = descriptor.component
+        cid = (component.name, component.version)
+
+        if cid in seen:
+            continue
+        seen.add(cid)
+
+        for kind, artefact in _iter_component_artefacts(component=component):
+            keys_by_component[cid].add(_artefact_key_tuple_from_ocm(
+                artefact_kind=kind,
+                artefact=artefact,
+            ))
+
+        if not recursive:
+            continue
+
+        for ref_name, ref_version in _iter_component_references(component=component):
+            ref_id = ocm.ComponentIdentity(name=ref_name, version=ref_version)
+            ref_descriptor = await component_descriptor_lookup(ref_id)
+            if ref_descriptor:
+                queue.append(ref_descriptor)
+
+    return {k: sorted(v) for k, v in keys_by_component.items()}
+
+
+class ArtefactMetadataQueryAttributes(aiohttp.web.View):
+    async def options(self):
+        return aiohttp.web.Response()
+
+    async def get(self):
+        '''
+        ---
+        description:
+          Returns supported query fields for artefact-metadata search, including their types and
+          supported operators. Also returns `defaultSearchFields` used for free-text search.
+        tags:
+        - Artefact metadata
+        produces:
+        - application/json
+        responses:
+          "200":
+            description: OK
+        '''
+        fields = [
+            {'name': 'ocm', 'type': 'string', 'ops': ['eq']},
+
+            {'name': 'type', 'type': 'string', 'ops': ['eq', 'in']},
+            {'name': 'datasource', 'type': 'string', 'ops': ['eq', 'in']},
+            {'name': 'artefact_kind', 'type': 'string', 'ops': ['eq', 'in']},
+
+            {'name': 'artefact.name', 'type': 'string', 'ops': ['eq', 'in']},
+            {'name': 'artefact.version', 'type': 'string', 'ops': ['eq', 'in']},
+            {'name': 'artefact.type', 'type': 'string', 'ops': ['eq', 'in']},
+
+            {'name': 'meta.creation_date', 'type': 'datetime', 'ops': ['range', 'eq']},
+            {'name': 'meta.last_update', 'type': 'datetime', 'ops': ['range', 'eq']},
+
+            {'name': 'data.cve', 'type': 'string', 'ops': ['eq', 'in']},
+            {'name': 'data.package_name', 'type': 'string', 'ops': ['eq', 'in']},
+            {'name': 'data.package_version', 'type': 'string', 'ops': ['eq', 'in']},
+            {'name': 'data.osid.NAME', 'type': 'string', 'ops': ['eq', 'in']},
+            {'name': 'data.severity', 'type': 'string', 'ops': ['cmp', 'eq', 'in']},
+            {'name': 'data.summary', 'type': 'string', 'ops': ['eq']},
+        ]
+
+        default_search_fields = _DEFAULT_SEARCH_FIELDS
+
+        return aiohttp.web.json_response({
+            'fields': fields,
+            'defaultSearchFields': default_search_fields,
+        })
+
+
+class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
+    async def options(self):
+        return aiohttp.web.Response()
+
+    async def post(self):
+        '''
+        ---
+        description:
+          Executes an artefact-metadata search query.
+          Supports criteria types `ocm`, `artefact-metadata`, and `fulltext`.
+          Results are returned in a stable order and can be paged using cursor-based pagination.
+        tags:
+        - Artefacts
+        consumes:
+        - application/json
+        produces:
+        - application/json
+        parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            required:
+            - criteria
+            properties:
+              criteria:
+                type: array
+                description: List of filter criteria (AND across types; OR within same field/attr).
+                items:
+                  type: object
+              limit:
+                type: integer
+                required: false
+                default: 50
+                description: Page size (capped server-side).
+              sort:
+                type: array
+                required: false
+                description: Sort specification.
+                items:
+                  type: object
+              cursor:
+                type: object
+                required: false
+                description: Cursor for next page (seek pagination); must contain all sort fields.
+        responses:
+          "200":
+            description: OK
+          "400":
+            description: Bad Request (invalid criteria / cursor / sort)
+          "401":
+            description: Unauthorized
+        '''
+        body = await self.request.json()
+        db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
+        finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
+
+        req = sm.SearchRequest.from_dict(body)
+
+        page_size = max(1, min(req.limit, 200))  # hard cap per page
+
+        sort = req.sort or [
+            sm.SortSpec(field='meta.creation_date', order=sm.SortOrder.DESC),
+        ]
+
+        if not any(s.field == 'id' for s in sort):
+            sort = [*sort, sm.SortSpec(field='id', order=sort[0].order)]
+
+        if sort and any(s.order != sort[0].order for s in sort):
+            raise aiohttp.web.HTTPBadRequest(text='mixed sort orders are not supported')
+
+        cursor = req.cursor
+
+        component_descriptor_lookup = self.request.app.get(consts.APP_COMPONENT_DESCRIPTOR_LOOKUP)
+
+        scope_by_component: dict[tuple[str, str, bool], dict[tuple[str, str], list[tuple]]] = {}
+
+        ocm_include_preds: list[sa.sql.ClauseElement] = []
+        ocm_exclude_preds: list[sa.sql.ClauseElement] = []
+
+        for criterion in req.criteria:
+            if not isinstance(criterion, sm.OcmCriterion):
+                continue
+
+            comp_name, comp_ver = _split_ocm(criterion.value)
+
+            if not comp_name:
+                raise aiohttp.web.HTTPBadRequest(text='invalid ocm value')
+
+            recursive = criterion.recursive
+
+            if recursive and not comp_ver:
+                raise aiohttp.web.HTTPBadRequest(
+                    text='recursive ocm search requires a versioned component id'
+                )
+
+            if recursive and component_descriptor_lookup is None:
+                raise aiohttp.web.HTTPBadRequest(
+                    text='recursive search is not available: cd lookup is not configured'
+                )
+
+            if comp_ver and component_descriptor_lookup is not None:
+                cache_key = (comp_name, comp_ver, recursive)
+                if cache_key not in scope_by_component:
+                    scope_by_component[cache_key] = await resolve_component_scope(
+                        component_name=comp_name,
+                        component_version=comp_ver,
+                        recursive=recursive,
+                        component_descriptor_lookup=component_descriptor_lookup,
+                    )
+
+                pred = _pred_for_resolved_ocm_scope(
+                    keys_by_component=scope_by_component[cache_key],
+                )
+            else:
+                # versioned OCM queries use resolved scope even if recursive=False,
+                # so rows with missing component_version can still match via artefact fallback
+                pred = _pred_ocm(criterion.value)
+            target = (
+                ocm_exclude_preds
+                if criterion.mode is sm.MatchingMode.EXCLUDE
+                else ocm_include_preds
+            )
+            target.append(pred)
+
+        ocm_where_parts: list[sa.sql.ClauseElement] = []
+        if ocm_include_preds:
+            ocm_where_parts.append(sa.or_(*ocm_include_preds))
+        if ocm_exclude_preds:
+            ocm_where_parts.append(sa.not_(sa.or_(*ocm_exclude_preds)))
+
+        ocm_where = sa.and_(*ocm_where_parts) if ocm_where_parts else sa.true()
+
+        non_ocm_criteria = [c for c in req.criteria if not isinstance(c, sm.OcmCriterion)]
+
+        severity_case = _categorisation_value_case(finding_cfgs)
+
+        selected_finding_type = _single_included_finding_type(non_ocm_criteria)
+
+        other_where = _translate_criteria(
+            criteria=non_ocm_criteria,
+            severity_case=severity_case,
+            selected_finding_type=selected_finding_type,
+            finding_cfgs=finding_cfgs,
+        )
+
+        base_where = sa.and_(ocm_where, other_where)
+        order_by = _translate_sort(sort)
+
+        # overfetch so we can still fill a page after cfg-filtering
+        RAW_BATCH = min(2000, page_size * 10)
+        MAX_ROUNDS = 10
+
+        items: list[dict] = []
+        next_cursor = None
+
+        scan_cursor = cursor
+        done = False
+
+        for _ in range(MAX_ROUNDS):
+            stmt = (
+                sa.select(dm.ArtefactMetaData)
+                .where(base_where)
+                .where(_cursor_clause(sort, scan_cursor))
+                .order_by(*order_by)
+                .limit(RAW_BATCH)
+            )
+
+            result = await db_session.execute(stmt)
+            rows = list(result.scalars().all())
+
+            if not rows:
+                # no more data
+                done = True
+                next_cursor = None
+                break
+
+            # walk rows in order, collect up to limit accepted
+            for obj in rows:
+                dso = du.db_artefact_metadata_row_to_dso((obj,))
+
+                for cfg in finding_cfgs:
+                    if cfg.type == dso.meta.type and not cfg.matches(dso.artefact):
+                        break
+                else:
+                    items.append(util.dict_serialisation(dso))
+                    if len(items) >= page_size:
+                        # next page should continue after LAST RETURNED object
+                        next_cursor = _make_next_cursor(sort, obj)
+                        done = True
+                        break
+
+            if done:
+                break
+
+            # we didn't fill the page yet -> continue scanning after the last scanned DB row
+            scan_cursor = _make_next_cursor(sort, rows[-1])
+
+        # If we hit MAX_ROUNDS without filling page, still return what we have.
+        # next_cursor in that case: continue after last scanned cursor (best effort)
+        if not done and scan_cursor is not None:
+            next_cursor = scan_cursor if items else None
+
+        return aiohttp.web.json_response({
+            'items': items,
+            'nextCursor': next_cursor,
+        })
 
 
 class ArtefactMetadataQuery(aiohttp.web.View):
