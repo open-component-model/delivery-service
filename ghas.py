@@ -93,9 +93,31 @@ def find_token_for_repo_url(
     return github_api.session.auth.token
 
 
+@functools.cache
+def find_token_for_api_url(
+    secret_factory: secret_mgmt.SecretFactory,
+    api_url: str,
+) -> str | None:
+    hostname = util.urlparse(api_url).hostname
+    path_parts = util.urlparse(api_url).path.strip('/').split('/')
+
+    if len(path_parts) < 2:
+        logger.error(f'Cannot determine repo/org from {api_url=}')
+        return None
+
+    org = path_parts[3]
+    repo_url = f'{hostname}/{org}'
+
+    return find_token_for_repo_url(
+        secret_factory=secret_factory,
+        repo_url=repo_url,
+    )
+
+
 def github_api_request(
     url: str,
     secret_factory: secret_mgmt.SecretFactory,
+    token: str | None=None,
 ) -> tuple[list | dict | None, str | None]:
     '''
     Perform a single authenticated GET request to the GitHub API.
@@ -105,21 +127,15 @@ def github_api_request(
     from the Link header, or None if there are no further pages. Both values
     are None if the request fails.
     '''
-    hostname = util.urlparse(url).hostname
-    path_parts = util.urlparse(url).path.strip('/').split('/')
-    if len(path_parts) < 2:
-        logger.error(f'Cannot determine repo/org from URL: {url}')
-        return None, None
+    if not token:
+        token = find_token_for_api_url(
+            secret_factory=secret_factory,
+            api_url=url,
+        )
 
-    org = path_parts[3]
-    repo_url = f'{hostname}/{org}'
-
-    token = find_token_for_repo_url(
-        secret_factory=secret_factory,
-        repo_url=repo_url,
-    )
     if not token:
         return None, None
+
     # setup session with retry configuration
     session = requests.Session()
     retries = urllib3.util.retry.Retry(
@@ -151,10 +167,19 @@ def github_api_request_paginated(
     url: str,
     secret_factory: secret_mgmt.SecretFactory,
 ) -> collections.abc.Iterable[dict]:
-    while url:
-        page_items, url = github_api_request(
-            url=url,
+    next_url = url
+
+    while next_url:
+        # `next_url` might not contain the org-name but only the org-id, hence use default url
+        token = find_token_for_api_url(
             secret_factory=secret_factory,
+            api_url=url,
+        )
+
+        page_items, next_url = github_api_request(
+            url=next_url,
+            secret_factory=secret_factory,
+            token=token,
         )
 
         if page_items:
