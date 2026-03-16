@@ -104,11 +104,11 @@ def patch_jsonpath_into_dict(
 
 
 def template_and_resolve_jsonpath(
-    value: str | bool | list | dict,
+    value: str | bool | list | dict | int,
     value_type: odgm.ValueType,
     substitution_context: dict,
     jsonpaths: dict,
-    default_value: str | bool | list | dict | None=None,
+    default_value: str | bool | list | dict | int | None=None,
 ) -> str | bool | list | dict:
     '''
     Processes provided value according to its type.
@@ -154,6 +154,9 @@ def template_and_resolve_jsonpath(
             raise ValueError(f'do not know how to handle {value_type=}')
 
     elif isinstance(value, bool):
+        return value
+
+    elif isinstance(value, int):
         return value
 
     elif isinstance(value, dict):

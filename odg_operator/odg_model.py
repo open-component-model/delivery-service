@@ -90,13 +90,13 @@ class InstallationOcmReference:
 class ExtensionInstanceValue:
     helm_chart_name: str
     helm_attribute: str
-    value: str | bool | list | dict
+    value: str | bool | list | dict | int
 
 
 @dataclasses.dataclass
 class ValueTemplate(ExtensionInstanceValue):
     value_type: ValueType
-    default: str | bool | list | dict | None = None
+    default: str | bool | list | dict | int | None = None
 
 
 @dataclasses.dataclass
