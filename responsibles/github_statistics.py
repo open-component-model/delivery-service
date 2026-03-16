@@ -368,7 +368,10 @@ def is_candidate_stat(
     '''
     checks given username from stat against positive and negative list.
     '''
-    username = stat['author']['login']
+    if not (author := stat['author']):
+        return False
+
+    username = author['login']
     if username in negative_list:
         return False
 
