@@ -32,3 +32,8 @@ spec:
       backendRefs:
         - name: delivery-service
           port: {{ default 8080 .Values.servicePort }}
+      timeouts:
+        request: 15m
+      retry:
+        codes: [502, 503, 504]
+        attempts: 3
