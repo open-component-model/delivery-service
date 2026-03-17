@@ -162,7 +162,7 @@ def _helm_template(
 
 def create_or_update_resource(
     create_namespaced_resource: collections.abc.Callable,
-    patch_namespaced_resource: collections.abc.Callable,
+    replace_namespaced_resource: collections.abc.Callable,
     data: dict,
     name: str,
     namespace: str,
@@ -187,7 +187,7 @@ def create_or_update_resource(
         kwargs['name'] = name
         if e.status == 409:
             # secret already exists, update instead
-            patch_namespaced_resource(**kwargs)
+            replace_namespaced_resource(**kwargs)
         else:
             raise
 
@@ -418,7 +418,7 @@ def create_or_update_odg(
             custom_api = kubernetes_api.custom_kubernetes_api
             create_or_update_resource(
                 create_namespaced_resource=custom_api.create_namespaced_custom_object,
-                patch_namespaced_resource=custom_api.patch_namespaced_custom_object,
+                replace_namespaced_resource=custom_api.replace_namespaced_custom_object,
                 data=data,
                 name=extension_artefact_name,
                 namespace=odg.namespace,
@@ -445,7 +445,7 @@ def create_or_update_odg(
                 core_api = kubernetes_api.core_kubernetes_api
                 create_or_update_resource(
                     create_namespaced_resource=core_api.create_namespaced_secret,
-                    patch_namespaced_resource=core_api.patch_namespaced_secret,
+                    replace_namespaced_resource=core_api.replace_namespaced_secret,
                     data=secret_body.to_dict(),
                     name=secret_name,
                     namespace=odg.namespace,
