@@ -192,10 +192,12 @@ def create_or_update_resource(
             del kwargs['body'] # `body` kwarg not allowed for GET requests
             resource = get_namespaced_resource(**kwargs)
 
-            if not isinstance(resource, dict):
-                resource = resource.to_dict()
+            if isinstance(resource, dict):
+                resource_version = resource['metadata']['resourceVersion']
+            else:
+                resource_version = resource.to_dict()['metadata']['resource_version']
 
-            data['metadata']['resourceVersion'] = resource['metadata']['resourceVersion']
+            data['metadata']['resourceVersion'] = resource_version
 
             kwargs['body'] = data
             replace_namespaced_resource(**kwargs)
