@@ -163,6 +163,7 @@ def _helm_template(
 def create_or_update_resource(
     create_namespaced_resource: collections.abc.Callable,
     replace_namespaced_resource: collections.abc.Callable,
+    get_namespaced_resource: collections.abc.Callable,
     data: dict,
     name: str,
     namespace: str,
@@ -187,6 +188,16 @@ def create_or_update_resource(
         kwargs['name'] = name
         if e.status == 409:
             # secret already exists, update instead
+            # we need to retrieve the current `.metadata.resourceVersion` for the update first
+            del kwargs['body'] # `body` kwarg not allowed for GET requests
+            resource = get_namespaced_resource(**kwargs)
+
+            if not isinstance(resource, dict):
+                resource = resource.to_dict()
+
+            data['metadata']['resourceVersion'] = resource['metadata']['resourceVersion']
+
+            kwargs['body'] = data
             replace_namespaced_resource(**kwargs)
         else:
             raise
@@ -419,6 +430,7 @@ def create_or_update_odg(
             create_or_update_resource(
                 create_namespaced_resource=custom_api.create_namespaced_custom_object,
                 replace_namespaced_resource=custom_api.replace_namespaced_custom_object,
+                get_namespaced_resource=custom_api.get_namespaced_custom_object,
                 data=data,
                 name=extension_artefact_name,
                 namespace=odg.namespace,
@@ -446,6 +458,7 @@ def create_or_update_odg(
                 create_or_update_resource(
                     create_namespaced_resource=core_api.create_namespaced_secret,
                     replace_namespaced_resource=core_api.replace_namespaced_secret,
+                    get_namespaced_resource=core_api.read_namespaced_secret,
                     data=secret_body.to_dict(),
                     name=secret_name,
                     namespace=odg.namespace,

@@ -17,7 +17,7 @@ rules:
     - 'managedresources'
     verbs:
     - 'create'
-    - 'patch'
+    - 'update'
     - 'list'
     - 'delete'
   - apiGroups:
@@ -26,7 +26,7 @@ rules:
     - 'secrets'
     verbs:
     - 'create'
-    - 'patch'
+    - 'update'
     - 'list'
     - 'delete'
 ---
