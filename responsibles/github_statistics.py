@@ -54,41 +54,45 @@ class ResponsiblesDetectionHeuristicsParameters:
 def sigmoid(x, x0, k):
     import numpy
 
-    y = 1 / (1 + numpy.exp(-k*(x-x0)))
+    y = 1 / (1 + numpy.exp(-k * (x - x0)))
     return y
 
 
 def fit_sigmoid_for_repo_days(
     repo_age_in_days: int,
 ):
-    '''
+    """
     fits a sigmoid function for given upper limit on x axis, considering inital data points.
-    '''
+    """
     import numpy
     import scipy.optimize
 
     # describe expected function
-    xdata = numpy.array([
-        0,
-        repo_age_in_days/4,
-        repo_age_in_days/5*2,
-        repo_age_in_days/2,
-        repo_age_in_days/5*3,
-        repo_age_in_days/4*3,
-        repo_age_in_days,
-    ])
-    ydata = numpy.array([
-        0.01,
-        0.05,
-        0.30,
-        0.50,
-        0.70,
-        0.95,
-        0.99,
-    ])
+    xdata = numpy.array(
+        [
+            0,
+            repo_age_in_days / 4,
+            repo_age_in_days / 5 * 2,
+            repo_age_in_days / 2,
+            repo_age_in_days / 5 * 3,
+            repo_age_in_days / 4 * 3,
+            repo_age_in_days,
+        ]
+    )
+    ydata = numpy.array(
+        [
+            0.01,
+            0.05,
+            0.30,
+            0.50,
+            0.70,
+            0.95,
+            0.99,
+        ]
+    )
 
     # fit sigmoid
-    popt, _ = scipy.optimize.curve_fit(sigmoid, xdata, ydata, p0=[repo_age_in_days/4, 0.001])
+    popt, _ = scipy.optimize.curve_fit(sigmoid, xdata, ydata, p0=[repo_age_in_days / 4, 0.001])
 
     return popt
 
@@ -101,21 +105,21 @@ def weight(
     # current value based on testing
     bias: float = 0.17,
 ) -> float:
-    '''
+    """
     Returns biased weight based on age in range ]0;1[
     `method` can either be "linear" or "sigmoid".
     `bias` is added to each returned weight.
-    '''
+    """
 
     if method == 'linear':
         # greater x -> greater y (higher age == more value), thus 1 - value
-        return 1-(days_delta/repo_age_days) + bias
+        return 1 - (days_delta / repo_age_days) + bias
     elif method == 'sigmoid':
         popt = fit_sigmoid_for_repo_days(
             repo_age_in_days=repo_age_days,
         )
         # greater x -> greater y (higher age == more value), thus 1 - value
-        return (1-sigmoid(days_delta, *popt)) + bias
+        return (1 - sigmoid(days_delta, *popt)) + bias
 
     raise NotImplementedError(f'weight {method=} not supported, choose from "linear" and "sigmoid"')
 
@@ -125,7 +129,7 @@ def n_percentile_with_member_count(
     usernames_values: dict,
     percentile_minimum: int,
 ):
-    '''
+    """
     Recursively calculates the greatest n-th percentile with a certain member count.
     - accepts a sequence of (identifier, number), and a maximum amount of "members", and a minimum
       n for the n-th percentile
@@ -143,7 +147,7 @@ def n_percentile_with_member_count(
         <the n-th percentile>,
         <[identifiers in that percentile]>
     )
-    '''
+    """
     import numpy
 
     first_match = True
@@ -172,7 +176,7 @@ def n_percentile_with_member_count(
             # count would become smaller than target, but percentile minimun not reached
             # reduce count to have a smaller, more accurate determination
             return n_percentile_with_member_count(
-                member_count=member_count-1,
+                member_count=member_count - 1,
                 usernames_values=usernames_values,
                 percentile_minimum=percentile_minimum,
             )
@@ -187,7 +191,7 @@ def global_stats(
     max_responsibles: int,
     percentile_min: int,
 ) -> RepoStats:
-    '''
+    """
     calculates global stats for given repo statistics and stat parameters.
     - determine n-th percentile considering max_responsibles and minimum n
     - apply weight_function for both metrics, commits, and locs
@@ -201,7 +205,7 @@ def global_stats(
     max_responsibles: <int>
         upper limit for amount of responsibles, algo will reduce responsibles until reached
 
-    '''
+    """
     if not repo_stats:
         raise ValueError('not enough commits')
 
@@ -220,22 +224,24 @@ def global_stats(
                 then = int(week['w'])
                 # epoch (s) to days
                 delta = int((now - then) / 60 / 60 / 24)
-                weighted_commit_count += weight(
-                    method=weight_function_identifier,
-                    days_delta=delta,
-                    repo_age_days=repo_age_in_days,
-                ) * week['c']
-        total_weighted_commits.append({
-            'username': r['author']['login'],
-            'commits': weighted_commit_count,
-        })
+                weighted_commit_count += (
+                    weight(
+                        method=weight_function_identifier,
+                        days_delta=delta,
+                        repo_age_days=repo_age_in_days,
+                    )
+                    * week['c']
+                )
+        total_weighted_commits.append(
+            {
+                'username': r['author']['login'],
+                'commits': weighted_commit_count,
+            }
+        )
 
     commit_n, commit_n_percentile, authors_in_commit_n_percentile = n_percentile_with_member_count(
         member_count=max_responsibles,
-        usernames_values={
-            e['username']: e['commits']
-            for e in total_weighted_commits
-        },
+        usernames_values={e['username']: e['commits'] for e in total_weighted_commits},
         percentile_minimum=percentile_min,
     )
 
@@ -249,20 +255,22 @@ def global_stats(
                 # epoch (s) to days
                 delta = int((now - then) / 60 / 60 / 24)
                 loc = week['a'] + week['d']
-                weighted_loc_count += weight(
-                    method=weight_function_identifier,
-                    days_delta=delta,
-                    repo_age_days=repo_age_in_days,
-                ) * loc
-        total_weighted_loc.append({
-            'username': r['author']['login'],
-            'loc': weighted_loc_count,
-        })
+                weighted_loc_count += (
+                    weight(
+                        method=weight_function_identifier,
+                        days_delta=delta,
+                        repo_age_days=repo_age_in_days,
+                    )
+                    * loc
+                )
+        total_weighted_loc.append(
+            {
+                'username': r['author']['login'],
+                'loc': weighted_loc_count,
+            }
+        )
 
-    usernames_values = {
-        e['username']: e['loc']
-        for e in total_weighted_loc
-    }
+    usernames_values = {e['username']: e['loc'] for e in total_weighted_loc}
 
     if not sum(usernames_values.values()):
         # github does not provide LoC statistics for all repositories (e.g. cc-utils)
@@ -291,9 +299,9 @@ def heuristically_determine_responsibles(
     stats: RepoStats,
     max_responsibles: int,
 ) -> tuple[tuple[str], ResponsibleDeterminationConfidence]:
-    '''
+    """
     Return determined responsibles and determination confidence.
-    '''
+    """
     candidates_from_commits_stats = set(stats.authors_in_commit_n_percentile)
     candidates_from_loc_stats = set(stats.authors_in_loc_n_percentile)
 
@@ -324,9 +332,9 @@ def _org_members_from_repo_url(
     gh_api: github3.GitHub,
     repo_url: str,
 ) -> github3.orgs.Organization:
-    '''
+    """
     convenience method to build Organization from url.
-    '''
+    """
 
     if '://' not in repo_url:
         repo_url = 'x://' + repo_url
@@ -336,19 +344,16 @@ def _org_members_from_repo_url(
 
     org = gh_api.organization(org_name)
 
-    return [
-        member.login
-        for member in org.members()
-    ]
+    return [member.login for member in org.members()]
 
 
 def _repo_from_repo_url(
     gh_api: github3.GitHub,
     repo_url: str,
 ) -> github3.repos.repo.ShortRepository:
-    '''
+    """
     convenience method to build ShortRepository from url.
-    '''
+    """
     if '://' not in repo_url:
         repo_url = 'x://' + repo_url
 
@@ -365,9 +370,9 @@ def is_candidate_stat(
     positive_list: list[str],
     negative_list: list[str],
 ) -> bool:
-    '''
+    """
     checks given username from stat against positive and negative list.
-    '''
+    """
     if not (author := stat['author']):
         return False
 
@@ -401,13 +406,13 @@ def user_identifiers_for_responsible(
 
 @cachetools.cached(cachetools.TTLCache(maxsize=200, ttl=60 * 60 * 24))
 def _negative_list() -> list[str]:
-    '''
+    """
     cached wrapper to load negative list from disk
-    '''
+    """
     return util.parse_yaml_file(paths.responsibles_username_negative_list_path)['usernames']
 
 
-@cachetools.cached(cachetools.TTLCache(maxsize=200, ttl=60 * 60 * 24)) # 24h
+@cachetools.cached(cachetools.TTLCache(maxsize=200, ttl=60 * 60 * 24))  # 24h
 def repo_contributor_statistics(
     repo_url: str,
 ) -> list | None:
@@ -465,14 +470,16 @@ def user_identities(
 
     repo_stats = repo_contributor_statistics(repo_url=repo_url)
 
-    repo_stats = list(filter(
-        lambda stat: is_candidate_stat(
-            stat=stat,
-            positive_list=positive_list,
-            negative_list=negative_list,
-        ),
-        repo_stats,
-    ))
+    repo_stats = list(
+        filter(
+            lambda stat: is_candidate_stat(
+                stat=stat,
+                positive_list=positive_list,
+                negative_list=negative_list,
+            ),
+            repo_stats,
+        )
+    )
 
     # e.g. not enough commits
     if not repo_stats:
@@ -499,18 +506,19 @@ def user_identities(
     # suspension status for user(name) requires dedicated github-api call
     # therefore, only consider for responsibles yielded by heuristic
     determined_responsibles = tuple(
-        responsible
-        for responsible in determined_responsibles
-        if not is_suspended(responsible)
+        responsible for responsible in determined_responsibles if not is_suspended(responsible)
     )
 
     return tuple(
         odg.model.UserIdentity(
-            identifiers=list(user_identifiers_for_responsible(
-                username=responsible,
-                repo_url=repo_url,
-                gh_api=gh_api,
-            )) + [meta_origin],
+            identifiers=list(
+                user_identifiers_for_responsible(
+                    username=responsible,
+                    repo_url=repo_url,
+                    gh_api=gh_api,
+                )
+            )
+            + [meta_origin],
         )
         for responsible in determined_responsibles
     )

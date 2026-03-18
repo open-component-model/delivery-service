@@ -41,39 +41,51 @@ def default_secret_type_to_class(secret_type: str) -> object:
     match secret_type:
         case 'aws':
             import secret_mgmt.aws
+
             return secret_mgmt.aws.AWS
         case 'blackduck':
             import secret_mgmt.blackduck
+
             return secret_mgmt.blackduck.BlackDuck
         case 'bdba':
             import secret_mgmt.bdba
+
             return secret_mgmt.bdba.BDBA
         case 'delivery-db':
             import secret_mgmt.delivery_db
+
             return secret_mgmt.delivery_db.DeliveryDB
         case 'github':
             import secret_mgmt.github
+
             return secret_mgmt.github.GitHub
         case 'github-app':
             import secret_mgmt.github
+
             return secret_mgmt.github.GitHubApp
         case 'kubernetes':
             import secret_mgmt.kubernetes
+
             return secret_mgmt.kubernetes.Kubernetes
         case 'ppms':
             import secret_mgmt.ppms
+
             return secret_mgmt.ppms.PPMS
         case 'oauth-cfg':
             import secret_mgmt.oauth_cfg
+
             return secret_mgmt.oauth_cfg.OAuthCfg
         case 'oci-registry':
             import secret_mgmt.oci_registry
+
             return secret_mgmt.oci_registry.OciRegistry
         case 'rbac':
             import secret_mgmt.rbac
+
             return secret_mgmt.rbac.RoleBindings
         case 'signing-cfg':
             import secret_mgmt.signing_cfg
+
             return secret_mgmt.signing_cfg.SigningCfg
         case _:
             return GenericModelElement
@@ -85,10 +97,10 @@ class SecretFactory:
     @staticmethod
     def from_dir(
         secrets_dir: str,
-        secret_type_to_class: collections.abc.Callable[[str], object]=default_secret_type_to_class,
-        type_hooks: dict={}
+        secret_type_to_class: collections.abc.Callable[[str], object] = default_secret_type_to_class,
+        type_hooks: dict = {},
     ) -> typing.Self:
-        '''
+        """
         The referenced `secrets_dir` is expected to have a directory structure where the directories
         are named like the respective secret type and the files within are named like the respective
         secret element name. Within such a file, exactly one secret is expected according to the
@@ -109,7 +121,7 @@ class SecretFactory:
         overwritten to add custom type-to-model-class mappings. Note that passing such a custom
         mapping will _overwrite_ the existing mapping instead of extending it. To be able to use the
         general models as well, those will have to be considered in the custom mapping too.
-        '''
+        """
         secrets_dict: dict[str, dict[str, object]] = {}
 
         for secret_type in os.listdir(secrets_dir):
@@ -160,17 +172,14 @@ class SecretFactory:
 
     def __dir__(self):
         # prepend factory methods (improve REPL-shell experience)
-        yield from [
-            secret_type.replace('-', '_')
-            for secret_type in self.secret_types()
-        ]
+        yield from [secret_type.replace('-', '_') for secret_type in self.secret_types()]
         yield from super().__dir__()
 
     def __getattr__(
         self,
         secret_type: str,
     ):
-        def func(secret_element_name: str | None=None):
+        def func(secret_element_name: str | None = None):
             if secret_element_name:
                 return self.secret_element_value(
                     secret_type=secret_type.replace('_', '-'),

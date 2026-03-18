@@ -32,12 +32,13 @@ class Role:
 
 @dataclasses.dataclass
 class RoleBindings:
-    '''
+    """
     Next to the configured `permissions` and `roles`, there are bultin role bindings which are always
     mixed into the configured ones. If there are naming-collisions, the customly configured role
     bindings take precedence (i.e. it is possible to overwrite the builtin rolebindings by specifying
     role bindings with the same name).
-    '''
+    """
+
     permissions: list[Permission] = dataclasses.field(default_factory=list)
     roles: list[Role] = dataclasses.field(default_factory=list)
 
@@ -49,13 +50,15 @@ class RoleBindings:
             dacite.from_dict(
                 data_class=Permission,
                 data=permission_raw,
-            ) for permission_raw in builtin_role_bindings_raw.get('permissions', [])
+            )
+            for permission_raw in builtin_role_bindings_raw.get('permissions', [])
         ]
         builtin_roles = [
             dacite.from_dict(
                 data_class=Role,
                 data=role_raw,
-            ) for role_raw in builtin_role_bindings_raw.get('roles', [])
+            )
+            for role_raw in builtin_role_bindings_raw.get('roles', [])
         ]
 
         for builtin_permission in builtin_permissions:
@@ -77,7 +80,7 @@ class RoleBindings:
     def find_permission(
         self,
         name: str,
-        absent_ok: bool=False,
+        absent_ok: bool = False,
     ) -> Permission | None:
         for permission in self.permissions:
             if permission.name == name:
@@ -92,7 +95,4 @@ class RoleBindings:
         self,
         names: collections.abc.Sequence[str],
     ) -> collections.abc.Generator[Role, None, None]:
-        return (
-            role for role in self.roles
-            if role.name in names
-        )
+        return (role for role in self.roles if role.name in names)

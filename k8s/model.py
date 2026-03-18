@@ -94,7 +94,7 @@ class ContainerStateWaiting:
 @dataclasses.dataclass(frozen=True)
 class ContainerState:
     running: ContainerStateRunning
-    terminated: ContainerStateTerminated#
+    terminated: ContainerStateTerminated  #
     waiting: ContainerStateWaiting
 
     @staticmethod

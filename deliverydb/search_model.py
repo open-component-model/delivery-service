@@ -29,12 +29,13 @@ class SortOrder(enum.StrEnum):
 
 @dataclasses.dataclass
 class Criterion:
-    '''
+    """
     base class for all search criteria
 
     not intended to be instantiated directly; use one of the concrete
     criterion subclasses instead
-    '''
+    """
+
     mode: MatchingMode = dataclasses.field(default=MatchingMode.INCLUDE, kw_only=True)
 
     @staticmethod
@@ -74,7 +75,7 @@ class OcmCriterion(Criterion):
 
 @dataclasses.dataclass
 class ArtefactMetadataCriterion(Criterion):
-    '''
+    """
     filter criterion for a single artefact-metadata attribute.
 
     fields:
@@ -100,7 +101,8 @@ class ArtefactMetadataCriterion(Criterion):
       - op=CMP:
           - cmp: comparison operator string (e.g. ">=")
           - value: right-hand side value used for the comparison.
-    '''
+    """
+
     attr: str
     op: SearchQueryOperator = SearchQueryOperator.EQ
 

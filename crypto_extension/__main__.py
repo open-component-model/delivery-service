@@ -143,18 +143,22 @@ def scan(
         included_asset_types=mapping.included_asset_types,
     )
 
-    findings = list(crypto_extension.validate.iter_findings_for_standards(
-        crypto_assets=crypto_assets,
-        standards=mapping.standards,
-        crypto_finding_cfg=crypto_finding_cfg,
-    ))
+    findings = list(
+        crypto_extension.validate.iter_findings_for_standards(
+            crypto_assets=crypto_assets,
+            standards=mapping.standards,
+            crypto_finding_cfg=crypto_finding_cfg,
+        )
+    )
 
-    artefact_metadata = list(as_artefact_metadata(
-        artefact=artefact,
-        crypto_assets=crypto_assets,
-        findings=findings,
-        crypto_finding_cfg=crypto_finding_cfg,
-    ))
+    artefact_metadata = list(
+        as_artefact_metadata(
+            artefact=artefact,
+            crypto_assets=crypto_assets,
+            findings=findings,
+            crypto_finding_cfg=crypto_finding_cfg,
+        )
+    )
 
     existing_artefact_metadata = (
         odg.model.ArtefactMetadata.from_dict(raw)
@@ -164,7 +168,8 @@ def scan(
                 odg.model.Datatype.CRYPTO_ASSET,
                 odg.model.Datatype.CRYPTO_FINDING,
             ),
-        ) if raw['meta']['datasource'] == odg.model.Datasource.CRYPTO
+        )
+        if raw['meta']['datasource'] == odg.model.Datasource.CRYPTO
     )
 
     stale_artefact_metadata = []
@@ -188,11 +193,11 @@ def scan(
 
 
 def main():
-    '''
+    """
     Note: Currently (as of 2024-12-05), CycloneDX Python lib's model class is not feature complete,
     hence deserialisation does not work. Instead, an own model class will be used which only supports
     properties which are required by this extension (see odg.model.CryptoAsset).
-    '''
+    """
     parsed_arguments = odg.util.parse_args()
 
     if not (findings_cfg_path := parsed_arguments.findings_cfg_path):

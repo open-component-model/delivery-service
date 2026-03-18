@@ -71,15 +71,15 @@ class SharedCfgOCMReference(SharedCfgReference):
 
 
 def shared_cfg_lookup(
-    secret_factory: secret_mgmt.SecretFactory | None=None,
-    github_repo_lookup: collections.abc.Callable[[str], github3.repos.Repository] | None=None,
-    oci_client: oci.client.Client | None=None,
-    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById | None=None,
+    secret_factory: secret_mgmt.SecretFactory | None = None,
+    github_repo_lookup: collections.abc.Callable[[str], github3.repos.Repository] | None = None,
+    oci_client: oci.client.Client | None = None,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById | None = None,
 ) -> collections.abc.Callable[[SharedCfgReference], dict]:
-    '''
+    """
     Creates a shared-cfg-lookup. Ideally, this lookup should be created at application launch, and
     passed to consumers.
-    '''
+    """
     if not secret_factory:
         secret_factory = ctx_util.secret_factory()
 
@@ -152,7 +152,7 @@ def shared_cfg_lookup(
         blob = oci_client.blob(
             image_reference=component.current_ocm_repo.component_oci_ref(component),
             digest=digest,
-            stream=False, # cfg-files are typically small, do not bother with streaming
+            stream=False,  # cfg-files are typically small, do not bother with streaming
         )
 
         return yaml.safe_load(io.BytesIO(blob.content))

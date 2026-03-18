@@ -149,10 +149,10 @@ class ExtensionInstance:
         component_descriptor_lookup,
         oci_client: oci.client.Client,
     ) -> 'ExtensionInstance':
-        '''
+        """
         convenient factory for a single extension instance.
         will raise ValueError if ocm references cannot be resolved.
-        '''
+        """
         extension_installation_resources = []
         installation_values = []
 
@@ -172,10 +172,12 @@ class ExtensionInstance:
                 ),
             )
 
-            extension_installation_resources.append(ExtensionInstallationArtefact(
-                helm_chart_name=ocm_ref.helm_chart_name,
-                artefact=resource_node.resource,
-            ))
+            extension_installation_resources.append(
+                ExtensionInstallationArtefact(
+                    helm_chart_name=ocm_ref.helm_chart_name,
+                    artefact=resource_node.resource,
+                )
+            )
 
             for mapping in ocm_ref.mappings:
                 mapping: OcmArtefactReference
@@ -190,7 +192,7 @@ class ExtensionInstance:
                 )
 
                 image_mappings = oci_client.blob(
-                    image_reference=resource_node.component.current_ocm_repo.component_version_oci_ref( # noqa: E501
+                    image_reference=resource_node.component.current_ocm_repo.component_version_oci_ref(  # noqa: E501
                         name=resource_node.component.name,
                         version=resource_node.component.version,
                     ),
@@ -199,18 +201,22 @@ class ExtensionInstance:
                     stream=False,
                 ).json()['imageMapping']
 
-                image_mappings = dict(odgu.resolve_image_mappings(
-                    image_mappings=image_mappings,
-                    component=component,
-                    component_descriptor_lookup=component_descriptor_lookup,
-                ))
+                image_mappings = dict(
+                    odgu.resolve_image_mappings(
+                        image_mappings=image_mappings,
+                        component=component,
+                        component_descriptor_lookup=component_descriptor_lookup,
+                    )
+                )
 
                 for path, value in image_mappings.items():
-                    installation_values.append(ExtensionInstanceValue(
-                        helm_chart_name=mapping.name,
-                        helm_attribute=path,
-                        value=value,
-                    ))
+                    installation_values.append(
+                        ExtensionInstanceValue(
+                            helm_chart_name=mapping.name,
+                            helm_attribute=path,
+                            value=value,
+                        )
+                    )
 
         return ExtensionInstance(
             name=extension_definition.name,

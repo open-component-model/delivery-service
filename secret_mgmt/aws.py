@@ -23,7 +23,7 @@ class AWS:
 
 def find_cfg(
     secret_factory: secret_mgmt.SecretFactory,
-    secret_name: str | None=None,
+    secret_name: str | None = None,
 ) -> AWS | None:
     if secret_name:
         return secret_factory.aws(secret_name)

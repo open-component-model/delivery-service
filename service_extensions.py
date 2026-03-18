@@ -41,7 +41,7 @@ class ContainerStatuses(aiohttp.web.View):
     required_features = (features.FeatureClusterAccess,)
 
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Service extensions
@@ -59,7 +59,7 @@ class ContainerStatuses(aiohttp.web.View):
               type: array
               items:
                 type: object
-        '''
+        """
         params = self.request.rel_url.query
 
         extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
@@ -70,11 +70,13 @@ class ContainerStatuses(aiohttp.web.View):
         )
 
         return aiohttp.web.json_response(
-            data=tuple(iter_container_statuses(
-                service_filter=service_filter,
-                namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
-                kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-            )),
+            data=tuple(
+                iter_container_statuses(
+                    service_filter=service_filter,
+                    namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
+                    kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
+                )
+            ),
             dumps=util.dict_to_json_factory,
         )
 
@@ -96,8 +98,8 @@ def iter_log_collections(
         spec = log_collection.get('spec')
 
         if not (
-            spec.get('service') in service_filter and
-            logging._nameToLevel[spec.get('logLevel').upper()] == log_level
+            spec.get('service') in service_filter
+            and logging._nameToLevel[spec.get('logLevel').upper()] == log_level
         ):
             continue
 
@@ -108,7 +110,7 @@ class LogCollections(aiohttp.web.View):
     required_features = (features.FeatureClusterAccess,)
 
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Service extensions
@@ -135,7 +137,7 @@ class LogCollections(aiohttp.web.View):
               type: array
               items:
                 type: object
-        '''
+        """
         params = self.request.rel_url.query
 
         extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
@@ -149,18 +151,20 @@ class LogCollections(aiohttp.web.View):
         log_level = logging._nameToLevel[log_level.upper()]
 
         return aiohttp.web.json_response(
-            data=tuple(iter_log_collections(
-                service_filter=service_filter,
-                log_level=log_level,
-                namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
-                kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-            )),
+            data=tuple(
+                iter_log_collections(
+                    service_filter=service_filter,
+                    log_level=log_level,
+                    namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
+                    kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
+                )
+            ),
         )
 
 
 class ServiceExtensions(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Service extensions
@@ -173,7 +177,7 @@ class ServiceExtensions(aiohttp.web.View):
               type: array
               items:
                 type: string
-        '''
+        """
         extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
 
         return aiohttp.web.json_response(
@@ -219,7 +223,7 @@ class BacklogItems(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Service extensions
@@ -237,21 +241,23 @@ class BacklogItems(aiohttp.web.View):
               type: array
               items:
                 $ref: '#/definitions/BacklogItem'
-        '''
+        """
         params = self.request.rel_url.query
 
         service = util.param(params, 'service', required=True)
 
         return aiohttp.web.json_response(
-            data=tuple(iter_backlog_items(
-                service=service,
-                namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
-                kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-            )),
+            data=tuple(
+                iter_backlog_items(
+                    service=service,
+                    namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
+                    kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
+                )
+            ),
         )
 
     async def put(self):
-        '''
+        """
         ---
         description:
           Update spec of backlog item with the specified name. If the backlog item does not exist
@@ -276,7 +282,7 @@ class BacklogItems(aiohttp.web.View):
         responses:
           "204":
             description: Successful operation.
-        '''
+        """
         params = self.request.rel_url.query
 
         name = util.param(params, 'name', required=True)
@@ -296,7 +302,7 @@ class BacklogItems(aiohttp.web.View):
         )
 
     async def post(self):
-        '''
+        """
         ---
         description:
           Create backlog items for the specified service (e.g. bdba) and the supplied artefacts.
@@ -333,7 +339,7 @@ class BacklogItems(aiohttp.web.View):
         responses:
           "201":
             description: Successful operation.
-        '''
+        """
         params = self.request.rel_url.query
 
         service = util.param(params, 'service', required=True)
@@ -366,7 +372,7 @@ class BacklogItems(aiohttp.web.View):
         )
 
     async def delete(self):
-        '''
+        """
         ---
         tags:
         - Service extensions
@@ -381,7 +387,7 @@ class BacklogItems(aiohttp.web.View):
         responses:
           "204":
             description: Successful operation.
-        '''
+        """
         params = self.request.rel_url.query
 
         names = params.getall('name')
@@ -402,7 +408,7 @@ class BacklogItems(aiohttp.web.View):
 def iter_runtime_artefacts(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    labels: dict[str, str]={},
+    labels: dict[str, str] = {},
 ) -> collections.abc.Generator[dict, None, None]:
     label_selector = k8s.util.create_label_selector(labels=labels)
 
@@ -434,7 +440,7 @@ class RuntimeArtefacts(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def get(self):
-        '''
+        """
         ---
         description:
           Retrieve existing runtime artefacts, optionally pre-filtered using the `label_selector`.
@@ -457,24 +463,24 @@ class RuntimeArtefacts(aiohttp.web.View):
               type: array
               items:
                 $ref: '#/definitions/RuntimeArtefact'
-        '''
+        """
         params = self.request.rel_url.query
 
         labels_raw = params.getall('label', default=[])
-        labels = dict([
-            label_raw.split(':') for label_raw in labels_raw
-        ])
+        labels = dict([label_raw.split(':') for label_raw in labels_raw])
 
         return aiohttp.web.json_response(
-            data=tuple(iter_runtime_artefacts(
-                namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
-                kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-                labels=labels,
-            )),
+            data=tuple(
+                iter_runtime_artefacts(
+                    namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
+                    kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
+                    labels=labels,
+                )
+            ),
         )
 
     async def put(self):
-        '''
+        """
         ---
         description: Create a runtime artefact with the specified spec.
         tags:
@@ -502,13 +508,11 @@ class RuntimeArtefacts(aiohttp.web.View):
         responses:
           "201":
             description: Successful operation.
-        '''
+        """
         params = self.request.rel_url.query
 
         labels_raw = params.getall('label', default=[])
-        labels = dict([
-            label_raw.split(':') for label_raw in labels_raw
-        ])
+        labels = dict([label_raw.split(':') for label_raw in labels_raw])
 
         for runtime_artefact_raw in (await self.request.json()).get('artefacts'):
             runtime_artefact = dacite.from_dict(
@@ -531,7 +535,7 @@ class RuntimeArtefacts(aiohttp.web.View):
         )
 
     async def delete(self):
-        '''
+        """
         ---
         description: Delete one or more runtime artefacts by their kubernetes resource `name`.
         tags:
@@ -547,7 +551,7 @@ class RuntimeArtefacts(aiohttp.web.View):
         responses:
           "204":
             description: Successful operation.
-        '''
+        """
         params = self.request.rel_url.query
 
         names = params.getall('name')

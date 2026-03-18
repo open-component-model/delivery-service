@@ -39,9 +39,9 @@ def flatten_codeowners(
     None,
     None,
 ]:
-    '''
+    """
     yield Username and Emails from codeowner_entries, teams are resolved to Usernames recursively
-    '''
+    """
     for codeowner_entry in codeowner_entries:
         if isinstance(codeowner_entry, github.codeowners.EmailAddress):
             yield codeowner_entry
@@ -104,10 +104,12 @@ def user_identity_from_github_username_or_email(
 ) -> odg.model.UserIdentity | None:
     if isinstance(username_or_email, github.codeowners.EmailAddress):
         return odg.model.UserIdentity(
-            identifiers=[odg.model.EmailAddress(
-                source=repo.html_url,
-                email=username_or_email,
-            )],
+            identifiers=[
+                odg.model.EmailAddress(
+                    source=repo.html_url,
+                    email=username_or_email,
+                )
+            ],
         )
     try:
         gh_user = gh_api.user(username=username_or_email)
@@ -126,10 +128,10 @@ def user_identities_from_codeowners(
     gh_api: github3.GitHub,
     repo: github3.repos.repo.Repository,
 ) -> collections.abc.Generator[odg.model.UserIdentity, None, None]:
-    '''
+    """
     Generator of `odg.model.UserIdentity` from username and email contexts,
     removing duplicate email addresses
-    '''
+    """
     usernames: set[github.codeowners.Username] = set()
     emails: set[github.codeowners.EmailAddress] = set()
 
@@ -189,16 +191,18 @@ def user_identities_from_github_repo(
         gh_api=github_api,
     )
 
-    return tuple(user_identities_from_codeowners(
-        flattend_codeowners=flattend_codeowners,
-        gh_api=github_api,
-        repo=github_repo,
-    ))
+    return tuple(
+        user_identities_from_codeowners(
+            flattend_codeowners=flattend_codeowners,
+            gh_api=github_api,
+            repo=github_repo,
+        )
+    )
 
 
 def user_identities_from_source(
     source: ocm.Source | None,
-    fallback_to_codeowners: bool=False,
+    fallback_to_codeowners: bool = False,
     heuristic_parameters=rg.ResponsiblesDetectionHeuristicsParameters(
         weight_function_identifier='sigmoid',
         max_responsibles=3,
@@ -206,12 +210,12 @@ def user_identities_from_source(
     ),
     github_api_lookup=None,
 ) -> tuple[odg.model.UserIdentity, ...] | None:
-    '''
+    """
     Returns user identities retrieved via GitHub contributor statistics (or, optionally via
     codeowners). If the GitHub statistics are still pending, `None` is returned which means the
     caller should retry at a later point in time. Otherwise, if no user identities can be retrieved
     (e.g. because of missing credentials), an empty iterable is returned instead.
-    '''
+    """
     if not source:
         return ()
 
@@ -254,13 +258,13 @@ def user_identifiers_from_responsible(
     responsible: responsibles.labels.Responsible,
     source: ocm.Source,
 ) -> collections.abc.Generator[odg.model.UserIdentifierBase, None, None]:
-    '''
+    """
     Returns a generator yielding one UserIdentifier per human user that is specified by the
     Responsible-object.
 
     Usually, the returned generator will have one Identifier. For GitHub-Teams it may contain more,
     however no more than one Identifier per User in the team.
-    '''
+    """
     match responsible:
         # Note: For the first two cases, github_hostname seems to be optional. If it isn't
         # set we use the main repository of the passed source to set it.
@@ -371,6 +375,6 @@ def user_identities_from_responsibles_label(
                         odg.model.MetaOrigin(
                             source=f'{component_identity.name}:{component_identity.version}',
                             origin_type='component_descriptor',
-                        )
+                        ),
                     ],
                 )

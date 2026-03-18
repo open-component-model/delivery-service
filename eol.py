@@ -5,11 +5,11 @@ import util
 
 
 def normalise_os_id(os_id: str) -> str:
-    '''
+    """
     Some product identifiers differ from the ones we know.
     This function translates known difference from "our" identifier to the
     one EOL API can process.
-    '''
+    """
 
     if os_id == 'amzn':
         return 'amazon-linux'
@@ -52,16 +52,17 @@ class EolRoutes:
 
 
 class EolClient:
-    '''
+    """
     API client for https://endoflife.date/docs/api.
-    '''
+    """
+
     def __init__(
         self,
         routes: EolRoutes = EolRoutes(),
     ):
         self._routes = routes
 
-    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=1)) # 24h
+    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=1))  # 24h
     def all_products(self) -> list[str]:
         res = requests.get(
             self._routes.all_products(),
@@ -70,16 +71,16 @@ class EolClient:
         res.raise_for_status()
         return res.json()
 
-    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200)) # 24h
+    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200))  # 24h
     def cycles(
         self,
         product: str,
         absent_ok: bool = False,
     ) -> list[dict] | None:
-        '''
+        """
         Returns release_cycles as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
-        '''
+        """
         res = requests.get(
             self._routes.cycles(product),
             timeout=(4, 31),
@@ -94,17 +95,17 @@ class EolClient:
             raise
         return res.json()
 
-    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200)) # 24h
+    @caching.cached(caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=200))  # 24h
     def cycle(
         self,
         product: str,
         cycle: str,
         absent_ok: bool = False,
     ) -> dict | None:
-        '''
+        """
         Returns single release_cycle as described here https://endoflife.date/docs/api.
         If `absent_ok`, HTTP 404 returns `None`.
-        '''
+        """
         res = requests.get(
             self._routes.cycle(cycle, product),
             timeout=(4, 31),

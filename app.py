@@ -58,10 +58,10 @@ def parse_args():
     )
     parser.add_argument(
         '--kubeconfig',
-        help='''
+        help="""
             specify kubernetes cluster to interact with extensions (and logs); if both
             `k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence
-        ''',
+        """,
     )
     parser.add_argument(
         '--k8s-namespace',
@@ -73,14 +73,11 @@ def parse_args():
 
 def get_base_url(
     is_productive: bool,
-    kubernetes_api: k8s.util.KubernetesApi | None=None,
-    namespace: str | None=None,
-    port: int | None=None,
+    kubernetes_api: k8s.util.KubernetesApi | None = None,
+    namespace: str | None = None,
+    port: int | None = None,
 ) -> str:
-    if (
-        not is_productive
-        or not kubernetes_api
-    ):
+    if not is_productive or not kubernetes_api:
         return f'http://localhost:{port}'
 
     ingress = kubernetes_api.networking_kubernetes_api.read_namespaced_ingress(
@@ -191,7 +188,7 @@ def add_app_context_vars(
 @middleware.auth.noauth
 class Ready(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         description: This endpoint allows to test that the service is up and running.
         tags:
@@ -199,7 +196,7 @@ class Ready(aiohttp.web.View):
         responses:
           "200":
             description: Service is up and running
-        '''
+        """
         return aiohttp.web.Response()
 
 
@@ -374,7 +371,7 @@ def add_routes(
 
     app.router.add_view(
         path='/blob',
-        handler=blobstore.blob.Blob
+        handler=blobstore.blob.Blob,
     )
     return app
 
@@ -399,19 +396,17 @@ async def initialise_app():
         middlewares=middlewares,
     )
 
-    if (available_features := tuple(
-        f for f in features.feature_cfgs
-        if f.state is features.FeatureStates.AVAILABLE
-    )):
+    if available_features := tuple(
+        f for f in features.feature_cfgs if f.state is features.FeatureStates.AVAILABLE
+    ):
         logger.info(
             f'The following feature{"s are" if len(available_features) != 1 else " is"} '
             f'active: {", ".join(sorted(f.name for f in available_features))}'
         )
 
-    if (unavailable_features := tuple(
-        f for f in features.feature_cfgs
-        if f.state is features.FeatureStates.UNAVAILABLE
-    )):
+    if unavailable_features := tuple(
+        f for f in features.feature_cfgs if f.state is features.FeatureStates.UNAVAILABLE
+    ):
         logger.info(
             f'The following feature{"s are" if len(unavailable_features) != 1 else " is"} '
             f'inactive: {", ".join(sorted(f.name for f in unavailable_features))}'
@@ -420,7 +415,7 @@ async def initialise_app():
 
     app = aiohttp.web.Application(
         middlewares=middlewares,
-        client_max_size=0, # max request body size is already configured via ingress
+        client_max_size=0,  # max request body size is already configured via ingress
     )
 
     app = middleware.prometheus.add_prometheus_middleware(app=app)

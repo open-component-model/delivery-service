@@ -44,7 +44,7 @@ class Arguments:
     KUBECONFIG = {
         'name': '--kubeconfig',
         'help': 'specify kubernetes cluster to interact with extensions (and logs); if both '
-                '`k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence',
+        '`k8s-cfg-name` and `kubeconfig` are set, `k8s-cfg-name` takes precedence',
     }
     K8S_NAMESPACE = {
         'name': '--k8s-namespace',
@@ -62,7 +62,7 @@ class Arguments:
     DELIVERY_SERVICE_URL = {
         'name': '--delivery-service-url',
         'help': 'specify the url of the delivery service to use instead of the one configured in '
-                'the respective extensions configuration',
+        'the respective extensions configuration',
     }
     CACHE_DIR = {
         'name': '--cache-dir',
@@ -82,7 +82,7 @@ scan_extension_arguments = [
 
 
 def parse_args(
-    arguments: collections.abc.Iterable[dict]=scan_extension_arguments,
+    arguments: collections.abc.Iterable[dict] = scan_extension_arguments,
 ):
     parser = argparse.ArgumentParser()
 
@@ -97,7 +97,7 @@ def parse_args(
 
 def kubernetes_api(
     parsed_arguments: argparse.Namespace,
-    secret_factory: secret_mgmt.SecretFactory | None=None,
+    secret_factory: secret_mgmt.SecretFactory | None = None,
 ) -> k8s.util.KubernetesApi:
     if not parsed_arguments.k8s_cfg_name:
         return k8s.util.kubernetes_api(kubeconfig_path=parsed_arguments.kubeconfig)
@@ -125,17 +125,20 @@ def handle_termination_signal(*args):
 def process_backlog_items(
     parsed_arguments: argparse.Namespace,
     service: odg.extensions_cfg.Services,
-    callback: collections.abc.Callable[[
-        odg.model.ComponentArtefactId,
-        object, # extension_cfg
-        cnudie.retrieve.ComponentDescriptorLookupById,
-        delivery.client.DeliveryServiceClient | None,
-        oci.client.Client,
-        secret_mgmt.SecretFactory,
-    ], None],
-    local_debug_artefact: odg.model.ComponentArtefactId | dict | None=None,
+    callback: collections.abc.Callable[
+        [
+            odg.model.ComponentArtefactId,
+            object,  # extension_cfg
+            cnudie.retrieve.ComponentDescriptorLookupById,
+            delivery.client.DeliveryServiceClient | None,
+            oci.client.Client,
+            secret_mgmt.SecretFactory,
+        ],
+        None,
+    ],
+    local_debug_artefact: odg.model.ComponentArtefactId | dict | None = None,
 ):
-    '''
+    """
     Infinitely process backlog items until `SIGTERM` or `SIGINT` signal is retrieved, then try to
     finish processing of current backlog item. Processing is done by the passed-in `callback`, which
     pre-fills the following keyword-arguments for convenience:
@@ -156,7 +159,7 @@ def process_backlog_items(
     If a `local_debug_artefact` is passed, the interaction with backlog items from a Kubernetes
     cluster will be shortcut and instead the passed-in artefact will be used for a dummy backlog
     item. This is useful for local development scenarios.
-    '''
+    """
     if not local_debug_artefact:
         signal.signal(signal.SIGTERM, handle_termination_signal)
         signal.signal(signal.SIGINT, handle_termination_signal)

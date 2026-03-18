@@ -42,7 +42,7 @@ def upload_version_hints(
         # hints and thus possible version overrides exist by retrieving scan result again
         scan_result = bdba_client.wait_for_scan_result(
             product_id=scan_result.product_id,
-            polling_interval_seconds=15, # re-scanning usually don't take a minute
+            polling_interval_seconds=15,  # re-scanning usually don't take a minute
         )
 
     return scan_result

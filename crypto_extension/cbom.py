@@ -22,15 +22,15 @@ own_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 def create_cbom(
-    image: str | None=None,
-    dir: str | None=None,
-    sbom_path: str | None=None,
+    image: str | None = None,
+    dir: str | None = None,
+    sbom_path: str | None = None,
 ) -> dict:
-    '''
+    """
     Uses `cbomkit-theia` (https://github.com/IBM/cbomkit-theia) to create a CBOM document for the
     provided `image` OR local `dir`. If a path to a SBOM document is specified, the resulting CBOM
     will be an enriched version of this SBOM, otherwise it will be created from-scratch.
-    '''
+    """
     if not (bool(image) ^ bool(dir)):
         raise ValueError(f'exactly one of {image=} and {dir=} must be set')
 
@@ -50,7 +50,7 @@ def create_cbom(
     if sbom_path:
         cbom_cmd.extend(['--bom', sbom_path])
 
-    logger.info(f'run cmd "{' '.join(cbom_cmd)}"')
+    logger.info(f'run cmd "{" ".join(cbom_cmd)}"')
     try:
         cbom_raw = subprocess.run(cbom_cmd, check=True, capture_output=True, text=True).stdout
     except subprocess.CalledProcessError as e:
@@ -68,10 +68,10 @@ def find_cbom_or_create(
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
 ) -> dict:
-    '''
+    """
     Looks up an existing CBOM document (to be implemented once it is aligned on target picture) or
     creates a CBOM ad-hoc using `syft` and `cbomkit-theia`.
-    '''
+    """
     if access.type is ocm.AccessType.OCI_REGISTRY:
         oci_secret = secret_mgmt.oci_registry.find_cfg(
             secret_factory=secret_factory,

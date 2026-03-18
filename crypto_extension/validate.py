@@ -33,9 +33,9 @@ class Requirement:
 def iter_unmet_requirements(
     requirements: collections.abc.Iterable[typing.Self],
 ) -> collections.abc.Generator[typing.Self, None, None]:
-    '''
+    """
     Returns the requirements for which the actual value does not match the required one.
-    '''
+    """
     for requirement in requirements:
         if isinstance(requirement.required_value, enum.Enum):
             if requirement.actual_value is requirement.required_value:
@@ -47,9 +47,8 @@ def iter_unmet_requirements(
             if requirement.actual_value in requirement.required_value:
                 continue
         elif isinstance(requirement.required_value, cc.MinMaxEnumProperties):
-            if (
-                isinstance(requirement.actual_value, int)
-                and requirement.required_value.check_value(requirement.actual_value)
+            if isinstance(requirement.actual_value, int) and requirement.required_value.check_value(
+                requirement.actual_value
             ):
                 continue
         else:
@@ -76,14 +75,15 @@ def validate_symmetric_algorithm(
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
 ) -> odg.model.CryptoFinding | None:
-    '''
+    """
     Validates the provided symmetric algorithm (identified via its `algorithm_name` and `key_length`)
     against the allowed properties for symmetric algorithms defined in the `standard`. Therefore, it
     checks for a definition with a matching algorithm name, and in case it is found, checks if the
     given `key_length` is actually allowed for the detected algorithm. If either no matching
     algorithm is found, or it is found but the `key_length` is not sufficient, a finding with the
     rating `not-compliant` will be created.
-    '''
+    """
+
     def check_unmet_requirements(
         algorithm_name: str,
         key_length: int | str,
@@ -109,9 +109,8 @@ def validate_symmetric_algorithm(
 
                 unmet_requirements = list(iter_unmet_requirements(all_requirements))
 
-                if (
-                    best_unmet_requirements is None
-                    or len(unmet_requirements) < len(best_unmet_requirements)
+                if best_unmet_requirements is None or len(unmet_requirements) < len(
+                    best_unmet_requirements
                 ):
                     # store those requirements which are the closest to be fulfilled for reporting
                     best_unmet_requirements = unmet_requirements
@@ -133,10 +132,12 @@ def validate_symmetric_algorithm(
     else:
         reason = f'There is no supported algorithm matching the given name "{algorithm_name}".'
 
-    if not (categorisation := odg.findings.categorise_finding(
-        finding_cfg=crypto_finding_cfg,
-        finding_property=FindingRatings.NOT_COMPLIANT,
-    )):
+    if not (
+        categorisation := odg.findings.categorise_finding(
+            finding_cfg=crypto_finding_cfg,
+            finding_property=FindingRatings.NOT_COMPLIANT,
+        )
+    ):
         return
 
     return odg.model.CryptoFinding(
@@ -158,14 +159,15 @@ def validate_asymmetric_algorithm(
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
 ) -> odg.model.CryptoFinding | None:
-    '''
+    """
     Validates the provided asymmetric algorithm (identified via its `algorithm_name` and
     `key_length`/`curve`) against the allowed properties for asymmetric algorithms defined in the
     `standard`. Therefore, it checks for a definition with a matching algorithm name, and in case it
     is found, checks if the given `key_length` or `curve` is actually allowed for the detected
     algorithm. If either no matching algorithm is found, or it is found but the `key_length` or
     `curve` is not sufficient, a finding with the rating `not-compliant` will be created.
-    '''
+    """
+
     def check_unmet_requirements(
         algorithm_name: str,
         key_length: int | str,
@@ -182,6 +184,7 @@ def validate_asymmetric_algorithm(
             name_matches = True
 
             for asymmetric_algorithm_property in asymmetric_algorithm_definition.properties:
+
                 def iter_requirements() -> collections.abc.Generator[Requirement, None, None]:
                     if asymmetric_algorithm_property.curves:
                         yield Requirement(
@@ -199,9 +202,8 @@ def validate_asymmetric_algorithm(
                 all_requirements = iter_requirements()
                 unmet_requirements = list(iter_unmet_requirements(all_requirements))
 
-                if (
-                    best_unmet_requirements is None
-                    or len(unmet_requirements) < len(best_unmet_requirements)
+                if best_unmet_requirements is None or len(unmet_requirements) < len(
+                    best_unmet_requirements
                 ):
                     # store those requirements which are the closest to be fulfilled for reporting
                     best_unmet_requirements = unmet_requirements
@@ -224,10 +226,12 @@ def validate_asymmetric_algorithm(
     else:
         reason = f'There is no supported algorithm matching the given name "{algorithm_name}".'
 
-    if not (categorisation := odg.findings.categorise_finding(
-        finding_cfg=crypto_finding_cfg,
-        finding_property=FindingRatings.NOT_COMPLIANT,
-    )):
+    if not (
+        categorisation := odg.findings.categorise_finding(
+            finding_cfg=crypto_finding_cfg,
+            finding_property=FindingRatings.NOT_COMPLIANT,
+        )
+    ):
         return
 
     return odg.model.CryptoFinding(
@@ -248,14 +252,15 @@ def validate_hash_function(
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
 ) -> odg.model.CryptoFinding | None:
-    '''
+    """
     Validates the provided hash function (identified via its `algorithm_name` and `output_size`)
     against the allowed properties for hash functions defined in the `standard`. Therefore, it
     checks for a definition with a matching algorithm name, and in case it is found, checks if the
     given `output_size` is actually allowed for the detected function. If either no matching
     function is found, or it is found but the `output_size` is not sufficient, a finding with the
     rating `not-compliant` will be created.
-    '''
+    """
+
     def check_unmet_requirements(
         algorithm_name: str,
         output_size: int,
@@ -281,9 +286,8 @@ def validate_hash_function(
 
                 unmet_requirements = list(iter_unmet_requirements(all_requirements))
 
-                if (
-                    best_unmet_requirements is None
-                    or len(unmet_requirements) < len(best_unmet_requirements)
+                if best_unmet_requirements is None or len(unmet_requirements) < len(
+                    best_unmet_requirements
                 ):
                     # store those requirements which are the closest to be fulfilled for reporting
                     best_unmet_requirements = unmet_requirements
@@ -305,10 +309,12 @@ def validate_hash_function(
     else:
         reason = f'There is no supported algorithm matching the given name "{algorithm_name}".'
 
-    if not (categorisation := odg.findings.categorise_finding(
-        finding_cfg=crypto_finding_cfg,
-        finding_property=FindingRatings.NOT_COMPLIANT,
-    )):
+    if not (
+        categorisation := odg.findings.categorise_finding(
+            finding_cfg=crypto_finding_cfg,
+            finding_property=FindingRatings.NOT_COMPLIANT,
+        )
+    ):
         return
 
     return odg.model.CryptoFinding(
@@ -328,7 +334,7 @@ def validate_signature_algorithm(
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
 ) -> odg.model.CryptoFinding | None:
-    '''
+    """
     Validates the provided signature algorithm (identified via its `algorithm_name`) against the
     allowed properties for asymmetric algorithms and hash functions defined in the `standard`.
     Therefore, it splits the provided `algorithm_name` at `-` and interprets the individual parts as
@@ -337,7 +343,7 @@ def validate_signature_algorithm(
     name, it is _not_ checked whether the algorithms fulfill the requirements of other properties,
     e.g. a sufficient key length and/or output size. If either no matching asymmetric algorithm or
     hash function (or both) is found, a finding with the rating `not-compliant` will be created.
-    '''
+    """
     valid_asymmetric_algorithm = False
     valid_hash_algorithm = False
 
@@ -363,10 +369,12 @@ def validate_signature_algorithm(
     else:
         summary = f'The signature algorithm "{algorithm_name}" is not allowed in {standard.name}.'
 
-    if not (categorisation := odg.findings.categorise_finding(
-        finding_cfg=crypto_finding_cfg,
-        finding_property=FindingRatings.NOT_COMPLIANT,
-    )):
+    if not (
+        categorisation := odg.findings.categorise_finding(
+            finding_cfg=crypto_finding_cfg,
+            finding_property=FindingRatings.NOT_COMPLIANT,
+        )
+    ):
         return
 
     return odg.model.CryptoFinding(
@@ -438,7 +446,7 @@ def validate_certificate(
     crypto_assets: collections.abc.Sequence[odg.model.CryptoAsset],
     crypto_finding_cfg: odg.findings.Finding,
 ) -> odg.model.CryptoFinding | None:
-    '''
+    """
     Validates the provided certificate (identified via the `certificate_properties`) against the
     allowed properties for certificates defined in the `standard`. Therefore, it resolves the
     `signature_algorithm_ref` and validates the signature algorithm according to
@@ -449,7 +457,7 @@ def validate_certificate(
     and `validity_years` are actually allowed for the detected certificate kind. If either one of
     the used algorithms is not valid or the certificate properties are not sufficient for the
     detected certificate kind, a finding with the rating `not-compliant` will be created.
-    '''
+    """
     if certificate_asset.asset_type is not odg.model.CryptoAssetTypes.CERTIFICATE:
         raise ValueError(certificate_asset.asset_type)
 
@@ -524,9 +532,8 @@ def validate_certificate(
                 all_requirements = iter_requirements()
                 unmet_requirements = list(iter_unmet_requirements(all_requirements))
 
-                if (
-                    best_unmet_requirements is None
-                    or len(unmet_requirements) < len(best_unmet_requirements)
+                if best_unmet_requirements is None or len(unmet_requirements) < len(
+                    best_unmet_requirements
                 ):
                     # store those requirements which are the closest to be fulfilled for reporting
                     best_unmet_requirements = unmet_requirements
@@ -569,10 +576,12 @@ def validate_certificate(
         # all requirements are fulfilled, no need to create a finding
         return
 
-    if not (categorisation := odg.findings.categorise_finding(
-        finding_cfg=crypto_finding_cfg,
-        finding_property=FindingRatings.NOT_COMPLIANT,
-    )):
+    if not (
+        categorisation := odg.findings.categorise_finding(
+            finding_cfg=crypto_finding_cfg,
+            finding_property=FindingRatings.NOT_COMPLIANT,
+        )
+    ):
         return
 
     return odg.model.CryptoFinding(
@@ -588,12 +597,12 @@ def validate_library(
     standard: cc.Standard,
     crypto_finding_cfg: odg.findings.Finding,
 ) -> odg.model.CryptoFinding | None:
-    '''
+    """
     Validates the provided library (identified via its `name` and `version`) against the known
     validated libraries defined in the `standard`. If the libary matches one of the validated
     libraries (`name` or `name` and `version` matches), a finding with the rating `maybe-compliant`
     will be created. Otherwise, a finding with the rating `not-compliant` will be created.
-    '''
+    """
     if library_asset.asset_type is not odg.model.CryptoAssetTypes.LIBRARY:
         raise ValueError(library_asset.asset_type)
 
@@ -641,10 +650,12 @@ def validate_library(
             'this finding respectively.'
         )
 
-    if not (categorisation := odg.findings.categorise_finding(
-        finding_cfg=crypto_finding_cfg,
-        finding_property=finding_rating,
-    )):
+    if not (
+        categorisation := odg.findings.categorise_finding(
+            finding_cfg=crypto_finding_cfg,
+            finding_property=finding_rating,
+        )
+    ):
         return
 
     return odg.model.CryptoFinding(
@@ -674,7 +685,10 @@ def validate_related_crypto_material(
     crypto_assets: collections.abc.Sequence[odg.model.CryptoAsset],
     crypto_finding_cfg: odg.findings.Finding,
 ) -> odg.model.CryptoFinding | None:
-    if related_crypto_material_asset.asset_type is not odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL: # noqa: E501
+    if (
+        related_crypto_material_asset.asset_type
+        is not odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL
+    ):  # noqa: E501
         raise ValueError(related_crypto_material_asset.asset_type)
 
     # Currently, the only detected related-crypto-material in the generated CBOMs are public keys,

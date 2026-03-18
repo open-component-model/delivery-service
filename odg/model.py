@@ -16,8 +16,8 @@ import odg.cvss
 
 def _as_key(
     *args,
-    separator: str='|',
-    absent_indicator: str='None', # be backwards compatible
+    separator: str = '|',
+    absent_indicator: str = 'None',  # be backwards compatible
 ) -> str:
     return separator.join(absent_indicator if arg is None else arg for arg in args)
 
@@ -87,46 +87,28 @@ class Datasource(enum.StrEnum):
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
-            Datasource.BLACKDUCK: (
-                Datatype.IP_FINDING,
-            ),
+            Datasource.BLACKDUCK: (Datatype.IP_FINDING,),
             Datasource.BDBA: (
                 Datatype.LICENSE_FINDING,
                 Datatype.STRUCTURE_INFO,
                 Datatype.VULNERABILITY_FINDING,
             ),
-            Datasource.CLAMAV: (
-                Datatype.MALWARE_FINDING,
-            ),
+            Datasource.CLAMAV: (Datatype.MALWARE_FINDING,),
             Datasource.CRYPTO: (
                 Datatype.CRYPTO_FINDING,
                 Datatype.CRYPTO_ASSET,
             ),
-            Datasource.DIKI: (
-                Datatype.DIKI_FINDING,
-            ),
-            Datasource.FALCO: (
-                Datatype.FALCO_FINDING,
-            ),
-            Datasource.GHAS: (
-                Datatype.GHAS_FINDING,
-            ),
-            Datasource.INVENTORY: (
-                Datatype.INVENTORY_FINDING,
-            ),
+            Datasource.DIKI: (Datatype.DIKI_FINDING,),
+            Datasource.FALCO: (Datatype.FALCO_FINDING,),
+            Datasource.GHAS: (Datatype.GHAS_FINDING,),
+            Datasource.INVENTORY: (Datatype.INVENTORY_FINDING,),
             Datasource.OSID: (
                 Datatype.OSID,
                 Datatype.OSID_FINDING,
             ),
-            Datasource.KYVERNO: (
-                Datatype.KYVERNO_FINDING,
-            ),
-            Datasource.RESPONSIBLES: (
-                Datatype.RESPONSIBLES,
-            ),
-            Datasource.SAST: (
-                Datatype.SAST_FINDING,
-            ),
+            Datasource.KYVERNO: (Datatype.KYVERNO_FINDING,),
+            Datasource.RESPONSIBLES: (Datatype.RESPONSIBLES,),
+            Datasource.SAST: (Datatype.SAST_FINDING,),
         }.get(self, tuple())
 
 
@@ -158,10 +140,11 @@ class GithubUser(UserIdentifierBase):
 
 @dataclasses.dataclass(kw_only=True)
 class MetaOrigin(UserIdentifierBase):
-    '''
+    """
     Meta origin objects declare the origin of the assignment of a user-identity to a component or
     resource.
-    '''
+    """
+
     origin_type: str
     type: UserTypes = UserTypes.META_ORIGIN
 
@@ -175,9 +158,10 @@ class PersonalName(UserIdentifierBase):
 
 @dataclasses.dataclass
 class UserIdentity:
-    '''
+    """
     Collection of identities that refer to the same user
-    '''
+    """
+
     identifiers: list[EmailAddress | GithubUser | MetaOrigin | PersonalName | UserIdentifierBase]
 
 
@@ -210,12 +194,12 @@ class OsStatus(enum.StrEnum):
 def normalise_artefact_extra_id(
     artefact_extra_id: dict[str, str],
 ) -> str:
-    '''
+    """
     generate stable representation of `artefact_extra_id`
 
     sorted by key in alphabetical order and concatinated following pattern:
     key1:value1_key2:value2_ ...
-    '''
+    """
     s = sorted(artefact_extra_id.items(), key=lambda items: items[0])
     return '_'.join([':'.join(values) for values in s])
 
@@ -286,10 +270,7 @@ class ComponentArtefactId:
     def key(self) -> str:
         artefact_key = self.artefact.key if self.artefact else None
         references_key = _as_key(
-            *(
-                reference.key
-                for reference in sorted(self.references, key=lambda ref: ref.key)
-            )
+            *(reference.key for reference in sorted(self.references, key=lambda ref: ref.key))
         )
 
         return _as_key(
@@ -368,10 +349,11 @@ class Metadata:
 
 @dataclasses.dataclass
 class OperatingSystemId:
-    '''
+    """
     Operating System identification, as specified in:
     https://www.freedesktop.org/software/systemd/man/os-release.html
-    '''
+    """
+
     NAME: str | None = None
     ID: str | None = None
     PRETTY_NAME: str | None = None
@@ -393,7 +375,7 @@ class OperatingSystemId:
 @dataclasses.dataclass
 class BDBAMixin:
     package_name: str
-    package_version: str | None # bdba might be unable to determine a version
+    package_version: str | None  # bdba might be unable to determine a version
     base_url: str
     report_url: str
     product_id: int
@@ -437,10 +419,11 @@ class StructureInfo(BDBAMixin):
 
 @dataclasses.dataclass
 class Finding:
-    '''
+    """
     Base class for artefact metadata which is interpreted as a finding. "Finding" as in it has a
     severity and might become object of being rescored.
-    '''
+    """
+
     severity: str
 
 
@@ -497,12 +480,7 @@ class RescoringIPFinding:
     @property
     def key(self) -> str:
         labels_key = ','.join(sorted(self.labels))
-        return _as_key(
-            self.package_name,
-            self.license.name,
-            labels_key,
-            self.policy_violation.name
-        )
+        return _as_key(self.package_name, self.license.name, labels_key, self.policy_violation.name)
 
 
 @dataclasses.dataclass
@@ -548,7 +526,7 @@ class MalwareFindingDetails:
     filename: str
     content_digest: str
     malware: str
-    context: str | None # optional context information, e.g. layer-digest or bucket-id
+    context: str | None  # optional context information, e.g. layer-digest or bucket-id
 
     @property
     def key(self) -> str:
@@ -696,10 +674,10 @@ class CryptoAssetTypes(enum.StrEnum):
 class Primitives(enum.StrEnum):
     BLOCK_CIPHER = 'block-cipher'
     HASH = 'hash'
-    KDF = 'kdf' # key derivation function
+    KDF = 'kdf'  # key derivation function
     KEY_AGREE = 'key-agree'
-    MAC = 'mac' # message authentication code
-    PKE = 'pke' # public key encryption
+    MAC = 'mac'  # message authentication code
+    PKE = 'pke'  # public key encryption
     SIGNATURE = 'signature'
     STREAM_CIPHER = 'stream-cipher'
 
@@ -819,7 +797,7 @@ class RescoringCryptoFinding:
 
 @dataclasses.dataclass
 class InventoryFinding(Finding):
-    '''
+    """
     Represents a finding from the gardener/inventory system
 
     :param provider_name str:
@@ -832,7 +810,8 @@ class InventoryFinding(Finding):
         Short summary of the finding
     :param attributes dict:
         Additional attributes associated with this finding
-    '''
+    """
+
     provider_name: str
     resource_kind: str
     resource_name: str
@@ -876,12 +855,13 @@ class MetaRescoringRules(enum.StrEnum):
 
 @dataclasses.dataclass
 class CustomRescoring:
-    '''
+    """
     The `allowed_processing_time` is stored relatively to allow the rescoring to apply to findings
     with different discovery dates, i.e. in case the rescoring is of scope "global" or "component".
     Alternatively, the explicit `due_date` can be set in case the `due_date` is independent of the
     individual discovery dates (for example, this might be the case if exceptions apply).
-    '''
+    """
+
     finding: (
         RescoringVulnerabilityFinding
         | RescoringLicenseFinding
@@ -897,11 +877,7 @@ class CustomRescoring:
     )
     referenced_type: str
     severity: str
-    user: (
-        BDBAUser
-        | GitHubUser
-        | User
-    )
+    user: BDBAUser | GitHubUser | User
     matching_rules: list[str] = dataclasses.field(default_factory=list)
     comment: str | None = None
     allowed_processing_time: str | None = None
@@ -952,7 +928,7 @@ class ComplianceSnapshot:
 
     def current_state(
         self,
-        service: str | None=None,
+        service: str | None = None,
     ) -> ComplianceSnapshotState | None:
         for state in sorted(self.state, key=lambda s: s.timestamp, reverse=True):
             if service == state.service:
@@ -961,7 +937,7 @@ class ComplianceSnapshot:
 
     def _purge_old_states(
         self,
-        service: str | None=None,
+        service: str | None = None,
     ):
         current_state = None
         for state in sorted(self.state, key=lambda s: s.timestamp, reverse=True):
@@ -1011,7 +987,7 @@ class Cluster:
 
 @dataclasses.dataclass
 class FalcoEventGroup:
-    '''
+    """
     FalcoEventGroup represents a group of Falco events that are similar in
     nature. In almost all cases those are false positives and can be ignored.
     Falco exceptions can be defined but they can be silenced here.
@@ -1027,7 +1003,8 @@ class FalcoEventGroup:
         list of events in this group (possibly truncated).
     :param exception ExceptionTemplate:
         exception template for this group
-    '''
+    """
+
     message: str
     clusters: list[Cluster]
     landscape: str
@@ -1059,7 +1036,7 @@ class FalcoEventGroup:
         for event in events:
             hostnames_by_cluster[event.cluster].add(event.hostname)
 
-        summary_long = summary = summary_short = textwrap.dedent(f'''\
+        summary_long = summary = summary_short = textwrap.dedent(f"""\
             One or more Falco events were detected in the landscape. These events may be false
             positives or could indicate an attack.
 
@@ -1077,32 +1054,33 @@ class FalcoEventGroup:
             - **Rule:** {self.rule}
             - **Event count:** {self.count}
             - **Hash:** `{self.group_hash}`
-        ''')
+        """)
 
         clusters_str = '### Clusters:\n'
         for cluster, hostnames in sorted(hostnames_by_cluster.items()):
-            clusters_str += textwrap.dedent(f'''\
+            clusters_str += textwrap.dedent(f"""\
                 <details>
                 <summary><strong>{cluster} ({len(hostnames)} host(s))</strong></summary>
 
                 {
-                    '\n                '.join([ # match whitespace for textwrap
-                        f'- {hostname}'
-                        for hostname in sorted(hostnames)
-                    ])
-                }
+                '\n                '.join(
+                    [  # match whitespace for textwrap
+                        f'- {hostname}' for hostname in sorted(hostnames)
+                    ]
+                )
+            }
                 </details>
-            ''')
+            """)
         summary_long += clusters_str
         summary += clusters_str
 
-        events_str = textwrap.dedent(f'''
+        events_str = textwrap.dedent(f"""
             ### Events:
             - **Start Time:** {start_time}
             - **End Time:** {end_time}
-        ''')
+        """)
         for idx, event in enumerate(events, start=1):
-            events_str += textwrap.dedent(f'''\
+            events_str += textwrap.dedent(f"""\
                 <details>
                 <summary><strong>Event {idx}: {event.rule}</strong></summary>
 
@@ -1114,16 +1092,17 @@ class FalcoEventGroup:
 
                 ```
                 {
-                    '\n                '.join([ # match whitespace for textwrap
-                        f'{key}: {value}'
-                        for key, value in event.output.items()
-                    ])
-                }
+                '\n                '.join(
+                    [  # match whitespace for textwrap
+                        f'{key}: {value}' for key, value in event.output.items()
+                    ]
+                )
+            }
                 ```
                 </details>
                 </blockquote>
                 </details>
-            ''')
+            """)
         summary_long += events_str
 
         return summary_long, summary, summary_short
@@ -1131,7 +1110,7 @@ class FalcoEventGroup:
 
 @dataclasses.dataclass
 class FalcoInteractiveEventGroup:
-    '''
+    """
     Group of events that - most likely - are a result of a single interactive
     session. It might however also be an indication of an attack. These
     events must be reviewed and ideally be linked to some legal activity.
@@ -1142,7 +1121,8 @@ class FalcoInteractiveEventGroup:
     :param events list[FalcoEvent]:
         List of all events. The goal is not to truncate this list but it might
         have to be done if it gets too large.
-    '''
+    """
+
     count: int
     cluster: str
     hostname: str
@@ -1166,7 +1146,7 @@ class FalcoInteractiveEventGroup:
             start_time = 'N/A'
             end_time = 'N/A'
 
-        summary_long = summary = summary_short = textwrap.dedent(f'''\
+        summary_long = summary = summary_short = textwrap.dedent(f"""\
             An interactive session was detected on the cluster. This may be a legitimate action
             (e.g., an interactive debug session) or could indicate suspicious activity.
 
@@ -1186,15 +1166,15 @@ class FalcoInteractiveEventGroup:
             - **Hostname:** {self.hostname}
             - **Event count:** {self.count}
             - **Hash:** `{self.group_hash}`
-        ''')
+        """)
 
-        events_str = textwrap.dedent(f'''
+        events_str = textwrap.dedent(f"""
             ### Events:
             - **Start Time:** {start_time}
             - **End Time:** {end_time}
-        ''')
+        """)
         for idx, event in enumerate(events, start=1):
-            events_str += textwrap.dedent(f'''\
+            events_str += textwrap.dedent(f"""\
                 <details>
                 <summary><strong>Event {idx}: {event.rule}</strong></summary>
 
@@ -1206,16 +1186,17 @@ class FalcoInteractiveEventGroup:
 
                 ```
                 {
-                    '\n                '.join([ # match whitespace for textwrap
-                        f'{key}: {value}'
-                        for key, value in event.output.items()
-                    ])
-                }
+                '\n                '.join(
+                    [  # match whitespace for textwrap
+                        f'{key}: {value}' for key, value in event.output.items()
+                    ]
+                )
+            }
                 ```
                 </details>
                 </blockquote>
                 </details>
-            ''')
+            """)
         summary_long += events_str
 
         return summary_long, summary, summary_short
@@ -1276,12 +1257,12 @@ class KyvernoNamespaceSummary:
 class KyvernoReportSummary:
     """Represents the complete metrics data structure."""
 
-    namespace_summary: dict[str, KyvernoNamespaceSummary] = (
-        dataclasses.field(default_factory=dict) # namespace -> NamespaceSummary
-    )
-    policy_results: dict[str, dict[str, dict[str, KyvernoRuleResult]]] = (
-        dataclasses.field(default_factory=dict) # namespace -> policy -> rule -> RuleResult
-    )
+    namespace_summary: dict[str, KyvernoNamespaceSummary] = dataclasses.field(
+        default_factory=dict
+    )  # namespace -> NamespaceSummary
+    policy_results: dict[str, dict[str, dict[str, KyvernoRuleResult]]] = dataclasses.field(
+        default_factory=dict
+    )  # namespace -> policy -> rule -> RuleResult
 
 
 @dataclasses.dataclass
@@ -1304,7 +1285,7 @@ class KyvernoPolicySummaryFinding:
             key=lambda namespace: (namespace != 'default', namespace),
         )
 
-        summary_long = summary = summary_short = textwrap.dedent(f'''\
+        summary_long = summary = summary_short = textwrap.dedent(f"""\
             ### This is a Kyverno summary:
             - Confirm the summary.
 
@@ -1316,14 +1297,14 @@ class KyvernoPolicySummaryFinding:
             - **Cluster:** {self.cluster}
             - **Report Time:** {self.date}
             - **Hash:** `{self.group_hash}`
-        ''')
+        """)
 
-        namespaces_str = textwrap.dedent('''\
+        namespaces_str = textwrap.dedent("""\
             ### Policy Reports by Namespace
             #### Namespace Overview:
             | Namespace | Pass | Fail | Warn | Error | Skip | Policies |
             |-----------|------|------|------|-------|------|----------|
-        ''')
+        """)
         for namespace in namespaces:
             namespace_summary = self.report.namespace_summary[namespace]
             policy_count = len(self.report.policy_results.get(namespace, {}))
@@ -1342,13 +1323,13 @@ class KyvernoPolicySummaryFinding:
             namespace_policies = self.report.policy_results.get(namespace, {})
             policy_count = len(namespace_policies)
 
-            policy_reports_str += textwrap.dedent(f'''\
+            policy_reports_str += textwrap.dedent(f"""\
                 <details>
                 <summary><strong>
                 <code>{namespace}</code> ({policy_count} policies)
                 </strong></summary>
 
-            ''')
+            """)
 
             for policy_name, policy_rules in sorted(namespace_policies.items()):
                 policy_reports_str += f'- **Policy:** `{policy_name}`\n'
@@ -1429,21 +1410,13 @@ FindingModels = (
     | SastFinding
     | VulnerabilityFinding
 )
-InformationalModels = (
-    StructureInfo
-    | CryptoAsset
-    | ResponsibleInfo
-)
-MetaModels = (
-    CustomRescoring
-    | ComplianceSnapshot
-    | dict
-)
+InformationalModels = StructureInfo | CryptoAsset | ResponsibleInfo
+MetaModels = CustomRescoring | ComplianceSnapshot | dict
 
 
 @dataclasses.dataclass
 class ArtefactMetadata:
-    '''
+    """
     Model class to interact with entries of the delivery-db. In the first place, these entries are
     being identified via `ComponentArtefactId` (`artefact` property) as well as their `Datatype`
     (`meta.type` property) and `Datasource` (`meta.datasource` property). If there might be multiple
@@ -1456,11 +1429,12 @@ class ArtefactMetadata:
     derive from the `Finding` class and implement the `severity` property. Also, a corresponding
     rescoring finding type must be implemented. Apart from the `key` and `severity` property, the
     `data` object may have an arbitrary structure.
-    '''
+    """
+
     artefact: ComponentArtefactId
     meta: Metadata
     data: FindingModels | InformationalModels | MetaModels
-    discovery_date: datetime.date | None = None # required for finding specific SLA tracking
+    discovery_date: datetime.date | None = None  # required for finding specific SLA tracking
     allowed_processing_time: str | None = None
 
     @staticmethod
@@ -1505,17 +1479,17 @@ class ArtefactMetadata:
 def artefact_scan_info(
     artefact_node: ocm.iter.ArtefactNode,
     datasource: Datasource,
-    data: dict={},
-    responsibles: list[UserIdentity] | None=None,
+    data: dict = {},
+    responsibles: list[UserIdentity] | None = None,
 ) -> ArtefactMetadata:
-    '''
+    """
     The `data` property may contain extra information about the scan, e.g. a reference to the scan.
 
     Predefined `data` property for BDBA scan infos:
 
     data:
         report_url <str>
-    '''
+    """
     now = datetime.datetime.now()
 
     artefact_ref = component_artefact_id_from_ocm(

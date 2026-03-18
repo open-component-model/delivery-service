@@ -14,10 +14,11 @@ default_cache_dir = os.path.join(own_dir, '.cache', 'dora')
 
 
 class FilesystemCache:
-    '''
+    """
     Base class which implements a basic filesytem cache using pickle. This implementation does _not_
     take care of clearing the cache, e.g. if it reaches a certain size.
-    '''
+    """
+
     def __getitem__(self, filepath: str):
         if os.path.exists(filepath):
             return pickle.load(open(filepath, 'rb'))
@@ -35,15 +36,16 @@ class FilesystemCache:
 
 
 class LFUFilesystemCache(FilesystemCache):
-    '''
+    """
     Implements a Least-Frequently-Used filesystem cache. If `max_total_size_mib` is reached, the
     least frequently used items are removed from the cache accordingly until enough space is
     available again to store new items.
 
     @param max_total_size_mib:
         the maximum allowed total cache size in MiB, if `None`, LFU cache clearing is disabled
-    '''
-    def __init__(self, max_total_size_mib: int | None=None):
+    """
+
+    def __init__(self, max_total_size_mib: int | None = None):
         # convert MiB -> bytes
         self._max_total_size = max_total_size_mib * 1024 * 1024 if max_total_size_mib else None
         self._item_sizes = {}
@@ -108,7 +110,7 @@ class LFUFilesystemCache(FilesystemCache):
 
 
 class TTLFilesystemCache(LFUFilesystemCache):
-    '''
+    """
     Implements a Time-To-Live filesystem cache. If an item is older than `ttl`, it is removed from
     the cache. If `max_total_size_mib` is reached, the least frequently used items are removed from
     the cache accordingly until enough space is available again to store new items.
@@ -117,7 +119,8 @@ class TTLFilesystemCache(LFUFilesystemCache):
         the maximum allowed time a cache item is valid in seconds
     @param max_total_size_mib:
         the maximum allowed total cache size in MiB, if `None`, LFU cache clearing is disabled
-    '''
+    """
+
     def __init__(self, ttl: int, max_total_size_mib: int):
         super().__init__(max_total_size_mib)
         self._ttl = ttl
@@ -138,12 +141,13 @@ class TTLFilesystemCache(LFUFilesystemCache):
 
 def cached(
     cache: FilesystemCache,
-    key_func: collections.abc.Callable=cachetools.keys.hashkey,
-    cache_dir: str=default_cache_dir,
+    key_func: collections.abc.Callable = cachetools.keys.hashkey,
+    cache_dir: str = default_cache_dir,
 ):
-    '''
+    """
     Decorator to wrap a function with a callable that saves results to a defined `FilesystemCache`.
-    '''
+    """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             key = hashlib.sha1(usedforsecurity=False)
@@ -163,18 +167,20 @@ def cached(
             return result
 
         return wrapper
+
     return decorator
 
 
 def async_cached(
     cache: FilesystemCache,
-    key_func: collections.abc.Callable=cachetools.keys.hashkey,
-    cache_dir: str=default_cache_dir,
+    key_func: collections.abc.Callable = cachetools.keys.hashkey,
+    cache_dir: str = default_cache_dir,
 ):
-    '''
+    """
     Decorator to wrap an async function with a callable that saves results to a defined
     `FilesystemCache`.
-    '''
+    """
+
     def decorator(func):
         async def wrapper(*args, **kwargs):
             key = hashlib.sha1(usedforsecurity=False)
@@ -194,4 +200,5 @@ def async_cached(
             return result
 
         return wrapper
+
     return decorator

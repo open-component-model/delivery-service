@@ -76,8 +76,8 @@ class FindingGroup:
         self,
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
         finding_cfg: odg.findings.Finding,
-        delivery_dashboard_url: str | None=None,
-        sprint_name: str | None=None,
+        delivery_dashboard_url: str | None = None,
+        sprint_name: str | None = None,
     ) -> tuple[str, str, str]:
         ocm_node = k8s.util.get_ocm_node(
             component_descriptor_lookup=component_descriptor_lookup,
@@ -112,10 +112,7 @@ class FindingGroup:
 def _artefact_to_str(
     artefact: odg.model.ComponentArtefactId,
 ) -> str:
-    id_str = '<br>'.join(
-        f'{k}: {v}'
-        for k, v in artefact.as_dict_repr().items()
-    )
+    id_str = '<br>'.join(f'{k}: {v}' for k, v in artefact.as_dict_repr().items())
 
     if not id_str:
         return ''
@@ -171,10 +168,10 @@ def _issue_ref(
     finding_cfg: odg.findings.Finding,
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
-    additional_labels: collections.abc.Iterable[str] | None=None,
+    additional_labels: collections.abc.Iterable[str] | None = None,
 ) -> str:
     if not due_date:
-        return '' # finding is already resolved -> no open issue left
+        return ''  # finding is already resolved -> no open issue left
 
     issue_id = finding_cfg.issues.issue_id(
         artefact=artefact,
@@ -185,10 +182,12 @@ def _issue_ref(
     if additional_labels:
         labels.extend(additional_labels)
 
-    if not (matching_issues := github_util.filter_issues_for_labels(
-        issues=known_issues,
-        labels=labels,
-    )):
+    if not (
+        matching_issues := github_util.filter_issues_for_labels(
+            issues=known_issues,
+            labels=labels,
+        )
+    ):
         return ''
 
     issue_number = matching_issues[0].number
@@ -207,7 +206,7 @@ TableCallback = dict[
 def table_callback_to_table(
     finding_group: FindingGroup,
     aggregated_findings: tuple[AggregatedFinding],
-    table_callback: TableCallback | None=None,
+    table_callback: TableCallback | None = None,
 ) -> str:
     if not table_callback or not aggregated_findings:
         return ''
@@ -219,7 +218,9 @@ def table_callback_to_table(
     table += '| ' + ' | '.join('---' for _ in column_names) + ' |\n'
 
     for af in aggregated_findings:
-        table += '| ' + ' | '.join(callback(af, finding_group) for callback in column_callbacks) + ' |\n' # noqa: E501
+        table += (
+            '| ' + ' | '.join(callback(af, finding_group) for callback in column_callbacks) + ' |\n'
+        )  # noqa: E501
 
     return table
 
@@ -228,13 +229,13 @@ def findings_summary(
     finding_cfg: odg.findings.Finding,
     finding_groups: list[FindingGroup],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    findings_table_callback: TableCallback | None=None,
-    historical_findings_table_callback: TableCallback | None=None,
-    report_urls_callback: collections.abc.Callable[[FindingGroup], list[str]] | None=None,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    findings_table_callback: TableCallback | None = None,
+    historical_findings_table_callback: TableCallback | None = None,
+    report_urls_callback: collections.abc.Callable[[FindingGroup], list[str]] | None = None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
-    '''
+    """
     Creates summaries (long, normal, short) for the specified finding type and finding groups with
     the following structure for each finding group:
 
@@ -243,7 +244,7 @@ def findings_summary(
     - list of report url (long & normal only) -> `report_urls_callback`
     - table containing all belonging findings (long & normal only) -> `findings_table_callback`
     - table containing all historical findings (long) -> `historical_findings_table_callback`
-    '''
+    """
     finding_name = finding_cfg.type.removeprefix('finding/')
     summary_long = summary = summary_short = f'# Summary of found {finding_name} findings\n'
 
@@ -297,8 +298,8 @@ def fallback_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     def default_callback(
         aggregated_finding: AggregatedFinding,
@@ -324,7 +325,7 @@ def fallback_summary(
         for key in raw.keys():
             title = key.title().replace('_', ' ')
             if title in finding_table_callback:
-                continue # don't overwrite explicitly set callbacks
+                continue  # don't overwrite explicitly set callbacks
             callback = functools.partial(default_callback, attr=key)
             finding_table_callback[title] = callback
 
@@ -350,7 +351,7 @@ def fallback_summary(
         for key in raw.keys():
             title = key.title().replace('_', ' ')
             if title in historical_table_callback:
-                continue # don't overwrite explicitly set callbacks
+                continue  # don't overwrite explicitly set callbacks
             callback = functools.partial(default_callback, attr=key)
             historical_table_callback[title] = callback
 
@@ -371,18 +372,16 @@ def crypto_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     def names_str(
         aggregated_finding: AggregatedFinding,
         finding_group: FindingGroup,
     ) -> str:
-        return '<br/>'.join(sorted(
-            f'`{name}`'
-            for name in aggregated_finding.finding.data.asset.names
-            if name
-        ))
+        return '<br/>'.join(
+            sorted(f'`{name}`' for name in aggregated_finding.finding.data.asset.names if name)
+        )
 
     finding_table_callback = {
         'Standard': lambda f, _: f'`{f.finding.data.standard}`',
@@ -432,8 +431,8 @@ def diki_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     def _targets_table(
         targets: list[dict],
@@ -467,7 +466,7 @@ def diki_summary(
                 finding_cfg=finding_cfg,
             )
 
-            finding_str = textwrap.dedent(f'''\
+            finding_str = textwrap.dedent(f"""\
                 ## Failed rule summary
                 |    |    |
                 | -- | -- |
@@ -476,10 +475,10 @@ def diki_summary(
                 | Ruleset Version | {finding_rule.ruleset_version} |
                 | Rule ID | {finding_rule.rule_id} |
                 | Rule Name | {finding_rule.rule_name} |
-            ''')
+            """)
 
             if finding_rule.ruleset_id == 'disa-kubernetes-stig':
-                rule_desc = f'[DISA STIG viewer - {finding_rule.rule_id}](https://stigviewer.com/stigs/kubernetes/2024-08-22/finding/V-{finding_rule.rule_id})' # noqa: E501
+                rule_desc = f'[DISA STIG viewer - {finding_rule.rule_id}](https://stigviewer.com/stigs/kubernetes/2024-08-22/finding/V-{finding_rule.rule_id})'  # noqa: E501
             elif finding_rule.ruleset_id == 'security-hardened-shoot-cluster':
                 diki_version = {
                     'v0.1.0': 'v0.14.0',
@@ -487,13 +486,13 @@ def diki_summary(
                     'v0.2.1': 'v0.15.1',
                 }.get(finding_rule.ruleset_version, 'main')
 
-                rule_desc = f'[Security Hardened Shoot Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finding_rule.rule_id})' # noqa: E501
+                rule_desc = f'[Security Hardened Shoot Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-shoot-cluster/ruleset.md#{finding_rule.rule_id})'  # noqa: E501
             elif finding_rule.ruleset_id == 'security-hardened-k8s':
                 diki_version = {
                     'v0.1.0': 'v0.15.0',
                 }.get(finding_rule.ruleset_version, 'main')
 
-                rule_desc = f'[Security Hardened Kubernetes Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-k8s/ruleset.md#{finding_rule.rule_id})' # noqa: E501
+                rule_desc = f'[Security Hardened Kubernetes Cluster Guide - {finding_rule.rule_id}](https://github.com/gardener/diki/blob/{diki_version}/docs/rulesets/security-hardened-k8s/ruleset.md#{finding_rule.rule_id})'  # noqa: E501
             else:
                 rule_desc = None
 
@@ -528,7 +527,7 @@ def diki_summary(
                 ):
                     issue_refs.append(issue_ref)
             if issue_refs:
-                finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
+                finding_str += f'| Issue Refs | {", ".join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
                 delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
@@ -537,17 +536,19 @@ def diki_summary(
                     finding_type=finding_cfg.type,
                     sprint_name=sprint_name,
                 )
-                finding_str += f'\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n' # noqa: E501
+                finding_str += (
+                    f'\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'  # noqa: E501
+                )
 
             summary_long += finding_str + '### Failed checks:\n'
             summary += finding_str + '### Failed checks:\n'
             summary_short += finding_str
 
             for check in finding_rule.checks:
-                check_msg_str = textwrap.dedent(f'''
+                check_msg_str = textwrap.dedent(f"""
                     Message: {check.message}
                     Targets:
-                ''')
+                """)
 
                 summary_long += check_msg_str
                 summary += check_msg_str
@@ -574,7 +575,7 @@ def diki_summary(
                     summary += f'{len(check.targets)} targets\n'
 
                 else:
-                    raise TypeError(check.targets) # this line should never be reached
+                    raise TypeError(check.targets)  # this line should never be reached
 
     return summary_long, summary, summary_short
 
@@ -585,8 +586,8 @@ def falco_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     summary_long = summary = summary_short = '# Summary of found falco findings\n'
 
@@ -607,12 +608,12 @@ def falco_summary(
                 finding_cfg=finding_cfg,
             )
 
-            finding_str = textwrap.dedent(f'''\
+            finding_str = textwrap.dedent(f"""\
                 {finding_title}
                 |    |    |
                 | -- | -- |
                 | Severity | {severity} |
-            ''')
+            """)
 
             if rescoring_comment := _rescoring_comment(
                 aggregated_finding=aggregated_finding,
@@ -637,7 +638,7 @@ def falco_summary(
                 ):
                     issue_refs.append(issue_ref)
             if issue_refs:
-                finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
+                finding_str += f'| Issue Refs | {", ".join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
                 delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
@@ -646,7 +647,9 @@ def falco_summary(
                     finding_type=finding_cfg.type,
                     sprint_name=sprint_name,
                 )
-                finding_str += f'\n\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n' # noqa: E501
+                finding_str += (
+                    f'\n\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'  # noqa: E501
+                )
 
             finding_summary_long, finding_summary, finding_summary_short = finding.summary
 
@@ -659,13 +662,14 @@ def falco_summary(
 
 def _redact_secret(
     secret: str,
-    visible_chars: int=4,
+    visible_chars: int = 4,
 ) -> str:
-    '''
+    """
     Returns a redacted representation of `secret`, keeping the first and last `visible_chars`
     characters visible and replacing the middle with `***<number-redacted-chars>***`. Characters
     that would break a markdown table cell (`|`, newlines) are removed from the visible portions.
-    '''
+    """
+
     def sanitise(s: str) -> str:
         return s.replace('|', ' ').replace('\n', ' ').replace('\r', ' ')
 
@@ -686,8 +690,8 @@ def ghas_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'Secret Type': lambda f, _: f'`{f.finding.data.secret_type}`',
@@ -739,8 +743,8 @@ def inventory_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     summary_long = summary = summary_short = '# Summary of found inventory findings\n'
 
@@ -754,14 +758,14 @@ def inventory_summary(
                 finding_cfg=finding_cfg,
             )
 
-            finding_str = textwrap.dedent(f'''\
+            finding_str = textwrap.dedent(f"""\
                 ## {finding.summary} - {finding.provider_name} - {finding.resource_name}
                 |    |    |
                 | -- | -- |
-            ''')
+            """)
 
             for key, value in finding.attributes.items():
-                finding_str += f'| {key.title().replace('_', ' ')} | {value} |\n'
+                finding_str += f'| {key.title().replace("_", " ")} | {value} |\n'
 
             finding_str += f'| Severity | {severity} |\n'
 
@@ -788,7 +792,7 @@ def inventory_summary(
                 ):
                     issue_refs.append(issue_ref)
             if issue_refs:
-                finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
+                finding_str += f'| Issue Refs | {", ".join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
                 delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
@@ -797,7 +801,9 @@ def inventory_summary(
                     finding_type=finding_cfg.type,
                     sprint_name=sprint_name,
                 )
-                finding_str += f'\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n' # noqa: E501
+                finding_str += (
+                    f'\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'  # noqa: E501
+                )
 
             summary_long += finding_str
             summary += finding_str
@@ -812,14 +818,16 @@ def ip_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
         'Package Version': lambda f, _: f'`{f.finding.data.package_version}`',
         'License': lambda f, _: f'`{f.finding.data.license.name}`',
-        'Policy Violation': lambda f, _: f'[{f.finding.data.policy_violation.name}]({f.finding.data.policy_violation.url})', # noqa: E501
+        'Policy Violation': lambda f, _: (
+            f'[{f.finding.data.policy_violation.name}]({f.finding.data.policy_violation.url})'
+        ),  # noqa: E501
         'Severity': lambda f, g: _severity_str(
             aggregated_finding=f,
             finding_group=g,
@@ -831,7 +839,9 @@ def ip_summary(
         'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
         'Package Version': lambda f, _: f'`{f.finding.data.package_version}`',
         'License': lambda f, _: f'`{f.finding.data.license.name}`',
-        'Policy Violation': lambda f, _: f'[{f.finding.data.policy_violation.name}]({f.finding.data.policy_violation.url})', # noqa: E501
+        'Policy Violation': lambda f, _: (
+            f'[{f.finding.data.policy_violation.name}]({f.finding.data.policy_violation.url})'
+        ),  # noqa: E501
         'Severity': lambda f, g: _severity_str(
             aggregated_finding=f,
             finding_group=g,
@@ -865,8 +875,8 @@ def kyverno_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     summary_long = summary = summary_short = '# Summary of found kyverno findings\n'
 
@@ -887,12 +897,12 @@ def kyverno_summary(
                 finding_cfg=finding_cfg,
             )
 
-            finding_str = textwrap.dedent(f'''\
+            finding_str = textwrap.dedent(f"""\
                 {finding_title}
                 |    |    |
                 | -- | -- |
                 | Severity | {severity} |
-            ''')
+            """)
 
             if rescoring_comment := _rescoring_comment(
                 aggregated_finding=aggregated_finding,
@@ -917,7 +927,7 @@ def kyverno_summary(
                 ):
                     issue_refs.append(issue_ref)
             if issue_refs:
-                finding_str += f'| Issue Refs | {', '.join(sorted(issue_refs))} |\n'
+                finding_str += f'| Issue Refs | {", ".join(sorted(issue_refs))} |\n'
 
             if delivery_dashboard_url:
                 delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
@@ -926,7 +936,9 @@ def kyverno_summary(
                     finding_type=finding_cfg.type,
                     sprint_name=sprint_name,
                 )
-                finding_str += f'\n\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n' # noqa: E501
+                finding_str += (
+                    f'\n\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'  # noqa: E501
+                )
 
             finding_summary_long, finding_summary, finding_summary_short = finding.summary
 
@@ -943,8 +955,8 @@ def license_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
@@ -977,10 +989,12 @@ def license_summary(
         ),
     }
 
-    report_urls_callback = lambda finding_group: sorted({ # noqa: E731
-        f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
-        for finding in finding_group.findings
-    })
+    report_urls_callback = lambda finding_group: sorted(
+        {  # noqa: E731
+            f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
+            for finding in finding_group.findings
+        }
+    )
 
     return findings_summary(
         finding_cfg=finding_cfg,
@@ -1000,8 +1014,8 @@ def malware_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'Malware': lambda f, _: f'`{f.finding.data.finding.malware}`',
@@ -1049,8 +1063,8 @@ def osid_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'OS Name': lambda f, _: f'`{f.finding.data.osid.NAME}`',
@@ -1100,8 +1114,8 @@ def sast_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     def sub_type_to_description(
         sub_type: odg.model.SastSubType,
@@ -1159,8 +1173,8 @@ def vulnerability_summary(
     finding_groups: list[FindingGroup],
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_dashboard_url: str | None=None,
-    sprint_name: str | None=None,
+    delivery_dashboard_url: str | None = None,
+    sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
     def rescoring_suggestion(
         aggregated_finding: AggregatedFinding,
@@ -1180,11 +1194,13 @@ def vulnerability_summary(
         if not (cve_categorisation := rescore.utility.find_cve_categorisation(ocm_node)):
             return ''
 
-        rules = tuple(rescore.utility.matching_rescore_rules(
-            rescoring_rules=finding_cfg.rescoring_ruleset.rules,
-            categorisation=cve_categorisation,
-            cvss=aggregated_finding.finding.data.cvss,
-        ))
+        rules = tuple(
+            rescore.utility.matching_rescore_rules(
+                rescoring_rules=finding_cfg.rescoring_ruleset.rules,
+                categorisation=cve_categorisation,
+                cvss=aggregated_finding.finding.data.cvss,
+            )
+        )
 
         current_categorisation = odg.findings.categorise_finding(
             finding_cfg=finding_cfg,
@@ -1247,17 +1263,19 @@ def vulnerability_summary(
         ),
     }
 
-    report_urls_callback = lambda finding_group: sorted({ # noqa: E731
-        f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
-        for finding in finding_group.findings
-    })
+    report_urls_callback = lambda finding_group: sorted(
+        {  # noqa: E731
+            f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
+            for finding in finding_group.findings
+        }
+    )
 
     def group_aggregated_findings(
         aggregated_findings: tuple[AggregatedFinding],
     ) -> tuple[AggregatedFinding]:
-        '''
+        """
         returns `findings` grouped by the affected package of the finding and the CVE
-        '''
+        """
         findings_by_package_and_cve = collections.defaultdict(dict)
 
         for aggregated_finding in aggregated_findings:
@@ -1276,7 +1294,7 @@ def vulnerability_summary(
             findings_for_package_and_cve
             for _, findings_for_package_by_cve in sorted(
                 findings_by_package_and_cve.items(),
-                key=lambda finding_by_package_and_cve: finding_by_package_and_cve[0], # package name
+                key=lambda finding_by_package_and_cve: finding_by_package_and_cve[0],  # package name
             )
             for findings_for_package_and_cve in sorted(
                 findings_for_package_by_cve.values(),
@@ -1318,9 +1336,9 @@ def template_issue_body(
     due_date: datetime.date,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str,
-    sprint_name: str | None=None,
+    sprint_name: str | None = None,
 ) -> str:
-    '''
+    """
     Returns a formatted GitHub issue body based on the template specified in the `finding_cfg`.
     Therefore, it fills a selection of template variables (see below), the most prominent template
     variable is called `summary`. It contains a table showing information on the artefact the issue
@@ -1328,8 +1346,8 @@ def template_issue_body(
     summary table first depicts the properties which are used to group the artefacts (so the
     properties which all artefacts have in common) and then the remaining properties per artefact.
     Also, artefacts which were not scanned yet are reported (if there are any).
-    '''
-    artefact_sorting_key = lambda artefact: ( # noqa: E731
+    """
+    artefact_sorting_key = lambda artefact: (  # noqa: E731
         artefact.component_name,
         artefact.component_version,
         artefact.artefact_kind,
@@ -1351,12 +1369,12 @@ def template_issue_body(
         sprint_name=sprint_name,
     )
 
-    artefact_summary = textwrap.dedent('''\
+    artefact_summary = textwrap.dedent("""\
         # Compliance Status Summary
 
         |    |    |
         | -- | -- |
-    ''')
+    """)
 
     # first of all, display the artefact properties which are used for grouping in the summary table
     artefact_group_properties = finding_cfg.issues.strip_artefact(
@@ -1386,60 +1404,67 @@ def template_issue_body(
     finding_groups: list[FindingGroup] = []
     for artefact in sorted_artefacts:
         findings_for_artefact = tuple(
-            finding for finding in findings
+            finding
+            for finding in findings
             if (
                 finding.finding.artefact.component_name == artefact.component_name
                 and (
                     # finding's component version might be `None`, i.e. for BDBA findings
                     not finding.finding.artefact.component_version
                     or finding.finding.artefact.component_version == artefact.component_version
-                ) and finding.finding.artefact.artefact_kind is artefact.artefact_kind
+                )
+                and finding.finding.artefact.artefact_kind is artefact.artefact_kind
                 and finding.finding.artefact.artefact.artefact_name
-                    == artefact.artefact.artefact_name
+                == artefact.artefact.artefact_name
                 and finding.finding.artefact.artefact.artefact_version
-                    == artefact.artefact.artefact_version
+                == artefact.artefact.artefact_version
                 and finding.finding.artefact.artefact.artefact_type
-                    == artefact.artefact.artefact_type
+                == artefact.artefact.artefact_type
                 and finding.finding.artefact.artefact.normalised_artefact_extra_id
-                    == artefact.artefact.normalised_artefact_extra_id
+                == artefact.artefact.normalised_artefact_extra_id
             )
         )
 
         historical_findings_for_artefact = tuple(
-            finding for finding in historical_findings
+            finding
+            for finding in historical_findings
             if (
                 finding.finding.artefact.component_name == artefact.component_name
                 and (
                     # finding's component version might be `None`, i.e. for BDBA findings
                     not finding.finding.artefact.component_version
                     or finding.finding.artefact.component_version == artefact.component_version
-                ) and finding.finding.artefact.artefact_kind is artefact.artefact_kind
+                )
+                and finding.finding.artefact.artefact_kind is artefact.artefact_kind
                 and finding.finding.artefact.artefact.artefact_name
-                    == artefact.artefact.artefact_name
+                == artefact.artefact.artefact_name
                 and finding.finding.artefact.artefact.artefact_version
-                    == artefact.artefact.artefact_version
+                == artefact.artefact.artefact_version
                 and finding.finding.artefact.artefact.artefact_type
-                    == artefact.artefact.artefact_type
+                == artefact.artefact.artefact_type
                 and finding.finding.artefact.artefact.normalised_artefact_extra_id
-                    == artefact.artefact.normalised_artefact_extra_id
+                == artefact.artefact.normalised_artefact_extra_id
             )
         )
 
         if not findings_for_artefact and not historical_findings_for_artefact:
             continue
 
-        finding_groups.append(FindingGroup(
-            artefact=artefact,
-            findings=findings_for_artefact,
-            historical_findings=historical_findings_for_artefact,
-        ))
+        finding_groups.append(
+            FindingGroup(
+                artefact=artefact,
+                findings=findings_for_artefact,
+                historical_findings=historical_findings_for_artefact,
+            )
+        )
 
     # secondly, display the combinations of artefact properties which are not part of the group
     artefacts_non_group_properties = [
         finding_cfg.issues.strip_artefact(
             artefact=finding_group.artefact,
             keep_group_attributes=False,
-        ) for finding_group in finding_groups
+        )
+        for finding_group in finding_groups
     ]
 
     artefacts_non_group_properties_str = ''.join(
@@ -1450,7 +1475,7 @@ def template_issue_body(
     artefact_summary_long = artefact_summary_short = artefact_summary
 
     if artefacts_non_group_properties:
-        artefact_summary_long += f'| {util.pluralise('ID', len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n' # noqa: E501
+        artefact_summary_long += f'| {util.pluralise("ID", len(artefacts_non_group_properties))} | {artefacts_non_group_properties_str} |\n\n'  # noqa: E501
 
     # lastly, display the artefacts which were not scanned yet
     artefacts_without_scan_str = ''.join(
@@ -1459,7 +1484,7 @@ def template_issue_body(
     )
 
     if sorted_artefacts_without_scan:
-        artefact_summary_long += f'| {util.pluralise('Artefact', len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n' # noqa: E501
+        artefact_summary_long += f'| {util.pluralise("Artefact", len(sorted_artefacts_without_scan))} without Scan | {artefacts_without_scan_str} |\n\n'  # noqa: E501
 
     template_variables = {
         'component_name': component_name,
@@ -1468,7 +1493,7 @@ def template_issue_body(
         'artefact_name': artefact_name,
         'artefact_version': artefact_version,
         'artefact_type': artefact_type,
-        'resource_type': artefact_type, # TODO deprecated -> remove once all templates are adjusted
+        'resource_type': artefact_type,  # TODO deprecated -> remove once all templates are adjusted
         'rescoring_url': rescoring_url,
     }
 
@@ -1484,7 +1509,7 @@ def template_issue_body(
 
     elif findings:
         artefact_summary_long += (
-            f'The aforementioned {util.pluralise('artefact', len(artefacts_non_group_properties))} '
+            f'The aforementioned {util.pluralise("artefact", len(artefacts_non_group_properties))} '
             'yielded findings relevant for future release decisions.\n'
         )
 
@@ -1534,13 +1559,13 @@ def close_issue_if_present(
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     issue: github3.issues.issue.ShortIssue,
     closing_reason: IssueComments,
-    body: str | None=None,
+    body: str | None = None,
 ):
-    '''
+    """
     Closes the `issue` if it is still open. Prior to closing, the issue body can be optionally
     edited by providing the `body` param (an empty value will keep the body as-is) and a comment
     stating the `closing_reason` is added.
-    '''
+    """
     if not issue or issue.state != 'open':
         return
 
@@ -1612,11 +1637,10 @@ def create_issue(
         )
 
         if assignees_statuses:
-            comment_body = textwrap.dedent('''\
+            comment_body = textwrap.dedent("""\
                 There have been anomalies during initial ticket assignment, please see details below:
                 | Message Type | Message |
-                | --- | --- |'''
-            )
+                | --- | --- |""")
             for status in assignees_statuses:
                 comment_body += f'\n|`{status.type}`|`{status.msg}`'
 

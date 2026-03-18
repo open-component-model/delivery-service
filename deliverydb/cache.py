@@ -94,10 +94,7 @@ async def find_cached_value(
 
     # explicitly cast timezone to UTC to also support sqlite usage since it drops the timezone
     # information and always casts to UTC internally
-    if (
-        cache_entry.delete_after
-        and now > cache_entry.delete_after.astimezone(datetime.timezone.utc)
-    ):
+    if cache_entry.delete_after and now > cache_entry.delete_after.astimezone(datetime.timezone.utc):
         # cache entry is already stale -> don't used it
         # TODO: return stale entry already to client and calculate new value in the background and
         # update client once new value is available
@@ -119,12 +116,12 @@ async def find_cached_value(
 
 
 def dbcached_function(
-    encoding_format: dcm.EncodingFormat | str=dcm.EncodingFormat.PICKLE,
-    ttl_seconds: int=0,
-    keep_at_least_seconds: int=0,
-    max_size_octets: int=0,
-    exclude_args_at_idx: collections.abc.Sequence[int]=tuple(),
-    exclude_kwargs: collections.abc.Sequence[str]=tuple(),
+    encoding_format: dcm.EncodingFormat | str = dcm.EncodingFormat.PICKLE,
+    ttl_seconds: int = 0,
+    keep_at_least_seconds: int = 0,
+    max_size_octets: int = 0,
+    exclude_args_at_idx: collections.abc.Sequence[int] = tuple(),
+    exclude_kwargs: collections.abc.Sequence[str] = tuple(),
 ):
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
@@ -137,14 +134,10 @@ def dbcached_function(
             function_name = f'{func.__module__}.{func.__qualname__}'
 
             cachable_args = tuple(
-                arg
-                for idx, arg in enumerate(args)
-                if idx not in exclude_args_at_idx
+                arg for idx, arg in enumerate(args) if idx not in exclude_args_at_idx
             )
             cachable_kwargs = dict(
-                [key, value]
-                for key, value in kwargs.items()
-                if key not in exclude_kwargs
+                [key, value] for key, value in kwargs.items() if key not in exclude_kwargs
             )
 
             # remove `db_session` from kwargs to allow proper serialisation
@@ -161,10 +154,12 @@ def dbcached_function(
                 kwargs=dcu.normalise_and_serialise_object(cachable_kwargs),
             )
 
-            if not shortcut_cache and (value := await find_cached_value(
-                db_session=db_session,
-                id=descriptor.id,
-            )):
+            if not shortcut_cache and (
+                value := await find_cached_value(
+                    db_session=db_session,
+                    id=descriptor.id,
+                )
+            ):
                 return dcu.deserialise_cache_value(
                     value=value,
                     encoding_format=encoding_format,
@@ -209,11 +204,11 @@ def dbcached_function(
 def parse_shortcut_cache(
     request: aiohttp.web.Request,
 ) -> bool:
-    '''
+    """
     Parses the information, if existing cache entries should be ignored, from the given request
     object. If the optional query parameter `shortcutCache` is set to a truthy value, it evaluates
     to `True`. Otherwise, the value of the `Shortcut-Cache` http header is considered.
-    '''
+    """
     if util.param_as_bool(request.rel_url.query, 'shortcutCache', default=False):
         return True
 
@@ -224,11 +219,11 @@ def parse_shortcut_cache(
 
 
 def dbcached_route(
-    encoding_format: dcm.EncodingFormat | str=dcm.EncodingFormat.PICKLE,
-    ttl_seconds: int=0,
-    keep_at_least_seconds: int=0,
-    max_size_octets: int=0,
-    skip_http_status: collections.abc.Sequence[int]=tuple(),
+    encoding_format: dcm.EncodingFormat | str = dcm.EncodingFormat.PICKLE,
+    ttl_seconds: int = 0,
+    keep_at_least_seconds: int = 0,
+    max_size_octets: int = 0,
+    skip_http_status: collections.abc.Sequence[int] = tuple(),
 ):
     if not encoding_format.startswith('pickle'):
         raise ValueError(
@@ -260,10 +255,12 @@ def dbcached_route(
 
             shortcut_cache = parse_shortcut_cache(request)
 
-            if not shortcut_cache and (value := await find_cached_value(
-                db_session=db_session,
-                id=descriptor.id,
-            )):
+            if not shortcut_cache and (
+                value := await find_cached_value(
+                    db_session=db_session,
+                    id=descriptor.id,
+                )
+            ):
                 return dcu.deserialise_cache_value(
                     value=value,
                     encoding_format=encoding_format,
@@ -313,8 +310,8 @@ def dbcached_route(
 async def mark_for_deletion(
     db_session: sqlasync.session.AsyncSession,
     id: str,
-    delete_after: datetime.datetime | None=None,
-    defer_db_commit: bool=False,
+    delete_after: datetime.datetime | None = None,
+    defer_db_commit: bool = False,
 ) -> bool:
     if not (cache_entry := await db_session.get(dm.DBCache, id)):
         return True
@@ -340,8 +337,8 @@ async def mark_for_deletion(
 async def mark_for_deletion_task(
     db_session: sqlasync.session.AsyncSession,
     id: str,
-    delete_after: datetime.datetime | None=None,
-    defer_db_commit: bool=False,
+    delete_after: datetime.datetime | None = None,
+    defer_db_commit: bool = False,
 ):
     await mark_for_deletion(
         db_session=db_session,
@@ -357,8 +354,8 @@ async def mark_function_cache_for_deletion(
     encoding_format: dcm.EncodingFormat | str,
     function: collections.abc.Callable | str,
     db_session: sqlasync.session.AsyncSession,
-    delete_after: datetime.datetime | None=None,
-    defer_db_commit: bool=False,
+    delete_after: datetime.datetime | None = None,
+    defer_db_commit: bool = False,
     *args,
     **kwargs,
 ):
@@ -386,7 +383,7 @@ class DeliveryDBCache(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
     async def delete(self):
-        '''
+        """
         ---
         description: Mark the delivery-db cache entry with the given id for deletion.
         tags:
@@ -420,7 +417,7 @@ class DeliveryDBCache(aiohttp.web.View):
         responses:
           "204":
             description: Successful operation.
-        '''
+        """
         db_session_low_prio = self.request[consts.REQUEST_DB_SESSION_LOW_PRIO]
         params = self.request.rel_url.query
 
@@ -454,11 +451,13 @@ class DeliveryDBCache(aiohttp.web.View):
             )
             id = descriptor.id
 
-        asyncio.create_task(mark_for_deletion_task(
-            db_session=db_session_low_prio,
-            id=id,
-            delete_after=delete_after,
-        ))
+        asyncio.create_task(
+            mark_for_deletion_task(
+                db_session=db_session_low_prio,
+                id=id,
+                delete_after=delete_after,
+            )
+        )
 
         return aiohttp.web.Response(
             status=http.HTTPStatus.NO_CONTENT,

@@ -36,11 +36,13 @@ def _mark_compliance_summary_cache_for_deletion(
         encoding_format=dcm.EncodingFormat.PICKLE,
         function_name='compliance_summary.component_datatype_summaries',
         args=dcu.normalise_and_serialise_object(tuple()),
-        kwargs=dcu.normalise_and_serialise_object({
-            'component': component,
-            'finding_type': finding_type,
-            'datasource': odg.model.Datasource.BDBA,
-        }),
+        kwargs=dcu.normalise_and_serialise_object(
+            {
+                'component': component,
+                'finding_type': finding_type,
+                'datasource': odg.model.Datasource.BDBA,
+            }
+        ),
     )
 
     delivery_client.mark_cache_for_deletion(
@@ -64,10 +66,7 @@ def scan(
     retrieve_vulnerability_findings = vulnerability_cfg and vulnerability_cfg.matches(artefact)
     retrieve_license_findings = license_cfg and license_cfg.matches(artefact)
 
-    if (
-        not retrieve_vulnerability_findings
-        and not retrieve_license_findings
-    ):
+    if not retrieve_vulnerability_findings and not retrieve_license_findings:
         logger.info(
             f'both the vulnerability and license finding configuration filter-out this {artefact=}, '
             'hence further processing will be skipped...'
@@ -108,10 +107,12 @@ def scan(
 
     mapping = extension_cfg.mapping(artefact.component_name)
 
-    if not (bdba_secret := secret_mgmt.bdba.find_cfg(
-        secret_factory=secret_factory,
-        group_id=mapping.group_id,
-    )):
+    if not (
+        bdba_secret := secret_mgmt.bdba.find_cfg(
+            secret_factory=secret_factory,
+            group_id=mapping.group_id,
+        )
+    ):
         raise ValueError(f'no BDBA secret found for group {mapping.group_id}')
 
     bdba_client = bdba.client.BDBAApi(

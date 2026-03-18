@@ -28,7 +28,9 @@ class CacheValueType(enum.StrEnum):
 @dataclasses.dataclass
 class CacheDescriptorBase:
     type: CacheValueType
-    encoding_format: EncodingFormat | str # allow str to support pickle versions different to `pickle.format_version` # noqa: E501
+    encoding_format: (
+        EncodingFormat | str
+    )  # allow str to support pickle versions different to `pickle.format_version` # noqa: E501
 
     @property
     def key(self) -> str:

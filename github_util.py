@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def is_remaining_quota_too_low(
     gh_api: github3.GitHub,
-    relative_gh_quota_minimum: float=0.2,
+    relative_gh_quota_minimum: float = 0.2,
 ) -> bool:
     rate_limit = gh_api.rate_limit().get('resources', dict()).get('core', dict()).get('limit', -1)
     rate_limit_remaining = gh_api.ratelimit_remaining
@@ -28,7 +28,7 @@ def is_remaining_quota_too_low(
 
 def wait_for_quota_if_required(
     gh_api: github3.GitHub,
-    relative_gh_quota_minimum: float=0.2,
+    relative_gh_quota_minimum: float = 0.2,
 ):
     if not is_remaining_quota_too_low(
         gh_api=gh_api,
@@ -54,13 +54,15 @@ def wait_for_quota_if_required(
 @github.retry.retry_and_throttle
 def all_issues(
     repository: github3.repos.Repository,
-    state: str='all',
-    number: int=-1, # -1 means all issues
+    state: str = 'all',
+    number: int = -1,  # -1 means all issues
 ):
-    return set(repository.issues(
-        state=state,
-        number=number,
-    ))
+    return set(
+        repository.issues(
+            state=state,
+            number=number,
+        )
+    )
 
 
 def filter_issues_for_labels(
@@ -72,14 +74,8 @@ def filter_issues_for_labels(
     def filter_issue(
         issue: github3.issues.ShortIssue,
     ) -> bool:
-        issue_labels = {
-            label.name
-            for label in issue.original_labels
-        }
+        issue_labels = {label.name for label in issue.original_labels}
 
         return labels.issubset(issue_labels)
 
-    return tuple(
-        issue for issue in issues
-        if filter_issue(issue)
-    )
+    return tuple(issue for issue in issues if filter_issue(issue))

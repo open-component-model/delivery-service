@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass
 class LicenseFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...] # "..." for dacite.from_dict
+    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
     license: odg.model.License
     filesystem_paths: list[odg.model.FilesystemPath]
 
@@ -44,7 +44,7 @@ class LicenseFinding(odg.model.Finding):
 @dataclasses.dataclass
 class IPFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...] # "..." for dacite.from_dict
+    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
     license: odg.model.License
     policy_violation: odg.model.PolicyViolationRef
     labels: list[str]
@@ -53,7 +53,7 @@ class IPFinding(odg.model.Finding):
 @dataclasses.dataclass
 class VulnerabilityFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...] # "..." for dacite.from_dict
+    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
     cve: str
     cvss_v3_score: float
     cvss: str
@@ -64,16 +64,11 @@ class VulnerabilityFinding(odg.model.Finding):
 
 @dataclasses.dataclass
 class RescoringProposal:
-    finding: (
-        LicenseFinding
-        | VulnerabilityFinding
-        | IPFinding
-        | odg.model.FindingModels
-    )
+    finding: LicenseFinding | VulnerabilityFinding | IPFinding | odg.model.FindingModels
     finding_type: odg.model.Datatype
     severity: str
     matching_rules: list[str]
-    applicable_rescorings: tuple[dict, ...] # "..." for dacite.from_dict
+    applicable_rescorings: tuple[dict, ...]  # "..." for dacite.from_dict
     discovery_date: str
     due_date: str | None
     sprint: yp.Sprint | None
@@ -82,7 +77,7 @@ class RescoringProposal:
 async def _find_artefact_metadata(
     db_session: sqlasync.session.AsyncSession,
     artefact: odg.model.ComponentArtefactId,
-    type_filter: list[str]=[],
+    type_filter: list[str] = [],
 ) -> list[odg.model.ArtefactMetadata]:
     db_statement = sa.select(dm.ArtefactMetaData).where(
         sa.and_(
@@ -97,7 +92,7 @@ async def _find_artefact_metadata(
             dm.ArtefactMetaData.artefact_version == artefact.artefact.artefact_version,
             dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
             dm.ArtefactMetaData.artefact_extra_id_normalised
-                == artefact.artefact.normalised_artefact_extra_id,
+            == artefact.artefact.normalised_artefact_extra_id,
             dm.ArtefactMetaData.type != odg.model.Datatype.RESCORING,
             sa.or_(
                 not type_filter,
@@ -118,7 +113,7 @@ async def _find_artefact_metadata(
 async def _find_rescorings(
     db_session: sqlasync.session.AsyncSession,
     artefact: odg.model.ComponentArtefactId,
-    type_filter: list[str]=[],
+    type_filter: list[str] = [],
 ) -> list[odg.model.ArtefactMetadata]:
     db_statement = sa.select(dm.ArtefactMetaData).where(
         sa.and_(
@@ -132,7 +127,7 @@ async def _find_rescorings(
             sa.or_(
                 dm.ArtefactMetaData.component_version == sa.null(),
                 dm.ArtefactMetaData.component_version == '',
-                dm.ArtefactMetaData.component_version == artefact.component_version
+                dm.ArtefactMetaData.component_version == artefact.component_version,
             ),
             sa.or_(
                 dm.ArtefactMetaData.artefact_name == sa.null(),
@@ -147,7 +142,7 @@ async def _find_rescorings(
             sa.or_(
                 dm.ArtefactMetaData.artefact_extra_id_normalised == '',
                 dm.ArtefactMetaData.artefact_extra_id_normalised
-                    == artefact.artefact.normalised_artefact_extra_id,
+                == artefact.artefact.normalised_artefact_extra_id,
             ),
             dm.ArtefactMetaData.artefact_kind == artefact.artefact_kind,
             dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
@@ -171,7 +166,7 @@ async def _find_rescorings(
 def filesystem_paths_for_finding(
     artefact_metadata: tuple[odg.model.ArtefactMetadata],
     finding: odg.model.ArtefactMetadata,
-    package_versions: tuple[str]=(),
+    package_versions: tuple[str] = (),
 ) -> list[odg.model.FilesystemPath]:
     if not package_versions:
         # only show filesystem paths for package versions which actually have findings;
@@ -180,7 +175,8 @@ def filesystem_paths_for_finding(
         package_versions = (None,)
 
     matching_structure_info = tuple(
-        matching_info for matching_info in artefact_metadata
+        matching_info
+        for matching_info in artefact_metadata
         if (
             matching_info.meta.type == odg.model.Datatype.STRUCTURE_INFO
             and matching_info.data.package_name == finding.data.package_name
@@ -189,13 +185,13 @@ def filesystem_paths_for_finding(
             and matching_info.artefact.component_version == finding.artefact.component_version
             and matching_info.artefact.artefact_kind == finding.artefact.artefact_kind
             and matching_info.artefact.artefact.artefact_name
-                == finding.artefact.artefact.artefact_name
+            == finding.artefact.artefact.artefact_name
             and matching_info.artefact.artefact.artefact_version
-                == finding.artefact.artefact.artefact_version
+            == finding.artefact.artefact.artefact_version
             and matching_info.artefact.artefact.artefact_type
-                == finding.artefact.artefact.artefact_type
+            == finding.artefact.artefact.artefact_type
             and matching_info.artefact.artefact.normalised_artefact_extra_id
-                == finding.artefact.artefact.normalised_artefact_extra_id
+            == finding.artefact.artefact.normalised_artefact_extra_id
         )
     )
 
@@ -209,14 +205,14 @@ def filesystem_paths_for_finding(
 def sprint_for_finding(
     due_date: datetime.date | None,
     sprints: list[yp.Sprint],
-    sprint_assignment_offset: int=0,
+    sprint_assignment_offset: int = 0,
 ) -> yp.Sprint | None:
-    '''
+    """
     Returns the sprint with the closest future end date compared to the provided `due_date`,
     acknowledging the configured `sprint_assignment_offset`. In case the `due_date` is `None` (this
     might be the case if a finding already belongs to a category which is to be interpreted as
     "assessed") or no such sprint can be found, `None` is returned instead.
-    '''
+    """
     if not due_date or not sprints:
         return None
 
@@ -265,21 +261,18 @@ async def _iter_rescoring_proposals(
     rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     cve_categorisation: odg.cvss.CveCategorisation | None,
-    sprints: list[yp.Sprint]=[],
+    sprints: list[yp.Sprint] = [],
 ) -> collections.abc.AsyncGenerator[RescoringProposal, None, None]:
-    '''
+    """
     yield rescorings for supported finding types
     implements special handling for BDBA findings (grouping across different package-versions)
-    '''
+    """
 
     seen_ids = set()
     loop = asyncio.get_running_loop()
 
     for am in artefact_metadata:
-        if (
-            am.meta.type == odg.model.Datatype.STRUCTURE_INFO
-            or am.id in seen_ids
-        ):
+        if am.meta.type == odg.model.Datatype.STRUCTURE_INFO or am.id in seen_ids:
             continue
 
         for finding_cfg in finding_cfgs:
@@ -289,11 +282,14 @@ async def _iter_rescoring_proposals(
             # we checked this already earlier, all types must have a correspondig configuration
             raise RuntimeError('this is a bug, this line should never be reached')
 
-        current_rescorings = await loop.run_in_executor(None, functools.partial(
-            rescore.utility.rescorings_for_finding_by_specificity,
-            finding=am,
-            rescorings=rescorings,
-        ))
+        current_rescorings = await loop.run_in_executor(
+            None,
+            functools.partial(
+                rescore.utility.rescorings_for_finding_by_specificity,
+                finding=am,
+                rescorings=rescorings,
+            ),
+        )
         severity = am.data.severity
 
         if current_rescorings:
@@ -325,7 +321,8 @@ async def _iter_rescoring_proposals(
             {
                 **dataclasses.asdict(rescoring),
                 'id': rescoring.id,
-            } for rescoring in current_rescorings
+            }
+            for rescoring in current_rescorings
         )
 
         if finding_cfg.type in (
@@ -334,7 +331,8 @@ async def _iter_rescoring_proposals(
             odg.model.Datatype.IP_FINDING,
         ):
             artefact_metadata_with_same_ocm = tuple(
-                matching_am for matching_am in artefact_metadata
+                matching_am
+                for matching_am in artefact_metadata
                 if (
                     matching_am.id not in seen_ids
                     and matching_am.meta.type == am.meta.type
@@ -342,13 +340,13 @@ async def _iter_rescoring_proposals(
                     and matching_am.artefact.component_version == am.artefact.component_version
                     and matching_am.artefact.artefact_kind is am.artefact.artefact_kind
                     and matching_am.artefact.artefact.artefact_name
-                        == am.artefact.artefact.artefact_name
+                    == am.artefact.artefact.artefact_name
                     and matching_am.artefact.artefact.artefact_version
-                        == am.artefact.artefact.artefact_version
+                    == am.artefact.artefact.artefact_version
                     and matching_am.artefact.artefact.artefact_type
-                        == am.artefact.artefact.artefact_type
+                    == am.artefact.artefact.artefact_type
                     and matching_am.artefact.artefact.normalised_artefact_extra_id
-                        == am.artefact.artefact.normalised_artefact_extra_id
+                    == am.artefact.artefact.normalised_artefact_extra_id
                 )
             )
             package_name = am.data.package_name
@@ -359,18 +357,14 @@ async def _iter_rescoring_proposals(
                 cvss_v3_score = am.data.cvss_v3_score
 
                 am_across_package_versions = tuple(
-                    artefact_metadatum for artefact_metadatum in artefact_metadata_with_same_ocm
+                    artefact_metadatum
+                    for artefact_metadatum in artefact_metadata_with_same_ocm
                     if (
-                        artefact_metadatum.data.cve == cve and
-                        artefact_metadatum.data.package_name == package_name
+                        artefact_metadatum.data.cve == cve
+                        and artefact_metadatum.data.package_name == package_name
                     )
                 )
-                seen_ids.update(
-                    tuple(
-                        local_am.id for local_am
-                        in am_across_package_versions
-                    )
-                )
+                seen_ids.update(tuple(local_am.id for local_am in am_across_package_versions))
 
                 package_versions, filesystem_paths = _package_versions_and_filesystem_paths(
                     artefact_metadata_across_package_version=am_across_package_versions,
@@ -380,11 +374,13 @@ async def _iter_rescoring_proposals(
 
                 # only propose rescoring if finding is not rescored yet
                 if not current_rescorings and finding_cfg.rescoring_ruleset and cve_categorisation:
-                    rescoring_rules = list(rescore.utility.matching_rescore_rules(
-                        rescoring_rules=finding_cfg.rescoring_ruleset.rules,
-                        categorisation=cve_categorisation,
-                        cvss=cvss,
-                    ))
+                    rescoring_rules = list(
+                        rescore.utility.matching_rescore_rules(
+                            rescoring_rules=finding_cfg.rescoring_ruleset.rules,
+                            categorisation=cve_categorisation,
+                            cvss=cvss,
+                        )
+                    )
 
                     current_severity = rescore.utility.rescore_finding(
                         finding_cfg=finding_cfg,
@@ -423,18 +419,14 @@ async def _iter_rescoring_proposals(
                 license = am.data.license
 
                 am_across_package_versions = tuple(
-                    matching_am for matching_am in artefact_metadata_with_same_ocm
+                    matching_am
+                    for matching_am in artefact_metadata_with_same_ocm
                     if (
-                        matching_am.data.license.name == license.name and
-                        matching_am.data.package_name == package_name
+                        matching_am.data.license.name == license.name
+                        and matching_am.data.package_name == package_name
                     )
                 )
-                seen_ids.update(
-                    tuple(
-                        local_am.id for local_am
-                        in am_across_package_versions
-                    )
-                )
+                seen_ids.update(tuple(local_am.id for local_am in am_across_package_versions))
 
                 package_versions, filesystem_paths = _package_versions_and_filesystem_paths(
                     artefact_metadata_across_package_version=am_across_package_versions,
@@ -465,20 +457,16 @@ async def _iter_rescoring_proposals(
                 license = am.data.license
 
                 am_across_package_versions = tuple(
-                    matching_am for matching_am in artefact_metadata_with_same_ocm
+                    matching_am
+                    for matching_am in artefact_metadata_with_same_ocm
                     if (
-                        matching_am.data.license.name == license.name and
-                        matching_am.data.package_name == package_name and
-                        sorted(matching_am.data.labels) == sorted(am.data.labels) and
-                        matching_am.data.policy_violation.name == am.data.policy_violation.name
+                        matching_am.data.license.name == license.name
+                        and matching_am.data.package_name == package_name
+                        and sorted(matching_am.data.labels) == sorted(am.data.labels)
+                        and matching_am.data.policy_violation.name == am.data.policy_violation.name
                     )
                 )
-                seen_ids.update(
-                    tuple(
-                        local_am.id for local_am
-                        in am_across_package_versions
-                    )
-                )
+                seen_ids.update(tuple(local_am.id for local_am in am_across_package_versions))
 
                 package_versions, _ = _package_versions_and_filesystem_paths(
                     artefact_metadata_across_package_version=am_across_package_versions,
@@ -534,13 +522,13 @@ async def create_backlog_items_for_rescored_artefacts(
     rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
 ):
-    '''
+    """
     Determines those artefacts from `rescorings`, which still contain all attributes which are
     relevant for grouping in the GitHub issues, and creates respective issue replicator backlog
     items for those. If some of these properties are not set (e.g. because the rescoring scope is
     too generous), those artefact will be skipped and their GitHub issues will have to be updated
     with the next usual issue update (based on the configured issue replicator interval).
-    '''
+    """
     artefact_groups = set()
 
     for rescoring in rescorings:
@@ -562,10 +550,7 @@ async def create_backlog_items_for_rescored_artefacts(
         for attr_ref in finding_cfg.issues.attrs_to_group_by:
             attr_path = jsonpath_ng.parse(attr_ref)
 
-            if (
-                not (prop := attr_path.find(artefact_raw))
-                or prop[0].value is None
-            ):
+            if not (prop := attr_path.find(artefact_raw)) or prop[0].value is None:
                 required_attr_not_set = True
                 break
 
@@ -574,10 +559,12 @@ async def create_backlog_items_for_rescored_artefacts(
             # BLI which contains the minimum required attributes
             continue
 
-        artefact_groups.add(finding_cfg.issues.strip_artefact(
-            artefact=rescoring.artefact,
-            keep_group_attributes=True,
-        ))
+        artefact_groups.add(
+            finding_cfg.issues.strip_artefact(
+                artefact=rescoring.artefact,
+                keep_group_attributes=True,
+            )
+        )
 
     for artefact in artefact_groups:
         k8s.backlog.create_backlog_item(
@@ -596,7 +583,7 @@ class Rescore(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def post(self):
-        '''
+        """
         ---
         description: Applies rescoring to delivery-db.
         tags:
@@ -615,7 +602,7 @@ class Rescore(aiohttp.web.View):
         responses:
           "201":
             description: Successful operation.
-        '''
+        """
         body = await self.request.json()
         rescorings_raw: list[dict] = body.get('entries')
 
@@ -626,10 +613,14 @@ class Rescore(aiohttp.web.View):
         user = await db_session.get(dm.User, user_id)
 
         # XXX don't just use first entry here once mulitple IDPs (per user) are possible
-        github_user_identifier = (await db_session.execute(sa.select(dm.UserIdentifiers).where(
-            dm.UserIdentifiers.user_id == user.id,
-            dm.UserIdentifiers.type == secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB,
-        ))).first()[0]
+        github_user_identifier = (
+            await db_session.execute(
+                sa.select(dm.UserIdentifiers).where(
+                    dm.UserIdentifiers.user_id == user.id,
+                    dm.UserIdentifiers.type == secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB,
+                )
+            )
+        ).first()[0]
         github_user = odg.model.GitHubUser(
             username=github_user_identifier.deserialised_identifier.username,
             github_hostname=github_user_identifier.deserialised_identifier.hostname,
@@ -660,9 +651,11 @@ class Rescore(aiohttp.web.View):
                 )
 
                 # avoid adding rescoring duplicates -> purge old entries
-                await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
-                    dm.ArtefactMetaData.id == rescoring_db.id,
-                ))
+                await db_session.execute(
+                    sa.delete(dm.ArtefactMetaData).where(
+                        dm.ArtefactMetaData.id == rescoring_db.id,
+                    )
+                )
 
                 db_session.add(rescoring_db)
 
@@ -676,19 +669,21 @@ class Rescore(aiohttp.web.View):
             and extensions_cfg.issue_replicator
             and extensions_cfg.issue_replicator.enabled
         ):
-            asyncio.create_task(create_backlog_items_for_rescored_artefacts(
-                namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
-                kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-                rescorings=rescorings,
-                finding_cfgs=self.request.app[consts.APP_FINDING_CFGS],
-            ))
+            asyncio.create_task(
+                create_backlog_items_for_rescored_artefacts(
+                    namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
+                    kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
+                    rescorings=rescorings,
+                    finding_cfgs=self.request.app[consts.APP_FINDING_CFGS],
+                )
+            )
 
         return aiohttp.web.Response(
             status=http.HTTPStatus.CREATED,
         )
 
     async def get(self):
-        '''
+        """
         ---
         description:
           Calculates vulnerability rescorings based on cve-categorisation and cve-rescoring-ruleset.
@@ -740,7 +735,7 @@ class Rescore(aiohttp.web.View):
               type: array
               items:
                 $ref: '#/definitions/RescoringProposal'
-        '''
+        """
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'componentName', required=True)
@@ -810,7 +805,8 @@ class Rescore(aiohttp.web.View):
         )
 
         rescoring_proposals = [
-            rescoring_proposal async for rescoring_proposal in _iter_rescoring_proposals(
+            rescoring_proposal
+            async for rescoring_proposal in _iter_rescoring_proposals(
                 artefact_metadata=artefact_metadata,
                 rescorings=rescorings,
                 finding_cfgs=finding_cfgs,

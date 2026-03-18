@@ -19,7 +19,7 @@ class DownloadTestResults(aiohttp.web.View):
     required_features = (features.FeatureTests,)
 
     async def get(self):
-        '''
+        """
         ---
         description: Downloads the zipped test results for the specified component release.
         tags:
@@ -35,7 +35,7 @@ class DownloadTestResults(aiohttp.web.View):
           name: componentVersion
           type: string
           required: true
-        '''
+        """
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'componentName', required=True)
@@ -71,7 +71,6 @@ class DownloadTestResults(aiohttp.web.View):
                 },
                 allow_redirects=True,
             ) as assetResp:
-
                 if assetResp.headers['Content-Type'] not in ['application/octet-stream']:
                     content_type = assetResp.headers['Content-Type']
                     logger.debug(f'unknown content type {content_type} for asset {asset.name}')

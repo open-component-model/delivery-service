@@ -32,7 +32,7 @@ class SastRescoringRule(Rule):
 
 @dataclasses.dataclass
 class CveRescoringRule(Rule):
-    '''
+    """
     a CVE rescoring rule intended to be used when re-scoring a CVE (see `CVSSV3` type) for an
     artefact that has a `CveCategorisation`.
 
@@ -46,7 +46,8 @@ class CveRescoringRule(Rule):
     category_value attr AND the CVE's values are included in the rule's `cve_values`.
 
     CVE-Attributes for which a rule does not specify any value are not considered for matching.
-    '''
+    """
+
     category_value: str
     cve_values: list[str]
 
@@ -105,13 +106,13 @@ class CveRescoringRule(Rule):
         return attr_values
 
     def matches_cvss(self, cvss: odg.cvss.CVSSV3 | dict) -> bool:
-        '''
+        """
         returns a boolean indicating whether this rule matches the given CVSS.
 
         Only CVSS-Attributes that are specified by this rule w/ at least one value are checked.
         If more than one value for the same attribute is specified, matching will be assumed if
         the given CVSS's attr-value is contained in the rule's values.
-        '''
+        """
         cve_values = self.parsed_cve_values
         if type(cvss) is not dict:
             cvss = dataclasses.asdict(cvss)
@@ -121,8 +122,7 @@ class CveRescoringRule(Rule):
 
             # if cvss is of type dict, the values have to be compared to the values of the enums
             if value not in [
-                v if isinstance(value, enum.Enum) else v.value
-                for v in cve_values[attr]
+                v if isinstance(value, enum.Enum) else v.value for v in cve_values[attr]
             ]:
                 return False
 
@@ -145,7 +145,6 @@ class RuleSet[T: Rule]:
 
 @dataclasses.dataclass
 class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
-
     @staticmethod
     def from_dict(raw: dict) -> typing.Self:
         operations = dict(
@@ -153,7 +152,7 @@ class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
             for operation_name, operation in raw.get('operations', {}).items()
         )
 
-        return CveRescoringRuleSet( # noqa: E1123
+        return CveRescoringRuleSet(  # noqa: E1123
             name=raw['name'],
             rules=list(cve_rescoring_rules_from_dicts(raw['rules'])),
             operations=operations,
@@ -163,7 +162,6 @@ class CveRescoringRuleSet(RuleSet[CveRescoringRule]):
 
 @dataclasses.dataclass
 class SastRescoringRuleSet(RuleSet[SastRescoringRule]):
-
     @staticmethod
     def from_dict(raw: dict) -> typing.Self:
         operations = dict(
@@ -171,7 +169,7 @@ class SastRescoringRuleSet(RuleSet[SastRescoringRule]):
             for operation_name, operation in raw.get('operations', {}).items()
         )
 
-        return SastRescoringRuleSet( # noqa: E1123
+        return SastRescoringRuleSet(  # noqa: E1123
             name=raw['name'],
             rules=list(sast_rescoring_rules_from_dict(raw['rules'])),
             operations=operations,
@@ -190,9 +188,9 @@ def operation_from_dict(raw: dict) -> Operation | str:
 
 
 def cve_rescoring_rules_from_dicts(
-    rules: list[dict]
+    rules: list[dict],
 ) -> collections.abc.Generator[CveRescoringRule, None, None]:
-    '''
+    """
     deserialises cve_rescoring rules. Each dict is expected to have the following form:
 
     category_value: <CveCategorisation-attr>:<value>
@@ -201,7 +199,7 @@ def cve_rescoring_rules_from_dicts(
       - cve_values:
         - <CVSSV3-attr>: <value>
         operation: <value>
-    '''
+    """
     for rule in rules:
         category_value = rule['category_value']
         name = rule.get('name')
@@ -220,12 +218,12 @@ def cve_rescoring_rules_from_dicts(
                 },
                 config=dacite.Config(
                     cast=(enum.Enum, tuple),
-                )
+                ),
             )
 
 
 def sast_rescoring_rules_from_dict(
-    rules: list[dict]
+    rules: list[dict],
 ) -> collections.abc.Generator[SastRescoringRule, None, None]:
     for rule in rules:
         yield dacite.from_dict(
@@ -233,5 +231,5 @@ def sast_rescoring_rules_from_dict(
             data=rule,
             config=dacite.Config(
                 cast=(enum.Enum, tuple),
-            )
+            ),
         )

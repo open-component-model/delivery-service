@@ -83,21 +83,22 @@ class ComponentResponsibles(StrategyBase):
                     continue
 
                 yield odg.model.UserIdentity(
-                    identifiers=[odg.model.GithubUser(
-                        source=odg.model.Datasource.RESPONSIBLES,
-                        username=identifier['username'],
-                        github_hostname=identifier['github_hostname'],
-                    )],
+                    identifiers=[
+                        odg.model.GithubUser(
+                            source=odg.model.Datasource.RESPONSIBLES,
+                            username=identifier['username'],
+                            github_hostname=identifier['github_hostname'],
+                        )
+                    ],
                 )
 
 
 @dataclasses.dataclass
 class StaticResponsibles(StrategyBase):
     type: typing.Literal[StrategyTypes.STATIC_RESPONSIBLES]
-    responsibles: list[
-        GitHubUserResponsible
-        | GitHubTeamResponsible
-    ] = dataclasses.field(default_factory=list)
+    responsibles: list[GitHubUserResponsible | GitHubTeamResponsible] = dataclasses.field(
+        default_factory=list
+    )
 
     def iter_responsibles(
         self,
@@ -109,11 +110,13 @@ class StaticResponsibles(StrategyBase):
         for responsible in self.responsibles:
             if responsible.type is ResponsibleTypes.GITHUB_USER:
                 yield odg.model.UserIdentity(
-                    identifiers=[odg.model.GithubUser(
-                        source=odg.model.Datasource.RESPONSIBLES,
-                        username=responsible.username,
-                        github_hostname=responsible.github_hostname,
-                    )],
+                    identifiers=[
+                        odg.model.GithubUser(
+                            source=odg.model.Datasource.RESPONSIBLES,
+                            username=responsible.username,
+                            github_hostname=responsible.github_hostname,
+                        )
+                    ],
                 )
 
             elif responsible.type is ResponsibleTypes.GITHUB_TEAM:
@@ -130,13 +133,15 @@ class StaticResponsibles(StrategyBase):
                     absent_ok=False,
                 ):
                     yield odg.model.UserIdentity(
-                        identifiers=[odg.model.GithubUser(
-                            source=odg.model.Datasource.RESPONSIBLES,
-                            username=username,
-                            github_hostname=responsible.github_hostname,
-                        )],
+                        identifiers=[
+                            odg.model.GithubUser(
+                                source=odg.model.Datasource.RESPONSIBLES,
+                                username=username,
+                                github_hostname=responsible.github_hostname,
+                            )
+                        ],
                     )
-                time.sleep(3) # prevent GitHub secondary rate limits
+                time.sleep(3)  # prevent GitHub secondary rate limits
 
             else:
                 raise ValueError(f'unknown {responsible.type=}')

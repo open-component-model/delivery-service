@@ -33,7 +33,7 @@ def cve_rescoring_ruleset() -> dict:
                         'cve_values': ['AV:L', 'AV:P'],
                         'operation': 'not-exploitable',
                     },
-                ]
+                ],
             }
         ],
     }
@@ -44,37 +44,43 @@ def vulnerability_finding_cfg(
     cve_rescoring_ruleset: dict,
 ) -> odg.findings.Finding:
     return odg.findings.Finding.from_dict(
-        findings_raw=[{
-            'type': odg.model.Datatype.VULNERABILITY_FINDING,
-            'categorisations': [{
-                'id': 'NONE',
-                'display_name': 'NONE display name',
-                'value': 0,
-            }, {
-                'id': 'MEDIUM',
-                'display_name': 'MEDIUM display name',
-                'value': 2,
-                'allowed_processing_time': 90,
-                'selector': {
-                    'cve_score_range': {
-                        'min': 4.0,
-                        'max': 6.9,
+        findings_raw=[
+            {
+                'type': odg.model.Datatype.VULNERABILITY_FINDING,
+                'categorisations': [
+                    {
+                        'id': 'NONE',
+                        'display_name': 'NONE display name',
+                        'value': 0,
                     },
-                },
-            }, {
-                'id': 'CRITICAL',
-                'display_name': 'CRITICAL display name',
-                'value': 8,
-                'allowed_processing_time': 30,
-                'selector': {
-                    'cve_score_range': {
-                        'min': 9.0,
-                        'max': 10.0,
+                    {
+                        'id': 'MEDIUM',
+                        'display_name': 'MEDIUM display name',
+                        'value': 2,
+                        'allowed_processing_time': 90,
+                        'selector': {
+                            'cve_score_range': {
+                                'min': 4.0,
+                                'max': 6.9,
+                            },
+                        },
                     },
-                },
-            }],
-            'rescoring_ruleset': cve_rescoring_ruleset,
-        }],
+                    {
+                        'id': 'CRITICAL',
+                        'display_name': 'CRITICAL display name',
+                        'value': 8,
+                        'allowed_processing_time': 30,
+                        'selector': {
+                            'cve_score_range': {
+                                'min': 9.0,
+                                'max': 10.0,
+                            },
+                        },
+                    },
+                ],
+                'rescoring_ruleset': cve_rescoring_ruleset,
+            }
+        ],
         finding_type=odg.model.Datatype.VULNERABILITY_FINDING,
     )
 
@@ -107,29 +113,35 @@ def sast_finding_cfg(
     sast_rescoring_ruleset: dict,
 ) -> odg.findings.Finding:
     return odg.findings.Finding.from_dict(
-        findings_raw=[{
-            'type': odg.model.Datatype.SAST_FINDING,
-            'categorisations': [{
-                'id': 'no-findings',
-                'display_name': 'scan exists and has no findings',
-                'value': 0,
-                'rescoring': 'manual',
-            }, {
-                'id': 'no-linter-required',
-                'display_name': 'linting is optional for this component',
-                'value': 0,
-            }, {
-                'id': 'missing-scan',
-                'display_name': 'missing sast scan',
-                'value': 16,
-                'allowed_processing_time': 0,
-                'rescoring': 'automatic',
-                'selector': {
-                    'sub_types': ['.*'],
-                },
-            }],
-            'rescoring_ruleset': sast_rescoring_ruleset,
-        }],
+        findings_raw=[
+            {
+                'type': odg.model.Datatype.SAST_FINDING,
+                'categorisations': [
+                    {
+                        'id': 'no-findings',
+                        'display_name': 'scan exists and has no findings',
+                        'value': 0,
+                        'rescoring': 'manual',
+                    },
+                    {
+                        'id': 'no-linter-required',
+                        'display_name': 'linting is optional for this component',
+                        'value': 0,
+                    },
+                    {
+                        'id': 'missing-scan',
+                        'display_name': 'missing sast scan',
+                        'value': 16,
+                        'allowed_processing_time': 0,
+                        'rescoring': 'automatic',
+                        'selector': {
+                            'sub_types': ['.*'],
+                        },
+                    },
+                ],
+                'rescoring_ruleset': sast_rescoring_ruleset,
+            }
+        ],
         finding_type=odg.model.Datatype.SAST_FINDING,
     )
 
@@ -159,8 +171,7 @@ def test_deserialise_sast_rescoring_ruleset(
 
 
 def test_deserialise_with_extra_attributes(
-    cve_rescoring_ruleset: dict,
-    sast_rescoring_ruleset: dict
+    cve_rescoring_ruleset: dict, sast_rescoring_ruleset: dict
 ):
     cve_rescoring_ruleset['extra_attribute'] = 'extra_value'
     sast_rescoring_ruleset['extra_attribute'] = 'extra_value'
@@ -195,7 +206,7 @@ def sast_finding_public(
             artefact=odg.model.LocalArtefactId(
                 artefact_name=None,
                 artefact_type=None,
-            )
+            ),
         ),
         meta=odg.model.Metadata(
             datasource=odg.model.Datasource.SAST,
@@ -207,7 +218,7 @@ def sast_finding_public(
             sub_type=odg.model.SastSubType.CENTRAL_LINTING,
             sast_status=odg.model.SastStatus.NO_LINTER,
             severity=sast_categorisation.id,
-        )
+        ),
     )
 
 
@@ -221,13 +232,11 @@ def test_generate_sast_rescorings(
         sast_finding_cfg=sast_finding_cfg,
         categorisation=sast_categorisation,
         user=odg.model.User(
-            username="test_user",
+            username='test_user',
         ),
         creation_timestamp=datetime.datetime.now(),
     )
 
     assert isinstance(rescoring.data, odg.model.CustomRescoring)
-    assert rescoring.data.matching_rules == [
-        'central-linting-is-optional-for-external-components'
-    ]
+    assert rescoring.data.matching_rules == ['central-linting-is-optional-for-external-components']
     assert rescoring.data.severity == 'no-linter-required'

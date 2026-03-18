@@ -84,38 +84,38 @@ def create_ocm_descriptor(
     size: int,
 ) -> ocm.ComponentDescriptor:
     return ocm.ComponentDescriptor(
-      meta=ocm.Metadata(schemaVersion=ocm.SchemaVersion.V2),
-      component=ocm.Component(
-        name=component_name,
-        version=component_version,
-        repositoryContexts=[
-          ocm.OciOcmRepository(
-            baseUrl=ocm_repo,
-            type=ocm.AccessType.OCI_REGISTRY,
-          )
-        ],
-        provider='internal',
-        sources=[],
-        componentReferences=[],
-        resources=[
-            ocm.Resource(
-                name='delivery-db-backup',
-                version=component_version,
-                type=ocm.ArtefactType.BLOB,
-                access=ocm.LocalBlobAccess(
-                    localReference=backup_digest,
-                    mediaType=BACKUP_BLOB_MEDIA_TYPE,
-                    size=size,
+        meta=ocm.Metadata(schemaVersion=ocm.SchemaVersion.V2),
+        component=ocm.Component(
+            name=component_name,
+            version=component_version,
+            repositoryContexts=[
+                ocm.OciOcmRepository(
+                    baseUrl=ocm_repo,
+                    type=ocm.AccessType.OCI_REGISTRY,
+                )
+            ],
+            provider='internal',
+            sources=[],
+            componentReferences=[],
+            resources=[
+                ocm.Resource(
+                    name='delivery-db-backup',
+                    version=component_version,
+                    type=ocm.ArtefactType.BLOB,
+                    access=ocm.LocalBlobAccess(
+                        localReference=backup_digest,
+                        mediaType=BACKUP_BLOB_MEDIA_TYPE,
+                        size=size,
+                    ),
+                )
+            ],
+            labels=[
+                ocm.Label(
+                    name='cloud.gardener/ocm/creation-date',
+                    value=datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
                 ),
-            )
-        ],
-        labels=[
-            ocm.Label(
-                name='cloud.gardener/ocm/creation-date',
-                value=datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
-            ),
-        ],
-      ),
+            ],
+        ),
     )
 
 
@@ -161,10 +161,13 @@ def iter_components_to_purge(
     oci_ref = cnudie.util.oci_ref(component=component)
     all_versions = oci_client.tags(oci_ref.ref_without_tag)
 
-    sorted_versions = sorted(all_versions, key=lambda v: version.parse_to_semver(
-        version=v,
-        invalid_semver_ok=True,
-    ))
+    sorted_versions = sorted(
+        all_versions,
+        key=lambda v: version.parse_to_semver(
+            version=v,
+            invalid_semver_ok=True,
+        ),
+    )
 
     return (
         lookup(

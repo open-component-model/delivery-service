@@ -15,7 +15,7 @@ APP_REQUESTS_TOTAL = 'requests_total'
 @middleware.auth.noauth
 class Metrics(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Metrics
@@ -24,7 +24,7 @@ class Metrics(aiohttp.web.View):
         responses:
           "200":
             description: Successful operation.
-        '''
+        """
         return aiohttp.web.Response(
             body=prometheus_client.generate_latest(),
             content_type='text/plain',
@@ -46,9 +46,13 @@ def add_prometheus_middleware(
         response = await handler(request)
 
         latency = datetime.datetime.now() - start_time
-        request.app[APP_REQUEST_LATENCY_SECONDS].labels(request.path, request.method).observe(latency.total_seconds()) # noqa: E501
+        request.app[APP_REQUEST_LATENCY_SECONDS].labels(request.path, request.method).observe(
+            latency.total_seconds()
+        )  # noqa: E501
         request.app[APP_REQUESTS_CONCURRENCY].labels(request.path, request.method).dec()
-        request.app[APP_REQUESTS_TOTAL].labels(request.path, request.headers.get('User-Agent'), request.method, response.status).inc() # noqa: E501
+        request.app[APP_REQUESTS_TOTAL].labels(
+            request.path, request.headers.get('User-Agent'), request.method, response.status
+        ).inc()  # noqa: E501
 
         return response
 

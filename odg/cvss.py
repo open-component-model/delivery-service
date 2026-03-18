@@ -1,6 +1,7 @@
-'''
+"""
 utils/model classes for CVSS (https://www.first.org/cvss/user-guide)
-'''
+"""
+
 import dataclasses
 import enum
 import typing

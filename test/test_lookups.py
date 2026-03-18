@@ -16,9 +16,11 @@ def ocm_repository_cfgs() -> list[lookups.VirtualOcmRepositoryCfg | lookups.OciO
         {
             'name': '<releases>',
             'type': 'virtual',
-            'selectors': [{
-                'required_labels': 'releases',
-            }],
+            'selectors': [
+                {
+                    'required_labels': 'releases',
+                }
+            ],
         },
         {
             'name': '<auto-all>',

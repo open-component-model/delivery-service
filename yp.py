@@ -8,10 +8,10 @@ import odg.model
 import util
 
 
-'''
+"""
 utils for reading user-data from Gardener's Yellow-Pages
 pragmatically hardcoding a lot.
-'''
+"""
 
 
 @dataclasses.dataclass
@@ -33,7 +33,7 @@ class Sprint:
 
     def iter_sprint_dates(
         self,
-        meta: SprintMetadata | None=None,
+        meta: SprintMetadata | None = None,
     ) -> collections.abc.Generator[delivery.model.SprintDate, None, None]:
         yield delivery.model.SprintDate(
             value=self.end_date.isoformat(),
@@ -55,7 +55,7 @@ class Sprint:
 
     def asdict(
         self,
-        meta: SprintMetadata=None,
+        meta: SprintMetadata = None,
     ) -> dict:
         return {
             'name': self.name,
@@ -67,18 +67,18 @@ def _github_url(
     github_name: str,
     addressbook_github_mappings: collections.abc.Iterable[dict],
 ):
-    '''
+    """
     looks up the github-url maintained in `repo`'s github mapping file for the logical
     github instance name, as used in `repo`'s addressbook file
 
     If not such mapping is found, None is returned.
-    '''
+    """
     for entry in addressbook_github_mappings:
         # expected attrs: name, api_url
         if entry['name'] == github_name:
             return entry['api_url']
 
-    return None # no matching entry was found
+    return None  # no matching entry was found
 
 
 def _github_name(
@@ -96,9 +96,9 @@ def _github_name(
 
 @dataclasses.dataclass
 class AddressbookEntry:
-    name: str # firstname lastname (space-separated)
-    email: str # email-addr
-    github: dict[str, str | None] # github-name: username
+    name: str  # firstname lastname (space-separated)
+    email: str  # email-addr
+    github: dict[str, str | None]  # github-name: username
 
 
 def find_addressbook_entry(
@@ -106,23 +106,25 @@ def find_addressbook_entry(
     addressbook_github_mappings: collections.abc.Iterable[dict],
     user_id: odg.model.UserIdentity,
 ) -> AddressbookEntry | None:
-    '''
+    """
     looks up first matching entry from given addressbook-entries (assumption: there is at most
     one addressbook entry per actual user)
 
     returns AddressbookEntry if found (based on github-user or email-address), or None if no such
     entry is found.
-    '''
+    """
     for addressbook_entry in addressbook_entries:
         for user_info in user_id.identifiers:
             if user_info.type is odg.model.UserTypes.EMAIL_ADDRESS:
                 if user_info.email.lower() == addressbook_entry.email:
                     return addressbook_entry
             elif user_info.type is odg.model.UserTypes.GITHUB_USER:
-                if not (github_name := _github_name(
-                    github_url=user_info.github_hostname,
-                    addressbook_github_mappings=addressbook_github_mappings,
-                )):
+                if not (
+                    github_name := _github_name(
+                        github_url=user_info.github_hostname,
+                        addressbook_github_mappings=addressbook_github_mappings,
+                    )
+                ):
                     continue
                 github_name_from_addressbook_entry = addressbook_entry.github.get(github_name)
 
@@ -142,10 +144,10 @@ def inject_personal_name(
     addressbook_github_mappings: collections.abc.Iterable[dict],
     user_id: odg.model.UserIdentity,
 ) -> odg.model.UserIdentity:
-    '''
+    """
     injects personalName looked-up in passed addressbook-entries into the
     given `UserIdentity`, if no personalName identifier is present already.
-    '''
+    """
     addressbook_entry = find_addressbook_entry(
         addressbook_entries=addressbook_entries,
         addressbook_github_mappings=addressbook_github_mappings,
@@ -182,11 +184,11 @@ def inject_github_users(
     addressbook_github_mappings: collections.abc.Iterable[dict],
     user_id: odg.model.UserIdentity,
 ) -> odg.model.UserIdentity:
-    '''
+    """
     injects additional known github-user-IDs looked-up in passed addressbook-entries into the
     given `UserIdentity`. If no additional user-IDs are found, the passed-in object is returned
     unchanged.
-    '''
+    """
     addressbook_entry = find_addressbook_entry(
         addressbook_entries=addressbook_entries,
         addressbook_github_mappings=addressbook_github_mappings,
@@ -197,7 +199,7 @@ def inject_github_users(
         return user_id
 
     def iter_infos() -> collections.abc.Generator[odg.model.UserIdentifierBase, None, None]:
-        seen_github_hostnames = set() # keep first entry for each github-host
+        seen_github_hostnames = set()  # keep first entry for each github-host
         for info in user_id.identifiers:
             # keep everything but github-user unchanged
             if info.type is not odg.model.UserTypes.GITHUB_USER:
@@ -238,10 +240,10 @@ def inject_email_address(
     addressbook_github_mappings: collections.abc.Iterable[dict],
     user_id: odg.model.UserIdentity,
 ) -> odg.model.UserIdentity:
-    '''
+    """
     Injects the email address looked-up in the passed `addressbook_entries` into the given `user_id`
     if no email address is already present.
-    '''
+    """
     addressbook_entry = find_addressbook_entry(
         addressbook_entries=addressbook_entries,
         addressbook_github_mappings=addressbook_github_mappings,

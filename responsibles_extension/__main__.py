@@ -56,25 +56,29 @@ def update_responsibles(
 
             responsibles = []
             for strategy in rule.strategies:
-                responsibles.extend(strategy.iter_responsibles(
-                    artefact=artefact,
-                    datatype=finding_type,
-                    secret_factory=secret_factory,
-                    delivery_client=delivery_client,
-                ))
+                responsibles.extend(
+                    strategy.iter_responsibles(
+                        artefact=artefact,
+                        datatype=finding_type,
+                        secret_factory=secret_factory,
+                        delivery_client=delivery_client,
+                    )
+                )
 
-            responsibles_artefacts.append(odg.model.ArtefactMetadata(
-                artefact=artefact,
-                meta=odg.model.Metadata(
-                    datasource=odg.model.Datasource.RESPONSIBLES,
-                    type=odg.model.Datatype.RESPONSIBLES,
-                    responsibles=responsibles,
-                    assignee_mode=rule.assignee_mode,
-                ),
-                data=odg.model.ResponsibleInfo(
-                    referenced_type=finding_type,
-                ),
-            ))
+            responsibles_artefacts.append(
+                odg.model.ArtefactMetadata(
+                    artefact=artefact,
+                    meta=odg.model.Metadata(
+                        datasource=odg.model.Datasource.RESPONSIBLES,
+                        type=odg.model.Datatype.RESPONSIBLES,
+                        responsibles=responsibles,
+                        assignee_mode=rule.assignee_mode,
+                    ),
+                    data=odg.model.ResponsibleInfo(
+                        referenced_type=finding_type,
+                    ),
+                )
+            )
 
             break
         else:

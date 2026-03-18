@@ -26,10 +26,7 @@ ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
 
 
-SUPPORTED_SBOM_FORMATS = [
-    bdba.model.SBomFormat.CYCLONEDX,
-    bdba.model.SBomFormat.SPDX
-    ]
+SUPPORTED_SBOM_FORMATS = [bdba.model.SBomFormat.CYCLONEDX, bdba.model.SBomFormat.SPDX]
 
 
 def get_or_create_bdba_scan(
@@ -41,7 +38,7 @@ def get_or_create_bdba_scan(
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
     processing_mode: bdba.model.ProcessingMode,
-    create_new_scan_if_missing: bool=False,
+    create_new_scan_if_missing: bool = False,
 ) -> int:
     existing_scans = bdba_utils.scan.retrieve_existing_scan_results(
         bdba_client=bdba_api,
@@ -94,12 +91,14 @@ def generate_sbom_for_resource_node(
     group_id: int,
     processing_mode: bdba.model.ProcessingMode,
     output_format: str = bdba.model.SBomFormat.CYCLONEDX,
-    create_new_scan_if_missing: bool=False,
+    create_new_scan_if_missing: bool = False,
 ) -> bdba.model.SBOM:
-    if not (bdba_secret := secret_mgmt.bdba.find_cfg(
-        secret_factory=secret_factory,
-        group_id=group_id,
-    )):
+    if not (
+        bdba_secret := secret_mgmt.bdba.find_cfg(
+            secret_factory=secret_factory,
+            group_id=group_id,
+        )
+    ):
         raise ValueError(f'no BDBA secret found for group {group_id}')
 
     bdba_api = bdba.client.BDBAApi(
@@ -120,17 +119,19 @@ def generate_sbom_for_resource_node(
     )
 
     if not product_id:
-        raise ValueError(f'No BDBA scan available '
-                         f'for resource {resource_node.resource.name} '
-                        f'in component {resource_node.component.name}:'
-                        f'{resource_node.component.version}'
+        raise ValueError(
+            f'No BDBA scan available '
+            f'for resource {resource_node.resource.name} '
+            f'in component {resource_node.component.name}:'
+            f'{resource_node.component.version}'
         )
 
     normalized_output_format = output_format.lower()
     if normalized_output_format not in SUPPORTED_SBOM_FORMATS:
-        raise ValueError(f'Unsupported SBOM format: {output_format}. '
-                        f'Supported formats: '
-                        f'{', '.join(SUPPORTED_SBOM_FORMATS)}'
+        raise ValueError(
+            f'Unsupported SBOM format: {output_format}. '
+            f'Supported formats: '
+            f'{", ".join(SUPPORTED_SBOM_FORMATS)}'
         )
 
     sbom_raw = bdba_api.export_sbom(product_id, normalized_output_format)
@@ -149,12 +150,12 @@ def generate_sbom_for_artefact(
     secret_factory: secret_mgmt.SecretFactory,
     **kwargs,
 ) -> bdba.model.SBOM:
-    '''
+    """
     Generates Software Bill of Materials (SBOM) for a component artefact.
     Resolves the component descriptor from OCM repositories,
     retrieves BDBA security scans, and exports the SBOM
     in the requested format with OCM metadata.
-    '''
+    """
     logger.info(f'Generating SBOM for artefact: {artefact}')
 
     if not extension_cfg.is_supported(artefact_kind=artefact.artefact_kind):
@@ -168,26 +169,27 @@ def generate_sbom_for_artefact(
         return
 
     resource_node = k8s.util.get_ocm_node(
-        component_descriptor_lookup=component_descriptor_lookup,
-        artefact=artefact
+        component_descriptor_lookup=component_descriptor_lookup, artefact=artefact
     )
 
     if not resource_node:
         logger.info(f'did not find resource node for {artefact=}, skipping...')
         return
 
-    delivery_client.update_metadata(data=[
-        odg.model.ArtefactMetadata(
-            artefact=artefact,
-            meta=odg.model.Metadata(
-                datasource=odg.model.Datasource.SBOM_GENERATOR,
-                type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
-                creation_date=datetime.datetime.now(datetime.timezone.utc),
-                last_update=datetime.datetime.now(datetime.timezone.utc),
-            ),
-            data={},
-        )
-    ])
+    delivery_client.update_metadata(
+        data=[
+            odg.model.ArtefactMetadata(
+                artefact=artefact,
+                meta=odg.model.Metadata(
+                    datasource=odg.model.Datasource.SBOM_GENERATOR,
+                    type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
+                    creation_date=datetime.datetime.now(datetime.timezone.utc),
+                    last_update=datetime.datetime.now(datetime.timezone.utc),
+                ),
+                data={},
+            )
+        ]
+    )
 
     mapping = extension_cfg.mapping(artefact.component_name)
 
@@ -213,9 +215,7 @@ def generate_sbom_for_artefact(
     logger.info(f'\nSBOM files saved to: {safe_name}')
 
     if not sbom:
-        raise RuntimeError(f'Failed to generate SBOM for '
-                           f'{resource_node.resource.name}'
-        )
+        raise RuntimeError(f'Failed to generate SBOM for {resource_node.resource.name}')
     return sbom
 
 

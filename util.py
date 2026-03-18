@@ -73,9 +73,7 @@ def purge_callables_from_dict(data) -> dict:
         )
     elif isinstance(data, collections.abc.Iterable):
         return [
-            purge_callables_from_dict(o)
-            for o in data
-            if not isinstance(o, collections.abc.Callable)
+            purge_callables_from_dict(o) for o in data if not isinstance(o, collections.abc.Callable)
         ]
     return data
 
@@ -106,7 +104,7 @@ async def retrieve_component_descriptor(
     component_id: ocm.ComponentIdentity,
     /,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repository_lookup: ocm.OcmRepositoryLookup | None=None,
+    ocm_repository_lookup: ocm.OcmRepositoryLookup | None = None,
 ) -> ocm.ComponentDescriptor:
     try:
         if ocm_repository_lookup:
@@ -163,7 +161,7 @@ def param(
     params: dict,
     name: str,
     *,
-    required: bool=False,
+    required: bool = False,
     default=None,
 ):
     if required and default:
@@ -184,19 +182,21 @@ def param_as_bool(
     params: dict,
     name: str,
     *,
-    required: bool=False,
-    default: bool=False,
+    required: bool = False,
+    default: bool = False,
 ) -> bool:
     # taken from requests' `request.get_param_as_bool`
     true_strings = ('true', 'True', 't', 'yes', 'y', '1', 'on')
     false_strings = ('false', 'False', 'f', 'no', 'n', '0', 'off')
 
-    val = str(param(
-        params=params,
-        name=name,
-        required=required,
-        default=default,
-    ))
+    val = str(
+        param(
+            params=params,
+            name=name,
+            required=required,
+            default=default,
+        )
+    )
 
     if val in true_strings:
         return True
@@ -213,25 +213,27 @@ def error_description(
     error_id: str,
     **kwargs,
 ) -> str:
-    '''
+    """
     Used to create a uniform error JSON response, containing a unique `error_id` as well as optional
     extra parameters to enrich the error description. Callers will still have to set the correct
     content type `application/json` for the error object.
-    '''
-    return dict_to_json_factory({
-        'error_id': error_id,
-        **kwargs,
-    })
+    """
+    return dict_to_json_factory(
+        {
+            'error_id': error_id,
+            **kwargs,
+        }
+    )
 
 
 def get_creation_date(component: ocm.Component) -> datetime.datetime:
-    '''
+    """
     Trys to extract creation date from creationTime attribute and if not set from label with name
     "cloud.gardener/ocm/creation-date".
     Raises KeyError, if both is not successful.
-    '''
+    """
 
-    if (creationTime := component.creationTime):
+    if creationTime := component.creationTime:
         return dateutil.parser.isoparse(creationTime)
 
     creation_label: ocm.Label | None = component.find_label('cloud.gardener/ocm/creation-date')
@@ -247,7 +249,7 @@ def get_creation_date(component: ocm.Component) -> datetime.datetime:
 
 def convert_to_timedelta(
     time: str | int,
-    default_unit: str='d',
+    default_unit: str = 'd',
 ) -> datetime.timedelta:
     seconds_per_unit = {
         's': 1,
@@ -284,7 +286,7 @@ def pluralise(
 
 
 def merge_dicts(base: dict, *other: dict, list_semantics='merge'):
-    '''
+    """
     merges copies of the given dict instances and returns the merge result.
     The arguments remain unmodified. However, it must be possible to copy them
     using `copy.deepcopy`.
@@ -295,7 +297,7 @@ def merge_dicts(base: dict, *other: dict, list_semantics='merge'):
     By default, different from the original implementation, a merge will be applied to
     lists. This results in deduplication retaining element order. The elements from `other` are
     appended to those from `base`.
-    '''
+    """
 
     if base is None:
         raise ValueError('base must not be None')
@@ -308,8 +310,9 @@ def merge_dicts(base: dict, *other: dict, list_semantics='merge'):
     if list_semantics == 'merge':
         # monkey-patch merge-strategy for lists
         list_merge_strategy = Merger.PROVIDED_TYPE_STRATEGIES[list]
-        list_merge_strategy.strategy_merge = lambda c, p, base, other: \
+        list_merge_strategy.strategy_merge = lambda c, p, base, other: (
             list(base) + [e for e in other if e not in base]
+        )
 
         strategy_cfg = [(list, ['merge']), (dict, ['merge'])]
         merger = Merger(strategy_cfg, ['override'], ['override'])
@@ -330,7 +333,7 @@ def merge_dicts(base: dict, *other: dict, list_semantics='merge'):
 
 def version_sorting_key(
     version: str,
-    fallback_version: str='0.0',
+    fallback_version: str = '0.0',
 ) -> semver.VersionInfo:
     try:
         version = versionutil.parse_to_semver(version)

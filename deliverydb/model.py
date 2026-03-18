@@ -18,7 +18,7 @@ unix_epoch = int
 
 
 class ArtefactMetaData(Base):
-    '''
+    """
     a (meta-)data entry about an artefact described in an OCM-Component-Descriptor.
 
     Examples of such data are:
@@ -27,7 +27,8 @@ class ArtefactMetaData(Base):
     - malware scan results
     - file system paths
     - operating system identification
-    '''
+    """
+
     __tablename__ = 'artefact_metadata'
 
     id = sa.Column(sa.CHAR(length=32), primary_key=True)
@@ -36,14 +37,14 @@ class ArtefactMetaData(Base):
         server_default=sa.sql.func.now(),
     )
 
-    type = sa.Column(sa.String(length=64)) # e.g. finding/vulnerability, malware, ...
+    type = sa.Column(sa.String(length=64))  # e.g. finding/vulnerability, malware, ...
 
     # component-id
     component_name = sa.Column(sa.String(length=256))
     component_version = sa.Column(sa.String(length=64))
 
     # artefact-id
-    artefact_kind = sa.Column(sa.String(length=32)) # resource | source | runtime
+    artefact_kind = sa.Column(sa.String(length=32))  # resource | source | runtime
 
     artefact_name = sa.Column(sa.String(length=128))
     artefact_version = sa.Column(sa.String(length=64))
@@ -55,9 +56,9 @@ class ArtefactMetaData(Base):
     meta = sa.Column(sa.JSON, default=dict)
     data = sa.Column(sa.JSON, default=dict)
     data_key = sa.Column(sa.CHAR(length=40))
-    datasource = sa.Column(sa.String(length=64)) # bdba, clamav, ...
+    datasource = sa.Column(sa.String(length=64))  # bdba, clamav, ...
 
-    referenced_type = sa.Column(sa.String(length=64)) # type of finding a rescoring applies to
+    referenced_type = sa.Column(sa.String(length=64))  # type of finding a rescoring applies to
 
     discovery_date = sa.Column(sa.Date)
     allowed_processing_time = sa.Column(sa.String(length=16))
@@ -99,14 +100,15 @@ class RoleBindingOriginType(enum.StrEnum):
 
 @dataclasses.dataclass
 class RoleBindingOrigin:
-    '''
+    """
     It is required to store the origin of a role binding to be able to correctly remove a binding
     again if it is not valid anymore. For example, if a user is assigned to a role XYZ because the
     user is part of a certain GitHub organisation, and the user is also manually assigned to the
     role XYZ, only the role binding which has been created because of the GitHub membership must be
     removed in case the user is not a member of the GitHub organisation anymore. The manually added
     role binding must persist.
-    '''
+    """
+
     type: RoleBindingOriginType
 
     @property
@@ -152,11 +154,11 @@ class RefreshToken:
 class User(Base):
     __tablename__ = 'users'
 
-    id = sa.Column(sa.CHAR(length=36), primary_key=True) # uuid
+    id = sa.Column(sa.CHAR(length=36), primary_key=True)  # uuid
     creation_date = sa.Column(sa.DateTime(timezone=True), server_default=sa.sql.func.now())
 
-    role_bindings = sa.Column(sa.JSON) # list[RoleBinding]
-    refresh_tokens = sa.Column(sa.JSON) # list[RefreshToken]
+    role_bindings = sa.Column(sa.JSON)  # list[RoleBinding]
+    refresh_tokens = sa.Column(sa.JSON)  # list[RefreshToken]
 
     identifiers = sqlalchemy.orm.relationship('UserIdentifiers', cascade='delete')
 
@@ -209,11 +211,11 @@ class GitHubAppIdentifier(Identifier):
 class UserIdentifiers(Base):
     __tablename__ = 'user_identifiers'
 
-    user_id = sa.Column(sa.CHAR(length=36), sa.ForeignKey('users.id')) # uuid
+    user_id = sa.Column(sa.CHAR(length=36), sa.ForeignKey('users.id'))  # uuid
 
-    type = sa.Column(sa.String(length=32), primary_key=True) # secret_mgmt.oauth_cfg.OAuthCfgTypes
+    type = sa.Column(sa.String(length=32), primary_key=True)  # secret_mgmt.oauth_cfg.OAuthCfgTypes
     identifier_normalised_digest = sa.Column(sa.CHAR(length=40), primary_key=True)
-    identifier = sa.Column(sa.JSON) # Identifier
+    identifier = sa.Column(sa.JSON)  # Identifier
 
     @property
     def deserialised_identifier(self) -> GitHubAppIdentifier | GitHubUserIdentifier | UserIdentifier:

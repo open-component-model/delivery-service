@@ -29,7 +29,10 @@ def test_dependency_changes_between_versions():
             (ocm.ComponentIdentity('c1', '1.0.0'), ocm.ComponentIdentity('c1', '2.0.0')),
             (ocm.ComponentIdentity('c2', '1.0.0'), ocm.ComponentIdentity('c2', '2.0.0')),
             (ocm.ComponentIdentity('c3', '1.0.0'), ocm.ComponentIdentity('c3', '2.0.0')),
-            (ocm.ComponentIdentity('c4', '1.0.0'), ocm.ComponentIdentity('c4', '1.0.0')), # no change
+            (
+                ocm.ComponentIdentity('c4', '1.0.0'),
+                ocm.ComponentIdentity('c4', '1.0.0'),
+            ),  # no change
         ),
     )
 
@@ -37,7 +40,7 @@ def test_dependency_changes_between_versions():
     dependency_changes = dora.dependency_changes_between_versions(
         component_diff=component_diff,
     )
-    assert len(dependency_changes) == 3 # three out of fource cversions changed
+    assert len(dependency_changes) == 3  # three out of fource cversions changed
 
     # with dependency Filter -> specified dependency did not change
     dependency_changes = dora.dependency_changes_between_versions(

@@ -10,9 +10,9 @@ import deliverydb.model as dm
 
 async def db_session_middleware(
     db_url: str,
-    verify_db_session: bool=True,
+    verify_db_session: bool = True,
 ) -> aiohttp.typedefs.Middleware:
-    '''
+    """
     Used to centrally manage database-session lifecycle.
 
     Create session object stored in request-context after request routing, available for all routes.
@@ -21,7 +21,7 @@ async def db_session_middleware(
 
     Using database-session from request-context is the preferred way.
     Consumers must still commit / rollback transactions.
-    '''
+    """
 
     @aiohttp.web.middleware
     async def middleware(
