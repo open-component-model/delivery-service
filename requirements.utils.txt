@@ -10,4 +10,3 @@ requests
 urllib3
 watchdog
 python-dateutil
-pyyaml
