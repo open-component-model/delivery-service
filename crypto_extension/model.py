@@ -168,7 +168,7 @@ def determine_curve(
     the given description of a CBOM component description. It expects the description to adhere to
     the form: `Curve: <curve-name>`. In that case, it would return the respective `<curve-name>`.
     '''
-    if not description or not 'Curve:' in description:
+    if not description or 'Curve:' not in description:
         return 'unknown'
 
     curve_parts = description.split('Curve:')
@@ -336,7 +336,7 @@ def aggregate_crypto_assets(
     for crypto_asset in crypto_assets:
         key = crypto_asset.key
 
-        if not key in aggregated_crypto_assets:
+        if key not in aggregated_crypto_assets:
             aggregated_crypto_assets[key] = crypto_asset
             continue
 

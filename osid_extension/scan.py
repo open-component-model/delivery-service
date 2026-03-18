@@ -91,7 +91,7 @@ def determine_osinfo(
     for info in tarfh:
         fname = info.name.split('/')[-1]
 
-        if not fname in known_fnames:
+        if fname not in known_fnames:
             continue
 
         if info.issym():

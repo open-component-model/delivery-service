@@ -252,7 +252,7 @@ class LocalArtefactId:
         return hash(self.key)
 
     def __eq__(self, other: typing.Self) -> bool:
-        if not type(self) == type(other):
+        if not isinstance(other, type(self)):
             return False
         return self.key == other.key
 
@@ -312,7 +312,7 @@ class ComponentArtefactId:
         return hash(self.key)
 
     def __eq__(self, other: typing.Self) -> bool:
-        if not type(self) == type(other):
+        if not isinstance(other, type(self)):
             return False
         return self.key == other.key
 

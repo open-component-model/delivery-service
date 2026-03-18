@@ -977,7 +977,7 @@ def license_summary(
         ),
     }
 
-    report_urls_callback = lambda finding_group: sorted({
+    report_urls_callback = lambda finding_group: sorted({ # noqa: E731
         f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
         for finding in finding_group.findings
     })
@@ -1247,7 +1247,7 @@ def vulnerability_summary(
         ),
     }
 
-    report_urls_callback = lambda finding_group: sorted({
+    report_urls_callback = lambda finding_group: sorted({ # noqa: E731
         f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
         for finding in finding_group.findings
     })
@@ -1329,7 +1329,7 @@ def template_issue_body(
     properties which all artefacts have in common) and then the remaining properties per artefact.
     Also, artefacts which were not scanned yet are reported (if there are any).
     '''
-    artefact_sorting_key = lambda artefact: (
+    artefact_sorting_key = lambda artefact: ( # noqa: E731
         artefact.component_name,
         artefact.component_version,
         artefact.artefact_kind,
@@ -1544,7 +1544,7 @@ def close_issue_if_present(
     if not issue or issue.state != 'open':
         return
 
-    logger.info(f'labels for issue for closing: {[l.name for l in issue.original_labels]}')
+    logger.info(f'labels for issue for closing: {[label.name for label in issue.original_labels]}')
 
     if body:
         issue.edit(body=body)

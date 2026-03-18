@@ -267,7 +267,7 @@ def github_api(
         for repo in github_api.app_installation_repos()
     ]
 
-    if not repo in accessible_repos:
+    if repo not in accessible_repos:
         msg = f'GitHub app with {installation_id=} has no access for {repo_url=}'
 
         if absent_ok:

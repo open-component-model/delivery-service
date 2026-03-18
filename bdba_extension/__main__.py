@@ -19,7 +19,6 @@ import odg.model
 import odg.util
 import paths
 import secret_mgmt
-import secret_mgmt.aws
 import secret_mgmt.bdba
 
 

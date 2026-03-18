@@ -141,8 +141,6 @@ jobs:
             --find-links /tmp/dist \
             -r requirements.bdba.txt \
             bandit \
-            flake8 \
-            pylama \
             pylint \
             "setuptools<81" \
               > /tmp/pip3-install.log; then

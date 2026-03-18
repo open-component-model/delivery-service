@@ -11,22 +11,14 @@ export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
 
 (
     pushd "${src_dir}"
-    echo "using pylama cfg at ${src_dir}/pylama.ini"
     set -x
 
-    echo 'running pylama for all modules (errors only)'
-    if pylama -iW,R,C  -lpylint --options "${src_dir}/pylama.ini" "${src_dir}"; then
-        echo 'pylama succeeded'
-    else
-        ((error|=1))
-    fi
-
-    echo 'running flake8 for all python modules'
-    if ".ci/lint-flake8"; then
-        echo 'pyflake8 succeeded'
-    else
-        ((error|=1))
-    fi
+     echo 'running ruff for all python modules'
+     if ".ci/lint-ruff"; then
+         echo 'ruff succeeded'
+     else
+         ((error|=1))
+     fi
 
     echo 'running bandit (sast-linter) for all modules'
     if bandit \

@@ -762,7 +762,7 @@ class Finding:
 
         for op in operation.order:
             if (
-                not op in operations
+                op not in operations
                 and not self.categorisation_by_id(id=op, absent_ok=True)
             ):
                 violations.append(f'no categorisation matches operator "{op}" in "{operation}"')
@@ -824,7 +824,7 @@ def default_finding_categorisations(
     else:
         raise ValueError(f'did not find default categorisation for {finding_type=}')
 
-    if not name in categorisation_raw:
+    if name not in categorisation_raw:
         raise ValueError(f'did not find default categorisation for {finding_type=} and {name=}')
 
     return [
@@ -849,7 +849,7 @@ def default_rescoring_ruleset(
     else:
         raise ValueError(f'did not find default rescoring ruleset for {finding_type=}')
 
-    if not name in rescoring_ruleset_raw:
+    if name not in rescoring_ruleset_raw:
         raise ValueError(f'did not find default rescoring ruleset for {finding_type=} and {name=}')
 
     return rescoring_ruleset_raw[name]

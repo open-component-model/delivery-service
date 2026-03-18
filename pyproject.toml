@@ -11,3 +11,36 @@ skips = [
   'B413', # false-positive: we do not use pyCrypto, but pycryptodome
   'B603', # we know how to call subprocesses
 ]
+
+[tool.ruff]
+line-length = 101 # be consistent with cc-utils
+
+[tool.ruff.lint]
+preview = true
+select = [
+  "E101",
+  "E117",
+  "E201",
+  "E202",
+  "E203",
+  "E225",
+  "E251",
+  "E3",
+  "E4",
+  "E5",
+  "E701",
+  "E703",
+  "E711",
+  "E713",
+  "E714",
+  "E721",
+  "E741",
+  "E9",
+  "W1",
+  "W2",
+  "W3",
+  "W6",
+  "F",
+]
+
+ignore = ["F722", "F821"]

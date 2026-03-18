@@ -702,7 +702,7 @@ def github_repo_lookup(
         /,
         absent_ok: bool=False,
     ) -> github3.repos.Repository | None:
-        if not '://' in repo_url:
+        if '://' not in repo_url:
             repo_url = f'x://{repo_url}'
 
         parsed = urllib.parse.urlparse(repo_url)

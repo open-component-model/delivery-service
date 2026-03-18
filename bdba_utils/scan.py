@@ -6,7 +6,6 @@ import requests
 
 import ci.log
 import delivery.client
-import oci
 import oci.client
 import ocm
 import ocm.iter

@@ -321,12 +321,18 @@ def _pred_cmp(
         left = sa.cast(_expr_for_attr(attr), sa.Text)
         right = str(value)
 
-    if op == '>=': return left >= right
-    if op == '>':  return left >  right
-    if op == '<=': return left <= right
-    if op == '<':  return left <  right
-    if op == '!=': return left != right
-    if op in ('==', '='): return left == right
+    if op == '>=':
+        return left >= right
+    if op == '>':
+        return left > right
+    if op == '<=':
+        return left <= right
+    if op == '<':
+        return left < right
+    if op == '!=':
+        return left != right
+    if op in ('==', '='):
+        return left == right
 
     raise aiohttp.web.HTTPBadRequest(text=f'unsupported cmp {op=}')
 
@@ -1036,7 +1042,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 yield sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_name == None,
+                        dm.ArtefactMetaData.artefact_name is None,
                     ),
                     dm.ArtefactMetaData.artefact_name == artefact_name,
                 )
@@ -1045,7 +1051,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 yield sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_version == None,
+                        dm.ArtefactMetaData.artefact_version is None,
                     ),
                     dm.ArtefactMetaData.artefact_version == artefact_version,
                 )
@@ -1054,7 +1060,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 yield sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_type == None,
+                        dm.ArtefactMetaData.artefact_type is None,
                     ),
                     dm.ArtefactMetaData.artefact_type == artefact_type,
                 )

@@ -345,9 +345,9 @@ def categorize_by_changed_component(
             left_access = left_src.access
             right_access = right_src.access
 
-            if not left_access.type is ocm.AccessType.GITHUB:
+            if left_access.type is not ocm.AccessType.GITHUB:
                 continue
-            if not right_access.type is ocm.AccessType.GITHUB:
+            if right_access.type is not ocm.AccessType.GITHUB:
                 continue
 
             left_repo_url = util.urlparse(left_access.repoUrl)
@@ -407,8 +407,10 @@ def _cache_key_gen_dora(
         component_dependency_changes_with_commits[0].dependency_component_vector.end.version,
         component_versions,
     )
-    if time_span_days: hashkey_elements += (time_span_days, datetime.date.today())
-    if calculation_type: hashkey_elements += (calculation_type,)
+    if time_span_days:
+        hashkey_elements += (time_span_days, datetime.date.today())
+    if calculation_type:
+        hashkey_elements += (calculation_type,)
 
     return cachetools.keys.hashkey(*hashkey_elements)
 

@@ -8,7 +8,6 @@ import logging
 
 import sqlalchemy.ext.asyncio as sqlasync
 
-import cnudie.retrieve
 import cnudie.retrieve_async
 import ocm
 

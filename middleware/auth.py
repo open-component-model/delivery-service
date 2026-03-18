@@ -120,7 +120,7 @@ def token_payload_schema():
     return yaml.safe_load(open(paths.token_jsonschema_path, 'rb'))
 
 
-def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication':
+def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication': # noqa: F821
     # Use this function instead of feature checking middleware to prevent
     # circular module imports between middleware.auth.py and features.py
     import features

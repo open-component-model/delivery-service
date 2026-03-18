@@ -179,21 +179,21 @@ class ArtefactMetadataQueries:
                 sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_name == None,
+                        dm.ArtefactMetaData.artefact_name is None,
                     ),
                     dm.ArtefactMetaData.artefact_name == artefact.name,
                 ),
                 sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_version == None,
+                        dm.ArtefactMetaData.artefact_version is None,
                     ),
                     dm.ArtefactMetaData.artefact_version == artefact.version,
                 ),
                 sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_type == None,
+                        dm.ArtefactMetaData.artefact_type is None,
                     ),
                     dm.ArtefactMetaData.artefact_type == artefact.type,
                 ),
@@ -237,7 +237,7 @@ class ArtefactMetadataQueries:
                 sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.component_name == None,
+                        dm.ArtefactMetaData.component_name is None,
                     ),
                     dm.ArtefactMetaData.component_name == component.name,
                 ),
@@ -246,10 +246,10 @@ class ArtefactMetadataQueries:
                     dm.ArtefactMetaData.component_version == component.version,
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.component_version == None,
+                        dm.ArtefactMetaData.component_version is None,
                     ),
                     sa.and_(
-                        dm.ArtefactMetaData.component_version == None,
+                        dm.ArtefactMetaData.component_version is None,
                         sa.or_(*[
                             query async for query
                             in ArtefactMetadataQueries.artefact_queries(
@@ -274,7 +274,7 @@ async def findings_for_component(
         sa.or_(
             dm.ArtefactMetaData.component_version == component.version,
             sa.and_(
-                dm.ArtefactMetaData.component_version == None,
+                dm.ArtefactMetaData.component_version is None,
                 sa.or_(*[ # check if component versions contains the referenced artefact version
                     query async for query in ArtefactMetadataQueries.artefact_queries(
                         component=component,
@@ -301,11 +301,11 @@ async def rescorings_for_component(
 ) -> list[odg.model.ArtefactMetadata]:
     rescorings_query = await db_session.stream(sa.select(dm.ArtefactMetaData).where(
         sa.or_(
-            dm.ArtefactMetaData.component_name == None,
+            dm.ArtefactMetaData.component_name is None,
             dm.ArtefactMetaData.component_name == component.name,
         ),
         sa.or_(
-            dm.ArtefactMetaData.component_version == None,
+            dm.ArtefactMetaData.component_version is None,
             dm.ArtefactMetaData.component_version == component.version,
         ),
         dm.ArtefactMetaData.type == odg.model.Datatype.RESCORING,
