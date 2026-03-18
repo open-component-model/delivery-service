@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -eu
+
+# usage: $1: <src-dir>
+
+src_dir="${1:-"$(readlink -f "$(dirname "${0}")/..")"}"
+if ! ruff format --check "${src_dir}"; then
+    echo -e "\n=============================================="
+    echo -e " run '\033[32mruff format\033[0m' to apply suggested changes "
+    echo -e "=============================================="
+    exit 1
+fi

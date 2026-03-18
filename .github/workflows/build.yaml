@@ -232,6 +232,9 @@ jobs:
 
           # pass bandit.log + used cfg (pyproject.toml) as evidence
           tar czf $bandit_evidence $bandit_logfile pyproject.toml
+
+          echo "running format checker"
+          .ci/check-format
       - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
         with:
           ocm-resources: |
