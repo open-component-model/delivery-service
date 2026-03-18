@@ -142,6 +142,7 @@ jobs:
             -r requirements.bdba.txt \
             bandit \
             ruff \
+            setuptools \
               > /tmp/pip3-install.log; then
             echo "error while trying to install packages:"
             cat /tmp/pip3-install.log
