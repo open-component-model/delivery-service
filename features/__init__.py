@@ -514,6 +514,7 @@ def iter_sprints(
     ))
 
     last_sprint_number = None
+    current_cycle = 0
 
     for idx, sprint_date in enumerate(sprint_dates):
         if (

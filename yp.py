@@ -200,7 +200,7 @@ def inject_github_users(
         seen_github_hostnames = set() # keep first entry for each github-host
         for info in user_id.identifiers:
             # keep everything but github-user unchanged
-            if not info.type is odg.model.UserTypes.GITHUB_USER:
+            if info.type is not odg.model.UserTypes.GITHUB_USER:
                 yield info
                 continue
 

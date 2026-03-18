@@ -59,7 +59,7 @@ class CveRescoringRule(Rule):
         attr = self.category_attr
         annotations = typing.get_type_hints(odg.cvss.CveCategorisation)
 
-        if not attr in annotations:
+        if attr not in annotations:
             raise ValueError(f'invalid category-name: {attr=}')
 
         attr = annotations[attr]
@@ -80,7 +80,7 @@ class CveRescoringRule(Rule):
         value = self.category_value.split(':', 1)[-1]
 
         # special-case for bool
-        if category_type == bool:
+        if category_type is bool:
             parsed = yaml.safe_load(value)
             if not isinstance(parsed, bool):
                 raise ValueError(f'failed to parse {value=} into boolean (using yaml.parsing)')
@@ -96,7 +96,7 @@ class CveRescoringRule(Rule):
             attr, value = cve_value.split(':', 1)
             attr = odg.cvss.CVSSV3.attr_name_from_CVSS(attr)
 
-            if not attr in (annotations := typing.get_type_hints(odg.cvss.CVSSV3)):
+            if attr not in (annotations := typing.get_type_hints(odg.cvss.CVSSV3)):
                 raise ValueError(f'{attr=} is not an allowed cve-attrname')
 
             attr_type = annotations[attr]
@@ -113,14 +113,14 @@ class CveRescoringRule(Rule):
         the given CVSS's attr-value is contained in the rule's values.
         '''
         cve_values = self.parsed_cve_values
-        if not type(cvss) is dict:
+        if type(cvss) is not dict:
             cvss = dataclasses.asdict(cvss)
         for attr, value in cvss.items():
-            if not attr in cve_values:
+            if attr not in cve_values:
                 continue
 
             # if cvss is of type dict, the values have to be compared to the values of the enums
-            if not value in [
+            if value not in [
                 v if isinstance(value, enum.Enum) else v.value
                 for v in cve_values[attr]
             ]:

@@ -57,10 +57,10 @@ def find_cfg(
     matching_cfgs = (
         bdba_cfg
         for bdba_cfg in bdba_cfgs
-        if not bdba_cfg.matches(
+        if bdba_cfg.matches(
             group_id=group_id,
             url=url,
-        ) is MatchScore.NO_MATCH
+        ) is not MatchScore.NO_MATCH
     )
 
     sorted_matching_cfgs = sorted(

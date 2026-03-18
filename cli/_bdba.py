@@ -62,7 +62,7 @@ def ls_products(
         tls_verify=bdba_cfg.tls_verify,
     )
 
-    if not ':' in ocm_component:
+    if ':' not in ocm_component:
         raise ValueError('ocm_component must have form <name>:<version>')
 
     root_component_descriptor = ocm_lookup(ocm_component)

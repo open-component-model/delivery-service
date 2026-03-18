@@ -215,7 +215,7 @@ def user_identities_from_source(
     if not source:
         return ()
 
-    if not ocm.AccessType(source.access.type) is ocm.AccessType.GITHUB:
+    if ocm.AccessType(source.access.type) is not ocm.AccessType.GITHUB:
         return ()
 
     repo_url = source.access.repoUrl

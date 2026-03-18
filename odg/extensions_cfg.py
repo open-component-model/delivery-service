@@ -914,13 +914,13 @@ class IssueReplicatorMapping(Mapping):
 
             if title_sprint_cfg:
                 if (sprint_value_type := title_sprint_cfg.get('value_type')) == 'name':
-                    title_callback = lambda sprint: sprint.name
+                    title_callback = lambda sprint: sprint.name # noqa: E731
 
                 elif sprint_value_type == 'date':
                     name = title_sprint_cfg.get('date_name', 'end_date')
                     str_format = title_sprint_cfg.get('date_string_format', '%Y-%m-%d')
 
-                    title_callback = lambda sprint: sprint.find_sprint_date(name).value.strftime(str_format) # noqa: E501
+                    title_callback = lambda sprint: sprint.find_sprint_date(name).value.strftime(str_format) # noqa: E501 E731
 
                 else:
                     raise ValueError(f'invalid milestone sprint value type {sprint_value_type}')
@@ -930,7 +930,7 @@ class IssueReplicatorMapping(Mapping):
 
             if milestone_due_date_cfg := self.milestones.get('due_date'):
                 name = milestone_due_date_cfg['date_name']
-                due_date_callback = lambda sprint: sprint.find_sprint_date(name).value
+                due_date_callback = lambda sprint: sprint.find_sprint_date(name).value # noqa: E731
             else:
                 due_date_callback = gcmi.MilestoneConfiguration.due_date_callback
 

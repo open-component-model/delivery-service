@@ -143,7 +143,7 @@ class SecretFactory:
                     e.add_note(f'{secret_type=}')
                     raise
 
-                if not secret_type in secrets_dict:
+                if secret_type not in secrets_dict:
                     secrets_dict[secret_type] = {}
 
                 secrets_dict[secret_type][secret_element_name] = secret_element

@@ -16,7 +16,7 @@ def urljoin(*parts):
 
 
 def urlparse(url: str) -> urllib.parse.ParseResult:
-    if not '://' in url:
+    if '://' not in url:
         url = f'x://{url}'
 
     return urllib.parse.urlparse(url)
