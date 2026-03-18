@@ -2,7 +2,6 @@ import dataclasses
 import enum
 import string
 
-import oci
 import oci.client
 import ocm
 import ocm.iter
