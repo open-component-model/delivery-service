@@ -214,8 +214,7 @@ jobs:
             numpy \
             scipy \
             bandit \
-            pylint \
-            "setuptools<81" \
+            ruff \
               > /tmp/pip3-install.log; then
             echo "error while trying to install packages:"
             cat /tmp/pip3-install.log
