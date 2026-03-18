@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -eu
+
+# usage: $1: <src-dir>
+
+src_dir="${1:-"$(readlink -f "$(dirname "${0}")/..")"}"
+ruff check "${src_dir}"

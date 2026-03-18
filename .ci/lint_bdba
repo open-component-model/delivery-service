@@ -13,6 +13,13 @@ export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
     pushd "${src_dir}"
     set -x
 
+     echo 'running ruff for bdba modules'
+     if ".ci/lint-ruff" bdba; then
+         echo 'ruff succeeded'
+     else
+         ((error|=1))
+     fi
+
     echo 'running bandit (sast-linter) for bdba module'
     if bandit \
         --configfile "${src_dir}/pyproject.toml" \

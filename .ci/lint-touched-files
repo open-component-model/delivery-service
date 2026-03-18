@@ -22,8 +22,7 @@ echo "${touched_files}"
 (
     pushd "${src_dir}"
     set -e
-    pylint \
-        --errors-only \
+    ruff check \
         ${touched_files}
     popd
 )
