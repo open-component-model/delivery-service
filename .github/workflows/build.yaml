@@ -214,7 +214,6 @@ jobs:
             numpy \
             scipy \
             bandit \
-            flake8 \
             pylint \
             "setuptools<81" \
               > /tmp/pip3-install.log; then

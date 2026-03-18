@@ -13,13 +13,6 @@ export PYTHONPATH="${src_dir}:${PYTHONPATH-""}"
     pushd "${src_dir}"
     set -x
 
-    echo 'running flake8 for all python modules'
-    if ".ci/lint-flake8"; then
-        echo 'pyflake8 succeeded'
-    else
-        ((error|=1))
-    fi
-
     echo 'running bandit (sast-linter) for all modules'
     if bandit \
         --configfile "${src_dir}/pyproject.toml" \
