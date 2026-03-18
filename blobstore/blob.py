@@ -215,7 +215,9 @@ def _validate_and_sanitize_digest(blob_digest: str) -> str:
 
     if digest_alg not in Algorithm.__members__:
         raise aiohttp.web.HTTPBadRequest(
-            reason=f'Hash algorithm "{digest_alg}" is not supported. Supported algorithms: {", ".join(Algorithm.__members__.keys())}')
+            reason=f'Hash algorithm "{digest_alg}" is not supported. Supported algorithms: \
+              {", ".join(Algorithm.__members__.keys())}'
+          )
 
     # Check if hexdigest contains only valid hex characters
     try:
@@ -228,7 +230,9 @@ def _validate_and_sanitize_digest(blob_digest: str) -> str:
     expected_length: int = Algorithm[digest_alg].value['length']
     if expected_length and len(hex_digest) != expected_length:
         raise aiohttp.web.HTTPBadRequest(
-            reason=f'Invalid hexdigest length for {digest_alg}. Expected {expected_length} characters, got {len(hex_digest)}')
+            reason=f'Invalid hexdigest length for {digest_alg}. Expected {expected_length} \
+              characters, got {len(hex_digest)}'
+        )
 
     # Return lowercase sanitized version
     return f'{digest_alg.lower()}:{hex_digest.lower()}'
@@ -278,10 +282,11 @@ class Blob(aiohttp.web.View):
             description: The blob could not be stored
         '''
 
+        headers = self.request.headers
         request_header = {
-                'digest': util.param(params=self.request.headers, name='Digest', required=True),
-                'size': util.param(params=self.request.headers, name='Content-Length', required=True),
-                'mime_type': str(util.param(params=self.request.headers, name='Content-Type', required=True))
+            'digest': util.param(params=headers, name='Digest', required=True),
+            'size': util.param(params=headers, name='Content-Length', required=True),
+            'mime_type': str(util.param(params=headers, name='Content-Type', required=True))
         }
 
         sanitized_request_digest = _validate_and_sanitize_digest(request_header['digest'])
