@@ -125,7 +125,7 @@ class ArtefactMetadataCriterion(Criterion):
         if not attr:
             raise ValueError('artefact-metadata entry missing attr')
 
-        op_raw = entry.get('op') or SearchQueryOperator.EQ.value
+        op_raw = entry.get('op', SearchQueryOperator.EQ.value)
         try:
             op = SearchQueryOperator(str(op_raw).lower())
         except Exception:
