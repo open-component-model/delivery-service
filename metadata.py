@@ -72,6 +72,10 @@ def _json_text(
     col: sa.sql.ClauseElement,
     dotted: str
 ):
+    '''
+    resolve a dotted JSON path by traversing intermediate elements with `->`
+    and extracting the final element as text with `->>`
+    '''
     parts = dotted.split('.')
     expr = col
     for part in parts[:-1]:
@@ -99,8 +103,8 @@ def _categorisation_value_case(
 def _expr_for_attr(attr: str):
     '''
     supports:
-      - meta.<key>  -> JSONB meta as TEXT
-      - data.<path> -> JSONB data (nested) as TEXT
+      - meta.<key>  -> JSON meta as TEXT
+      - data.<path> -> JSON data (nested) as TEXT
       - top-level known columns (e.g. type, datasource, artefact_kind)
       - known aliases from _FIELD_TO_COL
     '''
@@ -170,16 +174,17 @@ def _datetime_or_none(raw: str):
 
 def _split_ocm(component_id: str) -> tuple[str, str | None]:
     raw_value = str(component_id).strip()
-    if ':' in raw_value:
-        name, version = raw_value.split(':', 1)
-        name = name.strip()
-        version = version.strip()
-        return name, (version or None)
-    return raw_value, None
+    if ':' not in raw_value:
+        return raw_value, None
+
+    name, version = raw_value.split(':', 1)
+    name = name.strip()
+    version = version.strip()
+    return name, (version or None)
 
 
-def _pred_ocm(value: str):
-    name, ver = _split_ocm(value)
+def _pred_ocm(ocm_id: str):
+    name, ver = _split_ocm(ocm_id)
     if not name:
         raise aiohttp.web.HTTPBadRequest(
             text='ocm component name is required',
@@ -334,7 +339,7 @@ def _pred_cmp(
     if op in ('==', '='):
         return left == right
 
-    raise aiohttp.web.HTTPBadRequest(text=f'unsupported cmp {op=}')
+    raise aiohttp.web.HTTPBadRequest(text=f'unsupported comparator {op=}')
 
 
 def _pred_for_artefact_metadata(
@@ -639,6 +644,70 @@ def _severity_value_for_type(
     raise ValueError(f'no finding cfg for {finding_type=}')
 
 
+def _artefact_key_tuple_from_db_obj(
+    artefact: dm.ArtefactMetaData,
+) -> tuple[str | None, str | None, str | None, str | None, str]:
+    return (
+        artefact.artefact_kind,
+        artefact.artefact_name,
+        artefact.artefact_version,
+        artefact.artefact_type,
+        artefact.artefact_extra_id_normalised,
+    )
+
+
+def _component_versions_by_name_and_artefact(
+    scopes: collections.abc.Iterable[dict[tuple[str, str], list[tuple]]],
+) -> dict[tuple[str, tuple], set[str]]:
+    '''
+    invert resolved component scopes into:
+
+        (component_name, artefact_key) -> {component_version, ...}
+
+    this allows reconstructing missing component_version values in db findings
+    '''
+    out: dict[tuple[str, tuple], set[str]] = collections.defaultdict(set)
+
+    for scope in scopes:
+        for (component_name, component_version), artefact_keys in scope.items():
+            if not component_name or not component_version:
+                continue
+
+            for artefact_key in artefact_keys:
+                out[(component_name, tuple(artefact_key))].add(component_version)
+
+    return out
+
+
+def _resolved_component_version_for_db_obj(
+    obj: dm.ArtefactMetaData,
+    component_version_lookup: dict[tuple[str, tuple], set[str]],
+) -> str | None:
+    '''
+    reconstruct a missing component_version for a DB row via:
+
+        (component_name, artefact_key) -> version
+
+    returns a version only if the lookup result is unambiguous.
+    '''
+    if obj.component_version:
+        return obj.component_version
+
+    if not obj.component_name:
+        return None
+
+    key = (
+        obj.component_name,
+        _artefact_key_tuple_from_db_obj(obj),
+    )
+
+    versions = component_version_lookup.get(key)
+    if not versions or len(versions) != 1:
+        return None
+
+    return next(iter(sorted(versions)))
+
+
 async def resolve_component_scope(
     component_name: str,
     component_version: str,
@@ -816,6 +885,10 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
         ocm_include_preds: list[sa.sql.ClauseElement] = []
         ocm_exclude_preds: list[sa.sql.ClauseElement] = []
 
+        # only include + versioned OCM scopes are useful as a source
+        # for reconstructing missing component_version values.
+        component_version_scope_keys: set[tuple[str, str, bool]] = set()
+
         for criterion in req.criteria:
             if not isinstance(criterion, sm.OcmCriterion):
                 continue
@@ -850,6 +923,9 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
                 pred = _pred_for_resolved_ocm_scope(
                     keys_by_component=scope_by_component[cache_key],
                 )
+
+                if criterion.mode is not sm.MatchingMode.EXCLUDE:
+                    component_version_scope_keys.add(cache_key)
             else:
                 # versioned OCM queries use resolved scope even if recursive=False,
                 # so rows with missing component_version can still match via artefact fallback
@@ -884,6 +960,12 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
 
         base_where = sa.and_(ocm_where, other_where)
         order_by = _translate_sort(sort)
+
+        # build an OCM-based lookup that can fill missing component_version values.
+        component_version_lookup = _component_versions_by_name_and_artefact(
+            scope_by_component[cache_key]
+            for cache_key in component_version_scope_keys
+        )
 
         # overfetch so we can still fill a page after cfg-filtering
         RAW_BATCH = min(2000, page_size * 10)
@@ -921,7 +1003,22 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
                     if cfg.type == dso.meta.type and not cfg.matches(dso.artefact):
                         break
                 else:
-                    items.append(util.dict_serialisation(dso))
+                    item = util.dict_serialisation(dso)
+
+                    # fill a missing component_version
+                    resolved_component_version = _resolved_component_version_for_db_obj(
+                        obj=obj,
+                        component_version_lookup=component_version_lookup,
+                    )
+
+                    if resolved_component_version:
+                        artefact_payload = item.setdefault('artefact', {})
+                        if isinstance(artefact_payload, dict):
+                            if not artefact_payload.get('component_version'):
+                                artefact_payload['component_version'] = resolved_component_version
+
+                    items.append(item)
+
                     if len(items) >= page_size:
                         # next page should continue after LAST RETURNED object
                         next_cursor = _make_next_cursor(sort, obj)
