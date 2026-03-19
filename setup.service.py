@@ -49,6 +49,7 @@ def packages():
         'responsibles',
         'schema',
         'swagger',
+        'blobstore',
     ]
 
 
