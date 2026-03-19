@@ -19,8 +19,8 @@ def gen_jwt_payload():
         'version': 'v2',
         'sub': 'service_user',
         'iss': ISSUER,
-        'iat': int((now-datetime.timedelta(minutes=10)).timestamp()),
-        'exp': int((now+datetime.timedelta(minutes=5)).timestamp()),
+        'iat': int((now - datetime.timedelta(minutes=10)).timestamp()),
+        'exp': int((now + datetime.timedelta(minutes=5)).timestamp()),
         'key_id': '1',
         'roles': [],
     }
@@ -103,10 +103,11 @@ def test_no_iat():
 
 def test_future_iat(signing_cfg):
     payload = gen_jwt_payload()
-    payload['iat'] = int((
-        datetime.datetime.now(tz=datetime.timezone.utc)
-        + datetime.timedelta(minutes=100)
-    ).timestamp())
+    payload['iat'] = int(
+        (
+            datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(minutes=100)
+        ).timestamp()
+    )
 
     token = gen_jwt_token(payload=payload)
 
@@ -145,20 +146,22 @@ def test_no_version():
 
 def test_nbf_in_past():
     payload = gen_jwt_payload()
-    payload['nbf'] = int((
-        datetime.datetime.now(tz=datetime.timezone.utc)
-        - datetime.timedelta(minutes=100)
-    ).timestamp())
+    payload['nbf'] = int(
+        (
+            datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(minutes=100)
+        ).timestamp()
+    )
 
     middleware.auth.validate_jwt_payload(payload)
 
 
 def test_nbf_in_future(signing_cfg):
     payload = gen_jwt_payload()
-    payload['nbf'] = int((
-        datetime.datetime.now(tz=datetime.timezone.utc)
-        + datetime.timedelta(minutes=100)
-    ).timestamp())
+    payload['nbf'] = int(
+        (
+            datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(minutes=100)
+        ).timestamp()
+    )
 
     token = gen_jwt_token(payload=payload)
 

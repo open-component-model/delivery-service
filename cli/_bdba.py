@@ -86,11 +86,11 @@ def ls_products(
 def scan(
     bdba_cfg_name: str,
     bdba_group_id: str,
-    component_id: str, # <name>:<version>
-    cve_threshold: float=7.0,
+    component_id: str,  # <name>:<version>
+    cve_threshold: float = 7.0,
     bdba_api_url=None,
-    reference_bdba_group_ids: list[int]=[],
-    aws_cfg_name: str=None,
+    reference_bdba_group_ids: list[int] = [],
+    aws_cfg_name: str = None,
 ):
     secret_factory = ctx_util.secret_factory()
     bdba_cfg = secret_factory.bdba(bdba_cfg_name)
@@ -158,7 +158,7 @@ def scan(
                     image_reference=access.imageReference,
                     oci_client=oci_client,
                     include_config_blob=False,
-                    fallback_to_first_subimage_if_index=True
+                    fallback_to_first_subimage_if_index=True,
                 )
 
             elif access.type is ocm.AccessType.S3:
@@ -201,17 +201,19 @@ def scan(
     results = list(iter_resource_scans())
 
     results_above_threshold = [
-        r for r in results
+        r
+        for r in results
         if (
-            isinstance(r.data, odg.model.VulnerabilityFinding) and
-            r.data.cvss_v3_score >= cve_threshold
+            isinstance(r.data, odg.model.VulnerabilityFinding)
+            and r.data.cvss_v3_score >= cve_threshold
         )
     ]
     results_below_threshold = [
-        r for r in results
+        r
+        for r in results
         if (
-            isinstance(r.data, odg.model.VulnerabilityFinding) and
-            r.data.cvss_v3_score < cve_threshold
+            isinstance(r.data, odg.model.VulnerabilityFinding)
+            and r.data.cvss_v3_score < cve_threshold
         )
     ]
 
@@ -252,16 +254,18 @@ def scan(
     )
 
     def print_summary(grouped_results: dict):
-        print(tabulate.tabulate(
-            grouped_results.values(),
-            headers={
-                'c_id': 'Component ID',
-                'a_id': 'Artefact ID',
-                'p_id': 'Affected Package ID',
-                'vulnerabilities': 'Vulnerabilities',
-            },
-            tablefmt='grid',
-        ))
+        print(
+            tabulate.tabulate(
+                grouped_results.values(),
+                headers={
+                    'c_id': 'Component ID',
+                    'a_id': 'Artefact ID',
+                    'p_id': 'Affected Package ID',
+                    'vulnerabilities': 'Vulnerabilities',
+                },
+                tablefmt='grid',
+            )
+        )
 
     print(f'Summary of found vulnerabilites above {cve_threshold=}')
     print_summary(grouped_results=grouped_results_above_threshold)
@@ -285,17 +289,12 @@ def transport_triages(
 
     scan_result_from = bdba_client.scan_result(product_id=from_product_id)
     scan_results_to = {
-        product_id: bdba_client.scan_result(product_id=product_id)
-        for product_id in to_product_ids
+        product_id: bdba_client.scan_result(product_id=product_id) for product_id in to_product_ids
     }
 
     def target_component_versions(product_id: int, component_name: str):
         scan_result = scan_results_to[product_id]
-        component_versions = {
-            c.version for c
-            in scan_result.components
-            if c.name == component_name
-        }
+        component_versions = {c.version for c in scan_result.components if c.name == component_name}
         return component_versions
 
     def enum_triages():

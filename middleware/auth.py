@@ -64,8 +64,8 @@ class GithubApi:
     def __init__(
         self,
         api_url: str,
-        access_token: str | None=None,
-        bearer_token: str | None=None,
+        access_token: str | None = None,
+        bearer_token: str | None = None,
     ):
         self._routes = GithubRoutes(api_url=api_url)
         self._access_token = access_token
@@ -108,9 +108,9 @@ class AuthType(enum.Enum):
 
 
 def noauth(cls):
-    '''
+    """
     class decorator used to disable authentication for the receiving aiohttp request handler
-    '''
+    """
     cls.auth = AuthType.NONE
     return cls
 
@@ -120,10 +120,11 @@ def token_payload_schema():
     return yaml.safe_load(open(paths.token_jsonschema_path, 'rb'))
 
 
-def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication': # noqa: F821
+def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication':  # noqa: F821
     # Use this function instead of feature checking middleware to prevent
     # circular module imports between middleware.auth.py and features.py
     import features
+
     feature_authentication = features.get_feature(features.FeatureAuthentication)
 
     if feature_authentication.state == features.FeatureStates.AVAILABLE:
@@ -131,10 +132,12 @@ def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication': # n
 
     raise aiohttp.web.HTTPBadRequest(
         reason='Feature is inactive',
-        text=util.dict_to_json_factory({
-            'error_id': 'feature-inactive',
-            'missing_features': [feature_authentication.name],
-        }),
+        text=util.dict_to_json_factory(
+            {
+                'error_id': 'feature-inactive',
+                'missing_features': [feature_authentication.name],
+            }
+        ),
         content_type='application/json',
     )
 
@@ -142,7 +145,7 @@ def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication': # n
 @noauth
 class OAuthCfgs(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Authentication
@@ -153,21 +156,34 @@ class OAuthCfgs(aiohttp.web.View):
             description: Successful operation.
             schema:
               $ref: '#/definitions/AuthConfig'
-        '''
+        """
+
         def oauth_cfg_to_dict(oauth_cfg: secret_mgmt.oauth_cfg.OAuthCfg):
             github_host = urllib.parse.urlparse(oauth_cfg.api_url).hostname.lower()
 
-            redirect_uri = util.urljoin(
-                self.request.app[consts.APP_BASE_URL],
-                'auth',
-            ) + '?' + urllib.parse.urlencode({
-                'client_id': oauth_cfg.client_id,
-            })
+            redirect_uri = (
+                util.urljoin(
+                    self.request.app[consts.APP_BASE_URL],
+                    'auth',
+                )
+                + '?'
+                + urllib.parse.urlencode(
+                    {
+                        'client_id': oauth_cfg.client_id,
+                    }
+                )
+            )
 
-            oauth_url = oauth_cfg.oauth_url.rstrip('?') + '?' + urllib.parse.urlencode({
-                'client_id': oauth_cfg.client_id,
-                'redirect_uri': redirect_uri,
-            })
+            oauth_url = (
+                oauth_cfg.oauth_url.rstrip('?')
+                + '?'
+                + urllib.parse.urlencode(
+                    {
+                        'client_id': oauth_cfg.client_id,
+                        'redirect_uri': redirect_uri,
+                    }
+                )
+            )
 
             return {
                 'name': oauth_cfg.name,
@@ -182,23 +198,21 @@ class OAuthCfgs(aiohttp.web.View):
         feature_authentication = _check_if_oauth_feature_available()
 
         return aiohttp.web.json_response(
-            data=[
-                oauth_cfg_to_dict(oauth_cfg)
-                for oauth_cfg in feature_authentication.oauth_cfgs
-            ],
+            data=[oauth_cfg_to_dict(oauth_cfg) for oauth_cfg in feature_authentication.oauth_cfgs],
         )
 
 
 def find_github_oauth_cfg(
     oauth_cfgs: collections.abc.Iterable[secret_mgmt.oauth_cfg.OAuthCfg],
-    api_url: str | None=None,
-    client_id: str | None=None,
+    api_url: str | None = None,
+    client_id: str | None = None,
 ) -> secret_mgmt.oauth_cfg.OAuthCfg:
     if not (bool(api_url) ^ bool(client_id)):
         raise ValueError('exactly one of `api_url` and `client_id` must be provided')
 
     filtered_oauth_cfgs = [
-        oauth_cfg for oauth_cfg in oauth_cfgs
+        oauth_cfg
+        for oauth_cfg in oauth_cfgs
         if oauth_cfg.type is secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB
     ]
 
@@ -237,15 +251,21 @@ def find_signing_cfg(
 
 async def find_github_identifier(
     oauth_cfg: secret_mgmt.oauth_cfg.OAuthCfg,
-    github_access_token: str | None=None,
-    github_code: str | None=None,
+    github_access_token: str | None = None,
+    github_code: str | None = None,
 ) -> dm.GitHubAppIdentifier | dm.GitHubUserIdentifier:
     if github_code:
-        github_token_url = oauth_cfg.token_url + '?' + urllib.parse.urlencode({
-            'client_id': oauth_cfg.client_id,
-            'client_secret': oauth_cfg.client_secret,
-            'code': github_code,
-        })
+        github_token_url = (
+            oauth_cfg.token_url
+            + '?'
+            + urllib.parse.urlencode(
+                {
+                    'client_id': oauth_cfg.client_id,
+                    'client_secret': oauth_cfg.client_secret,
+                    'code': github_code,
+                }
+            )
+        )
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url=github_token_url) as res:
@@ -371,8 +391,9 @@ def find_role_bindings(
                         team=github_team,
                         username=github_username,
                         app=github_app,
-                    )
-                ) for role in role_binding.roles
+                    ),
+                )
+                for role in role_binding.roles
             )
 
     else:
@@ -382,14 +403,14 @@ def find_role_bindings(
 def build_refresh_token_payload(
     user_id: str,
     refresh_token_identifier: str,
-    separator: str='|',
+    separator: str = '|',
 ) -> str:
     return f'{user_id}{separator}{refresh_token_identifier}'
 
 
 def parse_refresh_token_payload(
     refresh_token_payload: str,
-    separator: str='|',
+    separator: str = '|',
 ) -> tuple[str, str]:
     return refresh_token_payload.split(separator)
 
@@ -398,9 +419,9 @@ async def set_session_and_refresh_token(
     user_id: str,
     issuer: str,
     db_session: sqlasync.session.AsyncSession,
-    existing_refresh_token_identifier: str | None=None,
-    signing_cfg: secret_mgmt.signing_cfg.SigningCfg | None=None,
-    use_refresh_token: bool=True,
+    existing_refresh_token_identifier: str | None = None,
+    signing_cfg: secret_mgmt.signing_cfg.SigningCfg | None = None,
+    use_refresh_token: bool = True,
 ) -> aiohttp.web.Response:
     if not signing_cfg:
         secret_factory = ctx_util.secret_factory()
@@ -430,18 +451,22 @@ async def set_session_and_refresh_token(
     refresh_token_identifier = str(uuid.uuid4())
 
     if use_refresh_token:
-        refresh_tokens.append({
-            'identifier': refresh_token_identifier,
-            'exp': int((now + REFRESH_TOKEN_MAX_AGE).timestamp()),
-        })
+        refresh_tokens.append(
+            {
+                'identifier': refresh_token_identifier,
+                'exp': int((now + REFRESH_TOKEN_MAX_AGE).timestamp()),
+            }
+        )
 
     # remove already expired refresh tokens
     user.refresh_tokens = [
-        refresh_token for refresh_token in refresh_tokens
+        refresh_token
+        for refresh_token in refresh_tokens
         if datetime.datetime.fromtimestamp(
             timestamp=refresh_token['exp'],
             tz=datetime.timezone.utc,
-        ) > now
+        )
+        > now
     ]
 
     db_session.add(user)
@@ -454,9 +479,7 @@ async def set_session_and_refresh_token(
         'exp': int((now + SESSION_TOKEN_MAX_AGE).timestamp()),
         'key_id': signing_cfg.id,
         'sub': user_id,
-        'roles': list({
-            role_binding['name'] for role_binding in role_bindings
-        }),
+        'roles': list({role_binding['name'] for role_binding in role_bindings}),
     }
 
     response = aiohttp.web.json_response(
@@ -497,7 +520,7 @@ async def set_session_and_refresh_token(
 @noauth
 class OAuthLogin(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Authentication
@@ -527,7 +550,7 @@ class OAuthLogin(aiohttp.web.View):
               $ref: '#/definitions/AuthToken'
           "401":
             description: The provided auth information is not valid.
-        '''
+        """
         feature_authentication = _check_if_oauth_feature_available()
 
         issuer = self.request.app[consts.APP_BASE_URL]
@@ -541,7 +564,7 @@ class OAuthLogin(aiohttp.web.View):
         use_refresh_token = util.param_as_bool(
             params=params,
             name='use_refresh_token',
-            default=not bool(access_token), # if login via access-token, don't use refresh tokens
+            default=not bool(access_token),  # if login via access-token, don't use refresh tokens
         )
 
         if (access_token and api_url) or (client_id and code):
@@ -573,33 +596,42 @@ class OAuthLogin(aiohttp.web.View):
         else:
             raise aiohttp.web.HTTPUnauthorized(text=f'Unsupported {idp_type=}')
 
-        user_idp = await db_session.get(dm.UserIdentifiers, {
-            'type': idp_type,
-            'identifier_normalised_digest': user_identifier.normalised_digest,
-        })
+        user_idp = await db_session.get(
+            dm.UserIdentifiers,
+            {
+                'type': idp_type,
+                'identifier_normalised_digest': user_identifier.normalised_digest,
+            },
+        )
 
         if user_idp:
             user_id = user_idp.user_id
         else:
             user_id = str(uuid.uuid4())
 
-            role_bindings = set(find_role_bindings(
-                oauth_cfg=oauth_cfg,
-                user_identifier=user_identifier,
-            ))
+            role_bindings = set(
+                find_role_bindings(
+                    oauth_cfg=oauth_cfg,
+                    user_identifier=user_identifier,
+                )
+            )
 
             try:
-                db_session.add(dm.User(
-                    id=user_id,
-                    role_bindings=util.dict_serialisation(role_bindings),
-                    refresh_tokens=[],
-                ))
-                db_session.add(dm.UserIdentifiers(
-                    user_id=user_id,
-                    type=idp_type,
-                    identifier=util.dict_serialisation(user_identifier),
-                    identifier_normalised_digest=user_identifier.normalised_digest,
-                ))
+                db_session.add(
+                    dm.User(
+                        id=user_id,
+                        role_bindings=util.dict_serialisation(role_bindings),
+                        refresh_tokens=[],
+                    )
+                )
+                db_session.add(
+                    dm.UserIdentifiers(
+                        user_id=user_id,
+                        type=idp_type,
+                        identifier=util.dict_serialisation(user_identifier),
+                        identifier_normalised_digest=user_identifier.normalised_digest,
+                    )
+                )
                 await db_session.commit()
             except:
                 await db_session.rollback()
@@ -639,14 +671,14 @@ class OAuthRefresh(aiohttp.web.View):
 @noauth
 class OAuthLogout(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Authentication
         responses:
           "200":
             description: Successfully logged out.
-        '''
+        """
         _check_if_oauth_feature_available()
 
         refresh_token = self.request.cookies.get(delivery.jwt.REFRESH_TOKEN_KEY)
@@ -666,7 +698,8 @@ class OAuthLogout(aiohttp.web.View):
             raise aiohttp.web.HTTPUnauthorized(text=f'Did not find user with {user_id=}')
 
         user.refresh_tokens = [
-            refresh_token for refresh_token in user.refresh_tokens
+            refresh_token
+            for refresh_token in user.refresh_tokens
             if refresh_token['identifier'] != refresh_token_identifier
         ]
         db_session.add(user)
@@ -677,13 +710,14 @@ class OAuthLogout(aiohttp.web.View):
 
 @noauth
 class OpenIDCfg(aiohttp.web.View):
-    '''
+    """
     Implements authentication flow according to OpenID specification (see
     https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
     for reference).
-    '''
+    """
+
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Authentication
@@ -694,7 +728,7 @@ class OpenIDCfg(aiohttp.web.View):
             description: Successful operation.
             schema:
               $ref: '#/definitions/OpenIdConfig'
-        '''
+        """
         base_url = self.request.app[consts.APP_BASE_URL]
 
         return aiohttp.web.json_response(
@@ -717,7 +751,7 @@ class OpenIDCfg(aiohttp.web.View):
 @noauth
 class OpenIDJwks(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Authentication
@@ -735,14 +769,13 @@ class OpenIDJwks(aiohttp.web.View):
                   type: array
                   items:
                     type: object
-        '''
+        """
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
 
         return aiohttp.web.json_response(
             data={
                 'keys': [
-                    jwt_from_signing_cfg(signing_cfg)
-                    for signing_cfg in secret_factory.signing_cfg()
+                    jwt_from_signing_cfg(signing_cfg) for signing_cfg in secret_factory.signing_cfg()
                 ],
             },
             dumps=util.dict_to_json_factory,
@@ -785,12 +818,12 @@ def retrieve_role_bindings(
     except secret_mgmt.SecretTypeNotFound:
         pass
 
-    return secret_mgmt.rbac.RoleBindings() # default rbac cfg
+    return secret_mgmt.rbac.RoleBindings()  # default rbac cfg
 
 
 def auth_middleware(
     signing_cfgs: collections.abc.Iterable[secret_mgmt.signing_cfg.SigningCfg],
-    default_auth: AuthType=AuthType.BEARER,
+    default_auth: AuthType = AuthType.BEARER,
 ) -> aiohttp.typedefs.Middleware:
 
     @aiohttp.web.middleware
@@ -892,24 +925,24 @@ def _raise_on_missing_permissions(
     route: str,
     method: str,
 ):
-    '''
+    """
     If the `user_permissions` do not grant the necessary permissions to use the `method` for the
     `route`, this function will raise a HTTP 403 forbidden exception.
-    '''
+    """
     for user_permission in user_permissions:
         for permission_route in user_permission.routes:
             if re.fullmatch(permission_route, route):
                 break
         else:
-            continue # `user_permission` does not grant access to `route`
+            continue  # `user_permission` does not grant access to `route`
 
         for permission_method in user_permission.methods:
             if re.fullmatch(permission_method, method, re.IGNORECASE):
                 break
         else:
-            continue # `user_permission` does not grant access to `route` via `method`
+            continue  # `user_permission` does not grant access to `route` via `method`
 
-        return # user has required permissions
+        return  # user has required permissions
 
     raise aiohttp.web.HTTPForbidden(
         text=f'User is not allowed to perform the {method=} for {route=}',
@@ -918,7 +951,7 @@ def _raise_on_missing_permissions(
 
 class Rbac(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         description:
           Returns a list of all available roles and permissions.
@@ -968,7 +1001,7 @@ class Rbac(aiohttp.web.View):
                         type: array
                         items:
                           type: string
-        '''
+        """
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
 
         role_bindings = retrieve_role_bindings(secret_factory)
@@ -981,7 +1014,7 @@ class Rbac(aiohttp.web.View):
 
 class User(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         description:
           Returns information for the authenticated user, e.g. a list of the assigned roles and
@@ -1055,7 +1088,7 @@ class User(aiohttp.web.View):
                         type: array
                         items:
                           type: string
-        '''
+        """
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
         user_id = self.request[consts.REQUEST_USER_ID]
@@ -1086,7 +1119,8 @@ class User(aiohttp.web.View):
                     {
                         'type': user_identifier.type,
                         'identifier': user_identifier.identifier,
-                    } for user_identifier in user.identifiers
+                    }
+                    for user_identifier in user.identifiers
                 ],
                 'roles': user_roles,
                 'permissions': user_permissions,
@@ -1112,8 +1146,8 @@ def get_signing_cfg_for_key(
 def decode_jwt(
     token: str,
     issuer: str,
-    signing_cfg: secret_mgmt.signing_cfg.SigningCfg=None,
-    verify_signature: bool=True,
+    signing_cfg: secret_mgmt.signing_cfg.SigningCfg = None,
+    verify_signature: bool = True,
 ) -> dict:
     if verify_signature and not signing_cfg:
         raise aiohttp.web.HTTPInternalServerError(text='Error decoding token')
@@ -1136,25 +1170,25 @@ def decode_jwt(
             text=str(e),
         )
 
-    except (jwt.exceptions.ExpiredSignatureError) as e:
+    except jwt.exceptions.ExpiredSignatureError as e:
         raise aiohttp.web.HTTPUnauthorized(
             reason='Unauthorized, token expired',
             text=str(e),
         )
 
-    except (jwt.exceptions.InvalidIssuedAtError) as e:
+    except jwt.exceptions.InvalidIssuedAtError as e:
         raise aiohttp.web.HTTPUnauthorized(
             reason='Bad Request, iat is in future',
             text=str(e),
         )
 
-    except (jwt.exceptions.ImmatureSignatureError) as e:
+    except jwt.exceptions.ImmatureSignatureError as e:
         raise aiohttp.web.HTTPUnauthorized(
             reason='Bad Request, token not yet valid',
             text=str(e),
         )
 
-    except (jwt.exceptions.InvalidIssuerError) as e:
+    except jwt.exceptions.InvalidIssuerError as e:
         raise aiohttp.web.HTTPUnauthorized(
             reason='Unauthorized, issuer not accepted',
             text=str(e),
@@ -1166,7 +1200,7 @@ def check_jwt_header_content(header: dict[str, str]):
         raise aiohttp.web.HTTPUnauthorized(
             text=f'Token type {typ} in header can not be processed',
         )
-    if (algorithm := header.get('alg', '')):
+    if algorithm := header.get('alg', ''):
         try:
             delivery.jwt.Algorithm(algorithm.upper())
         except ValueError:

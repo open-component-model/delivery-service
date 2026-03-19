@@ -66,7 +66,7 @@ def _managed_resource_name(
 def find_extension_definition(
     extension_definitions: list[odgm.ExtensionDefinition],
     extension_name: str,
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> odgm.ExtensionDefinition | None:
     for extension_definition in extension_definitions:
         if extension_definition.name == extension_name:
@@ -82,10 +82,10 @@ def iter_missing_dependencies(
     requested: collections.abc.Container[odgm.ExtensionDefinition],
     known: collections.abc.Container[odgm.ExtensionDefinition],
 ) -> collections.abc.Generator[odgm.ExtensionDefinition, None, None]:
-    '''
+    """
     recursively add known extensions until all dependencies are included.
     assumes extension-definitions are consistent.
-    '''
+    """
     seen_names = set([e.name for e in requested])
 
     def resolve(
@@ -111,9 +111,9 @@ def iter_missing_dependencies(
 def outputs_as_jsonpath(
     outputs_by_extension: dict,
 ) -> dict:
-    '''
+    """
     converts templated outputs to a nested dictionary structure compatible with `jsonpaths_ng`.
-    '''
+    """
     output_lookup = collections.defaultdict(lambda: collections.defaultdict(dict))
     for name, outputs in outputs_by_extension.items():
         current_outputs = {}
@@ -127,10 +127,10 @@ def outputs_as_jsonpath(
 def _helm_template(
     helm_path: str,
     values: dict,
-    namespace: str | None=None,
+    namespace: str | None = None,
 ) -> collections.abc.Generator[dict, None, None]:
     values_path = os.path.join(helm_path, 'values-merged.yaml')
-    with open (values_path, 'w') as f:
+    with open(values_path, 'w') as f:
         f.write(yaml.safe_dump(values))
 
     argv = [
@@ -167,9 +167,9 @@ def create_or_update_resource(
     data: dict,
     name: str,
     namespace: str,
-    group: str=None,
-    version: str=None,
-    plural: str=None,
+    group: str = None,
+    version: str = None,
+    plural: str = None,
 ) -> None:
     kwargs = {
         'namespace': namespace,
@@ -189,7 +189,7 @@ def create_or_update_resource(
         if e.status == 409:
             # secret already exists, update instead
             # we need to retrieve the current `.metadata.resourceVersion` for the update first
-            del kwargs['body'] # `body` kwarg not allowed for GET requests
+            del kwargs['body']  # `body` kwarg not allowed for GET requests
             resource = get_namespaced_resource(**kwargs)
 
             if isinstance(resource, dict):
@@ -216,13 +216,13 @@ def encode_manifest(
 
 def encode_and_split_manifests(
     manifests: collections.abc.Iterable[dict],
-    max_size_bytes: int=DEFAULT_K8S_SECRET_MAX_BYTES,
+    max_size_bytes: int = DEFAULT_K8S_SECRET_MAX_BYTES,
 ) -> collections.abc.Iterable[str]:
-    '''
+    """
     Base64 encodes the given `manifests` and splits them into separate chunks, each of them not
     larger than `max_size_bytes`. This might be used to split the manifests for the managed resources
     into chunks which fit into a Kubernetes secret each.
-    '''
+    """
     current_manifests = []
     current_size = 0
 
@@ -248,10 +248,10 @@ def create_or_update_odg(
     oci_client: oci.client.Client,
     kubernetes_api: k8s.util.KubernetesApi,
 ) -> tuple[
-    dict[str, list[str]], # status details for extensions
-    bool, # indicates whether an error occurred
+    dict[str, list[str]],  # status details for extensions
+    bool,  # indicates whether an error occurred
 ]:
-    '''
+    """
     processes the requested extensions for a given ODG resource, resolves their dependencies using
     all "known" extension definitions, templates helm charts for each extension, and triggers
     deployments to target cluster using managed-resources (gardener-resource-manager).
@@ -259,7 +259,7 @@ def create_or_update_odg(
     the first return value (dict) contains the status tracked for each extension, whereas the second
     return value (bool) indicates whether any error was encountered during the process.
     an odg is considered successfully installed if the second return value is False.
-    '''
+    """
     status_for_extension = collections.defaultdict(list)
     encountered_error = False
 
@@ -273,13 +273,15 @@ def create_or_update_odg(
         status_for_extension[extension_name].append(error_msg)
         encountered_error = True
 
-    outputs_for_extension = dict([
-        (
-            extension_definition.name,
-            extension_definition.templated_outputs(odg.context),
-        )
-        for extension_definition in extension_definitions
-    ])
+    outputs_for_extension = dict(
+        [
+            (
+                extension_definition.name,
+                extension_definition.templated_outputs(odg.context),
+            )
+            for extension_definition in extension_definitions
+        ]
+    )
     outputs_jsonpath = outputs_as_jsonpath(outputs_for_extension)
 
     extension_instances = [
@@ -297,7 +299,7 @@ def create_or_update_odg(
                         substitution_context=odg.context,
                         value_type=value_template.value_type,
                         default_value=value_template.default,
-                    )
+                    ),
                 )
                 for value_template in extension_definition.installation.value_templates
             ],
@@ -349,7 +351,7 @@ def create_or_update_odg(
             else:
                 handle_error(
                     extension_name=extension_instance.name,
-                    error_msg=f'unsupported artefact access type {artefact.access.type}'
+                    error_msg=f'unsupported artefact access type {artefact.access.type}',
                 )
                 continue
 
@@ -385,7 +387,7 @@ def create_or_update_odg(
                 odgu.patch_jsonpath_into_dict(
                     input_dict=merged_installation_values,
                     jsonpath_expr=installation_value.helm_attribute,
-                    value=installation_value.value
+                    value=installation_value.value,
                 )
 
             manifests = _helm_template(
@@ -403,8 +405,7 @@ def create_or_update_odg(
                 secret_names = [extension_artefact_name]
             else:
                 secret_names = [
-                    f'{extension_artefact_name}-{idx}'
-                    for idx in range(len(encoded_manifests))
+                    f'{extension_artefact_name}-{idx}' for idx in range(len(encoded_manifests))
                 ]
 
             data = {
@@ -414,7 +415,7 @@ def create_or_update_odg(
                     'name': extension_artefact_name,
                     'namespace': odg.namespace,
                     'labels': {
-                        ODG_NAME_LABEL: odg.name, # we need to find them again
+                        ODG_NAME_LABEL: odg.name,  # we need to find them again
                     },
                 },
                 'spec': {
@@ -426,7 +427,7 @@ def create_or_update_odg(
                         }
                         for secret_name in secret_names
                     ],
-                }
+                },
             }
             custom_api = kubernetes_api.custom_kubernetes_api
             create_or_update_resource(
@@ -449,8 +450,8 @@ def create_or_update_odg(
                         name=secret_name,
                         namespace=odg.namespace,
                         labels={
-                            ODG_NAME_LABEL: odg.name, # we need to find them again
-                        }
+                            ODG_NAME_LABEL: odg.name,  # we need to find them again
+                        },
                     ),
                     data={
                         'data.yaml.br': encoded_manifests[idx],
@@ -493,7 +494,7 @@ def delete_managed_resource(
     )
 
 
-'''
+"""
 To differentiate between spec and meta (e.g. status) changes of a
 resource, it is common to compare "generation" field (which is also contained in the event),
 because it only changes if the spec of a resource was modified.
@@ -504,7 +505,7 @@ https://github.com/kubernetes-client/python/issues/868
 
 We use the dict below to store the last seen generation of an odg resource, so we can skip events
 which do not update the spec and therefore do not require a full reconciliation cycle.
-'''
+"""
 last_seen_generation_for_resource_uid = {}
 
 
@@ -513,30 +514,24 @@ def set_odg_state(
     odg: odgm.ODG,
     state: odgm.ODGState,
     phase: odgm.ODGPhase,
-    extension_status: dict=None,
-    error: dict=None,
+    extension_status: dict = None,
+    error: dict = None,
 ):
-    '''
+    """
     Update the status of an ODG resource.
     This function patches the status subresource of the specified ODG, updating its state, phase,
     extension status, and error fields. If `extension_status` or `error` are not provided, their
     existing values in the ODG status are set to `None` to clean up old statuses.
-    '''
+    """
 
     # set annotation values to null to clean up old status(es)
     if extension_status is None:
         last_extension_status: dict = odg.status.get('extension_status', {})
-        extension_status = dict([
-            (key, None)
-            for key in last_extension_status.keys()
-        ])
+        extension_status = dict([(key, None) for key in last_extension_status.keys()])
 
     if error is None:
         last_error: dict = odg.status.get('error', {})
-        error = dict([
-            (key, None)
-            for key in last_error.keys()
-        ])
+        error = dict([(key, None) for key in last_error.keys()])
 
     kubernetes_api.custom_kubernetes_api.patch_namespaced_custom_object_status(
         group=odgm.ODGMeta.group,
@@ -563,14 +558,14 @@ def reconcile(
     component_descriptor_lookup,
     kubernetes_api: k8s.util.KubernetesApi,
     oci_client: oci.client.Client,
-    group: str= odgm.ODGMeta.group,
+    group: str = odgm.ODGMeta.group,
     plural: str = odgm.ODGMeta.plural,
-    resource_version: str='',
+    resource_version: str = '',
 ):
-    '''
+    """
     watches for events of ODG custom-resource
     creates, updates and deletes ODG installations using managed-resources
-    '''
+    """
 
     logger.info(f'watching for events: {group=} {plural=}')
 
@@ -623,10 +618,12 @@ def reconcile(
 
             metadata = event['object'].get('metadata')
             deletion_timestamp = metadata.get('deletionTimestamp')
-            logger.info(textwrap.dedent(
-                f'{event["type"]} "{odg.name}" in "{odg.namespace}'
-                f'{" (has deletion timestamp)" if deletion_timestamp else ""}"'
-            ))
+            logger.info(
+                textwrap.dedent(
+                    f'{event["type"]} "{odg.name}" in "{odg.namespace}'
+                    f'{" (has deletion timestamp)" if deletion_timestamp else ""}"'
+                )
+            )
 
             last_seen_generation_for_resource_uid[odg.uid] = odg.generation
             resource_version = metadata['resourceVersion']
@@ -638,7 +635,9 @@ def reconcile(
                     state=odgm.ODGState.DELETING,
                     phase=odgm.ODGPhase.RUNNING,
                 )
-                for managed_resource in kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object( # noqa: E501
+                for (
+                    managed_resource
+                ) in kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(  # noqa: E501
                     group=odgm.ManagedResourceMeta.group,
                     version=odgm.ManagedResourceMeta.version,
                     plural=odgm.ManagedResourceMeta.plural,
@@ -695,20 +694,24 @@ def reconcile(
                         for extension_name in odg.extensions
                     ]
 
-                    requested_extension_definitions.extend([
-                        find_extension_definition(
-                            extension_definitions=extension_definitions,
-                            extension_name=extension_name,
-                        )
-                        for extension_name in required_extensions
-                    ])
+                    requested_extension_definitions.extend(
+                        [
+                            find_extension_definition(
+                                extension_definitions=extension_definitions,
+                                extension_name=extension_name,
+                            )
+                            for extension_name in required_extensions
+                        ]
+                    )
 
-                    requested_extension_definitions.extend(list(
-                        iter_missing_dependencies(
-                            requested=requested_extension_definitions,
-                            known=extension_definitions,
+                    requested_extension_definitions.extend(
+                        list(
+                            iter_missing_dependencies(
+                                requested=requested_extension_definitions,
+                                known=extension_definitions,
+                            )
                         )
-                    ))
+                    )
 
                     # make sure there are no duplicates
                     requested_extension_definitions = set(requested_extension_definitions)
@@ -731,14 +734,15 @@ def reconcile(
                         for ocm_ref in extension_definition.installation.ocm_references
                     ]
 
-                    for managed_resource in kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object( # noqa: E501
+                    for (
+                        managed_resource
+                    ) in kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(  # noqa: E501
                         group=odgm.ManagedResourceMeta.group,
                         version=odgm.ManagedResourceMeta.version,
                         plural=odgm.ManagedResourceMeta.plural,
                         namespace=odg.namespace,
                         label_selector=f'{ODG_NAME_LABEL}={odg.name}',
                     ).get('items', []):
-
                         name = managed_resource['metadata']['name']
                         if name in desired_managed_resource_names:
                             continue
@@ -753,6 +757,7 @@ def reconcile(
 
                 except Exception as e:
                     import traceback
+
                     traceback.print_exc()
                     raise ODGException(e)
 
@@ -783,6 +788,7 @@ def reconcile(
 
         except ODGException as e:
             import traceback
+
             set_odg_state(
                 kubernetes_api=kubernetes_api,
                 odg=odg,
@@ -833,7 +839,7 @@ def _iter_extension_definitions_from_resource_node(
                         data_class=odgm.ExtensionDefinition,
                         config=dacite.Config(
                             cast=[enum.Enum],
-                        )
+                        ),
                     )
 
     extension_definitions_path.cleanup()
@@ -851,7 +857,7 @@ if __name__ == '__main__':
         action='append',
         default=[],
         help='can be specified multiple times, \
-            expected format: <component-name>:<component-version>:<artefact-name>'
+            expected format: <component-name>:<component-version>:<artefact-name>',
     )
     parser.add_argument(
         '--recursive',
@@ -895,16 +901,18 @@ if __name__ == '__main__':
     if parsed.extension_definition_file:
         with open(parsed.extension_definition_file) as f:
             extensions_raw = yaml.safe_load_all(f)
-            extension_definitions.extend([
-                dacite.from_dict(
-                    data=extension_raw,
-                    data_class=odgm.ExtensionDefinition,
-                    config=dacite.Config(
-                        cast=[enum.Enum],
-                    ),
-                )
-                for extension_raw in extensions_raw
-            ])
+            extension_definitions.extend(
+                [
+                    dacite.from_dict(
+                        data=extension_raw,
+                        data_class=odgm.ExtensionDefinition,
+                        config=dacite.Config(
+                            cast=[enum.Enum],
+                        ),
+                    )
+                    for extension_raw in extensions_raw
+                ]
+            )
 
     recursion_depth = -1 if parsed.recursive else 0
     resource_nodes = []
@@ -917,7 +925,6 @@ if __name__ == '__main__':
         )
         for extension in [e.split(':') for e in parsed.extensions]
     ] + odg_operator_cfg.extension_ocm_references:
-
         component_id = f'{extension_ref.component_name}:{extension_ref.component_version}'
         component = component_descriptor_lookup(component_id).component
         for resource_node in ocm.iter.iter_resources(
@@ -949,13 +956,15 @@ if __name__ == '__main__':
             greatest_resource_nodes[cid.name] = resource_node
 
     for resource_node in greatest_resource_nodes.values():
-        extension_definitions.extend(_iter_extension_definitions_from_resource_node(
-            resource_node=resource_node,
-            oci_client=oci_client,
-        ))
+        extension_definitions.extend(
+            _iter_extension_definitions_from_resource_node(
+                resource_node=resource_node,
+                oci_client=oci_client,
+            )
+        )
 
     extension_definitions = sorted(
-        set(extension_definitions), # ensure there are no duplicates
+        set(extension_definitions),  # ensure there are no duplicates
         key=lambda extension_definition: extension_definition.name,
     )
     logger.info(f'known extension definitions: {[e.name for e in extension_definitions]}')

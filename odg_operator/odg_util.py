@@ -17,13 +17,13 @@ def resolve_image_mappings(
     component: ocm.Component,
     component_descriptor_lookup: ocm.ComponentDescriptorLookup,
 ) -> collections.abc.Generator[tuple[str, str], None, None]:
-    '''
+    """
     A generator yielding key, value pairs for all image mappings.
     For each image mapping a key, value pair for both image repository and image tag
     is created.
     The key is taken from the image mapping itself, whereas the value is derived by
     looking up the referenced resource's oci-access in the provided component descriptor.
-    '''
+    """
     for image_mapping in image_mappings:
         resource_name = image_mapping['resource']['name']
         component_ref_name = image_mapping.get('component', {}).get('name')
@@ -62,7 +62,7 @@ def patch_jsonpath_into_dict(
     value,
     input_dict: dict = None,
 ) -> dict:
-    '''
+    """
     Inserts or updates a value in a nested dictionary structure based on a JSONPath-like string.
     This function takes a JSONPath-like string (using dot notation, with support for quoted keys
     containing dots), a value to insert, and an optional input dictionary. It traverses or creates
@@ -77,7 +77,7 @@ def patch_jsonpath_into_dict(
     Example:
         >>> patch_jsonpath_into_dict('foo.bar."baz.x"', 42)
         {'foo': {'bar': {'baz.x': 42}}}
-    '''
+    """
     if input_dict is None:
         # avoid mutable object as default value
         input_dict = {}
@@ -92,10 +92,7 @@ def patch_jsonpath_into_dict(
     current = input_dict
 
     for key in keys[:-1]:
-        if (
-            key not in current
-            or not isinstance(current[key], dict)
-        ):
+        if key not in current or not isinstance(current[key], dict):
             current[key] = {}
         current = current[key]
 
@@ -108,9 +105,9 @@ def template_and_resolve_jsonpath(
     value_type: odgm.ValueType,
     substitution_context: dict,
     jsonpaths: dict,
-    default_value: str | bool | list | dict | int | None=None,
+    default_value: str | bool | list | dict | int | None = None,
 ) -> str | bool | list | dict:
-    '''
+    """
     Processes provided value according to its type.
     - `literal` is returned as-is
     - `python-string-template` is substituted via `substituion_context`
@@ -124,7 +121,7 @@ def template_and_resolve_jsonpath(
         `substitution_context`: dictionary for placeholder substitution.
         `jsonpaths`: dictionary to replace using JSONPath semantics after substitution.
         `default_value`: The value used instead of `value` if the substitution context is missing
-    '''
+    """
 
     if isinstance(value, str):
         try:
@@ -160,25 +157,27 @@ def template_and_resolve_jsonpath(
         return value
 
     elif isinstance(value, dict):
-        return dict([
-            (
-                template_and_resolve_jsonpath(
-                    value=key,
-                    substitution_context=substitution_context,
-                    jsonpaths=jsonpaths,
-                    value_type=value_type,
-                    default_value=default_value,
-                ),
-                template_and_resolve_jsonpath(
-                    value=value,
-                    substitution_context=substitution_context,
-                    jsonpaths=jsonpaths,
-                    value_type=value_type,
-                    default_value=default_value,
+        return dict(
+            [
+                (
+                    template_and_resolve_jsonpath(
+                        value=key,
+                        substitution_context=substitution_context,
+                        jsonpaths=jsonpaths,
+                        value_type=value_type,
+                        default_value=default_value,
+                    ),
+                    template_and_resolve_jsonpath(
+                        value=value,
+                        substitution_context=substitution_context,
+                        jsonpaths=jsonpaths,
+                        value_type=value_type,
+                        default_value=default_value,
+                    ),
                 )
-            )
-            for key, value in value.items()
-        ])
+                for key, value in value.items()
+            ]
+        )
 
     elif isinstance(value, list):
         return [

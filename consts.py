@@ -1,8 +1,8 @@
-'''
+"""
 Contains key constants to access variables embedded in the applications' or requests' context. Both
 are dict-like objects, so the constants can be used to retrieve the desired variables like they were
 globally available.
-'''
+"""
 
 APP_ADDRESSBOOK_ENTRIES = 'addressbook_entries'
 APP_ADDRESSBOOK_GITHUB_MAPPINGS = 'addressbook_github_mappings'

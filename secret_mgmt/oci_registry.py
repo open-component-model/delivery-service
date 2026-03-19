@@ -19,7 +19,7 @@ class OciRegistry:
     def image_reference_matches(
         self,
         image_reference: oci.model.OciImageReference | str,
-        privileges: oci.auth.Privileges=None,
+        privileges: oci.auth.Privileges = None,
     ) -> bool:
         image_reference = str(image_reference)
 
@@ -40,9 +40,9 @@ class OciRegistry:
 def find_cfg(
     secret_factory: secret_mgmt.SecretFactory,
     image_reference: oci.model.OciImageReference | str,
-    privileges: oci.auth.Privileges=None,
-    absent_ok: bool=True,
-    _normalised_image_reference: bool=False,
+    privileges: oci.auth.Privileges = None,
+    absent_ok: bool = True,
+    _normalised_image_reference: bool = False,
 ) -> OciRegistry | None:
     if isinstance(image_reference, oci.model.OciImageReference):
         image_reference = image_reference.normalised_image_reference
@@ -95,8 +95,8 @@ def oci_cfg_lookup(
 ) -> collections.abc.Callable[[str, oci.auth.Privileges, bool], oci.auth.OciCredentials]:
     def find_credentials(
         image_reference: oci.model.OciImageReference | str,
-        privileges: oci.auth.Privileges=oci.auth.Privileges.READONLY,
-        absent_ok: bool=True,
+        privileges: oci.auth.Privileges = oci.auth.Privileges.READONLY,
+        absent_ok: bool = True,
     ):
         oci_registry_cfg = find_cfg(
             secret_factory=secret_factory,

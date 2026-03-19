@@ -117,16 +117,16 @@ def find_token_for_api_url(
 def github_api_request(
     url: str,
     secret_factory: secret_mgmt.SecretFactory,
-    token: str | None=None,
+    token: str | None = None,
 ) -> tuple[list | dict | None, str | None]:
-    '''
+    """
     Perform a single authenticated GET request to the GitHub API.
 
     Returns a tuple of (response_body, next_url), where response_body is the
     parsed JSON (list or dict) and next_url is the URL of the next page taken
     from the Link header, or None if there are no further pages. Both values
     are None if the request fails.
-    '''
+    """
     if not token:
         token = find_token_for_api_url(
             secret_factory=secret_factory,
@@ -153,7 +153,7 @@ def github_api_request(
                 'Authorization': f'token {token}',
                 'Accept': 'application/vnd.github+json',
             },
-            timeout=30
+            timeout=30,
         )
         response.raise_for_status()
         next_url = response.links.get('next', {}).get('url')
@@ -191,12 +191,11 @@ def get_secret_alerts(
     org: str,
     secret_factory: secret_mgmt.SecretFactory,
 ) -> collections.abc.Generator[SecretAlert]:
-    '''
+    """
     Fetch open secret scanning alerts using authenticated GitHub client.
-    '''
+    """
     url = (
-        f'https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts'
-        '?state=open&per_page=100'
+        f'https://{github_hostname}/api/v3/orgs/{org}/secret-scanning/alerts?state=open&per_page=100'
     )
 
     count = 0
@@ -241,9 +240,9 @@ def as_artefact_metadata(
     ghas_finding: odg.model.GitHubSecretFinding,
     ghas_finding_cfg: odg.findings.Finding,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
-    '''
+    """
     Transform GitHub secret scanning findings into ArtefactMetadata.
-    '''
+    """
     today = datetime.date.today()
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
@@ -298,8 +297,7 @@ def create_ghas_findings(
                     )
 
                     categorisation = odg.findings.categorise_finding(
-                        finding_cfg=ghas_finding_cfg,
-                        finding_property=alert.resolution
+                        finding_cfg=ghas_finding_cfg, finding_property=alert.resolution
                     )
                     if not categorisation:
                         continue
@@ -325,9 +323,9 @@ def build_artefact_from_finding(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_service_client: delivery.client.DeliveryServiceClient,
 ) -> odg.model.ComponentArtefactId:
-    '''
+    """
     Extract component info from finding and return a ComponentArtefactId.
-    '''
+    """
     parsed_url = util.urlparse(finding.html_url)
 
     org, repo = parsed_url.path.strip('/').split('/')[:2]
@@ -341,10 +339,12 @@ def build_artefact_from_finding(
     # if there is at least one version detected, it is a 'real' OCM component
     if component_versions:
         component_version = component_versions[0]
-        component_descriptor = component_descriptor_lookup(ocm.ComponentIdentity(
-            name=possible_component_name,
-            version=component_version,
-        ))
+        component_descriptor = component_descriptor_lookup(
+            ocm.ComponentIdentity(
+                name=possible_component_name,
+                version=component_version,
+            )
+        )
 
         source = ocm.util.main_source(
             component=component_descriptor,
@@ -357,7 +357,7 @@ def build_artefact_from_finding(
             artefact=odg.model.LocalArtefactId(
                 artefact_name=source.name,
                 artefact_type=source.type,
-            )
+            ),
         )
 
     # XXX we still need to discuss this fallback case
@@ -414,18 +414,19 @@ def scan(
                 )
             continue
 
-        metadata = list(as_artefact_metadata(
-            artefact=artefact,
-            ghas_finding=finding,
-            ghas_finding_cfg=ghas_finding_cfg,
-        ))
+        metadata = list(
+            as_artefact_metadata(
+                artefact=artefact,
+                ghas_finding=finding,
+                ghas_finding_cfg=ghas_finding_cfg,
+            )
+        )
 
         all_metadata.extend(metadata)
         all_metadata_keys.update([metadatum.key for metadatum in metadata])
 
     all_stale_metadata = [
-        metadatum for metadatum in all_existing_metadata
-        if metadatum.key not in all_metadata_keys
+        metadatum for metadatum in all_existing_metadata if metadatum.key not in all_metadata_keys
     ]
 
     for stale_finding in all_stale_metadata:
@@ -436,7 +437,7 @@ def scan(
             url=api_url,
             secret_factory=secret_factory,
         )
-        resolution =  stale_alert_data.get('resolution')
+        resolution = stale_alert_data.get('resolution')
 
         rescore_categorisation = odg.findings.categorise_finding(
             finding_cfg=ghas_finding_cfg,

@@ -1,7 +1,8 @@
-'''
+"""
 This module defines the data model of a runtime artefact and can be used to maintain the lifecycle
 of runtime artefacts (e.g. creation/iteration).
-'''
+"""
+
 import dataclasses
 import datetime
 import typing
@@ -17,12 +18,13 @@ import util
 
 @dataclasses.dataclass(frozen=True)
 class RuntimeArtefact:
-    '''
+    """
     Runtime artefacts depict the dynamic runtime view in contrast to the conceptual design-time view
     modelled by OCM. However, these runtime artefacts relate to one (or more) static OCM components
     or artefacts. This relation can be expressed by specifying certain `references` in the
     `artefact` property.
-    '''
+    """
+
     creation_date: datetime.datetime
     artefact: odg.model.ComponentArtefactId
 
@@ -49,7 +51,7 @@ def create_runtime_artefact_crd_body(
     name: str,
     namespace: str,
     runtime_artefact: RuntimeArtefact,
-    labels: dict[str, str]=None,
+    labels: dict[str, str] = None,
 ) -> dict:
     return {
         'apiVersion': k8s.model.RuntimeArtefactCrd.api_version(),
@@ -66,7 +68,7 @@ def create_runtime_artefact_crd_body(
 def iter_runtime_artefacts(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    labels: dict[str, str]=None,
+    labels: dict[str, str] = None,
 ) -> tuple[RuntimeArtefact]:
     if labels:
         label_selector = k8s.util.create_label_selector(labels=labels)
@@ -91,7 +93,7 @@ def create_runtime_artefact(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: odg.model.ComponentArtefactId,
-    labels: dict[str, str]=None,
+    labels: dict[str, str] = None,
 ):
     name = k8s.util.generate_kubernetes_name(
         name_parts=('runtime-artefact',),
@@ -122,13 +124,13 @@ def create_unique_runtime_artefact(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: odg.model.ComponentArtefactId,
-    labels: dict[str, str]=None,
+    labels: dict[str, str] = None,
 ) -> bool:
-    '''
+    """
     creates a runtime artefact for the given `artefact`. If there is already an existing runtime
     artefact which is semantically equal and contains `labels`, the creation is skipped. Returns
     `True` if a new runtime artefact was created, otherwise `False`.
-    '''
+    """
     runtime_artefacts = iter_runtime_artefacts(
         namespace=namespace,
         kubernetes_api=kubernetes_api,

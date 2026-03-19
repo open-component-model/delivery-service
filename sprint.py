@@ -11,10 +11,10 @@ import yp
 
 def current_sprint(
     sprints: list[yp.Sprint],
-    offset: int=0,
-    ref_date: datetime.datetime=None,
+    offset: int = 0,
+    ref_date: datetime.datetime = None,
 ):
-    '''
+    """
     returns the "current sprint" from the given list of sprints. The list of sprints is
     assumed to be ordered chronologically, with the newest one being at the beginning.
     the current sprint is determined as the one precedeeding the newest sprint whose
@@ -27,12 +27,12 @@ def current_sprint(
     previous one.
 
     note that date-operations are not timezone-aware, which is believed to be "good enough"
-    '''
+    """
     if not ref_date:
         ref_date = datetime.datetime.today()
 
-    if offset: # need to invert offset, as sprints are ordered chronologically
-        offset = - offset
+    if offset:  # need to invert offset, as sprints are ordered chronologically
+        offset = -offset
 
     for idx, sprint in enumerate(sprints):
         if isinstance(sprint.end_date, datetime.datetime):
@@ -63,7 +63,7 @@ class SprintInfos(aiohttp.web.View):
     required_features = (features.FeatureSprints,)
 
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Sprints
@@ -81,16 +81,13 @@ class SprintInfos(aiohttp.web.View):
                   type: array
                   items:
                     $ref: '#/definitions/Sprint'
-        '''
+        """
         sprints_metadata = self.request.app[consts.APP_SPRINTS_METADATA]
         sprints = self.request.app[consts.APP_SPRINTS]
 
         return aiohttp.web.json_response(
             data={
-                'sprints': [
-                    sprint.asdict(meta=sprints_metadata)
-                    for sprint in sprints
-                ],
+                'sprints': [sprint.asdict(meta=sprints_metadata) for sprint in sprints],
             },
             dumps=util.dict_to_json_factory,
         )
@@ -100,7 +97,7 @@ class SprintInfosCurrent(aiohttp.web.View):
     required_features = (features.FeatureSprints,)
 
     async def get(self):
-        '''
+        """
         ---
         description:
           Returns the "current" sprint infos, optionally considering passed query-params. The
@@ -132,7 +129,7 @@ class SprintInfosCurrent(aiohttp.web.View):
             description: Successful operation.
             schema:
               $ref: '#/definitions/Sprint'
-        '''
+        """
         params = self.request.rel_url.query
 
         offset = int(util.param(params, 'offset', default=0))

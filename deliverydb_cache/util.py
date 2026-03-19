@@ -13,10 +13,10 @@ import deliverydb_cache.model as dcm
 def normalise_and_serialise_object(
     object,
     *,
-    recursion_depth: int=0,
-    max_recursion_depth: int=100,
+    recursion_depth: int = 0,
+    max_recursion_depth: int = 100,
 ) -> str:
-    '''
+    """
     Generate stable serialised representation of `object`. This is especially useful to calculate a
     stable descriptor as id for cache entries. If `object` contains one of the characters used for
     join operations (`|-`, `--|`, `|_`, `__|`, `|:`), a ValueError is raised to prevent collisions.
@@ -27,7 +27,7 @@ def normalise_and_serialise_object(
     If `object` contains an iterable (note: generators are treated as ValueError), the normalised
     values are sorted in alphabetical order and concatenated using following pattern:
     `|__value1|_value2|_...__|`
-    '''
+    """
     join_characters = ['|-', '--|', '|_', '__|', '|:']
 
     if recursion_depth > max_recursion_depth:
@@ -67,10 +67,7 @@ def normalise_and_serialise_object(
             for key in set(object.keys())
         ]
         object_sorted = sorted(object_items_normalised, key=lambda items: items[0])
-        return '|--' + '|-'.join([
-            f'{key}|:{value}'
-            for key, value in object_sorted
-        ]) + '--|'
+        return '|--' + '|-'.join([f'{key}|:{value}' for key, value in object_sorted]) + '--|'
 
     elif isinstance(object, collections.abc.Iterable):
         object_items_normalised = [
@@ -78,10 +75,7 @@ def normalise_and_serialise_object(
             for value in object
         ]
         object_sorted = sorted(object_items_normalised)
-        return '|__' + '|_'.join([
-            value
-            for value in object_sorted
-        ]) + '__|'
+        return '|__' + '|_'.join([value for value in object_sorted]) + '__|'
 
     return str(object)
 

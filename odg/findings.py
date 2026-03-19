@@ -77,28 +77,31 @@ class MinMaxRange:
 
 @dataclasses.dataclass
 class OsIdFindingSelector:
-    '''
+    """
     :param list[str] status:
         List of regexes to determine matching osid findings based on their status.
-    '''
+    """
+
     status: list[str]
 
 
 @dataclasses.dataclass
 class CryptoFindingSelector:
-    '''
+    """
     :param list[str] ratings:
         List of regexes to determine matching crypto findings based on their rating.
-    '''
+    """
+
     ratings: list[str]
 
 
 @dataclasses.dataclass
 class GHASFindingSelector:
-    '''
+    """
     :param list[str] resolution:
         List of regexes to determine matching github secret findings.
-    '''
+    """
+
     resolutions: list[str | None]
 
 
@@ -110,37 +113,41 @@ class IPFindingSelector:
 
 @dataclasses.dataclass
 class LicenseFindingSelector:
-    '''
+    """
     :param list[str] license_names:
         List of regexes to determine matching licenses.
-    '''
+    """
+
     license_names: list[str]
 
 
 @dataclasses.dataclass
 class MalwareFindingSelector:
-    '''
+    """
     :param list[str] malware_names:
         List of regexes to determine matching malware.
-    '''
+    """
+
     malware_names: list[str]
 
 
 @dataclasses.dataclass
 class SASTFindingSelector:
-    '''
+    """
     :param list[str] sub_types:
         List of regexes to determine matching missing linter findings.
-    '''
+    """
+
     sub_types: list[str]
 
 
 @dataclasses.dataclass
 class VulnerabilityFindingSelector:
-    '''
+    """
     :param MinMaxRange cve_score_range:
         Min (including) and max (including) cve score to determine matching CVEs.
-    '''
+    """
+
     cve_score_range: MinMaxRange
 
 
@@ -155,7 +162,7 @@ class RescoringModes(enum.StrEnum):
 
 @dataclasses.dataclass
 class FindingCategorisation:
-    '''
+    """
     :param str id:
         Stable identifier for the category (must not change as it will be written into findings as
         well).
@@ -180,7 +187,8 @@ class FindingCategorisation:
         rescoring ruleset to be available.
     :param Selector selector:
         Used to determine findings which should be assigned to this category.
-    '''
+    """
+
     id: str
     display_name: str
     value: int
@@ -220,11 +228,11 @@ class FindingCategorisation:
 
     @property
     def allowed_processing_time_raw(self) -> str | None:
-        '''
+        """
         Parses the allowed processing time into a string together with its unit in case it was
         implicitly converted into a `timedelta` object during `__post_init__`. The returned value
         may be used to be persisted in an `ArtefactMetadata` object.
-        '''
+        """
         if (
             isinstance(self.allowed_processing_time, MetaAllowedProcessingTimes)
             or self.allowed_processing_time is None
@@ -245,9 +253,9 @@ class FindingCategorisation:
     def effective_due_date(
         self,
         finding: odg.model.ArtefactMetadata,
-        rescoring: odg.model.ArtefactMetadata | None=None,
+        rescoring: odg.model.ArtefactMetadata | None = None,
     ) -> datetime.date | None:
-        '''
+        """
         Returns the effective due date for the referenced finding. If any related rescoring exist,
         the date will be derived from this rescoring, otherwise it will be derived from the original
         finding.
@@ -259,7 +267,7 @@ class FindingCategorisation:
 
         If `None` is returned, the finding is categorised as "resolved" and does not have to be
         processed anymore.
-        '''
+        """
         if rescoring:
             if due_date := rescoring.data.due_date:
                 return due_date
@@ -277,7 +285,7 @@ class FindingCategorisation:
 
 @dataclasses.dataclass
 class FindingIssues:
-    '''
+    """
     :param str template:
         Template to use for the created GitHub issues. See `issue_replicator.github` for available
         substitues.
@@ -301,28 +309,35 @@ class FindingIssues:
         `artefact.artefact_type` for grouping. Nested attributes are expected to be separated using
         a dot `.`. Note: The order of the specified attributes is significant as they are
         concatenated in the order they were specified to create a stable issue id.
-    '''
+    """
+
     template: str = '{summary}'
-    title_template: str = '[{meta.type}] - {artefact.component_name}:{artefact.artefact.artefact_name}' # noqa: E501
+    title_template: str = (
+        '[{meta.type}] - {artefact.component_name}:{artefact.artefact.artefact_name}'  # noqa: E501
+    )
     enable_issues: bool = True
     enable_assignees: bool = True
     enable_per_finding: bool = False
     labels: list[str] = dataclasses.field(default_factory=list)
-    attrs_to_group_by: list[str] = dataclasses.field(default_factory=lambda: [
-        'component_name',
-        'artefact_kind',
-        'artefact.artefact_name',
-        'artefact.artefact_type',
-    ])
-    default_assignee_mode: odg.model.ResponsibleAssigneeModes = odg.model.ResponsibleAssigneeModes.SKIP # noqa: E501
+    attrs_to_group_by: list[str] = dataclasses.field(
+        default_factory=lambda: [
+            'component_name',
+            'artefact_kind',
+            'artefact.artefact_name',
+            'artefact.artefact_type',
+        ]
+    )
+    default_assignee_mode: odg.model.ResponsibleAssigneeModes = (
+        odg.model.ResponsibleAssigneeModes.SKIP
+    )  # noqa: E501
 
     def group_id_for_artefact(
         self,
         artefact: odg.model.ComponentArtefactId,
     ) -> str:
-        '''
+        """
         Creates a stable representation of the grouping relevant attributes of the `artefact`.
-        '''
+        """
         artefact_raw = dataclasses.asdict(artefact)
 
         def resolve_attr_ref(attr_ref: str) -> str:
@@ -335,24 +350,21 @@ class FindingIssues:
 
             return prop
 
-        return ''.join(
-            str(resolve_attr_ref(attr_ref))
-            for attr_ref in self.attrs_to_group_by
-        )
+        return ''.join(str(resolve_attr_ref(attr_ref)) for attr_ref in self.attrs_to_group_by)
 
     def issue_id(
         self,
         artefact: odg.model.ComponentArtefactId,
         due_date: datetime.date,
-        version: str='v1',
+        version: str = 'v1',
     ) -> str:
-        '''
+        """
         The issue-id (fka. correlation-id) is built from the grouping relevant properties of the
         `artefact` as well as the `due_date`. It is intended to be used to reference a GitHub issue
         to distinguish between issues "managed" by the Open-Delivery-Gear vs. those manually
         "managed". Also, a version prefix is added to be able to differentiate issue-ids in case
         their calculation changes in the future.
-        '''
+        """
         group_id = self.group_id_for_artefact(artefact)
         digest_str = group_id + due_date.isoformat()
         digest = hashlib.shake_128(
@@ -375,25 +387,36 @@ class FindingIssues:
     def strip_artefact(
         self,
         artefact: odg.model.ComponentArtefactId,
-        keep_group_attributes: bool=True,
+        keep_group_attributes: bool = True,
     ) -> odg.model.ComponentArtefactId:
-        '''
+        """
         Based on `keep_group_attributes`, either returns an artefact which only contains the
         attributes which are used for grouping, or the opposite.
-        '''
+        """
+
         def include_attribute(attr_ref: str) -> bool:
             is_group_attribute = attr_ref in self.attrs_to_group_by
             return is_group_attribute == keep_group_attributes
 
         return odg.model.ComponentArtefactId(
-            component_name=artefact.component_name if include_attribute('component_name') else None, # noqa: E501
-            component_version=artefact.component_version if include_attribute('component_version') else None, # noqa: E501
+            component_name=artefact.component_name if include_attribute('component_name') else None,  # noqa: E501
+            component_version=artefact.component_version
+            if include_attribute('component_version')
+            else None,  # noqa: E501
             artefact_kind=artefact.artefact_kind if include_attribute('artefact_kind') else None,
             artefact=odg.model.LocalArtefactId(
-                artefact_name=artefact.artefact.artefact_name if include_attribute('artefact.artefact_name') else None, # noqa: E501
-                artefact_version=artefact.artefact.artefact_version if include_attribute('artefact.artefact_version') else None, # noqa: E501
-                artefact_type=artefact.artefact.artefact_type if include_attribute('artefact.artefact_type') else None, # noqa: E501
-                artefact_extra_id=artefact.artefact.artefact_extra_id if include_attribute('artefact.artefact_extra_id') else dict(), # noqa: E501
+                artefact_name=artefact.artefact.artefact_name
+                if include_attribute('artefact.artefact_name')
+                else None,  # noqa: E501
+                artefact_version=artefact.artefact.artefact_version
+                if include_attribute('artefact.artefact_version')
+                else None,  # noqa: E501
+                artefact_type=artefact.artefact.artefact_type
+                if include_attribute('artefact.artefact_type')
+                else None,  # noqa: E501
+                artefact_extra_id=artefact.artefact.artefact_extra_id
+                if include_attribute('artefact.artefact_extra_id')
+                else dict(),  # noqa: E501
             ),
         )
 
@@ -410,7 +433,7 @@ class SharedCfgReference:
 
 @dataclasses.dataclass
 class ReuseDiscoveryDate:
-    '''
+    """
     :param bool enabled:
         Specifies whether discovery dates should be reused at all.
     :param str max_reuse_time:
@@ -422,7 +445,8 @@ class ReuseDiscoveryDate:
             - days: d (default)
             - weeks: w
             - years: a
-    '''
+    """
+
     enabled: bool = True
     max_reuse_time: str | int | None = None
 
@@ -433,7 +457,7 @@ class ReuseDiscoveryDate:
 
 @dataclasses.dataclass
 class Finding:
-    '''
+    """
     :param Datatype type:
     :param list[FindingCategorisation] categorisation:
         The available categories for this type of findings and information on how to assign the
@@ -456,7 +480,8 @@ class Finding:
         should be assigned to. The default (offset=0) means that the finding is assigned to the
         *next* sprint *after* the calculated due date. In contrast, offset=-1 would mean that the
         finding is assigned to the sprint which ends directly *before* the calculated due date.
-    '''
+    """
+
     type: odg.model.Datatype
     categorisations: SharedCfgReference | list[FindingCategorisation]
     filter: list[odg.filter.ComponentArtefactFilter] | None
@@ -471,7 +496,7 @@ class Finding:
     @staticmethod
     def from_dict(
         findings_raw: list[dict],
-        finding_type: odg.model.Datatype | None=None,
+        finding_type: odg.model.Datatype | None = None,
     ) -> list[typing.Self] | typing.Self | None:
         if not finding_type:
             return [
@@ -481,7 +506,8 @@ class Finding:
                     config=dacite.Config(
                         cast=[enum.Enum],
                     ),
-                ) for finding_raw in findings_raw
+                )
+                for finding_raw in findings_raw
             ]
 
         for finding_raw in findings_raw:
@@ -501,7 +527,7 @@ class Finding:
     @staticmethod
     def from_file(
         path: str,
-        finding_type: odg.model.Datatype | None=None,
+        finding_type: odg.model.Datatype | None = None,
     ) -> list[typing.Self] | typing.Self | None:
         with open(path) as file:
             findings_raw = yaml.safe_load(file) or []
@@ -703,7 +729,7 @@ class Finding:
 
     def _validate_categorisations(
         self,
-        expected_selector: object | None=None,
+        expected_selector: object | None = None,
     ) -> list[str]:
         violations = []
 
@@ -728,17 +754,19 @@ class Finding:
                 violations.extend(self._validate_rescoring_ruleset_operation(operation))
 
         for rule in self.rescoring_ruleset.rules:
-            violations.extend(self._validate_rescoring_ruleset_operation(
-                operation=rule.operation,
-                operations=self.rescoring_ruleset.operations,
-            ))
+            violations.extend(
+                self._validate_rescoring_ruleset_operation(
+                    operation=rule.operation,
+                    operations=self.rescoring_ruleset.operations,
+                )
+            )
 
         return violations
 
     def _validate_rescoring_ruleset_operation(
         self,
         operation: rm.Operation | str,
-        operations: dict[str, rm.Operation | str] | None=None,
+        operations: dict[str, rm.Operation | str] | None = None,
     ) -> list[str]:
         if not operations:
             operations = dict()
@@ -747,12 +775,11 @@ class Finding:
             if operation in operations:
                 return []
 
-            if (
-                operation.startswith(consts.RESCORING_OPERATOR_SET_TO_PREFIX)
-                and self.categorisation_by_id(
-                    id=operation.removeprefix(consts.RESCORING_OPERATOR_SET_TO_PREFIX),
-                    absent_ok=True,
-                )
+            if operation.startswith(
+                consts.RESCORING_OPERATOR_SET_TO_PREFIX
+            ) and self.categorisation_by_id(
+                id=operation.removeprefix(consts.RESCORING_OPERATOR_SET_TO_PREFIX),
+                absent_ok=True,
             ):
                 return []
 
@@ -761,20 +788,17 @@ class Finding:
         violations = []
 
         for op in operation.order:
-            if (
-                op not in operations
-                and not self.categorisation_by_id(id=op, absent_ok=True)
-            ):
+            if op not in operations and not self.categorisation_by_id(id=op, absent_ok=True):
                 violations.append(f'no categorisation matches operator "{op}" in "{operation}"')
 
         return violations
 
     @property
     def none_categorisation(self) -> FindingCategorisation | None:
-        '''
+        """
         Returns the category which marks a finding as "not relevant anymore", e.g. if it is assessed
         as a false-positive.
-        '''
+        """
         for categorisation in self.categorisations:
             if categorisation.value == 0:
                 return categorisation
@@ -782,7 +806,7 @@ class Finding:
     def categorisation_by_id(
         self,
         id: str,
-        absent_ok: bool=False,
+        absent_ok: bool = False,
     ) -> FindingCategorisation | None:
         for categorisation in self.categorisations:
             if categorisation.id == id:
@@ -834,7 +858,8 @@ def default_finding_categorisations(
             config=dacite.Config(
                 cast=[enum.Enum],
             ),
-        ) for categorisation in categorisation_raw[name]
+        )
+        for categorisation in categorisation_raw[name]
     ]
 
 
@@ -860,9 +885,9 @@ def categorise_finding(
     finding_property,
     **kwargs,
 ) -> FindingCategorisation | None:
-    '''
+    """
     Used to find the categorisation a finding belongs to according to the passed `finding_property`.
-    '''
+    """
     for categorisation in finding_cfg.categorisations:
         if not (selector := categorisation.selector):
             continue

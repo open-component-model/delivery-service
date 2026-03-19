@@ -118,7 +118,7 @@ def create_backlog_item(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: odg.model.ComponentArtefactId,
-    priority: BacklogPriorities=BacklogPriorities.LOW,
+    priority: BacklogPriorities = BacklogPriorities.LOW,
 ):
     name = k8s.util.generate_kubernetes_name(
         name_parts=(service, str(priority)),
@@ -151,15 +151,15 @@ def create_unique_backlog_item(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: odg.model.ComponentArtefactId,
-    priority: BacklogPriorities=BacklogPriorities.LOW,
+    priority: BacklogPriorities = BacklogPriorities.LOW,
 ) -> bool:
-    '''
+    """
     creates a backlog item for the given `artefact` and `priority`. If there is
     already an existing backlog item which is semantically equal, the creation is
     skipped. However, if the priority of the existing backlog item is lower than
     `priority`, the old backlog item will be patched with the new priority.
     Returns `True` if a new backlog item was created, otherwise `False`.
-    '''
+    """
     backlog_items = iter_existing_backlog_items_for_artefact(
         service=service,
         namespace=namespace,
@@ -202,7 +202,7 @@ def get_backlog_crd_and_claim(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    shortcut_claim: bool=False,
+    shortcut_claim: bool = False,
 ) -> dict | None:
     labels = {
         k8s.model.LABEL_SERVICE: service,
@@ -223,7 +223,7 @@ def get_backlog_crd_and_claim(
 
     backlog_crds.sort(
         key=lambda backlog_crd: (
-            -BacklogPriorities(backlog_crd.get('spec').get('priority')), # negate for high to low
+            -BacklogPriorities(backlog_crd.get('spec').get('priority')),  # negate for high to low
             backlog_crd.get('spec').get('timestamp'),
         )
     )
@@ -279,8 +279,8 @@ def remove_claim(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     backlog_crd: dict,
-    max_retries: int=3,
-    retry_count: int=0,
+    max_retries: int = 3,
+    retry_count: int = 0,
 ) -> dict | None:
     metadata = backlog_crd.get('metadata')
     name = metadata.get('name')

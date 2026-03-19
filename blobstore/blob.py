@@ -25,7 +25,7 @@ class Algorithm(enum.Enum):
 
 
 async def _get_ref_from_store(db_session: sqlasync.session.AsyncSession) -> str:
-    '''
+    """
     Create a new large object in PostgreSQL and return its object ID.
 
     This function initializes an empty large object (LOB) in the PostgreSQL
@@ -39,13 +39,12 @@ async def _get_ref_from_store(db_session: sqlasync.session.AsyncSession) -> str:
 
     Raises:
         Exception: If the large object creation fails in the database.
-    '''
+    """
 
     conn: sqlasync.AsyncConnection = await db_session.connection()
 
     # Create new large object
-    result = await conn.exec_driver_sql(
-                                                        statement="SELECT lo_create(0)")
+    result = await conn.exec_driver_sql(statement='SELECT lo_create(0)')
     oid = result.scalar()
     if not oid:
         logger.error(msg='Unable to create large object in db')
@@ -55,12 +54,12 @@ async def _get_ref_from_store(db_session: sqlasync.session.AsyncSession) -> str:
 
 
 async def _stream_blob_to_store(
-        ref: str,
-        stream: aiohttp.StreamReader,
-        hash_algorithm: str,
-        db_session: sqlasync.session.AsyncSession,
+    ref: str,
+    stream: aiohttp.StreamReader,
+    hash_algorithm: str,
+    db_session: sqlasync.session.AsyncSession,
 ) -> tuple[str, int]:
-    '''
+    """
     Stream a blob from an HTTP request into PostgreSQL large object storage.
 
     Reads data from the provided stream in chunks, writes it to a PostgreSQL
@@ -76,7 +75,7 @@ async def _stream_blob_to_store(
         A tuple of (digest, size) where:
         - digest: The computed digest in format 'algorithm:hexdigest'.
         - size: The total number of bytes written.
-    '''
+    """
 
     digest: hashlib._Hash = hashlib.new(name=hash_algorithm)
     size: int = 0
@@ -85,24 +84,24 @@ async def _stream_blob_to_store(
 
     # Open LOB for writing
     result = await conn.exec_driver_sql(
-        statement="SELECT lo_open(%(oid)s, %(mode)s)",
-        parameters={"oid": ref, "mode": int('0x60000', base=0)}  # 0x60000 = Read/Write mode
+        statement='SELECT lo_open(%(oid)s, %(mode)s)',
+        parameters={'oid': ref, 'mode': int('0x60000', base=0)},  # 0x60000 = Read/Write mode
     )
     lo_fd = result.scalar()
 
     # Write in chunks
     while chunk := await stream.read(CHUNK_SIZE):
         await conn.exec_driver_sql(
-            statement="SELECT lowrite(%(fd)s, %(data)s)",
-            parameters={"fd": lo_fd, "data": chunk}
+            statement='SELECT lowrite(%(fd)s, %(data)s)',
+            parameters={'fd': lo_fd, 'data': chunk},
         )
         size += len(chunk)
         digest.update(chunk)
 
     # Close LOB
     await conn.exec_driver_sql(
-        statement="SELECT lo_close(%(fd)s)",
-        parameters={"fd": lo_fd}
+        statement='SELECT lo_close(%(fd)s)',
+        parameters={'fd': lo_fd},
     )
 
     return f'{hash_algorithm}:{digest.hexdigest()}', size
@@ -110,10 +109,10 @@ async def _stream_blob_to_store(
 
 async def _stream_blob_from_store(
     db_session: sqlasync.session.AsyncSession,
-    ref:str,
-    stream: aiohttp.web.StreamResponse
+    ref: str,
+    stream: aiohttp.web.StreamResponse,
 ) -> None:
-    '''
+    """
     Stream a blob from PostgreSQL large object storage to an HTTP response.
 
     Reads a blob from PostgreSQL large object storage in chunks and writes
@@ -126,22 +125,23 @@ async def _stream_blob_from_store(
 
     Returns:
         None. Data is written directly to the response stream.
-    '''
+    """
 
     conn: sqlasync.AsyncConnection = await db_session.connection()
 
     # Open LOB for writing
     result = await conn.exec_driver_sql(
         statement='SELECT lo_open(%(oid)s, %(mode)s)',
-        parameters={'oid': int(ref), 'mode': int('0x20000', base=0)}  # 0x20000 = Read mode
+        parameters={'oid': int(ref), 'mode': int('0x20000', base=0)},  # 0x20000 = Read mode
     )
     lo_fd = result.scalar()
 
     # Read LOB in chunks
     while True:
         result = await conn.exec_driver_sql(
-                                            statement='SELECT loread(%(fd)s, %(len)s)',
-                                            parameters={'fd': lo_fd, 'len': CHUNK_SIZE})
+            statement='SELECT loread(%(fd)s, %(len)s)',
+            parameters={'fd': lo_fd, 'len': CHUNK_SIZE},
+        )
         buffer = result.scalar()
         if not buffer:
             break
@@ -149,16 +149,16 @@ async def _stream_blob_from_store(
 
     # Close LOB
     await conn.exec_driver_sql(
-        statement="SELECT lo_close(%(fd)s)",
-        parameters={"fd": lo_fd}
+        statement='SELECT lo_close(%(fd)s)',
+        parameters={'fd': lo_fd},
     )
 
 
 async def _delete_blob_from_store(
     ref: str,
-    db_session: sqlasync.session.AsyncSession
+    db_session: sqlasync.session.AsyncSession,
 ) -> None:
-    '''
+    """
     Delete a blob's large object from the PostgreSQL database.
 
     This function removes a large object (LOB) from the PostgreSQL blob storage
@@ -167,11 +167,12 @@ async def _delete_blob_from_store(
     Args:
         ref: The object ID (OID) of the large object to delete, as a string.
         db_session: An async SQLAlchemy session to execute the deletion query.
-    '''
+    """
 
     conn: sqlasync.AsyncConnection = await db_session.connection()
     lo_deleted = await conn.exec_driver_sql(
-        statement=f'SELECT lo_unlink({ref})')
+        statement=f'SELECT lo_unlink({ref})',
+    )
 
     if not lo_deleted:
         logger.error('large object was not in the database')
@@ -182,17 +183,19 @@ def _create_response_header(
     blob_digest: str,
     creation_date: datetime.datetime,
     mime_type: str,
-    size: int
+    size: int,
 ) -> dict[str, str]:
 
-    return {'Digest': blob_digest,
+    return {
+        'Digest': blob_digest,
         'Created': creation_date.strftime(format='%d/%m/%y %H:%M:%S %z'),
         'Content-Type': mime_type,
-        'Content-Length': str(size)}
+        'Content-Length': str(size),
+    }
 
 
 def _validate_and_sanitize_digest(blob_digest: str) -> str:
-    '''
+    """
     Validate and sanitize a blob digest string.
 
     Args:
@@ -203,13 +206,12 @@ def _validate_and_sanitize_digest(blob_digest: str) -> str:
 
     Raises:
         aiohttp.web.HTTPBadRequest: If the digest is invalid
-    '''
+    """
 
     blob_digest = blob_digest.strip()
 
     if blob_digest.count(':') != 1:
-        raise aiohttp.web.HTTPBadRequest(
-            reason='Digest must be in format "algorithm:hexdigest"')
+        raise aiohttp.web.HTTPBadRequest(reason='Digest must be in format "algorithm:hexdigest"')
 
     digest_alg, hex_digest = blob_digest.split(':')
 
@@ -217,14 +219,15 @@ def _validate_and_sanitize_digest(blob_digest: str) -> str:
         raise aiohttp.web.HTTPBadRequest(
             reason=f'Hash algorithm "{digest_alg}" is not supported. Supported algorithms: \
               {", ".join(Algorithm.__members__.keys())}'
-          )
+        )
 
     # Check if hexdigest contains only valid hex characters
     try:
         int(hex_digest, 16)
     except ValueError:
         raise aiohttp.web.HTTPBadRequest(
-            reason='Hexdigest must contain only valid hexadecimal characters (0-9, a-f, A-F)')
+            reason='Hexdigest must contain only valid hexadecimal characters (0-9, a-f, A-F)'
+        )
 
     # Validate hexdigest length for the algorithm
     expected_length: int = Algorithm[digest_alg].value['length']
@@ -242,7 +245,7 @@ class Blob(aiohttp.web.View):
     required_features = (features.FeatureDeliveryDB,)
 
     async def post(self) -> aiohttp.web.Response:
-        '''
+        """
         ---
         description: Upload and store blobs
         tags:
@@ -280,34 +283,53 @@ class Blob(aiohttp.web.View):
             description:  The blob is already available in the blob store
           "500":
             description: The blob could not be stored
-        '''
+        """
 
         headers = self.request.headers
         request_header = {
-            'digest': util.param(params=headers, name='Digest', required=True),
-            'size': util.param(params=headers, name='Content-Length', required=True),
-            'mime_type': str(util.param(params=headers, name='Content-Type', required=True))
+            'digest': util.param(
+                params=headers,
+                name='Digest',
+                required=True,
+            ),
+            'size': util.param(
+                params=headers,
+                name='Content-Length',
+                required=True,
+            ),
+            'mime_type': str(
+                util.param(
+                    params=headers,
+                    name='Content-Type',
+                    required=True,
+                ),
+            ),
         }
 
         sanitized_request_digest = _validate_and_sanitize_digest(request_header['digest'])
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
-        blob_metadata: dm.BlobStore | None = await db_session.get(entity=dm.BlobStore,
-                                                                  ident=sanitized_request_digest)
+        blob_metadata: dm.BlobStore | None = await db_session.get(
+            entity=dm.BlobStore,
+            ident=sanitized_request_digest,
+        )
 
         if blob_metadata:
             raise aiohttp.web.HTTPUnprocessableEntity(
-                text='A blob with the same digest is already in blob store')
+                text='A blob with the same digest is already in blob store'
+            )
 
         hash_algorithm: str = sanitized_request_digest.split(':')[0]
         try:
             blob_ref: str = await _get_ref_from_store(db_session=db_session)
 
-            blob_digest, size = await _stream_blob_to_store(ref=blob_ref,
-                                        stream=self.request.content,
-                                        hash_algorithm=hash_algorithm,
-                                        db_session=db_session)
+            blob_digest, size = await _stream_blob_to_store(
+                ref=blob_ref,
+                stream=self.request.content,
+                hash_algorithm=hash_algorithm,
+                db_session=db_session,
+            )
 
         except:
             await db_session.rollback()
@@ -319,11 +341,12 @@ class Blob(aiohttp.web.View):
             raise aiohttp.web.HTTPBadRequest()
 
         blob_metadata = dm.BlobStore(
-                            digest=blob_digest,
-                            creation_date=datetime.datetime.now(),
-                            size=size,
-                            mime_type=request_header['mime_type'],
-                            ref=blob_ref)
+            digest=blob_digest,
+            creation_date=datetime.datetime.now(),
+            size=size,
+            mime_type=request_header['mime_type'],
+            ref=blob_ref,
+        )
 
         try:
             db_session.add(instance=blob_metadata)
@@ -332,17 +355,21 @@ class Blob(aiohttp.web.View):
             await db_session.rollback()
             raise aiohttp.web.HTTPServerError()
 
-        response_header: dict[str, str] = _create_response_header(blob_digest=blob_metadata.digest,
-                                        mime_type=blob_metadata.mime_type,
-                                        size=0,
-                                        creation_date=blob_metadata.creation_date)
+        response_header: dict[str, str] = _create_response_header(
+            blob_digest=blob_metadata.digest,
+            mime_type=blob_metadata.mime_type,
+            size=0,
+            creation_date=blob_metadata.creation_date,
+        )
 
         await db_session.commit()
-        return aiohttp.web.Response(headers=response_header,
-                                    status=aiohttp.web.HTTPOk.status_code)
+        return aiohttp.web.Response(
+            headers=response_header,
+            status=aiohttp.web.HTTPOk.status_code,
+        )
 
     async def head(self) -> aiohttp.web.Response:
-        '''
+        """
         ---
         description: Request metadata of a blob by its digest
         tags:
@@ -377,20 +404,27 @@ class Blob(aiohttp.web.View):
             description: The required parameters are not provided.
             "404":
             description: Blob not found
-        '''
+        """
 
-        raw_request_digest: str = str(util.param(
-            params=self.request.rel_url.query, name=DIGEST_PARAM, required=True))
+        raw_request_digest: str = str(
+            util.param(
+                params=self.request.rel_url.query,
+                name=DIGEST_PARAM,
+                required=True,
+            )
+        )
 
         sanitized_request_digest: str = _validate_and_sanitize_digest(blob_digest=raw_request_digest)
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         try:
-
-            db_statement = sa.select(dm.BlobStore.digest, dm.BlobStore.creation_date,
-                                     dm.BlobStore.size, dm.BlobStore.mime_type).where(
-                                         dm.BlobStore.digest == sanitized_request_digest)
+            db_statement = sa.select(
+                dm.BlobStore.digest,
+                dm.BlobStore.creation_date,
+                dm.BlobStore.size,
+                dm.BlobStore.mime_type,
+            ).where(dm.BlobStore.digest == sanitized_request_digest)
             blob_metadata = (await db_session.execute(db_statement)).one_or_none()
 
         except:
@@ -398,18 +432,23 @@ class Blob(aiohttp.web.View):
 
         if not blob_metadata:
             raise aiohttp.web.HTTPNotFound(
-                reason=f'The blob with the digest: {sanitized_request_digest} could not be found')
+                reason=f'The blob with the digest: {sanitized_request_digest} could not be found'
+            )
 
-        response_header: dict[str, str] = _create_response_header(blob_digest=blob_metadata.digest,
-                                             mime_type=blob_metadata.mime_type,
-                                             size=blob_metadata.size,
-                                             creation_date=blob_metadata.creation_date)
+        response_header: dict[str, str] = _create_response_header(
+            blob_digest=blob_metadata.digest,
+            mime_type=blob_metadata.mime_type,
+            size=blob_metadata.size,
+            creation_date=blob_metadata.creation_date,
+        )
 
-        return aiohttp.web.Response(headers=response_header,
-                            status=aiohttp.web.HTTPOk.status_code)
+        return aiohttp.web.Response(
+            headers=response_header,
+            status=aiohttp.web.HTTPOk.status_code,
+        )
 
     async def delete(self) -> aiohttp.web.Response:
-        '''
+        """
         ---
         description: Delete blob by his digest
         tags:
@@ -427,10 +466,15 @@ class Blob(aiohttp.web.View):
             description: Bad Request
           "404":
             description: Blob not found
-        '''
+        """
 
-        raw_request_digest: str = str(util.param(
-            params=self.request.rel_url.query, name=DIGEST_PARAM, required=True))
+        raw_request_digest: str = str(
+            util.param(
+                params=self.request.rel_url.query,
+                name=DIGEST_PARAM,
+                required=True,
+            )
+        )
 
         # Validate and sanitize the digest
         sanitized_request_digest: str = _validate_and_sanitize_digest(blob_digest=raw_request_digest)
@@ -438,13 +482,13 @@ class Blob(aiohttp.web.View):
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         db_statement = sa.select(dm.BlobStore.ref).where(
-            dm.BlobStore.digest == sanitized_request_digest)
+            dm.BlobStore.digest == sanitized_request_digest
+        )
         blob_ref = (await db_session.execute(statement=db_statement)).one_or_none()
 
         if not blob_ref:
             logger.info(f'blob with digest {sanitized_request_digest} could not be found')
-            raise aiohttp.web.HTTPNotFound(
-                reason='The blob could not be found')
+            raise aiohttp.web.HTTPNotFound(reason='The blob could not be found')
 
         try:
             await _delete_blob_from_store(ref=blob_ref.ref, db_session=db_session)
@@ -464,7 +508,7 @@ class Blob(aiohttp.web.View):
         return aiohttp.web.Response(status=aiohttp.web.HTTPNoContent.status_code)
 
     async def get(self) -> aiohttp.web.StreamResponse:
-        '''
+        """
         ---
         description: Request blobs based on parameters
         tags:
@@ -483,37 +527,38 @@ class Blob(aiohttp.web.View):
             description: The required parameters are not provided.
           "404":
             description: Blob not found
-        '''
+        """
 
-        raw_request_digest: str = str(util.param(
-            params=self.request.rel_url.query, name=DIGEST_PARAM, required=True))
+        raw_request_digest: str = str(
+            util.param(params=self.request.rel_url.query, name=DIGEST_PARAM, required=True)
+        )
 
         sanitized_request_digest: str = _validate_and_sanitize_digest(blob_digest=raw_request_digest)
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
-        db_statement = sa.select(dm.BlobStore).where(
-                                            dm.BlobStore.digest == sanitized_request_digest)
+        db_statement = sa.select(dm.BlobStore).where(dm.BlobStore.digest == sanitized_request_digest)
         blob_metadata = (await db_session.execute(statement=db_statement)).one_or_none()
 
         if not blob_metadata:
             raise aiohttp.web.HTTPNotFound()
 
         response_header: dict[str, str] = _create_response_header(
-                                                blob_digest=blob_metadata[0].digest,
-                                                mime_type=blob_metadata[0].mime_type,
-                                                size=blob_metadata[0].size,
-                                                creation_date=blob_metadata[0].creation_date)
-
-        stream_response = aiohttp.web.StreamResponse(
-            headers=response_header
+            blob_digest=blob_metadata[0].digest,
+            mime_type=blob_metadata[0].mime_type,
+            size=blob_metadata[0].size,
+            creation_date=blob_metadata[0].creation_date,
         )
+
+        stream_response = aiohttp.web.StreamResponse(headers=response_header)
         await stream_response.prepare(request=self.request)
 
         try:
-            await _stream_blob_from_store(db_session=db_session,
-                                       stream=stream_response,
-                                       ref=blob_metadata[0].ref)
+            await _stream_blob_from_store(
+                db_session=db_session,
+                stream=stream_response,
+                ref=blob_metadata[0].ref,
+            )
             await stream_response.write_eof()
 
         except:

@@ -1,8 +1,8 @@
-'''
+"""
 (character) limits for BDBA-api
 
 limits are either found by trail and error or from the documentation
-'''
+"""
 
 app_name = 255
 file_name = 241

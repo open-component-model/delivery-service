@@ -28,20 +28,11 @@ ci.log.configure_default_logging(print_thread_id=True)
 
 
 def normalize_display_name(value: str) -> str:
-    return (
-        value
-        .replace('/', '_')
-        .replace('+', '_')
-        .replace(' ', '_')
-    )
+    return value.replace('/', '_').replace('+', '_').replace(' ', '_')
 
 
 class ResourceGroupProcessor:
-    def __init__(
-        self,
-        bdba_client: bdba.client.BDBAApi,
-        group_id: int=None,
-    ):
+    def __init__(self, bdba_client: bdba.client.BDBAApi, group_id: int = None):
         self.bdba_client = bdba_client
         self.group_id = group_id
 
@@ -59,9 +50,7 @@ class ResourceGroupProcessor:
 
         if resource.extraIdentity:
             # peers are not required here as version is considered anyways
-            display_name += '_' + normalize_display_name(
-                value=f'{resource.identity(peers=())}'
-            )
+            display_name += '_' + normalize_display_name(value=f'{resource.identity(peers=())}')
 
         component_artefact_metadata = bdba_utils.util.component_artefact_metadata(
             resource_node=resource_node,
@@ -100,7 +89,7 @@ class ResourceGroupProcessor:
             )
 
         if processing_mode is bm.ProcessingMode.FORCE_UPLOAD:
-            if (product_id := scan_request.target_product_id):
+            if product_id := scan_request.target_product_id:
                 # reupload binary
                 try:
                     return self.bdba_client.upload(
@@ -128,7 +117,7 @@ class ResourceGroupProcessor:
                 except botocore.exceptions.BotoCoreError as e:
                     raise_on_error(e)
         elif processing_mode is bm.ProcessingMode.RESCAN:
-            if (existing_id := scan_request.target_product_id):
+            if existing_id := scan_request.target_product_id:
                 # check if result can be reused
                 scan_result = self.bdba_client.scan_result(product_id=existing_id)
                 if scan_result.stale and not scan_result.rescan_possible:
@@ -162,9 +151,7 @@ class ResourceGroupProcessor:
                 if scan_result.rescan_possible and scan_result.stale:
                     # binary is still available, and "result is stale" (there was an engine-
                     # update), trigger rescan
-                    logger.info(
-                        f'Triggering rescan for {existing_id} ({scan_request.display_name})'
-                    )
+                    logger.info(f'Triggering rescan for {existing_id} ({scan_request.display_name})')
                     self.bdba_client.rescan(product_id=existing_id)
                 try:
                     return self.bdba_client.scan_result(product_id=existing_id)
@@ -193,9 +180,9 @@ class ResourceGroupProcessor:
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_scan_results: collections.abc.Iterable[bm.Product],
         processing_mode: bm.ProcessingMode,
-        delivery_client: delivery.client.DeliveryServiceClient | None=None,
-        vulnerability_cfg: odg.findings.Finding | None=None,
-        license_cfg: odg.findings.Finding | None=None,
+        delivery_client: delivery.client.DeliveryServiceClient | None = None,
+        vulnerability_cfg: odg.findings.Finding | None = None,
+        license_cfg: odg.findings.Finding | None = None,
     ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
         scan_request = self.scan_request(
             resource_node=resource_node,
@@ -230,9 +217,7 @@ class ResourceGroupProcessor:
             )
             return
 
-        logger.info(
-            f'scan of {scan_result.display_name} succeeded, going to post-process results'
-        )
+        logger.info(f'scan of {scan_result.display_name} succeeded, going to post-process results')
 
         if version_hints := _package_version_hints(
             component=resource_node.component,
@@ -290,7 +275,8 @@ def _package_version_hints(
         odg.labels.PackageVersionHint(
             name=hint.get('name'),
             version=hint.get('version'),
-        ) for hint in package_hints_label.value
+        )
+        for hint in package_hints_label.value
     ]
 
 
@@ -304,10 +290,12 @@ def retrieve_existing_scan_results(
         omit_resource_strict_id=True,
     )
 
-    return list(bdba_client.list_apps(
-        group_id=group_id,
-        custom_attribs=query_data,
-    ))
+    return list(
+        bdba_client.list_apps(
+            group_id=group_id,
+            custom_attribs=query_data,
+        )
+    )
 
 
 def run_scan(
@@ -318,9 +306,9 @@ def run_scan(
     processing_mode: bm.ProcessingMode,
     resource_node: ocm.iter.ResourceNode,
     secret_factory: secret_mgmt.SecretFactory,
-    vulnerability_cfg: odg.findings.Finding | None=None,
-    license_cfg: odg.findings.Finding | None=None,
-    delivery_client: delivery.client.DeliveryServiceClient | None=None,
+    vulnerability_cfg: odg.findings.Finding | None = None,
+    license_cfg: odg.findings.Finding | None = None,
+    delivery_client: delivery.client.DeliveryServiceClient | None = None,
 ) -> collections.abc.Iterator[odg.model.ArtefactMetadata]:
 
     content_iterator = ocm_util.iter_content_for_resource_node(
@@ -348,5 +336,5 @@ def run_scan(
         processing_mode=bm.ProcessingMode(processing_mode),
         delivery_client=delivery_client,
         vulnerability_cfg=vulnerability_cfg,
-        license_cfg=license_cfg
+        license_cfg=license_cfg,
     )

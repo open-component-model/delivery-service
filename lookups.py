@@ -96,7 +96,7 @@ class OcmRepositoryCfgBase:
 class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
     type: OcmRepositoryCfgType = OcmRepositoryCfgType.OCI
     repository: str
-    prefix: list[str] | str | None = None # for backwards compatibility -> TODO drop eventually
+    prefix: list[str] | str | None = None  # for backwards compatibility -> TODO drop eventually
     prefixes: list[str] | str | None = None
     component_filter: list[str] | str | None = None
     labels: list[str] | str | None = None
@@ -104,7 +104,7 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
 
     def __post_init__(self):
         if self.prefix and not self.prefixes:
-            self.prefixes = self.prefix # for backwards compatibility -> TODO drop eventually
+            self.prefixes = self.prefix  # for backwards compatibility -> TODO drop eventually
 
         if self.prefixes and self.component_filter:
             raise ValueError('At most one of `prefixes` and `component_filter` must be specified')
@@ -153,7 +153,7 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
     def iter_matching_versions(
         self,
         versions: collections.abc.Iterable[str],
-        version_filter_overwrite: VersionFilter | str | None=None,
+        version_filter_overwrite: VersionFilter | str | None = None,
     ) -> collections.abc.Iterable[str]:
         version_filter = version_filter_overwrite or self.version_filter
 
@@ -164,7 +164,7 @@ class OciOcmRepositoryCfg(OcmRepositoryCfgBase):
             )
 
             if version_filter is VersionFilter.ANY:
-                pass # all versions are included
+                pass  # all versions are included
 
             elif version_filter is VersionFilter.SEMVER_ANY:
                 if not version_semver:
@@ -219,7 +219,7 @@ class VirtualOcmRepositoryCfg(OcmRepositoryCfgBase):
         if isinstance(self.selectors, VirtualOcmRepositoryCfgSelector):
             self.selectors = [self.selectors]
         elif self.selectors is None:
-            self.selectors = [VirtualOcmRepositoryCfgSelector()] # match all
+            self.selectors = [VirtualOcmRepositoryCfgSelector()]  # match all
 
     def iter_ocm_repository_cfgs(
         self,
@@ -230,20 +230,18 @@ class VirtualOcmRepositoryCfg(OcmRepositoryCfgBase):
 
             for ocm_repository_cfg in ocm_repository_cfgs:
                 if not isinstance(ocm_repository_cfg, OciOcmRepositoryCfg):
-                    continue # skip other virtual repository configurations
+                    continue  # skip other virtual repository configurations
 
-                if (
+                if selector.required_labels and not ocm_repository_cfg.labels_match(
                     selector.required_labels
-                    and not ocm_repository_cfg.labels_match(selector.required_labels)
                 ):
-                    continue # required labels do not match
+                    continue  # required labels do not match
 
                 found = True
                 yield dataclasses.replace(
                     ocm_repository_cfg,
                     version_filter=(
-                        selector.version_filter_overwrite
-                        or ocm_repository_cfg.version_filter
+                        selector.version_filter_overwrite or ocm_repository_cfg.version_filter
                     ),
                 )
 
@@ -253,12 +251,12 @@ class VirtualOcmRepositoryCfg(OcmRepositoryCfgBase):
 
 @functools.cache
 def parse_ocm_repository_cfgs(
-    default_repo: VirtualOcmRepositoryCfg=VirtualOcmRepositoryCfg(name=OcmRepositoryCfgNames.AUTO),
+    default_repo: VirtualOcmRepositoryCfg = VirtualOcmRepositoryCfg(name=OcmRepositoryCfgNames.AUTO),
 ) -> tuple[OciOcmRepositoryCfg | VirtualOcmRepositoryCfg]:
-    '''
+    """
     Reads and parses the OCM repository configurations from the known default locations. In case no
     `<auto>` virtual repository configuration is found, the default one is added.
-    '''
+    """
     ocm_repository_cfgs_path = paths.ocm_repo_mappings_path()
     ocm_repository_cfgs_raw = util.parse_yaml_file(ocm_repository_cfgs_path) or ()
 
@@ -282,11 +280,11 @@ def filter_ocm_repository_cfgs(
     ocm_repo: str | None,
     ocm_repository_cfgs: collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg],
 ) -> collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg]:
-    '''
+    """
     Filters the provided `ocm_repository_cfgs` based on the passed `ocm_repo` parameter. In case of
     virtual repository configurations, the `name` attribute is used for filtering. Otherwise, it is
     filtered based on the `repository` attribute.
-    '''
+    """
     for ocm_repository_cfg in ocm_repository_cfgs:
         if isinstance(ocm_repository_cfg, VirtualOcmRepositoryCfg):
             if ocm_repo is None and ocm_repository_cfg.name == OcmRepositoryCfgNames.AUTO:
@@ -304,25 +302,28 @@ def filter_ocm_repository_cfgs(
 
 
 def resolve_ocm_repository_cfgs(
-    ocm_repo: ocm.OciOcmRepository | str | None=None,
-    ocm_repository_cfgs: collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg] | None=None, # noqa: E501
+    ocm_repo: ocm.OciOcmRepository | str | None = None,
+    ocm_repository_cfgs: collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg]
+    | None = None,  # noqa: E501
 ) -> collections.abc.Iterable[OciOcmRepositoryCfg]:
-    '''
+    """
     Filters the existing `ocm_repository_cfgs` (either passed-in or read from default file location)
     based on the passed `ocm_repo` parameter, and resolves virtual repository configurations to
     concrete ones. If the `ocm_repo` is not specified, the default `<auto>` virtual repository will
     be used.
-    '''
+    """
     if not ocm_repository_cfgs:
         ocm_repository_cfgs = parse_ocm_repository_cfgs()
 
     if isinstance(ocm_repo, ocm.OciOcmRepository):
         ocm_repo = ocm_repo.oci_ref
 
-    filtered_ocm_repository_cfgs = list(filter_ocm_repository_cfgs(
-        ocm_repo=ocm_repo,
-        ocm_repository_cfgs=ocm_repository_cfgs,
-    ))
+    filtered_ocm_repository_cfgs = list(
+        filter_ocm_repository_cfgs(
+            ocm_repo=ocm_repo,
+            ocm_repository_cfgs=ocm_repository_cfgs,
+        )
+    )
 
     if not filtered_ocm_repository_cfgs:
         logger.warning(f'No OCM repository configurations found for {ocm_repo=}, using default cfg')
@@ -335,13 +336,16 @@ def resolve_ocm_repository_cfgs(
 
 
 def init_ocm_repository_lookup(
-    ocm_repo: ocm.OciOcmRepository | str | None=None,
-    ocm_repository_cfgs: collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg] | None=None, # noqa: E501
+    ocm_repo: ocm.OciOcmRepository | str | None = None,
+    ocm_repository_cfgs: collections.abc.Iterable[VirtualOcmRepositoryCfg | OciOcmRepositoryCfg]
+    | None = None,  # noqa: E501
 ) -> ocm.OcmRepositoryLookup:
-    resolved_ocm_repository_cfgs = list(resolve_ocm_repository_cfgs(
-        ocm_repo=ocm_repo,
-        ocm_repository_cfgs=ocm_repository_cfgs,
-    ))
+    resolved_ocm_repository_cfgs = list(
+        resolve_ocm_repository_cfgs(
+            ocm_repo=ocm_repo,
+            ocm_repository_cfgs=ocm_repository_cfgs,
+        )
+    )
 
     def ocm_repository_lookup(
         component: ocm.ComponentName,
@@ -366,8 +370,8 @@ def init_ocm_repository_lookup(
 
 @functools.cache
 def semver_sanitising_oci_client(
-    secret_factory: secret_mgmt.SecretFactory=None,
-    http_connection_pool_size: int=16,
+    secret_factory: secret_mgmt.SecretFactory = None,
+    http_connection_pool_size: int = 16,
 ) -> oci.client.Client:
     if not secret_factory:
         secret_factory = ctx_util.secret_factory()
@@ -396,8 +400,8 @@ def semver_sanitising_oci_client(
 
 @functools.cache
 def semver_sanitising_oci_client_async(
-    secret_factory: secret_mgmt.SecretFactory=None,
-    http_connection_pool_size: int | None=None,
+    secret_factory: secret_mgmt.SecretFactory = None,
+    http_connection_pool_size: int | None = None,
 ) -> oci.client_async.Client:
     if not secret_factory:
         secret_factory = ctx_util.secret_factory()
@@ -408,7 +412,7 @@ def semver_sanitising_oci_client_async(
 
     routes = oci.client.OciRoutes()
 
-    if http_connection_pool_size is None: # 0 is a valid value here (meaning no limitation)
+    if http_connection_pool_size is None:  # 0 is a valid value here (meaning no limitation)
         connector = aiohttp.TCPConnector()
     else:
         connector = aiohttp.TCPConnector(
@@ -430,13 +434,13 @@ def semver_sanitising_oci_client_async(
 
 def db_cache_component_descriptor_lookup_async(
     db_url: str,
-    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    encoding_format: dcm.EncodingFormat=dcm.EncodingFormat.PICKLE,
-    ttl_seconds: int=0,
-    keep_at_least_seconds: int=0,
-    max_size_octets: int=0,
+    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup = None,
+    encoding_format: dcm.EncodingFormat = dcm.EncodingFormat.PICKLE,
+    ttl_seconds: int = 0,
+    keep_at_least_seconds: int = 0,
+    max_size_octets: int = 0,
 ) -> cnudie.retrieve_async.ComponentDescriptorLookupById:
-    '''
+    """
     Used to lookup referenced component descriptors in the database cache. In case of a cache miss,
     the required component descriptor can be added to the cache by using the writeback function.
 
@@ -454,7 +458,7 @@ def db_cache_component_descriptor_lookup_async(
     @param max_size_octets:
         the maximum size of an individual cache entry, if the result exceeds this limit, it is not
         persistet in the database cache
-    '''
+    """
     # late import to not require it in extensions which don't use async lookup
     import deliverydb.cache
     import deliverydb.model
@@ -510,7 +514,7 @@ def db_cache_component_descriptor_lookup_async(
 
     async def lookup(
         component_id: cnudie.util.ComponentId,
-        ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=ocm_repository_lookup,
+        ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup = ocm_repository_lookup,
     ):
         component_id = cnudie.util.to_component_id(component_id)
 
@@ -560,45 +564,53 @@ def db_cache_component_descriptor_lookup_async(
 
 
 def init_component_descriptor_lookup(
-    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    cache_dir: str=None,
-    delivery_client: delivery.client.DeliveryServiceClient=None,
-    oci_client: oci.client.Client=None,
-    default_absent_ok: bool=False,
+    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup = None,
+    cache_dir: str = None,
+    delivery_client: delivery.client.DeliveryServiceClient = None,
+    oci_client: oci.client.Client = None,
+    default_absent_ok: bool = False,
 ) -> cnudie.retrieve.ComponentDescriptorLookupById:
-    '''
+    """
     convenience function to create a composite component descriptor lookup consisting of:
     - in-memory cache lookup
     - file-system cache lookup (if `cache_dir` is specified)
     - delivery-client lookup (if `delivery_client` is specified)
     - oci-client lookup
-    '''
+    """
     if not ocm_repository_lookup:
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
         oci_client = semver_sanitising_oci_client()
 
-    lookups = [cnudie.retrieve.in_memory_cache_component_descriptor_lookup(
-        ocm_repository_lookup=ocm_repository_lookup,
-    )]
+    lookups = [
+        cnudie.retrieve.in_memory_cache_component_descriptor_lookup(
+            ocm_repository_lookup=ocm_repository_lookup,
+        )
+    ]
 
     if cache_dir:
-        lookups.append(cnudie.retrieve.file_system_cache_component_descriptor_lookup(
-            ocm_repository_lookup=ocm_repository_lookup,
-            cache_dir=cache_dir,
-        ))
+        lookups.append(
+            cnudie.retrieve.file_system_cache_component_descriptor_lookup(
+                ocm_repository_lookup=ocm_repository_lookup,
+                cache_dir=cache_dir,
+            )
+        )
 
     if delivery_client:
-        lookups.append(cnudie.retrieve.delivery_service_component_descriptor_lookup(
-            ocm_repository_lookup=ocm_repository_lookup,
-            delivery_client=delivery_client,
-        ))
+        lookups.append(
+            cnudie.retrieve.delivery_service_component_descriptor_lookup(
+                ocm_repository_lookup=ocm_repository_lookup,
+                delivery_client=delivery_client,
+            )
+        )
 
-    lookups.append(cnudie.retrieve.oci_component_descriptor_lookup(
-        ocm_repository_lookup=ocm_repository_lookup,
-        oci_client=oci_client,
-    ))
+    lookups.append(
+        cnudie.retrieve.oci_component_descriptor_lookup(
+            ocm_repository_lookup=ocm_repository_lookup,
+            oci_client=oci_client,
+        )
+    )
 
     return cnudie.retrieve.composite_component_descriptor_lookup(
         lookups=lookups,
@@ -608,53 +620,63 @@ def init_component_descriptor_lookup(
 
 
 def init_component_descriptor_lookup_async(
-    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup=None,
-    cache_dir: str=None,
-    db_url: str=None,
-    delivery_client: delivery.client.DeliveryServiceClient=None,
-    oci_client: oci.client_async.Client=None,
-    default_absent_ok: bool=False,
+    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup = None,
+    cache_dir: str = None,
+    db_url: str = None,
+    delivery_client: delivery.client.DeliveryServiceClient = None,
+    oci_client: oci.client_async.Client = None,
+    default_absent_ok: bool = False,
 ) -> cnudie.retrieve_async.ComponentDescriptorLookupById:
-    '''
+    """
     convenience function to create a composite component descriptor lookup consisting of:
     - in-memory cache lookup
     - file-system cache lookup (if `cache_dir` is specified)
     - database (persistent) cache lookup (if `db_url` is specified)
     - delivery-client lookup (if `delivery_client` is specified)
     - oci-client lookup
-    '''
+    """
     if not ocm_repository_lookup:
         ocm_repository_lookup = init_ocm_repository_lookup()
 
     if not oci_client:
         oci_client = semver_sanitising_oci_client_async()
 
-    lookups = [cnudie.retrieve_async.in_memory_cache_component_descriptor_lookup(
-        ocm_repository_lookup=ocm_repository_lookup,
-    )]
+    lookups = [
+        cnudie.retrieve_async.in_memory_cache_component_descriptor_lookup(
+            ocm_repository_lookup=ocm_repository_lookup,
+        )
+    ]
 
     if cache_dir:
-        lookups.append(cnudie.retrieve_async.file_system_cache_component_descriptor_lookup(
-            ocm_repository_lookup=ocm_repository_lookup,
-            cache_dir=cache_dir,
-        ))
+        lookups.append(
+            cnudie.retrieve_async.file_system_cache_component_descriptor_lookup(
+                ocm_repository_lookup=ocm_repository_lookup,
+                cache_dir=cache_dir,
+            )
+        )
 
     if db_url:
-        lookups.append(db_cache_component_descriptor_lookup_async(
-            db_url=db_url,
-            ocm_repository_lookup=ocm_repository_lookup,
-        ))
+        lookups.append(
+            db_cache_component_descriptor_lookup_async(
+                db_url=db_url,
+                ocm_repository_lookup=ocm_repository_lookup,
+            )
+        )
 
     if delivery_client:
-        lookups.append(cnudie.retrieve_async.delivery_service_component_descriptor_lookup(
-            ocm_repository_lookup=ocm_repository_lookup,
-            delivery_client=delivery_client,
-        ))
+        lookups.append(
+            cnudie.retrieve_async.delivery_service_component_descriptor_lookup(
+                ocm_repository_lookup=ocm_repository_lookup,
+                delivery_client=delivery_client,
+            )
+        )
 
-    lookups.append(cnudie.retrieve_async.oci_component_descriptor_lookup(
-        ocm_repository_lookup=ocm_repository_lookup,
-        oci_client=oci_client,
-    ))
+    lookups.append(
+        cnudie.retrieve_async.oci_component_descriptor_lookup(
+            ocm_repository_lookup=ocm_repository_lookup,
+            oci_client=oci_client,
+        )
+    )
 
     return cnudie.retrieve_async.composite_component_descriptor_lookup(
         lookups=lookups,
@@ -664,27 +686,27 @@ def init_component_descriptor_lookup_async(
 
 
 def github_api_lookup(
-    secret_factory: secret_mgmt.SecretFactory=None
+    secret_factory: secret_mgmt.SecretFactory = None,
 ) -> collections.abc.Callable[[str], github3.github.GitHub | None]:
-    '''
+    """
     creates a github-api-lookup. ideally, this lookup should be created at application launch, and
     passed to consumers.
-    '''
+    """
     if not secret_factory:
         secret_factory = ctx_util.secret_factory()
 
     def github_api_lookup(
         repo_url: str,
         /,
-        absent_ok: bool=False,
+        absent_ok: bool = False,
     ) -> github3.github.GitHub | None:
-        '''
+        """
         returns an initialised and authenticated apiclient object suitable for
         the passed repository URL
 
         raises ValueError if no configuration (credentials) is found for the given repository url
         unless absent_ok is set to a truthy value, in which case None is returned instead.
-        '''
+        """
         return secret_mgmt.github.github_api(
             secret_factory=secret_factory,
             repo_url=repo_url,
@@ -700,7 +722,7 @@ def github_repo_lookup(
     def github_repo_lookup(
         repo_url: str,
         /,
-        absent_ok: bool=False,
+        absent_ok: bool = False,
     ) -> github3.repos.Repository | None:
         if '://' not in repo_url:
             repo_url = f'x://{repo_url}'
@@ -722,9 +744,9 @@ def github_repo_lookup(
 
 
 def github_auth_token_lookup(url: str, /) -> str | None:
-    '''
+    """
     an implementation of delivery.client.AuthTokenLookup
-    '''
+    """
     secret_factory = ctx_util.secret_factory()
 
     github_app_cfg = secret_mgmt.github.find_app_cfg(

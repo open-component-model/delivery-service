@@ -22,7 +22,7 @@ class FileChangeEventHandler(watchdog.events.FileSystemEventHandler):
 @functools.cache
 def watch_for_file_changes(
     path: str,
-    event_handler: FileChangeEventHandler=None,
+    event_handler: FileChangeEventHandler = None,
 ):
     if not event_handler:
         event_handler = FileChangeEventHandler()

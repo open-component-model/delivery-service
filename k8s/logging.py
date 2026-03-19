@@ -50,7 +50,7 @@ def write_logs_to_file(
 
 def trim_logs_to_fit_max_storage_size(
     logs: list[dict],
-    max_storage_size_bytes: int=750000,
+    max_storage_size_bytes: int = 750000,
 ) -> list[dict]:
     while len(json.dumps(logs).encode('utf-8')) > max_storage_size_bytes:
         logs = logs[1:]
@@ -63,9 +63,9 @@ def handle_conflict(
     kubernetes_api: k8s.util.KubernetesApi,
     name: str,
     log_level: int,
-    logs_to_keep: list[dict]=[],
-    max_retries: int=3,
-    retry_count: int=0,
+    logs_to_keep: list[dict] = [],
+    max_retries: int = 3,
+    retry_count: int = 0,
 ):
     if log_level <= logging.DEBUG:
         # drop logs in case of a conflict
@@ -73,9 +73,7 @@ def handle_conflict(
         return
 
     if retry_count >= max_retries:
-        logger.info(
-            f'failed to write {len(logs_to_keep)} logs to crd, write to local file again...'
-        )
+        logger.info(f'failed to write {len(logs_to_keep)} logs to crd, write to local file again...')
         write_logs_to_file(
             logs=logs_to_keep,
             level=log_level,
@@ -106,8 +104,8 @@ def create_log_collection(
     name: str,
     log_level: int,
     logs: list[dict],
-    max_retries: int=3,
-    retry_count: int=0,
+    max_retries: int = 3,
+    retry_count: int = 0,
 ):
     body = {
         'apiVersion': k8s.model.LogCollectionCrd.api_version(),
@@ -154,9 +152,9 @@ def log_to_crd_for_level(
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     log_level: int,
-    logs_to_keep: list[dict]=[],
-    max_retries: int=3,
-    retry_count: int=0,
+    logs_to_keep: list[dict] = [],
+    max_retries: int = 3,
+    retry_count: int = 0,
 ):
     name = k8s.util.generate_kubernetes_name(
         name_parts=('logs', service, logging._levelToName[log_level]),
@@ -248,8 +246,8 @@ def continuously_log_to_crd(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    loop_interval: int=120,
-    retry_interval: int=60,
+    loop_interval: int = 120,
+    retry_interval: int = 60,
 ):
     while True:
         try:
@@ -294,7 +292,7 @@ class JSONFormatter(logging.Formatter):
 def configure_kubernetes_logging():
     def add_file_handler(
         level: int,
-        formatter: logging.Formatter=None,
+        formatter: logging.Formatter = None,
     ) -> logging.FileHandler:
         file_handler = logging.FileHandler(
             filename=log_filename_for_level(level),
@@ -305,14 +303,14 @@ def configure_kubernetes_logging():
         logging.root.addHandler(hdlr=file_handler)
 
     log_formatter = JSONFormatter(
-        fmt=textwrap.dedent('''\
+        fmt=textwrap.dedent("""\
         {
             "timestamp": "%(asctime)s.%(msecs)dZ",
             "name": "%(name)s",
             "logLevel": "%(levelname)s",
             "thread": "%(threadName)s",
             "message": %(message)s
-        },'''),
+        },"""),
         datefmt='%Y-%m-%dT%H:%M:%S',
     )
 

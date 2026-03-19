@@ -34,12 +34,9 @@ k8s.logging.configure_kubernetes_logging()
 @functools.cache
 def sprint_dates(
     sprints: collections.abc.Iterable[delivery.model.Sprint],
-    date_name: str='release_decision',
+    date_name: str = 'release_decision',
 ) -> tuple[datetime.date]:
-    sprint_dates = tuple(
-        sprint.find_sprint_date(name=date_name).value.date()
-        for sprint in sprints
-    )
+    sprint_dates = tuple(sprint.find_sprint_date(name=date_name).value.date() for sprint in sprints)
 
     if not sprint_dates:
         raise ValueError('no sprints found')
@@ -52,30 +49,34 @@ def _iter_findings_for_artefact(
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     finding_type: odg.model.Datatype,
     finding_source: odg.model.Datasource,
-    chunk_size: int=10,
+    chunk_size: int = 10,
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
     findings: list[odg.model.ArtefactMetadata] = []
     rescorings: set[odg.model.ArtefactMetadata] = set()
 
     for idx in range(0, len(artefacts), chunk_size):
-        chunked_artefacts = artefacts[idx:min(idx + chunk_size, len(artefacts))]
+        chunked_artefacts = artefacts[idx : min(idx + chunk_size, len(artefacts))]
 
-        findings.extend([
-            odg.model.ArtefactMetadata.from_dict(raw)
-            for raw in delivery_client.query_metadata(
-                artefacts=chunked_artefacts,
-                type=[odg.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
-            )
-        ])
+        findings.extend(
+            [
+                odg.model.ArtefactMetadata.from_dict(raw)
+                for raw in delivery_client.query_metadata(
+                    artefacts=chunked_artefacts,
+                    type=[odg.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
+                )
+            ]
+        )
 
-        rescorings.update([
-            odg.model.ArtefactMetadata.from_dict(raw)
-            for raw in delivery_client.query_metadata(
-                artefacts=chunked_artefacts,
-                type=odg.model.Datatype.RESCORING,
-                referenced_type=finding_type,
-            )
-        ])
+        rescorings.update(
+            [
+                odg.model.ArtefactMetadata.from_dict(raw)
+                for raw in delivery_client.query_metadata(
+                    artefacts=chunked_artefacts,
+                    type=odg.model.Datatype.RESCORING,
+                    referenced_type=finding_type,
+                )
+            ]
+        )
 
     for finding in findings:
         if finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO:
@@ -83,10 +84,12 @@ def _iter_findings_for_artefact(
                 yield issue_replicator.github.AggregatedFinding(finding)
             continue
 
-        filtered_rescorings = list(rescore.utility.rescorings_for_finding_by_specificity(
-            finding=finding,
-            rescorings=rescorings,
-        ))
+        filtered_rescorings = list(
+            rescore.utility.rescorings_for_finding_by_specificity(
+                finding=finding,
+                rescorings=rescorings,
+            )
+        )
 
         yield issue_replicator.github.AggregatedFinding(
             finding=finding,
@@ -112,11 +115,13 @@ def _iter_findings_with_due_dates(
         for rescoring in finding.rescorings:
             categorisation = finding_cfg.categorisation_by_id(rescoring.data.severity)
 
-            if not (due_date := categorisation.effective_due_date(
-                finding=finding.finding,
-                rescoring=rescoring,
-            )):
-                finding_due_dates.append(None) # finding does not have to be processed anymore
+            if not (
+                due_date := categorisation.effective_due_date(
+                    finding=finding.finding,
+                    rescoring=rescoring,
+                )
+            ):
+                finding_due_dates.append(None)  # finding does not have to be processed anymore
                 continue
 
             for sprint_due_date in sprint_due_dates:
@@ -129,7 +134,7 @@ def _iter_findings_with_due_dates(
         # consider the original categorisation (without rescorings) as well
         categorisation = finding_cfg.categorisation_by_id(finding.finding.data.severity)
         if not (due_date := categorisation.effective_due_date(finding.finding)):
-            finding_due_dates.append(None) # finding does not have to be processed anymore
+            finding_due_dates.append(None)  # finding does not have to be processed anymore
         else:
             for sprint_due_date in sprint_due_dates:
                 if sprint_due_date >= due_date:
@@ -139,7 +144,7 @@ def _iter_findings_with_due_dates(
                 logger.warning(f'could not determine target sprint for {due_date=})')
 
         if not finding_due_dates:
-            continue # only the case if no target sprint could be determined at all
+            continue  # only the case if no target sprint could be determined at all
 
         # the first due date is the current one, the remainder (if any) is historical only
         finding.due_date = finding_due_dates[0]
@@ -151,19 +156,17 @@ def _iter_findings_with_due_dates(
 def _group_findings_by_due_date(
     findings: collections.abc.Sequence[issue_replicator.github.AggregatedFinding],
     due_dates: collections.abc.Iterable[datetime.date],
-) -> collections.abc.Iterable[tuple[
-    datetime.date, # due date
-    tuple[issue_replicator.github.AggregatedFinding], # findings
-    tuple[issue_replicator.github.AggregatedFinding], # historical findings
-]]:
+) -> collections.abc.Iterable[
+    tuple[
+        datetime.date,  # due date
+        tuple[issue_replicator.github.AggregatedFinding],  # findings
+        tuple[issue_replicator.github.AggregatedFinding],  # historical findings
+    ]
+]:
     for due_date in due_dates:
-        filtered_findings = tuple(
-            finding for finding in findings
-            if finding.due_date == due_date
-        )
+        filtered_findings = tuple(finding for finding in findings if finding.due_date == due_date)
         historical_findings = tuple(
-            finding for finding in findings
-            if due_date in finding.historical_due_dates
+            finding for finding in findings if due_date in finding.historical_due_dates
         )
 
         yield due_date, filtered_findings, historical_findings
@@ -174,12 +177,12 @@ def _responsibles_from_responsible_infos(
     finding_type: odg.model.Datatype,
     delivery_client: delivery.client.DeliveryServiceClient,
 ) -> tuple[list[dict] | None, odg.model.ResponsibleAssigneeModes | None]:
-    '''
+    """
     If at least one responsible-info exists for one of the passed-in `artefacts` and the
     `finding_type` (even if it contains an empty list of responsibles), these responsibles are
     returned together with the defined `assignee_mode`. If no such info exists, `None` is returned
     instead.
-    '''
+    """
     responsible_infos_raw = delivery_client.query_metadata(
         artefacts=artefacts,
         type=odg.model.Datatype.RESPONSIBLES,
@@ -197,10 +200,7 @@ def _responsibles_from_responsible_infos(
         if assignee_mode_raw := responsible_info_raw['meta']['assignee_mode']:
             assignee_mode = odg.model.ResponsibleAssigneeModes(assignee_mode_raw)
 
-        responsibles += [
-            responsible['identifiers']
-            for responsible in current_responsibles
-        ]
+        responsibles += [responsible['identifiers'] for responsible in current_responsibles]
 
     return responsibles, assignee_mode
 
@@ -208,11 +208,11 @@ def _responsibles_from_responsible_infos(
 def _responsibles_from_overwrites(
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
 ) -> tuple[list[dict] | None, odg.model.ResponsibleAssigneeModes | None]:
-    '''
+    """
     If at least one of the specified `artefact_metadata` entries contains responsible overwrites
     (responsibles != `None`), a list of these responsibles is returned together with the defined
     `assignee_mode`. Otherwise, `None` is returned.
-    '''
+    """
     responsibles: list[dict] | None = None
     assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
 
@@ -225,8 +225,7 @@ def _responsibles_from_overwrites(
             responsibles = []
 
         responsibles += [
-            util.dict_serialisation(responsible.identifiers)
-            for responsible in current_responsibles
+            util.dict_serialisation(responsible.identifiers) for responsible in current_responsibles
         ]
         assignee_mode = artefact_metadatum.meta.assignee_mode
 
@@ -244,12 +243,12 @@ def _responsibles(
     odg.model.ResponsibleAssigneeModes,
     list[delivery.model.Status] | None,
 ]:
-    '''
+    """
     If responsibles can be retrieved via overwrites, a list of these responsibles is returned
     together with the defined `assignee_mode`. Otherwise, responsibles are determined via
     responsible-info entries created by the responsibles-extension or, as last fallback, via the
     delivery-service api together with their `assignee_mode` and `statuses`.
-    '''
+    """
     current_responsibles, assignee_mode = _responsibles_from_overwrites(
         artefact_metadata=artefact_metadata,
     )
@@ -358,9 +357,7 @@ def replicate_issue_for_finding_type(
     )
     logger.info(f'{len(active_compliance_snapshots)=}')
 
-    artefacts = tuple({
-        cs.artefact for cs in active_compliance_snapshots
-    })
+    artefacts = tuple({cs.artefact for cs in active_compliance_snapshots})
     logger.info(f'{len(artefacts)=}')
 
     if is_in_bom := len(active_compliance_snapshots) > 0 and finding_cfg.matches(artefact):
@@ -371,11 +368,13 @@ def replicate_issue_for_finding_type(
             finding_source=finding_source,
         )
 
-        findings = tuple(_iter_findings_with_due_dates(
-            findings=findings,
-            finding_cfg=finding_cfg,
-            due_dates=due_dates,
-        ))
+        findings = tuple(
+            _iter_findings_with_due_dates(
+                findings=findings,
+                finding_cfg=finding_cfg,
+                due_dates=due_dates,
+            )
+        )
         logger.info(f'{len(findings)=}')
     else:
         # we don't need to query any findings, as all open issues will be closed anyways
@@ -407,7 +406,8 @@ def replicate_issue_for_finding_type(
                 component_version=None,
             ),
             keep_group_attributes=False,
-        ) for artefact in artefacts
+        )
+        for artefact in artefacts
     }
     artefacts_with_scan = {
         finding_cfg.issues.strip_artefact(
@@ -416,15 +416,12 @@ def replicate_issue_for_finding_type(
                 component_version=None,
             ),
             keep_group_attributes=False,
-        ) for artefact_scan_info in artefact_scan_infos
+        )
+        for artefact_scan_info in artefact_scan_infos
     }
     artefacts_without_scan = all_artefacts - artefacts_with_scan
 
-    if (
-        finding_cfg.issues.enable_assignees
-        and is_in_bom
-        and len(artefacts_without_scan) == 0
-    ):
+    if finding_cfg.issues.enable_assignees and is_in_bom and len(artefacts_without_scan) == 0:
         # only lookup responsibles in artefact scan info objects for now
         responsibles, assignee_mode, statuses = _responsibles(
             artefact_metadata=artefact_scan_infos,
@@ -494,9 +491,11 @@ def replicate_issue(
 ):
     logger.info(f'starting issue replication of {artefact}')
 
-    sprints = tuple(gcmi.sprints_cached(
-        delivery_svc_client=delivery_client,
-    ))
+    sprints = tuple(
+        gcmi.sprints_cached(
+            delivery_svc_client=delivery_client,
+        )
+    )
 
     if not (due_dates := sprint_dates(sprints=sprints)):
         logger.warning('did not find any sprints, exiting...')
@@ -511,11 +510,13 @@ def replicate_issue(
     github_util.wait_for_quota_if_required(gh_api=gh_api)
 
     logger.debug(f'creating missing GitHub milestones (if any) for {len(sprints)} sprints')
-    milestones = list(gcmi.iter_and_create_github_milestones(
-        sprints=sprints,
-        repo=repo,
-        milestone_cfg=mapping.milestones,
-    ))
+    milestones = list(
+        gcmi.iter_and_create_github_milestones(
+            sprints=sprints,
+            repo=repo,
+            milestone_cfg=mapping.milestones,
+        )
+    )
 
     for finding_cfg in finding_cfgs:
         replicate_issue_for_finding_type(

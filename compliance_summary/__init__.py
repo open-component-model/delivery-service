@@ -64,7 +64,7 @@ class ComplianceScanStatus:
 
 @dataclasses.dataclass
 class ComplianceSummaryEntry:
-    '''
+    """
     :param Datatype type
     :param Datasource source
     :param ComplianceEntryCategorisation | str categorisation:
@@ -74,7 +74,8 @@ class ComplianceSummaryEntry:
     :param int value:
         The semantic value of the respective categorisation.
     :param ComplianceScanStatus scanStatus
-    '''
+    """
+
     type: odg.model.Datatype
     source: odg.model.Datasource
     categorisation: ComplianceEntryCategorisation | str
@@ -97,18 +98,21 @@ class ComponentComplianceSummary:
 
 async def severity_for_finding(
     finding: odg.model.ArtefactMetadata,
-    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata]=tuple(),
+    rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata] = tuple(),
 ) -> ComplianceEntryCategorisation | str | None:
-    '''
+    """
     Severity for known `ArtefactMetadata`.
-    '''
+    """
     if rescorings:
         loop = asyncio.get_running_loop()
-        rescored_severity = await loop.run_in_executor(None, functools.partial(
-            rescored_severity_if_any,
-            finding=finding,
-            rescorings=rescorings,
-        ))
+        rescored_severity = await loop.run_in_executor(
+            None,
+            functools.partial(
+                rescored_severity_if_any,
+                finding=finding,
+                rescorings=rescorings,
+            ),
+        )
         if rescored_severity:
             return rescored_severity
 
@@ -120,10 +124,10 @@ async def calculate_summary_entry(
     findings: collections.abc.Iterable[odg.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
 ) -> ComplianceSummaryEntry:
-    '''
+    """
     returns most severe (highest semantic value) `ComplianceSummaryEntry`
     `findings` must be of same datatype and not empty!
-    '''
+    """
     most_severe_categorisation = None
 
     for finding in findings:
@@ -134,10 +138,7 @@ async def calculate_summary_entry(
 
         categorisation = finding_cfg.categorisation_by_id(severity_name)
 
-        if (
-            not most_severe_categorisation
-            or categorisation.value > most_severe_categorisation.value
-        ):
+        if not most_severe_categorisation or categorisation.value > most_severe_categorisation.value:
             most_severe_categorisation = categorisation
 
     return ComplianceSummaryEntry(
@@ -190,7 +191,8 @@ async def artefact_datatype_summary(
     rescorings: collections.abc.Sequence[odg.model.ArtefactMetadata],
 ) -> ComplianceSummaryEntry:
     findings_for_artefact = [
-        finding for finding in findings
+        finding
+        for finding in findings
         if (
             finding.artefact.artefact_kind is artefact.artefact_kind
             and finding.artefact.artefact == artefact.artefact
@@ -198,20 +200,23 @@ async def artefact_datatype_summary(
     ]
 
     rescorings_for_artefact = [
-        rescoring for rescoring in rescorings
+        rescoring
+        for rescoring in rescorings
         if (
             rescoring.artefact.artefact_kind is artefact.artefact_kind
             and rescoring.artefact.artefact.artefact_type == artefact.artefact.artefact_type
             and (
                 not rescoring.artefact.artefact.artefact_name
                 or rescoring.artefact.artefact.artefact_name == artefact.artefact.artefact_name
-            ) and (
+            )
+            and (
                 not rescoring.artefact.artefact.artefact_version
                 or rescoring.artefact.artefact.artefact_version == artefact.artefact.artefact_version
-            ) and (
+            )
+            and (
                 not rescoring.artefact.artefact.normalised_artefact_extra_id
                 or rescoring.artefact.artefact.normalised_artefact_extra_id
-                    == artefact.artefact.normalised_artefact_extra_id
+                == artefact.artefact.normalised_artefact_extra_id
             )
         )
     ]
@@ -239,7 +244,7 @@ async def artefact_datatype_summary(
 # would be removed in a future change, the cache manager also had to be adjusted to prevent
 # unnecessary load.
 @deliverydb.cache.dbcached_function(
-    ttl_seconds=60 * 60 * 24, # 1 day
+    ttl_seconds=60 * 60 * 24,  # 1 day
     exclude_kwargs=(
         'finding_cfg',
         'component_descriptor_lookup',
@@ -253,14 +258,16 @@ async def component_datatype_summaries(
     datasource: odg.model.Datasource,
     db_session: sqlasync.session.AsyncSession,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repo: ocm.OciOcmRepository | None=None,
-    shortcut_cache: bool=False,
+    ocm_repo: ocm.OciOcmRepository | None = None,
+    shortcut_cache: bool = False,
 ) -> list[tuple[odg.model.ComponentArtefactId, ComplianceSummaryEntry]]:
     if ocm_repo:
-        component = (await component_descriptor_lookup(
-            component,
-            ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
-        )).component
+        component = (
+            await component_descriptor_lookup(
+                component,
+                ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
+            )
+        ).component
     else:
         component = (await component_descriptor_lookup(component)).component
 
@@ -311,30 +318,32 @@ async def component_datatype_summaries(
             rescorings=rescorings,
         )
 
-        summaries.append((
-            artefact,
-            artefact_summary,
-        ))
+        summaries.append(
+            (
+                artefact,
+                artefact_summary,
+            )
+        )
 
     if not summaries:
         return summaries
 
     component_summary = None
     for _, artefact_summary in summaries:
-        if (
-            not component_summary
-            or artefact_summary.value > component_summary.value
-        ):
+        if not component_summary or artefact_summary.value > component_summary.value:
             component_summary = artefact_summary
 
-    summaries.insert(0, (
-        odg.model.ComponentArtefactId(
-            component_name=component.name,
-            component_version=component.version,
-            artefact=None,
+    summaries.insert(
+        0,
+        (
+            odg.model.ComponentArtefactId(
+                component_name=component.name,
+                component_version=component.version,
+                artefact=None,
+            ),
+            component_summary,
         ),
-        component_summary,
-    ))
+    )
 
     return summaries
 
@@ -344,8 +353,8 @@ async def component_compliance_summary(
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     db_session: sqlasync.session.AsyncSession,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repo: ocm.OciOcmRepository | None=None,
-    shortcut_cache: bool=False,
+    ocm_repo: ocm.OciOcmRepository | None = None,
+    shortcut_cache: bool = False,
 ) -> ComponentComplianceSummary:
     component_entries = []
     artefacts_entries_by_artefact = collections.defaultdict(list)
@@ -378,6 +387,7 @@ async def component_compliance_summary(
             ArtefactComplianceSummary(
                 artefact=artefact,
                 entries=entries,
-            ) for artefact, entries in artefacts_entries_by_artefact.items()
+            )
+            for artefact, entries in artefacts_entries_by_artefact.items()
         ],
     )

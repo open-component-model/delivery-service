@@ -27,8 +27,8 @@ def find_branch_info(
         yield parts[0]
         yield 'v' + parts[0]
 
-        yield '.'.join(parts[:2]) # strip parts after minor
-        yield 'v' + '.'.join(parts[:2]) # strip parts after minor
+        yield '.'.join(parts[:2])  # strip parts after minor
+        yield 'v' + '.'.join(parts[:2])  # strip parts after minor
 
     candidates = tuple(version_candidates() if os_version else ())
 

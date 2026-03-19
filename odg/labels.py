@@ -79,8 +79,9 @@ class CveCategorisationLabel(Label):
 @functools.cache
 def _label_to_type() -> dict[str, Label]:
     own_module = sys.modules[__name__]
-    types = tuple(t for entry
-        in inspect.getmembers(own_module, inspect.isclass)
+    types = tuple(
+        t
+        for entry in inspect.getmembers(own_module, inspect.isclass)
         if (t := entry[1]) != Label and issubclass(t, Label)
     )
 

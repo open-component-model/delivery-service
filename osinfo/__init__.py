@@ -22,10 +22,10 @@ def release_infos_from_cfg(
     os_id: str,
     absent_ok: bool = False,
 ) -> list[osinfo.model.OsReleaseInfo] | None:
-    '''
+    """
     reads os_release_info from filesystem,
     returns `None` if requested os is not supported
-    '''
+    """
 
     path = osinfo.paths.for_os(os_id)
 
@@ -39,11 +39,13 @@ def release_infos_from_cfg(
         return None
 
     return [
-        os_release_info_from_release_cycle({
-            'eol': release_info_raw.get('eol_date'),
-            'cycle': release_info_raw['name'],
-            'latest': release_info_raw.get('greatest_version'),
-        })
+        os_release_info_from_release_cycle(
+            {
+                'eol': release_info_raw.get('eol_date'),
+                'cycle': release_info_raw['name'],
+                'latest': release_info_raw.get('greatest_version'),
+            }
+        )
         for release_info_raw in release_infos_raw
     ]
 
@@ -60,13 +62,13 @@ def os_release_infos(
     os_id: str,
     eol_client: eol.EolClient,
 ) -> list[osinfo.model.OsReleaseInfo] | None:
-    '''
+    """
     returns release_info or `None` for given os_id
     lookup hierarchy:
       1. EOL API
       2. crawling via custom clients
       3. filesystem
-    '''
+    """
 
     release_cycles = eol_client.cycles(
         product=os_id,
@@ -75,11 +77,10 @@ def os_release_infos(
 
     if release_cycles:
         return [
-            os_release_info_from_release_cycle(release_cycle)
-            for release_cycle in release_cycles
+            os_release_info_from_release_cycle(release_cycle) for release_cycle in release_cycles
         ]
 
-    if (client := osinfo_client(os_id)):
+    if client := osinfo_client(os_id):
         return client.release_infos()
 
     return release_infos_from_cfg(
@@ -105,7 +106,7 @@ def os_release_info_from_release_cycle(
             return None
 
     def reached_eol(
-        eol_date: datetime.datetime | bool=eol_date(),
+        eol_date: datetime.datetime | bool = eol_date(),
     ) -> bool | None:
         if isinstance(eol_date, bool):
             return eol_date
@@ -128,7 +129,7 @@ class OsInfoRoutes(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def get(self):
-        '''
+        """
         ---
         tags:
         - OS info
@@ -158,7 +159,7 @@ class OsInfoRoutes(aiohttp.web.View):
                     type: string
                   eol_date:
                     type: string
-        '''
+        """
         os_id = self.request.match_info.get('os_id')
 
         release_infos = os_release_infos(

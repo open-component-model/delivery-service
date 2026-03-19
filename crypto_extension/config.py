@@ -35,7 +35,7 @@ class MinMaxEnumProperties:
         output_parts = []
 
         if self.enum:
-            output_parts.append(f'values: {', '.join([str(val) for val in self.enum])}')
+            output_parts.append(f'values: {", ".join([str(val) for val in self.enum])}')
         if self.min:
             output_parts.append(f'minimum: {self.min}')
         if self.max:
@@ -69,7 +69,7 @@ class SymmetricAlgorithm(Base):
 class AsymmetricAlgorithmProperties:
     key_length: MinMaxEnumProperties | None
     curves: list[str] | None
-    exponent: MinMaxEnumProperties | None # not being validated -> missing in cbom?
+    exponent: MinMaxEnumProperties | None  # not being validated -> missing in cbom?
 
 
 @dataclasses.dataclass
@@ -97,7 +97,7 @@ class Primitives:
 @dataclasses.dataclass
 class SignatureProperties:
     name: str | None
-    key_length: MinMaxEnumProperties | None # not being validated -> only hash algorithm in cbom?
+    key_length: MinMaxEnumProperties | None  # not being validated -> only hash algorithm in cbom?
 
 
 @dataclasses.dataclass
@@ -130,9 +130,10 @@ class PublicKeyInfrastructure:
 
 @dataclasses.dataclass
 class Standard:
-    '''
+    """
     Defines a standard which regulates usages of cryptographic assets within a software.
-    '''
+    """
+
     name: str
     version: str
     description: str | None

@@ -27,7 +27,7 @@ def modules():
         'delivery_db_backup',
         'ghas',
         'sast',
-        'sbom_generator'
+        'sbom_generator',
     ]
 
 

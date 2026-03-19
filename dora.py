@@ -36,9 +36,10 @@ changes_by_dependencies_cache = dict()
 
 @dataclasses.dataclass(frozen=True)
 class CodeChange:
-    '''
+    """
     Represents a code change with its commit data and deployment date
-    '''
+    """
+
     commit_sha: str
     commit_date: datetime.datetime
     deployment_date: datetime.datetime
@@ -46,10 +47,11 @@ class CodeChange:
 
 @dataclasses.dataclass(frozen=True)
 class ComponentDependencyChangeWithCommits:
-    '''
+    """
     Holds a Dependency Change for a specific Component as well as the commits included within the
     Dependency Change
-    '''
+    """
+
     component: ocm.Component
     dependency_component_vector: components.ComponentVector
     commits: list[github3.github.repo.commit.ShortCommit]
@@ -57,10 +59,11 @@ class ComponentDependencyChangeWithCommits:
 
 @dataclasses.dataclass(frozen=True)
 class ComponentWithDependencyChanges:
-    '''
+    """
     Holds a component descriptor as well as a list of dependency updates, which
     where introduced in this component Version
-    '''
+    """
+
     component_descriptor: ocm.ComponentDescriptor
     dependency_changes: list[components.ComponentVector]
 
@@ -71,9 +74,10 @@ class CalculationType(enum.StrEnum):
 
 
 class DeploymentFrequencyBuckets(enum.StrEnum):
-    '''
+    """
     Typical Buckets to which a deplyoment Frequency can be assigned
-    '''
+    """
+
     daily = 'daily'
     weekly = 'weekly'
     monthly = 'monthly'
@@ -82,9 +86,10 @@ class DeploymentFrequencyBuckets(enum.StrEnum):
 
 @dataclasses.dataclass(frozen=True)
 class DoraDeploymentsResponse:
-    '''
+    """
     Helper datacalss for creating JSON response for the DoraMetrics Route
-    '''
+    """
+
     target_deployment_version: str
     component_version: str
     deployment_date: datetime.datetime
@@ -94,9 +99,10 @@ class DoraDeploymentsResponse:
 
 @dataclasses.dataclass(frozen=True)
 class DoraMonthlyResponse:
-    '''
+    """
     Helper datacalss for creating JSON response for the DoraMetrics Route
-    '''
+    """
+
     year: int
     month: int
     median_change_lead_time: float
@@ -105,9 +111,10 @@ class DoraMonthlyResponse:
 
 @dataclasses.dataclass(frozen=True)
 class DoraDependencyResponse:
-    '''
+    """
     Helper datacalss for creating JSON response for the DoraMetrics Route
-    '''
+    """
+
     change_lead_time_median: float
     change_lead_time_average: float
     deployment_frequency: float
@@ -119,9 +126,10 @@ class DoraDependencyResponse:
 
 @dataclasses.dataclass(frozen=True)
 class DoraResponse:
-    '''
+    """
     Helper datacalss for creating JSON response for the DoraMetrics Route
-    '''
+    """
+
     change_lead_time_median: float
     change_lead_time_average: float
     dependencies: dict[str, DoraDependencyResponse]
@@ -132,16 +140,16 @@ async def versions_descriptors_newer_than(
     date: datetime.datetime,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
-    db_session: sqlasync.session.AsyncSession=None,
+    db_session: sqlasync.session.AsyncSession = None,
 ) -> list[ocm.ComponentDescriptor]:
-    '''
+    """
     This function retrieves the component descriptors for the versions
     of a specific Component, which are newer then the given date.
 
     asc-sorting means old to new => [0.102.0 ... 0.321.2]
 
     desc-sorting means new to old => [0.321.2 ... 0.102.0]
-    '''
+    """
 
     def _filter_component_newer_than_date(
         descriptor: ocm.ComponentDescriptor,
@@ -176,7 +184,7 @@ async def versions_descriptors_newer_than(
 def _cache_key_gen_all_versions_sorted(
     component: cnudie.util.ComponentName,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
-    db_session: sqlasync.session.AsyncSession=None,
+    db_session: sqlasync.session.AsyncSession = None,
 ):
     return cachetools.keys.hashkey(
         cnudie.util.to_component_name(component),
@@ -185,21 +193,21 @@ def _cache_key_gen_all_versions_sorted(
 
 
 @caching.async_cached(
-    cache=caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=128), # 1 day
+    cache=caching.TTLFilesystemCache(ttl=60 * 60 * 24, max_total_size_mib=128),  # 1 day
     key_func=_cache_key_gen_all_versions_sorted,
 )
 async def all_versions_sorted(
     component: cnudie.util.ComponentName,
     sorting_direction: typing.Literal['asc', 'desc'] = 'desc',
-    db_session: sqlasync.session.AsyncSession=None,
+    db_session: sqlasync.session.AsyncSession = None,
 ) -> list[str]:
-    '''
+    """
     This is a convenience function for looking up all versions of a specific
     component.
 
     asc-sorting means old to new => [0.102.0 ... 0.321.2]
     desc-sorting means new to old => [0.321.2 ... 0.102.0]
-    '''
+    """
     component_name = cnudie.util.to_component_name(component)
 
     versions = await components.component_versions(
@@ -217,7 +225,7 @@ async def all_versions_sorted(
 async def get_next_older_descriptor(
     component_id: ocm.ComponentIdentity,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    db_session: sqlasync.session.AsyncSession=None,
+    db_session: sqlasync.session.AsyncSession = None,
 ) -> ocm.ComponentDescriptor | None:
     all_versions = await all_versions_sorted(
         component=component_id,
@@ -249,15 +257,13 @@ def can_process(dependency_update: components.ComponentVector):
     old_main_source = cnudie.util.main_source(dependency_update.start)
     new_main_source = cnudie.util.main_source(dependency_update.end)
 
-    if (
-        not isinstance(old_main_source.access, ocm.GithubAccess)
-        or not isinstance(new_main_source.access, ocm.GithubAccess)
+    if not isinstance(old_main_source.access, ocm.GithubAccess) or not isinstance(
+        new_main_source.access, ocm.GithubAccess
     ):
         return False
 
-    if (
-        not isinstance(old_main_source.access.commit, str)
-        or not isinstance(new_main_source.access.commit, str)
+    if not isinstance(old_main_source.access.commit, str) or not isinstance(
+        new_main_source.access.commit, str
     ):
         return False
 
@@ -284,31 +290,40 @@ def commits_for_component_change(
     right_commit: str,
     github_repo: github3.repos.Repository,
 ) -> tuple[github3.github.repo.commit.ShortCommit]:
-    '''
+    """
     returns commits between passed-on commits. results are read from github-api and cached.
     passed-on commits must exist in repository referenced by passed-in github_repo.
-    '''
-    return tuple(github_repo.compare_commits(
-        left_commit,
-        right_commit,
-    ).commits())
+    """
+    return tuple(
+        github_repo.compare_commits(
+            left_commit,
+            right_commit,
+        ).commits()
+    )
 
 
 def _cache_key_changes_by_dependencies(
     target_descriptors_with_updates: tuple[ComponentWithDependencyChanges],
 ):
-    return cachetools.keys.hashkey(''.join([(
-        f'{target_descriptor_with_updates.component_descriptor.component.name}'
-        f'{target_descriptor_with_updates.component_descriptor.component.version}'
-    ) for target_descriptor_with_updates in target_descriptors_with_updates]))
+    return cachetools.keys.hashkey(
+        ''.join(
+            [
+                (
+                    f'{target_descriptor_with_updates.component_descriptor.component.name}'
+                    f'{target_descriptor_with_updates.component_descriptor.component.version}'
+                )
+                for target_descriptor_with_updates in target_descriptors_with_updates
+            ]
+        )
+    )
 
 
 def categorize_by_changed_component(
     target_descriptors_with_updates: tuple[ComponentWithDependencyChanges],
     github_api_lookup,
 ) -> dict[str, list[ComponentDependencyChangeWithCommits]]:
-    dependencies: dict[str, list[ComponentDependencyChangeWithCommits]] = (
-        collections.defaultdict(list[ComponentDependencyChangeWithCommits])
+    dependencies: dict[str, list[ComponentDependencyChangeWithCommits]] = collections.defaultdict(
+        list[ComponentDependencyChangeWithCommits]
     )
 
     _github_api = functools.cache(github_api_lookup)
@@ -354,13 +369,13 @@ def categorize_by_changed_component(
             right_repo_url = util.urlparse(right_access.repoUrl)
 
             if not left_repo_url == right_repo_url:
-                continue # ensure there was no repository-change between component-versions
+                continue  # ensure there was no repository-change between component-versions
 
             left_commit = left_access.commit or left_access.ref
             right_commit = right_access.commit or right_access.ref
 
             github_repo = _github_repo(
-                repo_url=left_repo_url, # already checked for equality; choose either
+                repo_url=left_repo_url,  # already checked for equality; choose either
             )
 
             dependencies[dependency_component_name].append(
@@ -389,11 +404,9 @@ def categorize_by_changed_component(
 
 
 def _cache_key_gen_dora(
-    component_dependency_changes_with_commits: list[
-        ComponentDependencyChangeWithCommits
-    ],
+    component_dependency_changes_with_commits: list[ComponentDependencyChangeWithCommits],
     time_span_days: int | None = None,
-    calculation_type: CalculationType | None = None
+    calculation_type: CalculationType | None = None,
 ):
     component_versions = tuple(
         component_dependency_change_with_commits.component.version
@@ -420,40 +433,30 @@ def _cache_key_gen_dora(
     key_func=_cache_key_gen_dora,
 )
 def calculate_change_lead_time(
-    component_dependency_changes_with_commits: list[
-        ComponentDependencyChangeWithCommits
-    ],
+    component_dependency_changes_with_commits: list[ComponentDependencyChangeWithCommits],
     time_span_days: int,
     calculation_type: CalculationType,
 ) -> datetime.timedelta:
     time_differences: list[datetime.timedelta] = []
 
     for component_dependency_change_with_commits in component_dependency_changes_with_commits:
-        deployment_date = util.get_creation_date(
-            component_dependency_change_with_commits.component
-        )
+        deployment_date = util.get_creation_date(component_dependency_change_with_commits.component)
         for commit in component_dependency_change_with_commits.commits:
-            if (
-                    (
-                            commit_date := dateutil.parser.isoparse(commit.commit.author['date'])
-                    ) > (
-                    datetime.datetime.now(datetime.timezone.utc)
-                    - datetime.timedelta(days=time_span_days)
-            )
+            if (commit_date := dateutil.parser.isoparse(commit.commit.author['date'])) > (
+                datetime.datetime.now(datetime.timezone.utc)
+                - datetime.timedelta(days=time_span_days)
             ):
-                time_differences.append(deployment_date -  commit_date)
+                time_differences.append(deployment_date - commit_date)
 
     if not time_differences:
         time_differences.append(datetime.timedelta(seconds=-1))
     if calculation_type is CalculationType.MEDIAN:
         result_in_seconds: float = statistics.median(
-            [time_difference.total_seconds()
-             for time_difference in time_differences]
+            [time_difference.total_seconds() for time_difference in time_differences]
         )
     else:
         result_in_seconds: float = statistics.mean(
-            [time_difference.total_seconds()
-             for time_difference in time_differences]
+            [time_difference.total_seconds() for time_difference in time_differences]
         )
     return datetime.timedelta(seconds=result_in_seconds)
 
@@ -463,36 +466,26 @@ def calculate_change_lead_time(
     key_func=_cache_key_gen_dora,
 )
 def dora_changes_monthly(
-    component_dependency_changes_with_commits: list[
-        ComponentDependencyChangeWithCommits
-    ],
+    component_dependency_changes_with_commits: list[ComponentDependencyChangeWithCommits],
     time_span_days: int,
 ) -> list[DoraMonthlyResponse]:
 
     code_changes_by_month: dict[
         tuple[int, int],
         list[tuple[datetime.datetime, CodeChange]],
-    ] = (
-        collections.defaultdict(list[tuple[datetime.datetime, CodeChange]])
-    )
+    ] = collections.defaultdict(list[tuple[datetime.datetime, CodeChange]])
 
     for component_dependency_change_with_commits in component_dependency_changes_with_commits:
         for commit in component_dependency_change_with_commits.commits:
-            if (
-                    (
-                            commit_date := dateutil.parser.isoparse(commit.commit.author['date'])
-                    ) > (
-                    datetime.datetime.now(datetime.timezone.utc) -
-                    datetime.timedelta(days=time_span_days)
-            )
+            if (commit_date := dateutil.parser.isoparse(commit.commit.author['date'])) > (
+                datetime.datetime.now(datetime.timezone.utc)
+                - datetime.timedelta(days=time_span_days)
             ):
                 commit_sha: str = commit.sha
                 key = (commit_date.year, commit_date.month)
                 code_changes_by_month[key].append(
                     (
-                        util.get_creation_date(
-                            component_dependency_change_with_commits.component
-                        ),
+                        util.get_creation_date(component_dependency_change_with_commits.component),
                         CodeChange(
                             commit_date=commit_date,
                             commit_sha=commit_sha,
@@ -506,34 +499,39 @@ def dora_changes_monthly(
     by_month_list: list[DoraMonthlyResponse] = []
 
     for (year, month), code_changes in code_changes_by_month.items():
+        median_change_lead_time = datetime.timedelta(
+            seconds=statistics.median(
+                [
+                    (deploy_date - commits_and_date.commit_date).total_seconds()
+                    for deploy_date, commits_and_date in code_changes
+                ]
+            )
+        )
 
-        median_change_lead_time = datetime.timedelta(seconds=statistics.median(
-            [
-                (deploy_date - commits_and_date.commit_date).total_seconds()
-                for deploy_date, commits_and_date in code_changes
-            ]
-        ))
-
-        by_month_list.append(DoraMonthlyResponse(
-            changes=[commits_and_date for _, commits_and_date in code_changes],
-            month=month,
-            year=year,
-            median_change_lead_time=median_change_lead_time.days,
-        ))
+        by_month_list.append(
+            DoraMonthlyResponse(
+                changes=[commits_and_date for _, commits_and_date in code_changes],
+                month=month,
+                year=year,
+                median_change_lead_time=median_change_lead_time.days,
+            )
+        )
 
     # create "empty" months which lie within the time_span_days
-    entry_date = (
-            datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=time_span_days)
+    entry_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        days=time_span_days
     )
 
     while entry_date < datetime.datetime.now(datetime.timezone.utc):
         if (entry_date.year, entry_date.month) not in code_changes_by_month:
-            by_month_list.append(DoraMonthlyResponse(
-                changes=[],
-                month=entry_date.month,
-                year=entry_date.year,
-                median_change_lead_time=-1,
-            ))
+            by_month_list.append(
+                DoraMonthlyResponse(
+                    changes=[],
+                    month=entry_date.month,
+                    year=entry_date.year,
+                    median_change_lead_time=-1,
+                )
+            )
         entry_date += datetime.timedelta(days=30)
 
     return by_month_list
@@ -544,28 +542,26 @@ def dora_changes_monthly(
     key_func=_cache_key_gen_dora,
 )
 def dora_deployments(
-        component_dependency_changes_with_commits: list[
-            ComponentDependencyChangeWithCommits
-        ],
+    component_dependency_changes_with_commits: list[ComponentDependencyChangeWithCommits],
 ) -> list[DoraDeploymentsResponse]:
     deployments: list[DoraDeploymentsResponse] = []
 
     for component_dependency_change_with_commits in component_dependency_changes_with_commits:
-
         median_change_lead_time = datetime.timedelta(
-            seconds=statistics.median([
-                (util.get_creation_date(
-                    component_dependency_change_with_commits.component
-                ) - dateutil.parser.isoparse(
-                    commit.commit.author['date']
-                )).total_seconds()
-                for commit in component_dependency_change_with_commits.commits
-            ]) if component_dependency_change_with_commits.commits else 0,
+            seconds=statistics.median(
+                [
+                    (
+                        util.get_creation_date(component_dependency_change_with_commits.component)
+                        - dateutil.parser.isoparse(commit.commit.author['date'])
+                    ).total_seconds()
+                    for commit in component_dependency_change_with_commits.commits
+                ]
+            )
+            if component_dependency_change_with_commits.commits
+            else 0,
         )
 
-        deployment_date = util.get_creation_date(
-            component_dependency_change_with_commits.component
-        )
+        deployment_date = util.get_creation_date(component_dependency_change_with_commits.component)
 
         deployments.append(
             DoraDeploymentsResponse(
@@ -590,9 +586,7 @@ def dora_deployments(
 
 
 def all_change_lead_time_durations(
-    component_dependency_changes_with_commits: list[
-        ComponentDependencyChangeWithCommits
-    ],
+    component_dependency_changes_with_commits: list[ComponentDependencyChangeWithCommits],
     time_span_days: int,
 ) -> list[int]:
     commit_durations = []
@@ -600,19 +594,17 @@ def all_change_lead_time_durations(
         commit_durations.extend(
             [
                 (
-                        util.get_creation_date(
-                            component_dependency_change_with_commits.component
-                        )
-                        - dateutil.parser.isoparse(commit.commit.author['date'])
+                    util.get_creation_date(component_dependency_change_with_commits.component)
+                    - dateutil.parser.isoparse(commit.commit.author['date'])
                 ).total_seconds()
                 for commit in component_dependency_change_with_commits.commits
                 if (
-                    dateutil.parser.isoparse(commit.commit.author['date']) >
-                    (
-                            datetime.datetime.now(datetime.timezone.utc)
-                            - datetime.timedelta(days=time_span_days)
+                    dateutil.parser.isoparse(commit.commit.author['date'])
+                    > (
+                        datetime.datetime.now(datetime.timezone.utc)
+                        - datetime.timedelta(days=time_span_days)
                     )
-            )
+                )
             ]
         )
 
@@ -620,9 +612,7 @@ def all_change_lead_time_durations(
 
 
 def all_changes(
-    component_dependency_changes_with_commits: list[
-        ComponentDependencyChangeWithCommits
-    ],
+    component_dependency_changes_with_commits: list[ComponentDependencyChangeWithCommits],
     time_span_days: int,
 ) -> list[CodeChange]:
 
@@ -636,9 +626,10 @@ def all_changes(
                     deployment_date=util.get_creation_date(
                         component_dependency_change_with_commits.component,
                     ),
-                ) for commit in component_dependency_change_with_commits.commits
-                if dateutil.parser.isoparse(commit.commit.author['date']) >
-                   datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=time_span_days)
+                )
+                for commit in component_dependency_change_with_commits.commits
+                if dateutil.parser.isoparse(commit.commit.author['date'])
+                > datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=time_span_days)
             ]
         )
 
@@ -659,9 +650,10 @@ def create_response_object(
 
     all_change_lead_time_durations_seconds = []
 
-    for dependency_name, component_dependency_changes_with_commits \
-            in target_updates_by_dependency.items():
-
+    for (
+        dependency_name,
+        component_dependency_changes_with_commits,
+    ) in target_updates_by_dependency.items():
         median = calculate_change_lead_time(
             component_dependency_changes_with_commits,
             time_span_days,
@@ -706,14 +698,10 @@ def create_response_object(
 
     if all_change_lead_time_durations_seconds != []:
         change_lead_time_median = datetime.timedelta(
-            seconds=statistics.median(
-                all_change_lead_time_durations_seconds
-            )
+            seconds=statistics.median(all_change_lead_time_durations_seconds)
         ).days
         change_lead_time_average = datetime.timedelta(
-            seconds=statistics.mean(
-                all_change_lead_time_durations_seconds
-            )
+            seconds=statistics.mean(all_change_lead_time_durations_seconds)
         ).days
     else:
         change_lead_time_median = -1
@@ -728,7 +716,7 @@ def create_response_object(
 
 class DoraMetrics(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Dora
@@ -769,7 +757,7 @@ class DoraMetrics(aiohttp.web.View):
                   type: object
           "202":
             description: Dora metric calculation pending, client should retry.
-        '''
+        """
         params = self.request.rel_url.query
 
         target_component_name = util.param(params, 'target_component_name', required=True)
@@ -803,14 +791,14 @@ class DoraMetrics(aiohttp.web.View):
         # at the beginning of the descriptor list to be able to detect changes which were
         # first introduced within the time span of the target component version.
 
-        if (next_older_descriptor := await get_next_older_descriptor(
+        if next_older_descriptor := await get_next_older_descriptor(
             component_id=ocm.ComponentIdentity(
                 target_component_name,
                 target_descriptors_in_time_span[0].component.version,
             ),
             component_descriptor_lookup=component_descriptor_lookup,
             db_session=db_session,
-        )):
+        ):
             target_descriptors_in_time_span.insert(0, next_older_descriptor)
 
         # calculate the changes which where introduced for every component version
@@ -818,7 +806,7 @@ class DoraMetrics(aiohttp.web.View):
         for index in range(1, len(target_descriptors_in_time_span)):
             component_diff = await _diff_components(
                 component_vector=components.ComponentVector(
-                    start=target_descriptors_in_time_span[index-1].component,
+                    start=target_descriptors_in_time_span[index - 1].component,
                     end=target_descriptors_in_time_span[index].component,
                 ),
                 component_descriptor_lookup=component_descriptor_lookup,
@@ -889,15 +877,16 @@ async def _diff_components(
     component_vector: components.ComponentVector,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
 ) -> cnudie.util.ComponentDiff | None:
-    '''
+    """
     calculates component-diff between components from passed-in component-vector
 
     this function is mostly identical to cnudie.util.diff_components. It differs, however,
     in that it will merge multiple component-versions (of the same component) into just one
     component-version, choosing greatest/smallest versions.
-    '''
+    """
     old_components = [
-        c.component async for c in ocm.iter_async.iter(
+        c.component
+        async for c in ocm.iter_async.iter(
             component=component_vector.start,
             lookup=component_descriptor_lookup,
             node_filter=ocm.iter.Filter.components,
@@ -905,7 +894,8 @@ async def _diff_components(
     ]
 
     new_components = [
-        c.component async for c in ocm.iter_async.iter(
+        c.component
+        async for c in ocm.iter_async.iter(
             component=component_vector.end,
             lookup=component_descriptor_lookup,
             node_filter=ocm.iter.Filter.components,
@@ -913,9 +903,9 @@ async def _diff_components(
     ]
 
     def only_greatest_versions(components: list[ocm.Component]):
-        components_by_name: collections.defaultdict[
-            str, list[ocm.Component]
-        ] = collections.defaultdict(list[ocm.Component])
+        components_by_name: collections.defaultdict[str, list[ocm.Component]] = (
+            collections.defaultdict(list[ocm.Component])
+        )
 
         for c in components:
             components_by_name[c.name].append(c)
@@ -927,9 +917,8 @@ async def _diff_components(
                 continue
             current_biggest_version = component_list[0]
             for c in component_list[1:]:
-                if(
-                    versionutil.parse_to_semver(c.version) >
-                    versionutil.parse_to_semver(current_biggest_version.version)
+                if versionutil.parse_to_semver(c.version) > versionutil.parse_to_semver(
+                    current_biggest_version.version
                 ):
                     current_biggest_version = c
             greatest_component_versions.append(current_biggest_version)
@@ -939,12 +928,8 @@ async def _diff_components(
     old_greatest_component_versions = only_greatest_versions(old_components)
     new_greatest_component_versions = only_greatest_versions(new_components)
 
-    old_greatest_component_identities = {
-        c.identity() for c in old_greatest_component_versions
-    }
-    new_greatest_component_identities = {
-        c.identity() for c in new_greatest_component_versions
-    }
+    old_greatest_component_identities = {c.identity() for c in old_greatest_component_versions}
+    new_greatest_component_identities = {c.identity() for c in new_greatest_component_versions}
 
     old_only_greatest_component_identities = (
         old_greatest_component_identities - new_greatest_component_identities
@@ -954,16 +939,18 @@ async def _diff_components(
     )
 
     old_only_greatest_component_versions = [
-        c for c in old_greatest_component_versions
+        c
+        for c in old_greatest_component_versions
         if c.identity() in old_only_greatest_component_identities
     ]
     new_only_greatest_component_versions = [
-        c for c in new_greatest_component_versions
+        c
+        for c in new_greatest_component_versions
         if c.identity() in new_only_greatest_component_identities
     ]
 
     if old_only_greatest_component_identities == new_only_greatest_component_identities:
-        return None # no diff
+        return None  # no diff
 
     def find_changed_component(
         old_only_component_version: ocm.Component,
@@ -972,7 +959,7 @@ async def _diff_components(
         for new_only_component_version in new_only_component_versions:
             if new_only_component_version.name == old_only_component_version.name:
                 return (old_only_component_version, new_only_component_version)
-        return (old_only_component_version, None) # no pair component found
+        return (old_only_component_version, None)  # no pair component found
 
     components_with_changed_versions = []
     for old_only_greatest_component_version in old_only_greatest_component_versions:
@@ -1006,7 +993,7 @@ def dependency_changes_between_versions(
     dependency_name_filter: collections.abc.Iterable[str] | None = None,
     only_rising_changes: bool = False,
 ) -> list[components.ComponentVector]:
-    '''
+    """
     This function retrieves the changes which where made between two versions of a Component.
     There is the possibilitie to filter for the changes of just one component.
 
@@ -1016,17 +1003,14 @@ def dependency_changes_between_versions(
         of the new component is higher than the version of the old component.
 
     @returns: List of the changes between the two versions
-    '''
+    """
     if not component_diff:
         raise ValueError(component_diff)
 
     changes: list[components.ComponentVector] = []
 
     for left_component, right_component in component_diff.cpairs_version_changed:
-        if (
-            dependency_name_filter
-            and left_component.name not in dependency_name_filter
-        ):
+        if dependency_name_filter and left_component.name not in dependency_name_filter:
             continue
 
         left_version = versionutil.parse_to_semver(left_component.version)

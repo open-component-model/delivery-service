@@ -9,7 +9,7 @@ class CurrentDependencies(aiohttp.web.View):
     required_features = (features.FeatureSpecialComponents,)
 
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Components
@@ -20,7 +20,7 @@ class CurrentDependencies(aiohttp.web.View):
           name: id
           type: string
           required: true
-        '''
+        """
         params = self.request.rel_url.query
 
         id = util.param(params, 'id', required=True)
@@ -37,11 +37,10 @@ class CurrentDependencies(aiohttp.web.View):
                 'name': dependency.name,
                 'displayName': dependency.displayName,
                 'version': (
-                    dependency.currentVersion.retrieve()
-                    if dependency.currentVersion
-                    else None
+                    dependency.currentVersion.retrieve() if dependency.currentVersion else None
                 ),
-            } for dependency in component_cfg.dependencies
+            }
+            for dependency in component_cfg.dependencies
         ]
 
         return aiohttp.web.json_response(
@@ -49,9 +48,7 @@ class CurrentDependencies(aiohttp.web.View):
                 'displayName': component_cfg.displayName,
                 'componentDependencies': resolved_dependencies,
                 'version': (
-                    component_cfg.currentVersion.retrieve()
-                    if component_cfg.currentVersion
-                    else None
+                    component_cfg.currentVersion.retrieve() if component_cfg.currentVersion else None
                 ),
             },
         )

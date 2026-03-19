@@ -16,10 +16,10 @@ def _feature_name_set(
 def feature_check_middleware(
     unavailable_features: collections.abc.Iterable[features.FeatureBase],
 ) -> aiohttp.typedefs.Middleware:
-    '''
+    """
     Used to catch requests that require features which are unavailable. Returns a
     response with status code 400 and a list of the missing features.
-    '''
+    """
 
     @aiohttp.web.middleware
     async def middleware(
@@ -33,9 +33,8 @@ def feature_check_middleware(
         if request.method == 'OPTIONS':
             return await handler(request)
 
-        if (
-            missing_features := _feature_name_set(required_features)
-            & _feature_name_set(unavailable_features)
+        if missing_features := _feature_name_set(required_features) & _feature_name_set(
+            unavailable_features
         ):
             raise aiohttp.web.HTTPBadRequest(
                 reason=f'Feature{"s are" if len(missing_features) != 1 else " is"} inactive',

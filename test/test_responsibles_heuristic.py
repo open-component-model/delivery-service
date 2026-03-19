@@ -22,9 +22,9 @@ def _is_candidate_stat(
     positive_list: list[str],
     negative_list: list[str],
 ) -> bool:
-    '''
+    """
     checks given username from stat against positive and negative list.
-    '''
+    """
     username = stat['author']['login']
     if username in negative_list:
         return False
@@ -45,14 +45,16 @@ def test_apiserver(
     positive_list: list[str],
 ):
     repo_stats = _load_yaml(path=paths.test_resources_apiserver_proxy)
-    repo_stats = list(filter(
-        lambda stat: _is_candidate_stat(
-            stat=stat,
-            positive_list=positive_list,
-            negative_list=negative_list,
-        ),
-        repo_stats,
-    ))
+    repo_stats = list(
+        filter(
+            lambda stat: _is_candidate_stat(
+                stat=stat,
+                positive_list=positive_list,
+                negative_list=negative_list,
+            ),
+            repo_stats,
+        )
+    )
     processed_stats = rg.global_stats(
         repo_stats=repo_stats,
         weight_function_identifier='sigmoid',
@@ -75,14 +77,16 @@ def test_mcm(
     positive_list: list[str],
 ):
     repo_stats = _load_yaml(path=paths.test_resources_mcm)
-    repo_stats = list(filter(
-        lambda stat: _is_candidate_stat(
-            stat=stat,
-            positive_list=positive_list,
-            negative_list=negative_list,
-        ),
-        repo_stats,
-    ))
+    repo_stats = list(
+        filter(
+            lambda stat: _is_candidate_stat(
+                stat=stat,
+                positive_list=positive_list,
+                negative_list=negative_list,
+            ),
+            repo_stats,
+        )
+    )
     processed_stats = rg.global_stats(
         repo_stats=repo_stats,
         weight_function_identifier='sigmoid',

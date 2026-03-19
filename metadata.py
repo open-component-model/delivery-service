@@ -34,7 +34,6 @@ _FIELD_TO_COL = {
     'component_name': dm.ArtefactMetaData.component_name,
     'component_version': dm.ArtefactMetaData.component_version,
     'data_key': dm.ArtefactMetaData.data_key,
-
     'ocm.name': dm.ArtefactMetaData.component_name,
     'ocm.version': dm.ArtefactMetaData.component_version,
     'artefact.name': dm.ArtefactMetaData.artefact_name,
@@ -68,10 +67,7 @@ _SORT_FOR_COL = {
 }
 
 
-def _json_text(
-    col: sa.sql.ClauseElement,
-    dotted: str
-):
+def _json_text(col: sa.sql.ClauseElement, dotted: str):
     parts = dotted.split('.')
     expr = col
     for part in parts[:-1]:
@@ -80,7 +76,7 @@ def _json_text(
 
 
 def _categorisation_value_case(
-    finding_cfgs: collections.abc.Iterable[odg.findings.Finding]
+    finding_cfgs: collections.abc.Iterable[odg.findings.Finding],
 ) -> sa.sql.ClauseElement:
     severity_id_expr = sa.func.upper(sa.cast(_expr_for_attr('data.severity'), sa.Text))
     type_expr = sa.cast(dm.ArtefactMetaData.type, sa.Text)
@@ -88,22 +84,24 @@ def _categorisation_value_case(
     whens: list[tuple[sa.sql.ClauseElement, int]] = []
     for cfg in finding_cfgs:
         for cat in cfg.categorisations:
-            whens.append((
-                sa.and_(type_expr == cfg.type, severity_id_expr == cat.id),
-                cat.value,
-            ))
+            whens.append(
+                (
+                    sa.and_(type_expr == cfg.type, severity_id_expr == cat.id),
+                    cat.value,
+                )
+            )
 
     return sa.case(*whens, else_=0)
 
 
 def _expr_for_attr(attr: str):
-    '''
+    """
     supports:
       - meta.<key>  -> JSONB meta as TEXT
       - data.<path> -> JSONB data (nested) as TEXT
       - top-level known columns (e.g. type, datasource, artefact_kind)
       - known aliases from _FIELD_TO_COL
-    '''
+    """
     if attr.startswith('meta.'):
         key = attr.split('.', 1)[1]
         return dm.ArtefactMetaData.meta.op('->>')(key)
@@ -121,17 +119,10 @@ def _expr_for_attr(attr: str):
 
 
 def _escape_like_literal(raw: str) -> str:
-    return (
-        raw.replace('\\', '\\\\')
-           .replace('%', r'\%')
-           .replace('_', r'\_')
-    )
+    return raw.replace('\\', '\\\\').replace('%', r'\%').replace('_', r'\_')
 
 
-def _like_pattern(
-    value: str,
-    wrap_contains: bool
-) -> str:
+def _like_pattern(value: str, wrap_contains: bool) -> str:
     raw = str(value)
     esc = _escape_like_literal(raw)
     esc = esc.replace('*', '%')
@@ -145,19 +136,9 @@ def _like_pattern(
     return esc
 
 
-def _pred_like(
-    attr: str,
-    user_pattern: str,
-    wrap_contains: bool = False
-):
-    expr = sa.cast(
-        expression=_expr_for_attr(attr),
-        type_=sa.Text
-    )
-    pat = _like_pattern(
-        value=user_pattern,
-        wrap_contains=wrap_contains
-    )
+def _pred_like(attr: str, user_pattern: str, wrap_contains: bool = False):
+    expr = sa.cast(expression=_expr_for_attr(attr), type_=sa.Text)
+    pat = _like_pattern(value=user_pattern, wrap_contains=wrap_contains)
     return sa.func.lower(expr).like(sa.func.lower(sa.literal(pat)), escape='\\')
 
 
@@ -187,10 +168,11 @@ def _pred_ocm(value: str):
 
     component_name_col = dm.ArtefactMetaData.component_name
     component_version_col = dm.ArtefactMetaData.component_version
-    return sa.and_(
-        component_name_col == name,
-        component_version_col == ver
-    ) if ver else (component_name_col == name)
+    return (
+        sa.and_(component_name_col == name, component_version_col == ver)
+        if ver
+        else (component_name_col == name)
+    )
 
 
 def _db_artefact_key_tuple_expr() -> sa.sql.ClauseElement:
@@ -230,35 +212,19 @@ def _pred_for_resolved_ocm_scope(
     return sa.or_(*per_component_preds) if per_component_preds else sa.false()
 
 
-def _pred_eq(
-    attr: str,
-    value: typing.Any
-):
+def _pred_eq(attr: str, value: typing.Any):
     if isinstance(value, str) and '*' in value:
         return _pred_like(attr, value, wrap_contains=False)
     return sa.cast(expression=_expr_for_attr(attr), type_=sa.Text) == str(value)
 
 
-def _pred_in(
-    attr: str,
-    values: list[typing.Any]
-):
-    expr = sa.cast(
-        expression=_expr_for_attr(attr),
-        type_=sa.Text
-    )
+def _pred_in(attr: str, values: list[typing.Any]):
+    expr = sa.cast(expression=_expr_for_attr(attr), type_=sa.Text)
     return expr.in_([str(v) for v in values])
 
 
-def _pred_range(
-    attr: str,
-    gte: str | None,
-    lte: str | None
-):
-    expr_text = sa.cast(
-        expression=_expr_for_attr(attr),
-        type_=sa.Text
-    )
+def _pred_range(attr: str, gte: str | None, lte: str | None):
+    expr_text = sa.cast(expression=_expr_for_attr(attr), type_=sa.Text)
     clauses = []
 
     if gte is not None:
@@ -303,9 +269,7 @@ def _pred_cmp(
                     text='data.severity symbolic comparisons require exactly one finding type'
                 )
             if finding_cfgs is None:
-                raise aiohttp.web.HTTPBadRequest(
-                    text='severity comparisons require finding cfgs'
-                )
+                raise aiohttp.web.HTTPBadRequest(text='severity comparisons require finding cfgs')
 
             try:
                 right = _severity_value_for_type(
@@ -349,25 +313,15 @@ def _pred_for_artefact_metadata(
     if op is sm.SearchQueryOperator.EQ:
         if criterion.value is None:
             raise aiohttp.web.HTTPBadRequest(text=f'missing value for {attr=}')
-        return _pred_eq(
-            attr=attr,
-            value=criterion.value
-        )
+        return _pred_eq(attr=attr, value=criterion.value)
 
     if op is sm.SearchQueryOperator.IN:
         if not criterion.values:
             raise aiohttp.web.HTTPBadRequest(text=f'op=in requires non-empty values for {attr=}')
-        return _pred_in(
-            attr=attr,
-            values=criterion.values
-        )
+        return _pred_in(attr=attr, values=criterion.values)
 
     if op is sm.SearchQueryOperator.RANGE:
-        return _pred_range(
-            attr=attr,
-            gte=criterion.gte,
-            lte=criterion.lte
-        )
+        return _pred_range(attr=attr, gte=criterion.gte, lte=criterion.lte)
 
     if op is sm.SearchQueryOperator.CMP:
         if not criterion.cmp or criterion.value is None:
@@ -391,7 +345,7 @@ def _translate_criteria(
     selected_finding_type: str | None = None,
     finding_cfgs: collections.abc.Iterable[odg.findings.Finding] | None = None,
 ) -> sa.sql.ClauseElement:
-    '''
+    """
     translates criteria list into SQLAlchemy WHERE clause.
 
     semantics:
@@ -412,7 +366,7 @@ def _translate_criteria(
       - {type:'ocm', value:'acme.org/x:1.2.3', mode:'exclude'?}
       - {type:'artefact-metadata', attr:'data.cve', op:'eq|in|cmp|range', ... , mode:'exclude'?}
       - {type:'fulltext', value:'kerberos', mode:'exclude'?, fields:[... optional ...]}
-    '''
+    """
     if not criteria:
         return sa.true()
 
@@ -476,7 +430,7 @@ def _translate_criteria(
 
 def _translate_sort(sort_spec: list[sm.SortSpec] | None):
     order_by = []
-    for sort_entry in (sort_spec or []):
+    for sort_entry in sort_spec or []:
         field = sort_entry.field
         if field not in _SORT_FOR_COL:
             raise aiohttp.web.HTTPBadRequest(text=f'invalid sort field: {field}')
@@ -485,10 +439,7 @@ def _translate_sort(sort_spec: list[sm.SortSpec] | None):
     return order_by
 
 
-def _parse_cursor_value(
-    field: str,
-    raw
-):
+def _parse_cursor_value(field: str, raw):
     if raw is None:
         return None
     if field in ('meta.creation_date', 'meta.last_update'):
@@ -556,7 +507,7 @@ def _make_next_cursor(
 
 
 def _iter_component_references(
-    component: ocm.Component
+    component: ocm.Component,
 ) -> collections.abc.Iterable[tuple[str, str]]:
     for ref in component.componentReferences or ():
         if ref.componentName and ref.version:
@@ -632,9 +583,7 @@ def _severity_value_for_type(
             if categorisation.id == severity_id:
                 return categorisation.value
 
-        raise ValueError(
-            f'unknown {severity_id=} for {finding_type=}'
-        )
+        raise ValueError(f'unknown {severity_id=} for {finding_type=}')
 
     raise ValueError(f'no finding cfg for {finding_type=}')
 
@@ -670,10 +619,12 @@ async def resolve_component_scope(
         seen.add(cid)
 
         for kind, artefact in _iter_component_artefacts(component=component):
-            keys_by_component[cid].add(_artefact_key_tuple_from_ocm(
-                artefact_kind=kind,
-                artefact=artefact,
-            ))
+            keys_by_component[cid].add(
+                _artefact_key_tuple_from_ocm(
+                    artefact_kind=kind,
+                    artefact=artefact,
+                )
+            )
 
         if not recursive:
             continue
@@ -692,7 +643,7 @@ class ArtefactMetadataQueryAttributes(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def get(self):
-        '''
+        """
         ---
         description:
           Returns supported query fields for artefact-metadata search, including their types and
@@ -704,21 +655,17 @@ class ArtefactMetadataQueryAttributes(aiohttp.web.View):
         responses:
           "200":
             description: OK
-        '''
+        """
         fields = [
             {'name': 'ocm', 'type': 'string', 'ops': ['eq']},
-
             {'name': 'type', 'type': 'string', 'ops': ['eq', 'in']},
             {'name': 'datasource', 'type': 'string', 'ops': ['eq', 'in']},
             {'name': 'artefact_kind', 'type': 'string', 'ops': ['eq', 'in']},
-
             {'name': 'artefact.name', 'type': 'string', 'ops': ['eq', 'in']},
             {'name': 'artefact.version', 'type': 'string', 'ops': ['eq', 'in']},
             {'name': 'artefact.type', 'type': 'string', 'ops': ['eq', 'in']},
-
             {'name': 'meta.creation_date', 'type': 'datetime', 'ops': ['range', 'eq']},
             {'name': 'meta.last_update', 'type': 'datetime', 'ops': ['range', 'eq']},
-
             {'name': 'data.cve', 'type': 'string', 'ops': ['eq', 'in']},
             {'name': 'data.package_name', 'type': 'string', 'ops': ['eq', 'in']},
             {'name': 'data.package_version', 'type': 'string', 'ops': ['eq', 'in']},
@@ -729,10 +676,12 @@ class ArtefactMetadataQueryAttributes(aiohttp.web.View):
 
         default_search_fields = _DEFAULT_SEARCH_FIELDS
 
-        return aiohttp.web.json_response({
-            'fields': fields,
-            'defaultSearchFields': default_search_fields,
-        })
+        return aiohttp.web.json_response(
+            {
+                'fields': fields,
+                'defaultSearchFields': default_search_fields,
+            }
+        )
 
 
 class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
@@ -740,7 +689,7 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def post(self):
-        '''
+        """
         ---
         description:
           Executes an artefact-metadata search query.
@@ -788,7 +737,7 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
             description: Bad Request (invalid criteria / cursor / sort)
           "401":
             description: Unauthorized
-        '''
+        """
         body = await self.request.json()
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
         finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
@@ -855,9 +804,7 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
                 # so rows with missing component_version can still match via artefact fallback
                 pred = _pred_ocm(criterion.value)
             target = (
-                ocm_exclude_preds
-                if criterion.mode is sm.MatchingMode.EXCLUDE
-                else ocm_include_preds
+                ocm_exclude_preds if criterion.mode is sm.MatchingMode.EXCLUDE else ocm_include_preds
             )
             target.append(pred)
 
@@ -939,10 +886,12 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
         if not done and scan_cursor is not None:
             next_cursor = scan_cursor if items else None
 
-        return aiohttp.web.json_response({
-            'items': items,
-            'nextCursor': next_cursor,
-        })
+        return aiohttp.web.json_response(
+            {
+                'items': items,
+                'nextCursor': next_cursor,
+            }
+        )
 
 
 class ArtefactMetadataQuery(aiohttp.web.View):
@@ -952,7 +901,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def post(self):
-        '''
+        """
         ---
         description: Query artefact-metadata from delivery-db.
         tags:
@@ -996,7 +945,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
               type: array
               items:
                 $ref: '#/definitions/ArtefactMetadata'
-        '''
+        """
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
         params = self.request.rel_url.query
 
@@ -1013,7 +962,8 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 config=dacite.Config(
                     cast=[odg.model.ArtefactKind],
                 ),
-            ) for entry in entries
+            )
+            for entry in entries
         ]
 
         async def artefact_queries(artefact_ref: odg.model.ComponentArtefactId):
@@ -1023,10 +973,12 @@ class ArtefactMetadataQuery(aiohttp.web.View):
             none_ok = not type_filter or odg.model.Datatype.RESCORING in type_filter
 
             async for query in du.ArtefactMetadataQueries.component_queries(
-                components=[ocm.ComponentIdentity(
-                    name=artefact_ref.component_name,
-                    version=artefact_ref.component_version,
-                )],
+                components=[
+                    ocm.ComponentIdentity(
+                        name=artefact_ref.component_name,
+                        version=artefact_ref.component_version,
+                    )
+                ],
                 none_ok=none_ok,
                 component_descriptor_lookup=component_descriptor_lookup,
             ):
@@ -1076,10 +1028,9 @@ class ArtefactMetadataQuery(aiohttp.web.View):
 
         async def artefact_refs_queries(artefact_refs: list[odg.model.ComponentArtefactId]):
             for artefact_ref in artefact_refs:
-                yield sa.and_(*[
-                    query async for query
-                    in artefact_queries(artefact_ref=artefact_ref)
-                ])
+                yield sa.and_(
+                    *[query async for query in artefact_queries(artefact_ref=artefact_ref)]
+                )
 
         db_statement = sa.select(dm.ArtefactMetaData)
 
@@ -1095,10 +1046,9 @@ class ArtefactMetadataQuery(aiohttp.web.View):
 
         if artefact_refs:
             db_statement = db_statement.where(
-                sa.or_(*[
-                    query async for query
-                    in artefact_refs_queries(artefact_refs=artefact_refs)
-                ]),
+                sa.or_(
+                    *[query async for query in artefact_refs_queries(artefact_refs=artefact_refs)]
+                ),
             )
 
         async def serialise_and_enrich_finding(
@@ -1106,7 +1056,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         ) -> dict:
             def result_dict(
                 finding: odg.model.ArtefactMetadata,
-                meta: dict=None,
+                meta: dict = None,
             ) -> dict:
                 finding_dict = util.dict_serialisation(finding)
 
@@ -1129,9 +1079,8 @@ class ArtefactMetadataQuery(aiohttp.web.View):
 
                 # only yield findings which were not explicitly filtered-out by central finding-cfg
                 for finding_cfg in finding_cfgs:
-                    if (
-                        finding_cfg.type == artefact_metadatum.meta.type
-                        and not finding_cfg.matches(artefact_metadatum.artefact)
+                    if finding_cfg.type == artefact_metadatum.meta.type and not finding_cfg.matches(
+                        artefact_metadatum.artefact
                     ):
                         # artefact metadatum is filtered-out, do not include it
                         break
@@ -1158,7 +1107,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
 
 class ArtefactMetadata(aiohttp.web.View):
     async def put(self):
-        '''
+        """
         ---
         description: Update artefact-metadata in delivery-db.
         tags:
@@ -1179,7 +1128,7 @@ class ArtefactMetadata(aiohttp.web.View):
             description: No entries were provided and no operation was performed.
           "201":
             description: Successful operation.
-        '''
+        """
         body = await self.request.json()
         entries: list[dict] = body.get('entries')
 
@@ -1187,8 +1136,7 @@ class ArtefactMetadata(aiohttp.web.View):
             return aiohttp.web.Response()
 
         artefact_metadata = [
-            odg.model.ArtefactMetadata.from_dict(_fill_default_values(entry))
-            for entry in entries
+            odg.model.ArtefactMetadata.from_dict(_fill_default_values(entry)) for entry in entries
         ]
 
         # determine all artefact/type combinations to query them at once afterwards
@@ -1219,11 +1167,7 @@ class ArtefactMetadata(aiohttp.web.View):
 
         # order entries to increase chances to find matching existing entry as soon as possible
         existing_entries = sorted(
-            [
-                entry[0]
-                async for partition in db_stream.partitions(size=50)
-                for entry in partition
-            ],
+            [entry[0] async for partition in db_stream.partitions(size=50) for entry in partition],
             key=lambda entry: entry.meta.get(
                 'last_update',
                 datetime.datetime.fromtimestamp(0, datetime.UTC).isoformat(),
@@ -1357,7 +1301,7 @@ class ArtefactMetadata(aiohttp.web.View):
         )
 
     async def delete(self):
-        '''
+        """
         ---
         description: Delete artefact-metadata from delivery-db.
         tags:
@@ -1376,7 +1320,7 @@ class ArtefactMetadata(aiohttp.web.View):
         responses:
           "204":
             description: Successful operation.
-        '''
+        """
         body = await self.request.json()
         entries: list[dict] = body.get('entries')
 
@@ -1390,9 +1334,11 @@ class ArtefactMetadata(aiohttp.web.View):
                     artefact_metadata=odg.model.ArtefactMetadata.from_dict(entry),
                 )
 
-                await db_session.execute(sa.delete(dm.ArtefactMetaData).where(
-                    dm.ArtefactMetaData.id == artefact_metadata.id,
-                ))
+                await db_session.execute(
+                    sa.delete(dm.ArtefactMetaData).where(
+                        dm.ArtefactMetaData.id == artefact_metadata.id,
+                    )
+                )
 
                 await _mark_compliance_summary_cache_for_deletion(
                     db_session=db_session,
@@ -1423,19 +1369,18 @@ def reuse_discovery_date_if_possible(
             return None
 
     if new_metadata.type == odg.model.Datatype.VULNERABILITY_FINDING:
-        if (
-            new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
-            and new_metadata.data.get('cve') == old_metadata.data.get('cve')
-        ):
+        if new_metadata.data.get('package_name') == old_metadata.data.get(
+            'package_name'
+        ) and new_metadata.data.get('cve') == old_metadata.data.get('cve'):
             # found the same cve in existing entry, independent of the component-/
             # resource-/package-version, so we must re-use its discovery date
             return old_metadata.discovery_date
 
     elif new_metadata.type == odg.model.Datatype.LICENSE_FINDING:
-        if (
-            new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
-            and new_metadata.data.get('license').get('name')
-                == old_metadata.data.get('license').get('name')
+        if new_metadata.data.get('package_name') == old_metadata.data.get(
+            'package_name'
+        ) and new_metadata.data.get('license').get('name') == old_metadata.data.get('license').get(
+            'name'
         ):
             # found the same license in existing entry, independent of the component-/
             # resource-/package-version, so we must re-use its discovery date
@@ -1445,23 +1390,19 @@ def reuse_discovery_date_if_possible(
         if (
             new_metadata.data.get('package_name') == old_metadata.data.get('package_name')
             and new_metadata.data.get('license').get('name')
-                == old_metadata.data.get('license').get('name')
-            and sorted(new_metadata.data.get('labels'))
-                == sorted(old_metadata.data.get('labels'))
+            == old_metadata.data.get('license').get('name')
+            and sorted(new_metadata.data.get('labels')) == sorted(old_metadata.data.get('labels'))
             and new_metadata.data.get('policy_violation').get('name')
-                == old_metadata.data.get('policy_violation').get('name')
+            == old_metadata.data.get('policy_violation').get('name')
         ):
             # found the same license in existing entry, independent of the component-/
             # resource-/package-version, so we must re-use its discovery date
             return old_metadata.discovery_date
 
     elif new_metadata.type == odg.model.Datatype.OSID_FINDING:
-        if (
-            new_metadata.data.get('osid').get('VERSION_ID')
-                == old_metadata.data.get('osid').get('VERSION_ID')
-            and new_metadata.data.get('osid').get('NAME')
-                == old_metadata.data.get('osid').get('NAME')
-        ):
+        if new_metadata.data.get('osid').get('VERSION_ID') == old_metadata.data.get('osid').get(
+            'VERSION_ID'
+        ) and new_metadata.data.get('osid').get('NAME') == old_metadata.data.get('osid').get('NAME'):
             # found the same version and name in existing entry, so we must re-use its discovery date
             return old_metadata.discovery_date
 
@@ -1490,8 +1431,10 @@ async def _mark_compliance_summary_cache_for_deletion(
     artefact_metadata: dm.ArtefactMetaData,
 ):
     if not (
-        artefact_metadata.component_name and artefact_metadata.component_version
-        and artefact_metadata.type and artefact_metadata.datasource
+        artefact_metadata.component_name
+        and artefact_metadata.component_version
+        and artefact_metadata.type
+        and artefact_metadata.datasource
     ):
         # If one of these properties is not set, the cache id cannot be calculated properly.
         # Currently, this is only the case for BDBA findings where the component version is left
@@ -1521,7 +1464,7 @@ async def _mark_compliance_summary_cache_for_deletion(
             encoding_format=dcm.EncodingFormat.PICKLE,
             function='compliance_summary.component_datatype_summaries',
             db_session=db_session,
-            defer_db_commit=True, # only commit at the end of the query
+            defer_db_commit=True,  # only commit at the end of the query
             component=component,
             finding_type=finding_type,
             datasource=artefact_metadata.datasource,

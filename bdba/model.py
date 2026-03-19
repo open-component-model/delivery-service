@@ -106,7 +106,7 @@ class Vulnerability:
 
     def cve_severity(
         self,
-        cvss_version: CVSSVersion=CVSSVersion.V3,
+        cvss_version: CVSSVersion = CVSSVersion.V3,
     ) -> float:
         if cvss_version is CVSSVersion.V3:
             return float(self.vuln.get('cvss3_score'))
@@ -140,12 +140,12 @@ class Vulnerability:
 
     @property
     def okay_to_skip(self) -> bool:
-        '''
+        """
         Indiacates whether it is okay to not store this vulnerability and the delivery-db but just
         ignore it. This is the case if the vulnerability
         - is declared as historical: package in the detected version is not actually affected
         - has a missing CVSS or severity: the vulnerability mighth still be in dispute upstream
-        '''
+        """
         return self.historical or not self.cvss or not self.cve_severity()
 
     def __repr__(self):
@@ -196,11 +196,11 @@ class Component:
 
     @property
     def iter_licenses(self) -> collections.abc.Generator[License, None, None]:
-        '''
+        """
         Wrapper to consume package's licenses and prefer those stored in the `licenses` property
         over the one in the `license` property. Rationale: BDBA is known to always store the
         greatest license version under `license`, and the "correct" one under `licenses`.
-        '''
+        """
         if not self.licenses:
             if self.license:
                 yield self.license
@@ -210,7 +210,8 @@ class Component:
             dacite.from_dict(
                 data_class=License,
                 data=license_raw,
-            ) for license_raw in self.licenses.get('licenses')
+            )
+            for license_raw in self.licenses.get('licenses')
         ]
 
     def __repr__(self):
@@ -259,13 +260,16 @@ class BDIO:
     entries: list[dict[str, typing.Any]]
 
     def as_blackduck_bytes(self) -> bytes:
-        return json.dumps({
-            '@id': self.id,
-            'name': self.name,
-            'publisher': self.publisher,
-            'publisherVersion': self.publisher_version,
-            '@graph': self.entries,
-        }, indent=2).encode('utf-8')
+        return json.dumps(
+            {
+                '@id': self.id,
+                'name': self.name,
+                'publisher': self.publisher,
+                'publisherVersion': self.publisher_version,
+                '@graph': self.entries,
+            },
+            indent=2,
+        ).encode('utf-8')
 
 
 class SBomFormat(enum.StrEnum):

@@ -26,21 +26,18 @@ logger = logging.getLogger(__name__)
 
 
 def kebab_to_snake_case_keys(d: dict[str, dict | list | str | int]) -> dict:
-    '''
+    """
     Highly opinionated function to convert the BDBA analysis result so that it can be processed by
     our BDBA model classes. In that, it converts kebab-cased keys recursively into snake_case (as
     expected by our model classes).
-    '''
+    """
     result = {}
 
     for key, value in d.items():
         if isinstance(value, dict):
             value = kebab_to_snake_case_keys(value)
         elif isinstance(value, list):
-            value = [
-                kebab_to_snake_case_keys(v) if isinstance (v, dict) else v
-                for v in value
-            ]
+            value = [kebab_to_snake_case_keys(v) if isinstance(v, dict) else v for v in value]
 
         if not isinstance(key, str):
             raise TypeError(f'{key=} is expected to be of type "str", but is type "{type(key)}"')
@@ -51,12 +48,12 @@ def kebab_to_snake_case_keys(d: dict[str, dict | list | str | int]) -> dict:
 
 
 class BDBAApiRoutes:
-    '''
+    """
     calculates API routes (URLs) for a subset of the URL endpoints exposed by
     "BDBA"
 
     Not intended to be instantiated by users of this module
-    '''
+    """
 
     def __init__(self, base_url):
         if base_url is None:
@@ -73,7 +70,7 @@ class BDBAApiRoutes:
         if group_id is not None:
             url = bu.urljoin(url, str(group_id))
 
-        search_query = ' '.join(['meta:' + str(k) + '=' + str(v) for k,v in custom_attribs.items()])
+        search_query = ' '.join(['meta:' + str(k) + '=' + str(v) for k, v in custom_attribs.items()])
         if search_query:
             url += '?' + urllib.parse.urlencode({'q': search_query})
 
@@ -112,7 +109,7 @@ class BDBAApiRoutes:
     def export_product(
         self,
         product_id: int | str,
-        sbom_format: bm.SBomFormat=bm.SBomFormat.BDIO,
+        sbom_format: bm.SBomFormat = bm.SBomFormat.BDIO,
     ) -> str:
         url = self._api_url('product', str(product_id), f'?format={sbom_format}')
         if bm.SBomFormat(sbom_format) is bm.SBomFormat.CYCLONEDX:
@@ -126,14 +123,15 @@ class BDBAApiRoutes:
 
 
 def check_http_code(function):
-    '''
+    """
     a decorator that will check on `requests.Response` instances returned by HTTP requests
     issued with `requests`. In case the response code indicates an error, a warning is logged
     and a `requests.HTTPError` is raised.
 
     @param: the function to wrap; should be `requests.<http-verb>`, e.g. requests.get
     @raises: `requests.HTTPError` if response's status code indicates an error
-    '''
+    """
+
     @functools.wraps(function)
     def http_checker(*args, **kwargs):
         result = function(*args, **kwargs)
@@ -142,6 +140,7 @@ def check_http_code(function):
             logger.warning(f'{result.status_code=} - {result.content=}: {url=}')
         result.raise_for_status()
         return result
+
     return http_checker
 
 
@@ -164,13 +163,14 @@ class LoggingRetry(urllib3.util.retry.Retry):
 
         super().__init__(**(defaults | kwargs))
 
-    def increment(self,
+    def increment(
+        self,
         method=None,
         url=None,
         response=None,
         error=None,
         _pool=None,
-        _stacktrace=None
+        _stacktrace=None,
     ):
         # super().increment will either raise an exception indicating that no retry is to
         # be performed or return a new, modified instance of this class
@@ -185,9 +185,9 @@ class LoggingRetry(urllib3.util.retry.Retry):
 
 def _mount_default_adapter(
     session: requests.Session,
-    connection_pool_cache_size=32, # requests-library default
-    max_pool_size=32, # requests-library default
-    retry_cfg: urllib3.util.retry.Retry=LoggingRetry(),
+    connection_pool_cache_size=32,  # requests-library default
+    max_pool_size=32,  # requests-library default
+    retry_cfg: urllib3.util.retry.Retry = LoggingRetry(),
 ):
     http_adapter = cachecontrol.CacheControlAdapter(
         max_retries=retry_cfg,
@@ -206,7 +206,7 @@ class BDBAApi:
         self,
         api_routes: BDBAApiRoutes,
         token: str,
-        tls_verify: bool=True,
+        tls_verify: bool = True,
     ):
         self._routes = api_routes
         self._token = token
@@ -224,7 +224,7 @@ class BDBAApi:
         else:
             headers = {}
 
-        headers['Authorization'] = f"Bearer {self._token}"
+        headers['Authorization'] = f'Bearer {self._token}'
 
         try:
             timeout = kwargs.pop('timeout')
@@ -260,23 +260,24 @@ class BDBAApi:
         return self._request(self._session.patch, *args, **kwargs)
 
     def _metadata_dict(self, custom_attributes):
-        '''
+        """
         replaces "invalid" underscore characters (setting metadata fails silently if
         those are present). Note: dash characters are implcitly converted to underscore
         by BDBAA. Also, translates `None` to an empty string as header fields with
         `None` are going to be silently ignored while an empty string is used to remove
         a metadata attribute
-        '''
+        """
         return {
             'META-' + str(k).replace('_', '-'): v if v is not None else ''
-            for k,v in custom_attributes.items()
+            for k, v in custom_attributes.items()
         }
 
-    def upload(self,
+    def upload(
+        self,
         application_name: str,
         group_id: str,
         data: collections.abc.Generator[bytes, None, None],
-        replace_id: int=None,
+        replace_id: int = None,
         custom_attribs={},
     ) -> bm.Result:
         if bdba.limits.fits(application_name, limit=bdba.limits.file_name):
@@ -296,11 +297,15 @@ class BDBAApi:
             headers['Replace'] = str(replace_id)
         headers.update(self._metadata_dict(custom_attribs))
 
-        result = self._put(
-            url=url,
-            headers=headers,
-            data=data,
-        ).json().get('results', {})
+        result = (
+            self._put(
+                url=url,
+                headers=headers,
+                data=data,
+            )
+            .json()
+            .get('results', {})
+        )
 
         return dacite.from_dict(
             data_class=bm.Result,
@@ -324,9 +329,13 @@ class BDBAApi:
     def scan_result(self, product_id: int) -> bm.AnalysisResult:
         url = self._routes.product(product_id=product_id)
 
-        result = self._get(
-            url=url,
-        ).json().get('results', {})
+        result = (
+            self._get(
+                url=url,
+            )
+            .json()
+            .get('results', {})
+        )
 
         return dacite.from_dict(
             data_class=bm.AnalysisResult,
@@ -339,7 +348,7 @@ class BDBAApi:
     def wait_for_scan_result(
         self,
         product_id: int,
-        polling_interval_seconds: int=60,
+        polling_interval_seconds: int = 60,
     ) -> bm.AnalysisResult:
         def scan_finished():
             result = self.scan_result(product_id=product_id)
@@ -425,7 +434,7 @@ class BDBAApi:
                 'scope': scope,
                 'version': component_version,
                 'description': description,
-            }
+            },
         ).json()['triages']
 
         return [
@@ -438,18 +447,19 @@ class BDBAApi:
                     },
                     cast=[enum.Enum],
                 ),
-            ) for triage_dict in result
+            )
+            for triage_dict in result
         ]
 
     def add_triage(
         self,
         triage: bm.Triage,
-        scope: bm.TriageScope=None,
+        scope: bm.TriageScope = None,
         product_id=None,
         group_id=None,
         component_version=None,
     ):
-        '''
+        """
         adds an existing BDBA triage to a specified target. The existing triage is usually
         retrieved from an already uploaded product (which is represented by `AnalysisResult`).
         This method is offered to support "transporting" existing triages.
@@ -467,7 +477,7 @@ class BDBAApi:
         @param product_id: target product_id. required iff scope in FN, FH, R
         @param group_id: target group_id. required iff scope is G(ROUP)
         @param component_version: overwrite target component version
-        '''
+        """
         # if no scope is set, use the one from passed triage
         scope = scope if scope else triage.scope
 
@@ -504,9 +514,7 @@ class BDBAApi:
 
         return self.add_triage_raw(triage_dict=triage_dict)
 
-    def add_triage_raw(
-        self, triage_dict: dict
-    ):
+    def add_triage_raw(self, triage_dict: dict):
         url = self._routes.triage()
         try:
             res = self._put(
@@ -549,16 +557,16 @@ class BDBAApi:
         component_name: str,
         component_version: str,
         objects: list[str],
-        scope: bm.VersionOverrideScope=bm.VersionOverrideScope.APP,
-        app_id: int=None,
-        group_id: int=None,
+        scope: bm.VersionOverrideScope = bm.VersionOverrideScope.APP,
+        app_id: int = None,
+        group_id: int = None,
     ):
-        '''
+        """
         @param component_name: component name as reported by bdba
         @param component_version: version to set as override
         @param objects: list of sha1-digests (as reported by BDBA)
         @param scope: see VersionOverrideScope enum
-        '''
+        """
         url = self._routes.version_override()
 
         override_dict = {
@@ -570,9 +578,7 @@ class BDBAApi:
 
         if scope is bm.VersionOverrideScope.APP:
             if not app_id:
-                raise RuntimeError(
-                    'An App ID is required when overriding versions with App scope.'
-                )
+                raise RuntimeError('An App ID is required when overriding versions with App scope.')
             override_dict['app_scope'] = app_id
         elif scope is bm.VersionOverrideScope.GROUP:
             if not group_id:
@@ -588,7 +594,7 @@ class BDBAApi:
             json=[override_dict],
         ).json()
 
-    def pdf_report(self, product_id: int, cvss_version: bm.CVSSVersion=bm.CVSSVersion.V3):
+    def pdf_report(self, product_id: int, cvss_version: bm.CVSSVersion = bm.CVSSVersion.V3):
         url = self._routes.pdf_report(product_id)
 
         if cvss_version is bm.CVSSVersion.V2:
@@ -611,7 +617,7 @@ class BDBAApi:
     def create_key(
         self,
         validity_seconds: int,
-        timeout: int=60,
+        timeout: int = 60,
     ) -> dict:
         return self._post(
             url=self._routes.api_key(),
@@ -621,7 +627,7 @@ class BDBAApi:
 
     def bdio_export(
         self,
-        product_id: int | str
+        product_id: int | str,
     ) -> bm.BDIO:
         url = self._routes.export_product(product_id)
         response = self._get(url=url)
@@ -642,7 +648,7 @@ class BDBAApi:
     def export_sbom(
         self,
         product_id: int | str,
-        sbom_format: bm.SBomFormat
+        sbom_format: bm.SBomFormat,
     ) -> dict | bm.BDIO:
         url = self._routes.export_product(product_id, sbom_format=sbom_format)
 

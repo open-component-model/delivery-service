@@ -36,9 +36,9 @@ class KubernetesApi:
 
 
 def kubernetes_api(
-    kubernetes_cfg: secret_mgmt.kubernetes.Kubernetes | dict | None=None,
-    kubeconfig_path: str | None=None,
-    kubernetes_client_cfg: kubernetes.client.Configuration | None=None,
+    kubernetes_cfg: secret_mgmt.kubernetes.Kubernetes | dict | None = None,
+    kubeconfig_path: str | None = None,
+    kubernetes_client_cfg: kubernetes.client.Configuration | None = None,
 ) -> KubernetesApi:
     if kubernetes_cfg:
         if isinstance(kubernetes_cfg, secret_mgmt.kubernetes.Kubernetes):
@@ -64,14 +64,14 @@ def kubernetes_api(
 
 
 def generate_kubernetes_suffix(
-    prefix: str='',
-    max_suffix_length: int=5,
+    prefix: str = '',
+    max_suffix_length: int = 5,
 ) -> str:
-    '''
+    """
     Generates a random name for a resource in the same way the kubernetes api would (appending
     a suffix of up to 5 random alphanumeric characters while ignoring vowels and 0, 1, 3 to
     reduce changes of "bad words" being formed).
-    '''
+    """
     alphanums = 'bcdfghjklmnpqrstvwxyz2456789'
     # max kubernetes name length is 63
     suffix_length = min(max_suffix_length, 63 - len(prefix))
@@ -80,15 +80,12 @@ def generate_kubernetes_suffix(
 
 def generate_kubernetes_name(
     name_parts: tuple[str],
-    generate_num_suffix: bool=True,
+    generate_num_suffix: bool = True,
 ) -> str:
     def to_snake_case(s: str) -> str:
         return re.sub(r'([A-Z]{1})', r'_\1', s).lower()
 
-    name_parts = tuple(
-        to_snake_case(part.lower()).replace("_", "-")
-        for part in name_parts
-    )
+    name_parts = tuple(to_snake_case(part.lower()).replace('_', '-') for part in name_parts)
 
     name = '-'.join(name_parts)
 
@@ -121,8 +118,8 @@ def scale_replicas(
     namespace: str,
     kubernetes_api: KubernetesApi,
     desired_replicas: int,
-    max_retries: int=3,
-    retry_count: int=0,
+    max_retries: int = 3,
+    retry_count: int = 0,
 ):
     name = generate_kubernetes_name(
         name_parts=(service,),
@@ -183,7 +180,7 @@ def scale_replicas(
 def get_ocm_node(
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     artefact: odg.model.ComponentArtefactId,
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> ocm.iter.ResourceNode | ocm.iter.SourceNode | None:
     if not odg.model.is_ocm_artefact(artefact.artefact_kind):
         return None

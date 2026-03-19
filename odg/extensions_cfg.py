@@ -66,14 +66,15 @@ class ExtensionCfgMixins:
 
 @dataclasses.dataclass
 class BacklogItemMixins(ExtensionCfgMixins):
-    '''
+    """
     Defines properties and functions which are shared among those extensions which determine their
     workload using the BacklogItem custom resource.
-    '''
+    """
+
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
-        access_type: ocm.AccessType | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
+        access_type: ocm.AccessType | None = None,
     ) -> bool:
         raise NotImplementedError('function must be implemented by derived classes')
 
@@ -118,10 +119,10 @@ class CurrentVersion:
     source: CurrentVersionSource
 
     def retrieve(self) -> str:
-        '''
+        """
         Returns the currently referenced version of the component, i.e. the one referenced in the
         repository.
-        '''
+        """
         if self.source.type is not CurrentVersionSourceType.GITHUB:
             raise ValueError(f'{self.source.type=} is not supported')
 
@@ -200,14 +201,14 @@ class Component:
 @dataclasses.dataclass(kw_only=True)
 class AccessManagerConfig(ExtensionCfgMixins):
     service: Services = Services.ACCESS_MANAGER
-    schedule: str = '*/10 * * * *' # every 10 minutes
+    schedule: str = '*/10 * * * *'  # every 10 minutes
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
 
 @dataclasses.dataclass(kw_only=True)
 class ArtefactEnumeratorConfig(ExtensionCfgMixins):
-    '''
+    """
     :param str delivery_service_url
     :param list[Component] components:
         Components which are classified as "active" and for which compliance snapshots are created.
@@ -218,19 +219,20 @@ class ArtefactEnumeratorConfig(ExtensionCfgMixins):
     :param str schedule
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
-    '''
+    """
+
     service: Services = Services.ARTEFACT_ENUMERATOR
     delivery_service_url: str
     components: list[Component]
-    compliance_snapshot_grace_period: int = 60 * 60 * 24 # 24h
-    schedule: str = '*/5 * * * *' # every 5 minutes
+    compliance_snapshot_grace_period: int = 60 * 60 * 24  # 24h
+    schedule: str = '*/5 * * * *'  # every 5 minutes
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
 
 @dataclasses.dataclass(kw_only=True)
 class BacklogControllerConfig(ExtensionCfgMixins):
-    '''
+    """
     :param int max_replicas:
         Maximum number of replicas per extension to which the backlog controller will scale. Note,
         that the maximum number for the issue replicator is always 1 to ensure consistent GitHub
@@ -241,7 +243,8 @@ class BacklogControllerConfig(ExtensionCfgMixins):
         To prevent backlog items from not being processed in an error case because they are claimed
         infinetly by a single pod, the backlog controller will remove the claim again after this
         period.
-    '''
+    """
+
     service: Services = Services.BACKLOG_CONTROLLER
     max_replicas: int = 5
     backlog_items_per_replica: int = 3
@@ -255,14 +258,15 @@ class Mapping:
 
 @dataclasses.dataclass
 class BDBAMapping(Mapping):
-    '''
+    """
     :param int group_id:
         BDBA group id to use for scanning.
     :param str aws_secret_name
         Name of the AWS secret element to use to retrieve artefacts from S3.
     :param ProcessingMode processing_mode:
         Defines the scanning behaviour in case there is already an existing scan.
-    '''
+    """
+
     group_id: int
     aws_secret_name: str | None
     processing_mode: str = 'rescan'
@@ -270,7 +274,7 @@ class BDBAMapping(Mapping):
 
 @dataclasses.dataclass(kw_only=True)
 class BDBAConfig(BacklogItemMixins):
-    '''
+    """
     :param str delivery_service_url
     :param list[BDBAMapping] mappings
     :param int interval:
@@ -278,11 +282,12 @@ class BDBAConfig(BacklogItemMixins):
     :param WarningVerbosities on_unsupported
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
-    '''
+    """
+
     service: Services = Services.BDBA
     delivery_service_url: str
     mappings: list[BDBAMapping]
-    interval: int = 60 * 60 * 24 # 24h
+    interval: int = 60 * 60 * 24  # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> BDBAMapping:
@@ -294,12 +299,10 @@ class BDBAConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
-        access_type: ocm.AccessType | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
+        access_type: ocm.AccessType | None = None,
     ) -> bool:
-        supported_artefact_kinds = (
-            odg.model.ArtefactKind.RESOURCE,
-        )
+        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
             ocm.AccessType.LOCAL_BLOB,
@@ -383,7 +386,7 @@ class BlackDuckConfig(BacklogItemMixins):
     delivery_service_url: str
     mappings: list[BlackDuckExtensionMapping]
     label_rules: list[BlackDuckLabelRule] = dataclasses.field(default_factory=list)
-    interval: int = 60 * 60 * 24 # 24h
+    interval: int = 60 * 60 * 24  # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> BlackDuckExtensionMapping:
@@ -395,12 +398,10 @@ class BlackDuckConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
-        access_type: ocm.AccessType | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
+        access_type: ocm.AccessType | None = None,
     ) -> bool:
-        supported_artefact_kinds = (
-            odg.model.ArtefactKind.RESOURCE,
-        )
+        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
             ocm.AccessType.LOCAL_BLOB,
@@ -443,18 +444,19 @@ class PpmsReplication(ExtensionCfgMixins):
         default_factory=list
     )
 
-    schedule: str = '0 0 * * *' # daily at 00:00
+    schedule: str = '0 0 * * *'  # daily at 00:00
 
 
 @dataclasses.dataclass(frozen=True)
 class CachePruningWeights:
-    '''
+    """
     The individual weights determine how much the respective values are being considered when
     determining those cache entries which should be deleted next (in case the max cache size is
     reached). The greater the weight, the less likely an entry will be considered for deletion.
     Negative values may be also used to express a property which determines that an entry should
     be deleted. 0 means the property does not affect the priority for the next deletion.
-    '''
+    """
+
     creation_date_weight: float = 0
     last_update_weight: float = 0
     delete_after_weight: float = 0
@@ -470,12 +472,12 @@ class CachePruningWeights:
         return CachePruningWeights(
             creation_date_weight=0,
             last_update_weight=0,
-            delete_after_weight=-1.5, # deletion (i.e. stale) flag -> delete
-            keep_until_weight=-1, # keep until has passed -> delete
-            last_read_weight=-1, # long time no read -> delete
-            read_count_weight=10, # has many reads -> rather not delete
+            delete_after_weight=-1.5,  # deletion (i.e. stale) flag -> delete
+            keep_until_weight=-1,  # keep until has passed -> delete
+            last_read_weight=-1,  # long time no read -> delete
+            read_count_weight=10,  # has many reads -> rather not delete
             revision_weight=0,
-            costs_weight=10, # is expensive to re-calculate -> rather not delete
+            costs_weight=10,  # is expensive to re-calculate -> rather not delete
             size_weight=0,
         )
 
@@ -488,12 +490,14 @@ class FunctionNames(enum.StrEnum):
 @dataclasses.dataclass
 class PrefillFunctionCaches:
     components: list[Component] = dataclasses.field(default_factory=list)
-    functions: list[FunctionNames] = dataclasses.field(default_factory=lambda: [f for f in FunctionNames]) # noqa: E501
+    functions: list[FunctionNames] = dataclasses.field(
+        default_factory=lambda: [f for f in FunctionNames]
+    )  # noqa: E501
 
 
 @dataclasses.dataclass(kw_only=True)
 class CacheManagerConfig(ExtensionCfgMixins):
-    '''
+    """
     :param int max_cache_size_bytes
     :param int min_pruning_bytes:
         If `max_cache_size_bytes` is reached, existing cache entries will be removed according to
@@ -505,29 +509,35 @@ class CacheManagerConfig(ExtensionCfgMixins):
     :param str schedule
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
-    '''
+    """
+
     service: Services = Services.CACHE_MANAGER
-    max_cache_size_bytes: int = 1000000000 # 1Gb
-    min_pruning_bytes: int = 100000000 # 100Mb
-    cache_pruning_weights: CachePruningWeights = dataclasses.field(default_factory=CachePruningWeights.default) # noqa: E501
-    prefill_function_caches: PrefillFunctionCaches = dataclasses.field(default_factory=PrefillFunctionCaches) # noqa: E501
-    schedule: str = '*/10 * * * *' # every 10 minutes
+    max_cache_size_bytes: int = 1000000000  # 1Gb
+    min_pruning_bytes: int = 100000000  # 100Mb
+    cache_pruning_weights: CachePruningWeights = dataclasses.field(
+        default_factory=CachePruningWeights.default
+    )  # noqa: E501
+    prefill_function_caches: PrefillFunctionCaches = dataclasses.field(
+        default_factory=PrefillFunctionCaches
+    )  # noqa: E501
+    schedule: str = '*/10 * * * *'  # every 10 minutes
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
 
 @dataclasses.dataclass
 class ClamAVMapping(Mapping):
-    '''
+    """
     :param str aws_secret_name
         Name of the AWS secret element to use to retrieve artefacts from S3.
-    '''
+    """
+
     aws_secret_name: str | None
 
 
 @dataclasses.dataclass(kw_only=True)
 class ClamAVConfig(BacklogItemMixins):
-    '''
+    """
     :param str delivery_service_url
     :param list[ClamAVMapping] mappings
     :param int interval:
@@ -535,11 +545,12 @@ class ClamAVConfig(BacklogItemMixins):
     :param WarningVerbosities on_unsupported
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
-    '''
+    """
+
     service: Services = Services.CLAMAV
     delivery_service_url: str
     mappings: list[ClamAVMapping]
-    interval: int = 60 * 60 * 24 # 24h
+    interval: int = 60 * 60 * 24  # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> ClamAVMapping:
@@ -551,13 +562,11 @@ class ClamAVConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
-        access_type: ocm.AccessType | None=None,
-        artefact_type: str | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
+        access_type: ocm.AccessType | None = None,
+        artefact_type: str | None = None,
     ) -> bool:
-        supported_artefact_kinds = (
-            odg.model.ArtefactKind.RESOURCE,
-        )
+        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
             ocm.AccessType.LOCAL_BLOB,
@@ -605,7 +614,7 @@ class ClamAVConfig(BacklogItemMixins):
 
 @dataclasses.dataclass
 class StandardRef:
-    '''
+    """
     :param str name:
         The name of the standard used to regulate cryptographic usage within software.
     :param str version:
@@ -614,7 +623,8 @@ class StandardRef:
         Reference to a configuration file (YAML) which contains a property `standards` that lists
         known regulatory cryptographic standards, which is used to find the standard described by
         `name` and `version`.
-    '''
+    """
+
     name: str
     version: str
     ref: (
@@ -631,10 +641,7 @@ class StandardRef:
 
         standards_raw = crypto_cfg_raw.get('standards', [])
         for standard_raw in standards_raw:
-            if (
-                standard_raw['name'] == self.name
-                and standard_raw['version'] == self.version
-            ):
+            if standard_raw['name'] == self.name and standard_raw['version'] == self.version:
                 return dacite.from_dict(
                     data_class=crypto_extension.config.Standard,
                     data=standard_raw,
@@ -648,11 +655,12 @@ class StandardRef:
 
 @dataclasses.dataclass
 class LibrariesRef:
-    '''
+    """
     :param SharedCfgReference ref:
         Reference to a configuration file (YAML) which contains a property `libraries` that lists
         known cryptographic libraries by their name.
-    '''
+    """
+
     ref: (
         odg.shared_cfg.SharedCfgGitHubReference
         | odg.shared_cfg.SharedCfgLocalReference
@@ -662,7 +670,7 @@ class LibrariesRef:
 
 @dataclasses.dataclass
 class CryptoMapping(Mapping):
-    '''
+    """
     :param list[StandardRef | Standard] standards:
         References to or inline defined standards the discovered cryptographic assets should be
         validated against.
@@ -675,7 +683,8 @@ class CryptoMapping(Mapping):
         available asset types will be reported.
     :param str aws_secret_name:
         Name of the AWS secret element to use to retrieve artefacts from S3.
-    '''
+    """
+
     standards: list[StandardRef | crypto_extension.config.Standard]
     libraries: list[LibrariesRef | str]
     included_asset_types: list[odg.model.CryptoAssetTypes] | None
@@ -703,7 +712,7 @@ class CryptoMapping(Mapping):
 
 @dataclasses.dataclass(kw_only=True)
 class CryptoConfig(BacklogItemMixins):
-    '''
+    """
     :param str delivery_service_url
     :param list[CryptoMapping] mappings
     :param int interval:
@@ -711,11 +720,12 @@ class CryptoConfig(BacklogItemMixins):
     :param WarningVerbosities on_unsupported:
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
-    '''
+    """
+
     service: Services = Services.CRYPTO
     delivery_service_url: str
     mappings: list[CryptoMapping]
-    interval: int = 60 * 60 * 24 # 24h
+    interval: int = 60 * 60 * 24  # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def mapping(self, name: str, /) -> CryptoMapping:
@@ -727,20 +737,18 @@ class CryptoConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
-        access_type: ocm.AccessType | None=None,
-        artefact_type: str | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
+        access_type: ocm.AccessType | None = None,
+        artefact_type: str | None = None,
     ) -> bool:
-        supported_artefact_kinds = (
-            odg.model.ArtefactKind.RESOURCE,
-        )
+        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
         supported_access_types = (
             ocm.AccessType.OCI_REGISTRY,
             ocm.AccessType.LOCAL_BLOB,
             ocm.AccessType.S3,
         )
         supported_artefact_types_by_access_type = {
-            ocm.AccessType.OCI_REGISTRY: ('ociImage','ociArtifact'),
+            ocm.AccessType.OCI_REGISTRY: ('ociImage', 'ociArtifact'),
             ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
         }
 
@@ -782,7 +790,7 @@ class CryptoConfig(BacklogItemMixins):
 
 @dataclasses.dataclass(kw_only=True)
 class DeliveryDBBackup(ExtensionCfgMixins):
-    '''
+    """
     :param str delivery_service_url
     :param str component_name:
         The desired name of the OCM component which will contain the backup resource.
@@ -799,7 +807,8 @@ class DeliveryDBBackup(ExtensionCfgMixins):
     :param str schedule
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
-    '''
+    """
+
     service: Services = Services.DELIVERY_DB_BACKUP
     delivery_service_url: str
     component_name: str
@@ -807,7 +816,7 @@ class DeliveryDBBackup(ExtensionCfgMixins):
     backup_retention_count: int | None
     initial_version: str = '0.1.0'
     extra_pg_dump_args: list[str] = dataclasses.field(default_factory=list)
-    schedule: str = '0 0 * * *' # every day at 12:00 AM
+    schedule: str = '0 0 * * *'  # every day at 12:00 AM
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
@@ -831,7 +840,7 @@ class FindingsReportConfig(ExtensionCfgMixins):
     service: Services = Services.FINDINGS_REPORT
     delivery_service_url: str
     mappings: list[FindingsReportMapping]
-    schedule: str = '0 2 * * *' # every day at 02:00 AM
+    schedule: str = '0 2 * * *'  # every day at 02:00 AM
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
@@ -848,17 +857,15 @@ class GHASConfig(ExtensionCfgMixins):
     delivery_service_url: str
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     github_instances: list[GitHubInstance] = dataclasses.field(default_factory=list)
-    schedule: str = '0 0 * * *' # every day at 12:00 AM
+    schedule: str = '0 0 * * *'  # every day at 12:00 AM
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
     ) -> bool:
-        supported_artefact_kinds = (
-            odg.model.ArtefactKind.SOURCE,
-        )
+        supported_artefact_kinds = (odg.model.ArtefactKind.SOURCE,)
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
@@ -881,12 +888,14 @@ class ExtensionDefinitionOcmReference:
 class OdgOperatorConfig(ExtensionCfgMixins):
     service: Services = Services.ODG_OPERATOR
     required_extension_names: list[str] = dataclasses.field(default_factory=list)
-    extension_ocm_references: list[ExtensionDefinitionOcmReference] = dataclasses.field(default_factory=list) # noqa: E501
+    extension_ocm_references: list[ExtensionDefinitionOcmReference] = dataclasses.field(
+        default_factory=list
+    )  # noqa: E501
 
 
 @dataclasses.dataclass
 class IssueReplicatorMapping(Mapping):
-    '''
+    """
     :param str github_repository
         GitHub repository name where the issues should be created.
     :param list[str] github_issue_labels_to_preserve:
@@ -895,11 +904,14 @@ class IssueReplicatorMapping(Mapping):
         Number of closed issues to consider when evaluating creating vs re-opening an issue.
     :param MilestoneConfiguration milestones:
         Configuration to overwrite how the configured sprints are turned into GitHub milestones.
-    '''
+    """
+
     github_repository: str
     github_issue_labels_to_preserve: list[str] = dataclasses.field(default_factory=list)
     number_included_closed_issues: int = 100
-    milestones: gcmi.MilestoneConfiguration | dict = dataclasses.field(default_factory=gcmi.MilestoneConfiguration) # noqa: E501
+    milestones: gcmi.MilestoneConfiguration | dict = dataclasses.field(
+        default_factory=gcmi.MilestoneConfiguration
+    )  # noqa: E501
 
     def __post_init__(self):
         if isinstance(self.milestones, dict):
@@ -914,13 +926,15 @@ class IssueReplicatorMapping(Mapping):
 
             if title_sprint_cfg:
                 if (sprint_value_type := title_sprint_cfg.get('value_type')) == 'name':
-                    title_callback = lambda sprint: sprint.name # noqa: E731
+                    title_callback = lambda sprint: sprint.name  # noqa: E731
 
                 elif sprint_value_type == 'date':
                     name = title_sprint_cfg.get('date_name', 'end_date')
                     str_format = title_sprint_cfg.get('date_string_format', '%Y-%m-%d')
 
-                    title_callback = lambda sprint: sprint.find_sprint_date(name).value.strftime(str_format) # noqa: E501 E731
+                    title_callback = lambda sprint: sprint.find_sprint_date(name).value.strftime(
+                        str_format
+                    )  # noqa: E501 E731
 
                 else:
                     raise ValueError(f'invalid milestone sprint value type {sprint_value_type}')
@@ -930,7 +944,7 @@ class IssueReplicatorMapping(Mapping):
 
             if milestone_due_date_cfg := self.milestones.get('due_date'):
                 name = milestone_due_date_cfg['date_name']
-                due_date_callback = lambda sprint: sprint.find_sprint_date(name).value # noqa: E731
+                due_date_callback = lambda sprint: sprint.find_sprint_date(name).value  # noqa: E731
             else:
                 due_date_callback = gcmi.MilestoneConfiguration.due_date_callback
 
@@ -942,7 +956,7 @@ class IssueReplicatorMapping(Mapping):
             )
 
 
-@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25)) # gh-token is valid for 30 min
+@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25))  # gh-token is valid for 30 min
 def github_repository(repo: str) -> github3.repos.Repository:
     github_api_lookup = lookups.github_api_lookup()
     github_repo_lookup = lookups.github_repo_lookup(github_api_lookup)
@@ -950,7 +964,7 @@ def github_repository(repo: str) -> github3.repos.Repository:
     return github_repo_lookup(repo)
 
 
-@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25)) # gh-token is valid for 30 min
+@cachetools.cached(cachetools.TTLCache(maxsize=64, ttl=60 * 25))  # gh-token is valid for 30 min
 def github_api(repo: str) -> github3.github.GitHub:
     github_api_lookup = lookups.github_api_lookup()
 
@@ -959,18 +973,19 @@ def github_api(repo: str) -> github3.github.GitHub:
 
 @dataclasses.dataclass(kw_only=True)
 class IssueReplicatorConfig(BacklogItemMixins):
-    '''
+    """
     :param str delivery_service_url
     :param str delivery_dashboard_url
     :param list[IssueReplicatorMapping] mappings
     :param int interval:
         Time after which an issue must be updated at latest.
-    '''
+    """
+
     service: Services = Services.ISSUE_REPLICATOR
     delivery_service_url: str
     delivery_dashboard_url: str
     mappings: list[IssueReplicatorMapping]
-    interval: int = 60 * 60 # 1h
+    interval: int = 60 * 60  # 1h
 
     def mapping(self, name: str, /) -> IssueReplicatorMapping:
         for mapping in self.mappings:
@@ -981,15 +996,15 @@ class IssueReplicatorConfig(BacklogItemMixins):
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
-        access_type: ocm.AccessType | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
+        access_type: ocm.AccessType | None = None,
     ) -> bool:
-        return True # issue replication works independent of any artefact or access type
+        return True  # issue replication works independent of any artefact or access type
 
 
 @dataclasses.dataclass
 class ResponsibleConfigRule:
-    '''
+    """
     :param str name:
         The name of the rule used for logging purposes.
     :param list[FilterBase] filters:
@@ -1000,24 +1015,21 @@ class ResponsibleConfigRule:
         Specifies how to handle an issue that already has assignees different to those determined
         via this rule. If `None` is specified, the `default_assignee_mode` of the respective
         finding-cfg will be used.
-    '''
+    """
+
     name: str | None
     filters: list[
-        ref.ArtefactFilter
-        | ref.ComponentFilter
-        | ref.DatatypeFilter
-        | ref.MatchAllFilter
+        ref.ArtefactFilter | ref.ComponentFilter | ref.DatatypeFilter | ref.MatchAllFilter
     ] = dataclasses.field(default_factory=list)
-    strategies: list[
-        res.ComponentResponsibles
-        | res.StaticResponsibles
-    ] = dataclasses.field(default_factory=list)
+    strategies: list[res.ComponentResponsibles | res.StaticResponsibles] = dataclasses.field(
+        default_factory=list
+    )
     assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
 
 
 @dataclasses.dataclass(kw_only=True)
 class ResponsiblesConfig(BacklogItemMixins):
-    '''
+    """
     :param str delivery_service_url:
     :param int interval:
         Time after which the responsibles for an artefact must be re-determined at latest.
@@ -1026,35 +1038,35 @@ class ResponsiblesConfig(BacklogItemMixins):
         using `filters`. The first matching rule "wins". In case no rule matches, the responsibles
         extension will not determine any responsibles and instead the default lookup will take
         precedence (i.e. lookup responsibles in findings and as fallback via delivery-service api).
-    '''
+    """
+
     service: Services = Services.RESPONSIBLES
     delivery_service_url: str
-    interval: int = 60 * 60 * 12 # 12h
+    interval: int = 60 * 60 * 12  # 12h
     rules: list[ResponsibleConfigRule] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass(kw_only=True)
 class SASTConfig(BacklogItemMixins):
-    '''
+    """
     :param str delivery_service_url
     :param int interval:
         Time after which an artefact must be re-scanned at latest.
     :param WarningVerbosities on_unsupported
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
-    '''
+    """
+
     service: Services = Services.SAST
     delivery_service_url: str
-    interval: int = 60 * 60 * 24 # 24h
+    interval: int = 60 * 60 * 24  # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
     ) -> bool:
-        supported_artefact_kinds = (
-            odg.model.ArtefactKind.SOURCE,
-        )
+        supported_artefact_kinds = (odg.model.ArtefactKind.SOURCE,)
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
@@ -1068,31 +1080,28 @@ class SASTConfig(BacklogItemMixins):
 
 @dataclasses.dataclass(kw_only=True)
 class OsId(BacklogItemMixins):
-    '''
+    """
     :param str delivery_service_url
     :param int interval:
         Time after which an artefact must be re-scanned at latest.
     :param WarningVerbosities on_unsupported
         Defines the handling if a backlog item should be processed which contains unsupported
         properties, e.g. an unsupported access type.
-    '''
+    """
+
     service: Services = Services.OSID
     delivery_service_url: str
-    interval: int = 60 * 60 * 24 # 24h
+    interval: int = 60 * 60 * 24  # 24h
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
-        access_type: ocm.AccessType | None=None,
-        artefact_type: str | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
+        access_type: ocm.AccessType | None = None,
+        artefact_type: str | None = None,
     ) -> bool:
-        supported_artefact_kinds = (
-            odg.model.ArtefactKind.RESOURCE,
-        )
-        supported_access_types = (
-            ocm.AccessType.OCI_REGISTRY,
-        )
+        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
+        supported_access_types = (ocm.AccessType.OCI_REGISTRY,)
         supported_artefact_types_by_access_type = {
             ocm.AccessType.OCI_REGISTRY: (ocm.ArtefactType.OCI_IMAGE,),
         }
@@ -1134,12 +1143,13 @@ class OsId(BacklogItemMixins):
 
 @dataclasses.dataclass
 class SBOMGeneratorMapping(Mapping):
-    '''
+    """
     :param int group_id:
         BDBA group id to use for scanning.
     :param str aws_secret_name
         Name of the AWS secret element to use to retrieve artefacts from S3.
-    '''
+    """
+
     group_id: int
     aws_secret_name: str | None
 
@@ -1153,20 +1163,15 @@ class SBOMGeneratorConfig(BacklogItemMixins):
     create_new_scan_if_missing: bool = False
     output_format: bdba.model.SBomFormat = bdba.model.SBomFormat.CYCLONEDX
     processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
-    interval: int = 60 * 60 * 24 # 24h
+    interval: int = 60 * 60 * 24  # 24h
 
     def is_supported(
         self,
-        artefact_kind: odg.model.ArtefactKind | None=None,
+        artefact_kind: odg.model.ArtefactKind | None = None,
     ) -> bool:
-        supported_artefact_kinds = (
-            odg.model.ArtefactKind.RESOURCE,
-        )
+        supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
 
-        if (
-            artefact_kind
-            and artefact_kind not in supported_artefact_kinds
-        ):
+        if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for SBOM Generation, '
@@ -1203,15 +1208,17 @@ class ExtensionsConfiguration:
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
     sbom_generator: SBOMGeneratorConfig | None
-    backlog_controller: BacklogControllerConfig = dataclasses.field(default_factory=BacklogControllerConfig) # noqa: E501
+    backlog_controller: BacklogControllerConfig = dataclasses.field(
+        default_factory=BacklogControllerConfig
+    )  # noqa: E501
 
     @staticmethod
     def from_dict(extensions_cfg_raw: dict) -> typing.Self:
-        '''
+        """
         Mixes-in properties of `defaults` into extension specific configuration. Extensions
         configured as `None` or an empty object will also be consider as "active" in case they don't
         require any configuration to be provided.
-        '''
+        """
         # mix-in default values in extension-specific ones
         defaults = extensions_cfg_raw.get('defaults', {})
         for extension, extension_cfg in extensions_cfg_raw.items():
@@ -1237,7 +1244,7 @@ class ExtensionsConfiguration:
     def find_extension_cfg(
         self,
         service: Services,
-        require_enabled: bool=True,
+        require_enabled: bool = True,
     ) -> object | None:
         for extension_name in dataclasses.asdict(self).keys():
             if not (extension_cfg := getattr(self, extension_name)):
@@ -1251,14 +1258,11 @@ class ExtensionsConfiguration:
 
     def enabled_extensions(
         self,
-        convert_to_camel_case: bool=False,
+        convert_to_camel_case: bool = False,
     ) -> collections.abc.Generator[str, None, None]:
         for extension_name in dataclasses.asdict(self).keys():
-            if (
-                not (extension_cfg := getattr(self, extension_name))
-                or not extension_cfg.enabled
-            ):
-                continue # extension is not configured
+            if not (extension_cfg := getattr(self, extension_name)) or not extension_cfg.enabled:
+                continue  # extension is not configured
 
             if not convert_to_camel_case:
                 yield extension_name

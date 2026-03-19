@@ -16,9 +16,7 @@ def extensions_cfg() -> odg.extensions_cfg.ExtensionsConfiguration:
             'enabled': False,
             'mappings': [],
         },
-        'clamav': {
-            'mappings': []
-        },
+        'clamav': {'mappings': []},
     }
     return odg.extensions_cfg.ExtensionsConfiguration.from_dict(raw)
 

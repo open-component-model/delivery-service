@@ -116,7 +116,7 @@ class ArtefactMetadataFilters:
 
     @staticmethod
     def filter_for_rescoring_type(
-        type_filter: list[str]=None,
+        type_filter: list[str] = None,
     ):
         if not type_filter:
             return True
@@ -130,12 +130,12 @@ class ArtefactMetadataFilters:
 class ArtefactMetadataQueries:
     @staticmethod
     async def artefact_queries(
-        artefacts: collections.abc.Iterable[ocm.Resource | ocm.Source]=None,
-        component: ocm.Component | ocm.ComponentIdentity=None,
-        component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById=None,
-        none_ok: bool=False,
+        artefacts: collections.abc.Iterable[ocm.Resource | ocm.Source] = None,
+        component: ocm.Component | ocm.ComponentIdentity = None,
+        component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById = None,
+        none_ok: bool = False,
     ) -> collections.abc.AsyncGenerator[sqle.BooleanClauseList, None, None]:
-        '''
+        """
         Generates single SQL expressions which check for equality with one artefact of `artefacts`.
         If `artefacts` is not specified, `component` _must_ be specified to retrieve all artefacts
         of the given `component`.
@@ -145,7 +145,7 @@ class ArtefactMetadataQueries:
 
         If a property mismatches but the value stored in the database is `None` and `none_ok` is set
         to `True`, the predecate evaluates to `True` anyways.
-        '''
+        """
         if not (artefacts or component):
             raise ValueError('either `artefacts` or `component` must be specified')
 
@@ -161,7 +161,8 @@ class ArtefactMetadataQueries:
                     component: ocm.Component = component_descriptor.component
 
                 artefacts = [
-                    artefact_node.artefact async for artefact_node in ocm.iter_async.iter(
+                    artefact_node.artefact
+                    async for artefact_node in ocm.iter_async.iter(
                         component=component,
                         node_filter=ocm.iter.Filter.artefacts,
                         recursion_depth=0,
@@ -203,7 +204,7 @@ class ArtefactMetadataQueries:
                         dm.ArtefactMetaData.artefact_extra_id_normalised == '',
                     ),
                     dm.ArtefactMetaData.artefact_extra_id_normalised
-                        == odg.model.normalise_artefact_extra_id(
+                    == odg.model.normalise_artefact_extra_id(
                         artefact_extra_id=artefact.extraIdentity,
                     ),
                 ),
@@ -212,10 +213,10 @@ class ArtefactMetadataQueries:
     @staticmethod
     async def component_queries(
         components: tuple[ocm.Component | ocm.ComponentIdentity],
-        none_ok: bool=False,
-        component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById=None,
+        none_ok: bool = False,
+        component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById = None,
     ) -> collections.abc.AsyncGenerator[sqle.BooleanClauseList, None, None]:
-        '''
+        """
         Generates single SQL expressions which check for equality with one component of `components`
         by name and version.
 
@@ -230,7 +231,7 @@ class ArtefactMetadataQueries:
         the database entry. This is especially useful for retrieving BDBA scan results which don't
         contain a component version (for deduplication), to only query scan results for artefact
         versions which are included in the specified component versions.
-        '''
+        """
         for component in components:
             yield sa.and_(
                 # if name or version is missing and `none_ok` is set, set predicate to `True`
@@ -250,13 +251,15 @@ class ArtefactMetadataQueries:
                     ),
                     sa.and_(
                         dm.ArtefactMetaData.component_version is None,
-                        sa.or_(*[
-                            query async for query
-                            in ArtefactMetadataQueries.artefact_queries(
-                                component=component,
-                                component_descriptor_lookup=component_descriptor_lookup,
-                            )
-                        ]),
+                        sa.or_(
+                            *[
+                                query
+                                async for query in ArtefactMetadataQueries.artefact_queries(
+                                    component=component,
+                                    component_descriptor_lookup=component_descriptor_lookup,
+                                )
+                            ]
+                        ),
                     ),
                 ),
             )
@@ -267,24 +270,29 @@ async def findings_for_component(
     finding_type: odg.model.Datatype,
     datasource: odg.model.Datasource,
     db_session: sqlasync.session.AsyncSession,
-    chunk_size: int=50,
+    chunk_size: int = 50,
 ) -> list[odg.model.ArtefactMetadata]:
-    query = await db_session.stream(sa.select(dm.ArtefactMetaData).where(
-        dm.ArtefactMetaData.component_name == component.name,
-        sa.or_(
-            dm.ArtefactMetaData.component_version == component.version,
-            sa.and_(
-                dm.ArtefactMetaData.component_version is None,
-                sa.or_(*[ # check if component versions contains the referenced artefact version
-                    query async for query in ArtefactMetadataQueries.artefact_queries(
-                        component=component,
-                    )
-                ]),
+    query = await db_session.stream(
+        sa.select(dm.ArtefactMetaData).where(
+            dm.ArtefactMetaData.component_name == component.name,
+            sa.or_(
+                dm.ArtefactMetaData.component_version == component.version,
+                sa.and_(
+                    dm.ArtefactMetaData.component_version is None,
+                    sa.or_(
+                        *[  # check if component versions contains the referenced artefact version
+                            query
+                            async for query in ArtefactMetadataQueries.artefact_queries(
+                                component=component,
+                            )
+                        ]
+                    ),
+                ),
             ),
-        ),
-        dm.ArtefactMetaData.type == finding_type,
-        dm.ArtefactMetaData.datasource == datasource,
-    ))
+            dm.ArtefactMetaData.type == finding_type,
+            dm.ArtefactMetaData.datasource == datasource,
+        )
+    )
 
     return [
         db_artefact_metadata_row_to_dso(row)
@@ -297,20 +305,22 @@ async def rescorings_for_component(
     component: ocm.Component | ocm.ComponentIdentity,
     finding_type: odg.model.Datatype,
     db_session: sqlasync.session.AsyncSession,
-    chunk_size: int=50,
+    chunk_size: int = 50,
 ) -> list[odg.model.ArtefactMetadata]:
-    rescorings_query = await db_session.stream(sa.select(dm.ArtefactMetaData).where(
-        sa.or_(
-            dm.ArtefactMetaData.component_name is None,
-            dm.ArtefactMetaData.component_name == component.name,
-        ),
-        sa.or_(
-            dm.ArtefactMetaData.component_version is None,
-            dm.ArtefactMetaData.component_version == component.version,
-        ),
-        dm.ArtefactMetaData.type == odg.model.Datatype.RESCORING,
-        dm.ArtefactMetaData.referenced_type == finding_type,
-    ))
+    rescorings_query = await db_session.stream(
+        sa.select(dm.ArtefactMetaData).where(
+            sa.or_(
+                dm.ArtefactMetaData.component_name is None,
+                dm.ArtefactMetaData.component_name == component.name,
+            ),
+            sa.or_(
+                dm.ArtefactMetaData.component_version is None,
+                dm.ArtefactMetaData.component_version == component.version,
+            ),
+            dm.ArtefactMetaData.type == odg.model.Datatype.RESCORING,
+            dm.ArtefactMetaData.referenced_type == finding_type,
+        )
+    )
 
     return [
         db_artefact_metadata_row_to_dso(row)

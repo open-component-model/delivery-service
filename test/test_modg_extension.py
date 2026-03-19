@@ -26,7 +26,9 @@ def extension_definitions():
 
 
 def test_jsonpatch_patch():
-    assert {'foo': {'bar': {'foo.bar': 42}}} == odgu.patch_jsonpath_into_dict('foo.bar."foo.bar"', 42) # noqa: E501
+    assert {'foo': {'bar': {'foo.bar': 42}}} == odgu.patch_jsonpath_into_dict(
+        'foo.bar."foo.bar"', 42
+    )  # noqa: E501
 
 
 def test_extensions(extension_definitions):
@@ -41,10 +43,12 @@ def test_extensions(extension_definitions):
         for raw in extension_definitions
     ]
 
-    missing = set(odgc.iter_missing_dependencies(
-        requested=(dd,),
-        known=(ds, dd, db, sb),
-    ))
+    missing = set(
+        odgc.iter_missing_dependencies(
+            requested=(dd,),
+            known=(ds, dd, db, sb),
+        )
+    )
     assert missing == set([ds, db])
 
     context = {
@@ -52,10 +56,12 @@ def test_extensions(extension_definitions):
         'target_namespace': 'my-target-namespace',
     }
 
-    outputs = dict([
-        (extension_definition.name, extension_definition.templated_outputs(context))
-        for extension_definition in (dd, ds, db)
-    ])
+    outputs = dict(
+        [
+            (extension_definition.name, extension_definition.templated_outputs(context))
+            for extension_definition in (dd, ds, db)
+        ]
+    )
 
     ds_outputs = outputs['delivery-service']
     assert ds_outputs[0].name == 'delivery-service-url'
@@ -106,10 +112,12 @@ def test_extensions(extension_definitions):
         'foo': 'bar.default-domain.com',
     }
 
-    missing = set(odgc.iter_missing_dependencies(
-        requested=(sb,),
-        known=(ds, dd, db, sb),
-    ))
+    missing = set(
+        odgc.iter_missing_dependencies(
+            requested=(sb,),
+            known=(ds, dd, db, sb),
+        )
+    )
     assert missing == {ds, db}
 
     assert sb.templated_outputs(context) == []

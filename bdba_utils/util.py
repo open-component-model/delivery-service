@@ -28,7 +28,7 @@ def iter_existing_findings(
     delivery_client: delivery.client.DeliveryServiceClient,
     resource_node: ocm.iter.ResourceNode,
     finding_type: odg.model.Datatype | tuple[odg.model.Datatype],
-    datasource: odg.model.Datasource=odg.model.Datasource.BDBA,
+    datasource: odg.model.Datasource = odg.model.Datasource.BDBA,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     artefact = odg.model.component_artefact_id_from_ocm(
         component=resource_node.component_id,
@@ -50,9 +50,9 @@ def iter_existing_findings(
 def iter_artefact_metadata(
     scanned_element: ocm.iter.ResourceNode,
     scan_result: bm.AnalysisResult,
-    delivery_client: delivery.client.DeliveryServiceClient=None,
-    vulnerability_cfg: odg.findings.Finding | None=None,
-    license_cfg: odg.findings.Finding | None=None,
+    delivery_client: delivery.client.DeliveryServiceClient = None,
+    vulnerability_cfg: odg.findings.Finding | None = None,
+    license_cfg: odg.findings.Finding | None = None,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     discovery_date = datetime.date.today()
@@ -98,14 +98,12 @@ def iter_artefact_metadata(
 
         filesystem_paths = list(iter_filesystem_paths(component=package))
 
-        license_names = {
-            license.name
-            for license in package.iter_licenses
-        }
+        license_names = {license.name for license in package.iter_licenses}
         licenses = [
             odg.model.License(
                 name=license_name,
-            ) for license_name in license_names
+            )
+            for license_name in license_names
         ]
 
         meta = odg.model.Metadata(
@@ -179,7 +177,7 @@ def iter_artefact_metadata(
 
             for vulnerability in package.vulnerabilities:
                 if vulnerability.okay_to_skip:
-                    continue # we only support active vulnerabilities with a valid cvss v3 vector
+                    continue  # we only support active vulnerabilities with a valid cvss v3 vector
 
                 categorisation = odg.findings.categorise_finding(
                     finding_cfg=vulnerability_cfg,
@@ -274,16 +272,18 @@ def iter_artefact_metadata(
 
 def iter_filesystem_paths(
     component: bm.Component,
-    file_type: str | None=None,
+    file_type: str | None = None,
 ) -> collections.abc.Generator[odg.model.FilesystemPath, None, None]:
     for ext_obj in component.extended_objects:
         path = [
             odg.model.FilesystemPathEntry(
                 path=path,
                 type=type,
-            ) for path_infos in ext_obj.extended_fullpath
+            )
+            for path_infos in ext_obj.extended_fullpath
             if (
-                (path := path_infos.get('path')) and (type := path_infos.get('type'))
+                (path := path_infos.get('path'))
+                and (type := path_infos.get('type'))
                 and (not file_type or file_type == type)
             )
         ]
@@ -305,19 +305,19 @@ def enum_triages(
 
 def component_artefact_metadata(
     resource_node: ocm.iter.ResourceNode,
-    omit_resource_strict_id: bool=False,
+    omit_resource_strict_id: bool = False,
 ) -> dict:
-    '''
+    """
     Returns a dict for querying bdba scan results (use for custom-data query). If
     `omit_resource_strict_id` is set, the resource version and extra id are not included in the
     result to allow querying of related (but not equal) scans.
-    '''
+    """
     component = resource_node.component
     resource = resource_node.resource
 
     metadata = {
         'COMPONENT_NAME': component.name,
-        'IMAGE_REFERENCE_NAME': resource.name, # deprecated, will be replaced with `RESOURCE_NAME`
+        'IMAGE_REFERENCE_NAME': resource.name,  # deprecated, will be replaced with `RESOURCE_NAME`
         'RESOURCE_TYPE': resource.type,
     }
 

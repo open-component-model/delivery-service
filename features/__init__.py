@@ -41,11 +41,12 @@ feature_cfgs = []
 
 @dataclasses.dataclass(frozen=True)
 class SprintRules:
-    '''
+    """
     Sprint rules can be used to enrich the special components cfg. The properties
     `frozenFrom` and `frozenUntil` have to be names of valid date fields of the
     `Sprint` object.
-    '''
+    """
+
     frozenFrom: str
     frozenUntil: str
     frozenWarningOffsetDays: int | None
@@ -60,7 +61,7 @@ class SpecialComponentDependency:
 
 @dataclasses.dataclass
 class SpecialComponentsCfg:
-    '''
+    """
     Represents configuration for a single special component. These are used to
     enrich components with further semantics and they are shown on the landing
     page of the Delivery-Dashboard and as pinned component.
@@ -91,7 +92,8 @@ class SpecialComponentsCfg:
     :param list[SpecialComponentDependency] dependencies:
         (optional), list of dependencies in a certain version which belong to
         the `currentVersion` of the component
-    '''
+    """
+
     id: str
     name: str
     displayName: str
@@ -107,7 +109,7 @@ class SpecialComponentsCfg:
 
 @dataclasses.dataclass(frozen=True)
 class ComponentWithDownloadableTestResults:
-    '''
+    """
     Represents configuration for a single component which contains test results as asset.
 
     :param str componentName:
@@ -126,7 +128,8 @@ class ComponentWithDownloadableTestResults:
         (required), name of the component which is used to name the download file, it is
         concatenated with the current component version, if no downloadableName is specified,
         it defaults to the name of the component
-    '''
+    """
+
     componentName: str
     description: str
     assetNamePrefixes: list[str]
@@ -145,8 +148,7 @@ class Profile:
         finding_cfgs: list[odg.findings.Finding],
     ) -> list[odg.findings.Finding]:
         return [
-            finding_cfg for finding_cfg in finding_cfgs
-            if finding_cfg.type in self.finding_types
+            finding_cfg for finding_cfg in finding_cfgs if finding_cfg.type in self.finding_types
         ]
 
     def filter_special_components(
@@ -154,7 +156,8 @@ class Profile:
         special_components: list[SpecialComponentsCfg],
     ) -> list[SpecialComponentsCfg]:
         return [
-            special_component for special_component in special_components
+            special_component
+            for special_component in special_components
             if special_component.id in self.special_component_ids
         ]
 
@@ -168,7 +171,7 @@ class FeatureStates(enum.Enum):
 class FeatureBase:
     state: FeatureStates
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         return dataclasses.asdict(self)
 
 
@@ -218,7 +221,7 @@ class FeatureAddressbook(FeatureBase):
 
         return github_mappings
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -231,7 +234,7 @@ class FeatureAuthentication(FeatureBase):
     signing_cfgs: list[secret_mgmt.signing_cfg.SigningCfg] = dataclasses.field(default_factory=list)
     oauth_cfgs: list[secret_mgmt.oauth_cfg.OAuthCfg] = dataclasses.field(default_factory=list)
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -266,7 +269,7 @@ class FeatureDeliveryDB(FeatureBase):
     def get_db_url(self) -> str | None:
         return self.db_url
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -278,7 +281,7 @@ class FeatureExtensionsConfiguration(FeatureBase):
     name: str = 'extensions-configuration'
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration | None = None
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -293,7 +296,7 @@ class FeatureFindingConfigurations(FeatureBase):
     name: str = 'finding-configurations'
     finding_cfgs: list[odg.findings.Finding] = dataclasses.field(default_factory=list)
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         if profile:
             finding_cfgs_for_profile = profile.filter_finding_cfgs(
                 finding_cfgs=self.finding_cfgs,
@@ -315,7 +318,9 @@ class FeatureProfiles(FeatureBase):
 
     def find_profile(self, name: str | None) -> Profile | None:
         if not name and self.profiles:
-            return self.profiles[0] # if no specific profile is requested, use default one (-> first)
+            return self.profiles[
+                0
+            ]  # if no specific profile is requested, use default one (-> first)
 
         for profile in self.profiles:
             if profile.name == name:
@@ -350,13 +355,15 @@ class FeatureOcmRepositoryCfgs(FeatureBase):
 
         for ocm_repository_cfg in self.ocm_repository_cfgs:
             ocm_repository_cfg_raw = util.dict_serialisation(ocm_repository_cfg)
-            ocm_repository_cfg_raw['repositories'] = list(ocm_repository_cfg.iter_ocm_repositories(
-                ocm_repository_cfgs=self.ocm_repository_cfgs,
-            ))
+            ocm_repository_cfg_raw['repositories'] = list(
+                ocm_repository_cfg.iter_ocm_repositories(
+                    ocm_repository_cfgs=self.ocm_repository_cfgs,
+                )
+            )
 
             yield ocm_repository_cfg_raw
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -376,7 +383,7 @@ class FeatureSpecialComponents(FeatureBase):
 
         return None
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         if profile:
             special_components_for_profile = profile.filter_special_components(
                 special_components=self.special_components,
@@ -388,7 +395,8 @@ class FeatureSpecialComponents(FeatureBase):
             dataclasses.replace(
                 special_component,
                 version=special_component.version.retrieve(),
-            ) if isinstance(special_component.version, odg.extensions_cfg.CurrentVersion)
+            )
+            if isinstance(special_component.version, odg.extensions_cfg.CurrentVersion)
             else special_component
             for special_component in special_components_for_profile
         ]
@@ -402,7 +410,7 @@ class FeatureSpecialComponents(FeatureBase):
 
 @dataclasses.dataclass
 class SprintsConfiguration:
-    '''
+    """
     :param str sprint_name_pattern:
         (required), the pattern used to dynamically format the sprint name based on the sprint's end
         date. Format codes are passed-through to Python datetime's "strftime" function, with the
@@ -429,9 +437,10 @@ class SprintsConfiguration:
         allows generation of a sprint based on the sprint end date of another relative sprint, useful
         for example to start with the first sprint only in February and not already in January
     :param SprintMetadata meta:
-    '''
+    """
+
     sprint_name_pattern: str
-    start_date: datetime.date = datetime.date.fromisoformat('2025-01-08') # noqa: E501 default date is compatible with existing implementations
+    start_date: datetime.date = datetime.date.fromisoformat('2025-01-08')  # noqa: E501 default date is compatible with existing implementations
     future_threshold_days: int = 365
     days_per_sprint: int = 14
     cycles: int = 2
@@ -443,15 +452,15 @@ def iter_sprint_dates(
     start_date: datetime.date,
     end_date: datetime.date,
     days_per_sprint: int,
-    offset: int=0,
+    offset: int = 0,
 ) -> collections.abc.Iterable[datetime.date]:
-    '''
+    """
     Yields all dates between (including) `start_date` and (excluding) `end_date` with the interval
     of `days_per_sprint`. If `offset` is specified, the `start_date` will be modified by `offset`
     sprints, e.g. if `offset=-1`, the first yielded sprint will be the sprint before `start_date`
     (this might be helpful to handle corner cases where predecessor and/or successor sprints have to
     be considered as well).
-    '''
+    """
     start_date += datetime.timedelta(days=days_per_sprint * offset)
     current_date = start_date
     offset = 0
@@ -468,11 +477,11 @@ def sprint_number(
     days_per_sprint: int,
     cycles: int,
 ) -> int:
-    '''
+    """
     Returns the number of the sprint for the provided `sprint_date` based on the configured
     `days_per_sprint` and `cycles`, e.g. if `sprint_date='2025-01-07'` and `days_per_sprint=1` and
     `cycles=3`, the corresponding sprint number would be "3".
-    '''
+    """
     day_of_year = int(sprint_date.strftime('%j'))
     return math.ceil(day_of_year / (cycles * days_per_sprint))
 
@@ -483,7 +492,7 @@ def sprint_name(
     sprint_number: int,
     cycle: int,
 ) -> str:
-    '''
+    """
     Formats the passed `sprint_date` according to the `sprint_name_pattern`. The format codes are
     passed-through to Python datetime's `strftime` function, with the following (pre-processed)
     extra-codes:
@@ -491,12 +500,12 @@ def sprint_name(
       note: maximum sprint number depends on the `days_per_sprint` and `cycles` configuration
     - `%C`: if `cycles` are configured, the current cycle, e.g. a, b, ..., z
       note: the maximum cycle depends on the `cycles` configuration
-    '''
+    """
     cycle_options = 'abcdefghijklmnopqrstuvwxyz'
 
-    custom_sprint_format = sprint_name_pattern \
-        .replace('%S', f'{sprint_number:02d}') \
-        .replace('%C', cycle_options[cycle % 26])
+    custom_sprint_format = sprint_name_pattern.replace('%S', f'{sprint_number:02d}').replace(
+        '%C', cycle_options[cycle % 26]
+    )
 
     return sprint_date.strftime(custom_sprint_format)
 
@@ -506,21 +515,20 @@ def iter_sprints(
 ) -> collections.abc.Iterable[yp.Sprint]:
     end_date = datetime.date.today() + datetime.timedelta(days=sprints_cfg.future_threshold_days)
 
-    sprint_dates = list(iter_sprint_dates(
-        start_date=sprints_cfg.start_date,
-        end_date=end_date,
-        days_per_sprint=sprints_cfg.days_per_sprint,
-        offset=sprints_cfg.offset,
-    ))
+    sprint_dates = list(
+        iter_sprint_dates(
+            start_date=sprints_cfg.start_date,
+            end_date=end_date,
+            days_per_sprint=sprints_cfg.days_per_sprint,
+            offset=sprints_cfg.offset,
+        )
+    )
 
     last_sprint_number = None
     current_cycle = 0
 
     for idx, sprint_date in enumerate(sprint_dates):
-        if (
-            (effective_idx := idx + sprints_cfg.offset) < 0
-            or effective_idx >= len(sprint_dates)
-        ):
+        if (effective_idx := idx + sprints_cfg.offset) < 0 or effective_idx >= len(sprint_dates):
             # if the effective idx is out of range, just skip it as those dates have been added to
             # the list via `iter_sprint_dates` anyways as padding only
             continue
@@ -598,13 +606,16 @@ class FeatureSprints(FeatureBase):
                 data=sprint_raw,
                 config=dacite.Config(
                     type_hooks={
-                        datetime.datetime: lambda date: dateutil.parser.isoparse(date) if isinstance(date, str) else date, # noqa: E501
+                        datetime.datetime: lambda date: (
+                            dateutil.parser.isoparse(date) if isinstance(date, str) else date
+                        ),  # noqa: E501
                     },
                 ),
-            ) for sprint_raw in sprints_raw
+            )
+            for sprint_raw in sprints_raw
         ]
 
-    def serialize(self, profile: Profile | None=None) -> dict[str, any]:
+    def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         return {
             'state': self.state,
             'name': self.name,
@@ -660,8 +671,9 @@ def deserialise_profiles(profiles_raw: dict) -> FeatureProfiles:
             dacite.from_dict(
                 data_class=Profile,
                 data=profile_raw,
-            ) for profile_raw in profiles_raw
-        ]
+            )
+            for profile_raw in profiles_raw
+        ],
     )
 
 
@@ -679,9 +691,12 @@ def deserialise_ocm_repository_cfgs(
         for ocm_repository_cfg in ocm_repository_cfgs
         if isinstance(ocm_repository_cfg, lookups.VirtualOcmRepositoryCfg)
     ):
-        ocm_repository_cfgs.insert(0, lookups.VirtualOcmRepositoryCfg(
-            name=lookups.OcmRepositoryCfgNames.AUTO,
-        ))
+        ocm_repository_cfgs.insert(
+            0,
+            lookups.VirtualOcmRepositoryCfg(
+                name=lookups.OcmRepositoryCfgNames.AUTO,
+            ),
+        )
 
     return FeatureOcmRepositoryCfgs(
         FeatureStates.AVAILABLE,
@@ -696,11 +711,12 @@ def deserialise_special_components(special_components_raw: dict) -> FeatureSpeci
             data=special_component_raw,
             config=dacite.Config(
                 type_hooks={
-                    str: lambda s: str(s), # be backwards compatible -> allow plain integers
+                    str: lambda s: str(s),  # be backwards compatible -> allow plain integers
                 },
                 cast=[enum.Enum],
             ),
-        ) for special_component_raw in special_components_raw
+        )
+        for special_component_raw in special_components_raw
     ]
 
     return FeatureSpecialComponents(
@@ -718,7 +734,9 @@ def deserialise_sprints(sprints_raw: dict) -> FeatureSprints:
                 data=sprints_raw,
                 config=dacite.Config(
                     type_hooks={
-                        datetime.date: lambda date: datetime.date.fromisoformat(date) if isinstance(date, str) else date, # noqa: E501
+                        datetime.date: lambda date: (
+                            datetime.date.fromisoformat(date) if isinstance(date, str) else date
+                        ),  # noqa: E501
                     },
                 ),
             ),
@@ -830,9 +848,8 @@ def apply_raw_cfg():
     feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureFindingConfigurations)]
     feature_cfgs.append(finding_cfgs_feature)
 
-    if (
-        (ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True))
-        and (ocm_repository_cfgs_raw := util.parse_yaml_file(ocm_repo_mappings_path))
+    if (ocm_repo_mappings_path := paths.ocm_repo_mappings_path(absent_ok=True)) and (
+        ocm_repository_cfgs_raw := util.parse_yaml_file(ocm_repo_mappings_path)
     ):
         ocm_repository_cfgs_feature = deserialise_ocm_repository_cfgs(
             ocm_repository_cfgs_raw=ocm_repository_cfgs_raw,
@@ -843,9 +860,8 @@ def apply_raw_cfg():
     feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureOcmRepositoryCfgs)]
     feature_cfgs.append(ocm_repository_cfgs_feature)
 
-    if (
-        (profiles_path := paths.profiles_path(absent_ok=True))
-        and (profiles_raw := util.parse_yaml_file(profiles_path))
+    if (profiles_path := paths.profiles_path(absent_ok=True)) and (
+        profiles_raw := util.parse_yaml_file(profiles_path)
     ):
         profiles_feature = deserialise_profiles(profiles_raw=profiles_raw)
     else:
@@ -887,10 +903,12 @@ async def init_features(
         feature_authentication.state is FeatureStates.AVAILABLE
         and not parsed_arguments.shortcut_auth
     ):
-        middlewares.append(middleware.auth.auth_middleware(
-            signing_cfgs=feature_authentication.signing_cfgs,
-            default_auth=middleware.auth.AuthType.BEARER,
-        ))
+        middlewares.append(
+            middleware.auth.auth_middleware(
+                signing_cfgs=feature_authentication.signing_cfgs,
+                default_auth=middleware.auth.AuthType.BEARER,
+            )
+        )
     feature_cfgs.append(feature_authentication)
 
     cluster_access_feature = FeatureClusterAccess(FeatureStates.UNAVAILABLE)
@@ -916,16 +934,15 @@ async def init_features(
     feature_cfgs.append(cluster_access_feature)
 
     delivery_db_feature_state = FeatureStates.UNAVAILABLE
-    if (db_url := parsed_arguments.delivery_db_url):
+    if db_url := parsed_arguments.delivery_db_url:
         delivery_db_feature_state = FeatureStates.AVAILABLE
     else:
-
         if cluster_access_feature.state is FeatureStates.AVAILABLE:
             try:
                 delivery_db_cfgs = secret_factory.delivery_db()
                 if len(delivery_db_cfgs) != 1:
                     raise ValueError(
-                        f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}' # noqa: E501
+                        f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}'  # noqa: E501
                     )
 
                 delivery_db_cfg: secret_mgmt.delivery_db.DeliveryDB = delivery_db_cfgs[0]
@@ -942,10 +959,12 @@ async def init_features(
             )
 
     if delivery_db_feature_state is FeatureStates.AVAILABLE:
-        middlewares.append(await middleware.db_session.db_session_middleware(
-            db_url=db_url,
-            verify_db_session=False,
-        ))
+        middlewares.append(
+            await middleware.db_session.db_session_middleware(
+                db_url=db_url,
+                verify_db_session=False,
+            )
+        )
 
     feature_cfgs.append(FeatureDeliveryDB(delivery_db_feature_state, db_url=db_url))
 
@@ -968,7 +987,7 @@ async def init_features(
 
 class Features(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         description: Returns a list of available and unavailable features with optional extra cfg.
         tags:
@@ -1002,7 +1021,7 @@ class Features(aiohttp.web.View):
                         enum:
                           - available
                           - unavailable
-        '''
+        """
         params = self.request.rel_url.query
 
         profiles_callback = self.request.app[consts.APP_PROFILES_CALLBACK]
@@ -1021,7 +1040,7 @@ class Features(aiohttp.web.View):
 @middleware.auth.noauth
 class Profiles(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         description: Returns a list of available profile names.
         tags:
@@ -1039,7 +1058,7 @@ class Profiles(aiohttp.web.View):
                   type: array
                   items:
                     type: string
-        '''
+        """
         profiles_feature = get_feature(FeatureProfiles)
 
         return aiohttp.web.json_response(

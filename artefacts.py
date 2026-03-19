@@ -13,7 +13,7 @@ import util
 
 class ArtefactBlob(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         description:
           Returns a requested artefact (from a OCM Component) as an octet-stream. This route is
@@ -50,7 +50,7 @@ class ArtefactBlob(aiohttp.web.View):
           description:
             if true and artefact's access is gzipped, returned content will be unzipped (for
             convenience)
-        '''
+        """
         params = self.request.rel_url.query
 
         component_id = util.param(params, 'component', required=True)

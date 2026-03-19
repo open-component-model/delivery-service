@@ -7,10 +7,8 @@ import odg.model
 import version
 
 
-def _parse_os_release(
-    contents: str
-) -> collections.abc.Generator[tuple[str, str], None, None]:
-    '''
+def _parse_os_release(contents: str) -> collections.abc.Generator[tuple[str, str], None, None]:
+    """
     parses the contents of an os-release file
     the expected format of contents is a newline-separated list of key=value pairs
 
@@ -25,7 +23,7 @@ def _parse_os_release(
     each line consists of a key and a value, separated by '='
     values may be enclosed in double quotes
     empty lines are ignored
-    '''
+    """
     for line in contents.split('\n'):
         line = line.strip()
         if not line or line.startswith('#'):
@@ -36,9 +34,7 @@ def _parse_os_release(
         yield (name, value.strip('"'))
 
 
-def _parse_centos_release(
-    contents: str
-) -> collections.abc.Generator[tuple[str,str], None, None]:
+def _parse_centos_release(contents: str) -> collections.abc.Generator[tuple[str, str], None, None]:
     line = contents.strip()
     if not line or '\n' in line:
         raise ValueError('expected a single non-emtpy line')
@@ -48,9 +44,7 @@ def _parse_centos_release(
     yield ('VERSION_ID', version)
 
 
-def _parse_debian_version(
-    contents: str
-) -> collections.abc.Generator[tuple[str,str], None, None]:
+def _parse_debian_version(contents: str) -> collections.abc.Generator[tuple[str, str], None, None]:
     line = contents.strip()
     if not line or '\n' in line:
         raise ValueError('expected a single non-emtpy line')
@@ -59,10 +53,8 @@ def _parse_debian_version(
     yield ('VERSION_ID', line)
 
 
-def determine_osinfo(
-    tarfh: tarfile.TarFile
-) -> odg.model.OperatingSystemId | None:
-    '''
+def determine_osinfo(tarfh: tarfile.TarFile) -> odg.model.OperatingSystemId | None:
+    """
     tries to determine the operating system identification, roughly as specified by
         https://www.freedesktop.org/software/systemd/man/os-release.html
     and otherwise following some conventions believed to be common.
@@ -79,7 +71,7 @@ def determine_osinfo(
 
     In case nothing was recognised within the given tarfile, the returned OperatingSystemId's
     attributes will all be `None`.
-    '''
+    """
     known_fnames = (
         'debian_version',
         'centos-release',
@@ -105,25 +97,28 @@ def determine_osinfo(
         contents = tarfh.extractfile(info).read().decode('utf-8')
 
         if fname == 'os-release':
-            for k,v in _parse_os_release(contents):
+            for k, v in _parse_os_release(contents):
                 if k in os_info:
-                    if k == 'VERSION_ID' and version.is_semver_parseable(v) and \
-                        not version.is_semver_parseable(os_info[k]):
+                    if (
+                        k == 'VERSION_ID'
+                        and version.is_semver_parseable(v)
+                        and not version.is_semver_parseable(os_info[k])
+                    ):
                         pass
                     else:
-                        continue # os-release has lesser precedence
+                        continue  # os-release has lesser precedence
                 os_info[k] = v
             if os_info.get('ID') == 'ubuntu' and (ver := os_info.get('VERSION')):
                 # of _course_ ubuntu requires a special hack
                 os_info['VERSION_ID'] = ver.split(' ', 1)[0]
         elif fname == 'centos-release':
-            for k,v in _parse_centos_release(contents):
+            for k, v in _parse_centos_release(contents):
                 os_info[k] = v
         elif fname == 'debian_version':
-            for k,v in _parse_debian_version(contents):
+            for k, v in _parse_debian_version(contents):
                 if k in os_info:
                     if not version.is_semver_parseable(v):
-                        continue # e.g. ubuntu has "misleading" debian_version
+                        continue  # e.g. ubuntu has "misleading" debian_version
                 os_info[k] = v
         else:
             raise NotImplementedError(fname)

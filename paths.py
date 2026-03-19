@@ -83,7 +83,7 @@ def github_mappings_candidates() -> collections.abc.Generator[str, None, None]:
 
 def find_path(
     candidates: collections.abc.Iterable[str],
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> str | None:
     for candidate in candidates:
         if not os.path.isfile(candidate):
@@ -99,7 +99,7 @@ def find_path(
 
 
 def features_cfg_path(
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> str | None:
     return find_path(
         candidates=features_cfg_candidates(),
@@ -108,7 +108,7 @@ def features_cfg_path(
 
 
 def extensions_cfg_path(
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> str | None:
     return find_path(
         candidates=extensions_cfg_candidates(),
@@ -117,7 +117,7 @@ def extensions_cfg_path(
 
 
 def findings_cfg_path(
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> str | None:
     return find_path(
         candidates=findings_cfg_candidates(),
@@ -126,7 +126,7 @@ def findings_cfg_path(
 
 
 def ocm_repo_mappings_path(
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> str | None:
     return find_path(
         candidates=ocm_repo_mappings_candidates(),
@@ -135,7 +135,7 @@ def ocm_repo_mappings_path(
 
 
 def profiles_path(
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> str | None:
     return find_path(
         candidates=profiles_candidates(),
@@ -144,8 +144,8 @@ def profiles_path(
 
 
 def sprints_path(
-    path_overwrite: str | None=None,
-    absent_ok: bool=False,
+    path_overwrite: str | None = None,
+    absent_ok: bool = False,
 ) -> str | None:
     return find_path(
         candidates=[path_overwrite] if path_overwrite else sprints_candidates(),
@@ -154,8 +154,8 @@ def sprints_path(
 
 
 def addressbook_path(
-    path_overwrite: str | None=None,
-    absent_ok: bool=False,
+    path_overwrite: str | None = None,
+    absent_ok: bool = False,
 ) -> str | None:
     return find_path(
         candidates=[path_overwrite] if path_overwrite else addressbook_candidates(),
@@ -164,8 +164,8 @@ def addressbook_path(
 
 
 def github_mappings_path(
-    path_overwrite: str | None=None,
-    absent_ok: bool=False,
+    path_overwrite: str | None = None,
+    absent_ok: bool = False,
 ) -> str | None:
     return find_path(
         candidates=[path_overwrite] if path_overwrite else github_mappings_candidates(),

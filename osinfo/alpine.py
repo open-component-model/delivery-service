@@ -21,9 +21,9 @@ class AlpineRelease:
 
 @dataclasses.dataclass
 class AlpineReleaseBranch:
-    arches: list[str] # architectures (x86_64, aarch64, ..)
+    arches: list[str]  # architectures (x86_64, aarch64, ..)
     git_branch: str
-    rel_branch: str # either edge, latest-stable, or v<major>.<minor>
+    rel_branch: str  # either edge, latest-stable, or v<major>.<minor>
 
     # optional attrs are present only for release-branches (not for edge)
     repos: list[dict[str, str]] | None = None
@@ -35,10 +35,7 @@ class AlpineReleaseBranch:
         if not self.releases:
             return None
 
-        greatest = sorted(
-            self.releases,
-            key=lambda r: version.parse_to_semver(r.version)
-        )[-1]
+        greatest = sorted(self.releases, key=lambda r: version.parse_to_semver(r.version))[-1]
 
         return greatest
 
@@ -58,10 +55,11 @@ class AlpineReleaseBranch:
 
 @dataclasses.dataclass
 class AlpineReleases:
-    '''
+    """
     root document as returned from https://alpinelinux.org/releases.json
     found at: https://gitlab.alpinelinux.org/alpine/infra/docker/secdb/-/merge_requests/1/diffs
-    '''
+    """
+
     latest_stable: str
     architectures: list[str]
     release_branches: list[AlpineReleaseBranch]
@@ -88,13 +86,13 @@ class Routes:
     def branches(self):
         return self._base_url
 
-    def latest_releases(self, branch: str, architecture: str='x86_64'):
-        '''
+    def latest_releases(self, branch: str, architecture: str = 'x86_64'):
+        """
         returns URL pointing to 'latest-releases.yaml'
 
         branch: alpine release (version w/o patch-level, e.g. v3.14, v3.15, ..)
         architecture: aarch64, x86_64, ..
-        '''
+        """
 
         return util.urljoin(
             self._base_url,
@@ -136,7 +134,7 @@ class Client:
 
         return self._cached_releases
 
-    async def latest_release(self, branch: str, architecture: str='x86_64'):
+    async def latest_release(self, branch: str, architecture: str = 'x86_64'):
         url = self.routes.latest_releases(branch=branch, architecture=architecture)
 
         async with aiohttp.ClientSession() as session:

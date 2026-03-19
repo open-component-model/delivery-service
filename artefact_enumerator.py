@@ -29,11 +29,12 @@ k8s.logging.configure_kubernetes_logging()
 
 @dataclasses.dataclass
 class UncommittedBacklogItem:
-    '''
+    """
     To prevent backlog items from being created too early, i.e. when the compliance snapshots have
     not been updated yet in the delivery-db, all to-be-created backlog items are collected and
     created at the very end, once all compliance snapshots have been updated.
-    '''
+    """
+
     artefact: odg.model.ComponentArtefactId
     priority: k8s.backlog.BacklogPriorities
     service: odg.extensions_cfg.Services
@@ -41,8 +42,8 @@ class UncommittedBacklogItem:
 
 def create_compliance_snapshot(
     artefact: odg.model.ComponentArtefactId,
-    now: datetime.datetime=datetime.datetime.now(),
-    today: datetime.date=datetime.date.today(),
+    now: datetime.datetime = datetime.datetime.now(),
+    today: datetime.date = datetime.date.today(),
 ) -> odg.model.ArtefactMetadata:
     meta = odg.model.Metadata(
         datasource=odg.model.Datasource.ARTEFACT_ENUMERATOR,
@@ -52,10 +53,12 @@ def create_compliance_snapshot(
     )
 
     data = odg.model.ComplianceSnapshot(
-        state=[odg.model.ComplianceSnapshotState(
-            timestamp=now,
-            status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
-        )],
+        state=[
+            odg.model.ComplianceSnapshotState(
+                timestamp=now,
+                status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
+            )
+        ],
     )
 
     return odg.model.ArtefactMetadata(
@@ -110,8 +113,8 @@ def _iter_ocm_artefacts(
 def _create_or_update_compliance_snapshot_of_artefact(
     artefact: odg.model.ComponentArtefactId,
     compliance_snapshot: odg.model.ArtefactMetadata | None,
-    now: datetime.datetime=datetime.datetime.now(),
-    today: datetime.date=datetime.date.today(),
+    now: datetime.datetime = datetime.datetime.now(),
+    today: datetime.date = datetime.date.today(),
 ) -> odg.model.ArtefactMetadata:
     if not compliance_snapshot:
         logger.info(f'creating compliance snapshot for {artefact=}')
@@ -123,10 +126,12 @@ def _create_or_update_compliance_snapshot_of_artefact(
 
     if not compliance_snapshot.data.is_active:
         logger.info(f'updating state of compliance snapshot for {artefact=}')
-        compliance_snapshot.data.update_state(odg.model.ComplianceSnapshotState(
-            timestamp=now,
-            status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
-        ))
+        compliance_snapshot.data.update_state(
+            odg.model.ComplianceSnapshotState(
+                timestamp=now,
+                status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
+            )
+        )
 
     return compliance_snapshot
 
@@ -135,14 +140,14 @@ def _calculate_backlog_item_priority(
     service: odg.extensions_cfg.Services,
     compliance_snapshot: odg.model.ArtefactMetadata,
     interval: int,
-    now: datetime.datetime=datetime.datetime.now(),
-    status: int | None=None,
+    now: datetime.datetime = datetime.datetime.now(),
+    status: int | None = None,
 ) -> k8s.backlog.BacklogPriorities:
-    '''
+    """
     - interval has passed -> priority LOW
     - compliance snapshot was just created -> priority HIGH
     - compliance snapshot status has changed -> priority HIGH
-    '''
+    """
     current_state = compliance_snapshot.data.current_state(
         service=service,
     )
@@ -163,8 +168,8 @@ def _create_backlog_item(
     compliance_snapshot: odg.model.ArtefactMetadata,
     service: odg.extensions_cfg.Services,
     interval_seconds: int,
-    now: datetime.datetime=datetime.datetime.now(),
-    status: int | None=None,
+    now: datetime.datetime = datetime.datetime.now(),
+    status: int | None = None,
 ) -> tuple[odg.model.ArtefactMetadata, UncommittedBacklogItem | None]:
     priority = _calculate_backlog_item_priority(
         service=service,
@@ -180,11 +185,13 @@ def _create_backlog_item(
 
     # there is a need to create a new backlog item, thus update the state of the compliance snapshot
     # of this artefact so that the configured interval can be acknowledged correctly
-    compliance_snapshot.data.update_state(odg.model.ComplianceSnapshotState(
-        timestamp=now,
-        status=status,
-        service=service,
-    ))
+    compliance_snapshot.data.update_state(
+        odg.model.ComplianceSnapshotState(
+            timestamp=now,
+            status=status,
+            service=service,
+        )
+    )
 
     uncommitted_backlog_item = UncommittedBacklogItem(
         artefact=artefact,
@@ -202,14 +209,12 @@ def _create_backlog_item_for_extension(
     compliance_snapshot: odg.model.ArtefactMetadata,
     service: odg.extensions_cfg.Services,
     interval_seconds: int,
-    now: datetime.datetime=datetime.datetime.now(),
+    now: datetime.datetime = datetime.datetime.now(),
 ) -> tuple[odg.model.ArtefactMetadata, UncommittedBacklogItem | None]:
     if not any(
-        finding_cfg for finding_cfg in finding_cfgs
-        if (
-            finding_cfg.type in finding_types
-            and finding_cfg.matches(artefact)
-        )
+        finding_cfg
+        for finding_cfg in finding_cfgs
+        if (finding_cfg.type in finding_types and finding_cfg.matches(artefact))
     ):
         # findings are filtered out for this artefact anyways -> no need to create a BLI
         return compliance_snapshot, None
@@ -229,8 +234,8 @@ def _process_compliance_snapshot_of_artefact(
     delivery_client: delivery.client.DeliveryServiceClient,
     artefact: odg.model.ComponentArtefactId,
     compliance_snapshot: odg.model.ArtefactMetadata | None,
-    now: datetime.datetime=datetime.datetime.now(),
-    today: datetime.date=datetime.date.today(),
+    now: datetime.datetime = datetime.datetime.now(),
+    today: datetime.date = datetime.date.today(),
 ) -> tuple[odg.model.ArtefactMetadata, list[UncommittedBacklogItem]]:
     compliance_snapshot = _create_or_update_compliance_snapshot_of_artefact(
         artefact=artefact,
@@ -309,15 +314,14 @@ def _process_compliance_snapshot_of_artefact(
         if uncommitted_backlog_item:
             uncommitted_backlog_items.append(uncommitted_backlog_item)
 
-    if (
-        extensions_cfg.issue_replicator
-        and extensions_cfg.issue_replicator.enabled
-    ):
+    if extensions_cfg.issue_replicator and extensions_cfg.issue_replicator.enabled:
         # if the number of executed scans has changed, trigger an issue update
-        scan_count = len(delivery_client.query_metadata(
-            artefacts=(artefact,),
-            type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
-        ))
+        scan_count = len(
+            delivery_client.query_metadata(
+                artefacts=(artefact,),
+                type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
+            )
+        )
 
         compliance_snapshot, uncommitted_backlog_item = _create_backlog_item(
             artefact=artefact,
@@ -330,10 +334,7 @@ def _process_compliance_snapshot_of_artefact(
         if uncommitted_backlog_item:
             uncommitted_backlog_items.append(uncommitted_backlog_item)
 
-    if (
-        extensions_cfg.responsibles
-        and extensions_cfg.responsibles.enabled
-    ):
+    if extensions_cfg.responsibles and extensions_cfg.responsibles.enabled:
         compliance_snapshot, uncommitted_backlog_item = _create_backlog_item(
             artefact=artefact,
             compliance_snapshot=compliance_snapshot,
@@ -401,12 +402,15 @@ def _process_inactive_compliance_snapshots(
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration,
     delivery_client: delivery.client.DeliveryServiceClient,
     compliance_snapshots: list[odg.model.ArtefactMetadata],
-    now: datetime.datetime=datetime.datetime.now(),
+    now: datetime.datetime = datetime.datetime.now(),
 ) -> collections.abc.Generator[
     tuple[
         odg.model.ArtefactMetadata,
         UncommittedBacklogItem | None,
-], None, None]:
+    ],
+    None,
+    None,
+]:
     cs_by_artefact: dict[odg.model.ComponentArtefactId, odg.model.ArtefactMetadata] = {}
     deletable_compliance_snapshots: list[odg.model.ArtefactMetadata] = []
 
@@ -418,17 +422,16 @@ def _process_inactive_compliance_snapshots(
         uncommitted_backlog_item = None
 
         if compliance_snapshot.data.is_active:
-            compliance_snapshot.data.update_state(odg.model.ComplianceSnapshotState(
-                timestamp=now,
-                status=odg.model.ComplianceSnapshotStatuses.INACTIVE,
-            ))
+            compliance_snapshot.data.update_state(
+                odg.model.ComplianceSnapshotState(
+                    timestamp=now,
+                    status=odg.model.ComplianceSnapshotStatuses.INACTIVE,
+                )
+            )
             updated_compliance_snapshot = compliance_snapshot
             logger.info(f'updated inactive compliance snapshot ({artefact=})')
 
-            if (
-                extensions_cfg.issue_replicator
-                and extensions_cfg.issue_replicator.enabled
-            ):
+            if extensions_cfg.issue_replicator and extensions_cfg.issue_replicator.enabled:
                 uncommitted_backlog_item = UncommittedBacklogItem(
                     artefact=artefact,
                     priority=k8s.backlog.BacklogPriorities.HIGH,
@@ -461,7 +464,7 @@ def enumerate_artefacts(
     delivery_client: delivery.client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ):
-    '''
+    """
     Retrieves first of all the unique artefacts referenced by the configured components and the
     available runtime artefacts from the respective custom resources as well as all compliance
     snapshots. These compliance snapshots are differentiated between "active" (still referenced by
@@ -471,16 +474,18 @@ def enumerate_artefacts(
     created). The inactive compliance snapshots are also being updated (status change) and if the
     configured grace period has passed, they are deleted from the delivery-db. Also, for each
     artefact becoming inactive, a backlog item for the issue replicator will be be created.
-    '''
+    """
     # store current date + time to ensure they are consistent for whole enumeration
     now = datetime.datetime.now()
     today = datetime.date.today()
 
-    ocm_artefacts = set(_iter_ocm_artefacts(
-        components=extensions_cfg.artefact_enumerator.components,
-        delivery_client=delivery_client,
-        component_descriptor_lookup=component_descriptor_lookup,
-    ))
+    ocm_artefacts = set(
+        _iter_ocm_artefacts(
+            components=extensions_cfg.artefact_enumerator.components,
+            delivery_client=delivery_client,
+            component_descriptor_lookup=component_descriptor_lookup,
+        )
+    )
     logger.info(f'{len(ocm_artefacts)=}')
 
     runtime_artefacts = {
@@ -504,12 +509,14 @@ def enumerate_artefacts(
     logger.info(f'{len(compliance_snapshots)=}')
 
     active_compliance_snapshots = tuple(
-        compliance_snapshot for compliance_snapshot in compliance_snapshots
+        compliance_snapshot
+        for compliance_snapshot in compliance_snapshots
         if compliance_snapshot.artefact in artefacts
     )
     logger.info(f'{len(active_compliance_snapshots)=}')
     inactive_compliance_snapshots = tuple(
-        compliance_snapshot for compliance_snapshot in compliance_snapshots
+        compliance_snapshot
+        for compliance_snapshot in compliance_snapshots
         if compliance_snapshot.artefact not in artefacts
     )
     logger.info(f'{len(inactive_compliance_snapshots)=}')

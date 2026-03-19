@@ -29,10 +29,12 @@ def validate_supported_schema_version(schema_version_raw: str):
     except ValueError:
         raise ValueError(
             f'Schema version {schema_version_raw} is not supported, '
-            f'supported versions: {[
-                cyclonedx.schema.SchemaVersion.to_version(version.value)
-                for version in SupportedSchemaVersions
-            ]}'
+            f'supported versions: {
+                [
+                    cyclonedx.schema.SchemaVersion.to_version(version.value)
+                    for version in SupportedSchemaVersions
+                ]
+            }'
         )
 
 
@@ -41,12 +43,12 @@ def filter_crypto_assets(
     known_crypto_libraries: collections.abc.Sequence[str],
     included_asset_types: list[odg.model.CryptoAssetTypes] | None,
 ) -> collections.abc.Generator[dict, None, None]:
-    '''
+    """
     Filters the components of a CBOM document for those which are either of type
     `cryptographic-asset` or a library which matches one of the `known_crypto_libraries`.
     Also, if `included_asset_types` is specified, only components with a matching asset type
     will be considered.
-    '''
+    """
     component_types = [component_type.value for component_type in ComponentTypes]
 
     for component in components:
@@ -83,11 +85,11 @@ def filter_crypto_assets(
 def iter_locations(
     crypto_asset_raw: dict,
 ) -> collections.abc.Generator[str, None, None]:
-    '''
+    """
     The location(s) of a CBOM component may be stored at two different locations:
     1. as top-level `evidence` (this holds true for components added by "cbomkit-theia")
     2. as a property matching the below regex (this holds true for components added by "syft")
-    '''
+    """
     if evidence := crypto_asset_raw.get('evidence'):
         if occurrences := evidence.get('occurrences'):
             for occurrence in occurrences:
@@ -128,16 +130,14 @@ def bom_ref_to_data_key(
 def guess_certificate_kind(
     subject_name: str | None,
 ) -> odg.model.CertificateKind:
-    '''
+    """
     This function is intended to heuristically determine the "kind" of a certificate, like root-ca,
     intermediate-ca or end-user certificate. It checks the subject name for "well-known" phrases
     indicating one of the above certificate kinds. If no matching phrase is identified, it will be
     interpreted as end-user certificate, which will usually have the strictest rules regarding
     validity whereas the requirements for the used algorithm are usually less strict.
-    '''
-    root_ca_phrases = (
-        'root',
-    )
+    """
+    root_ca_phrases = ('root',)
     intermediate_ca_phrases = (
         'intermediate',
         'ca',
@@ -163,11 +163,11 @@ def guess_certificate_kind(
 def determine_curve(
     description: str | None,
 ) -> str:
-    '''
+    """
     This function is intended to heuristically determine the underlying ellipic curve by analysing
     the given description of a CBOM component description. It expects the description to adhere to
     the form: `Curve: <curve-name>`. In that case, it would return the respective `<curve-name>`.
-    '''
+    """
     if not description or 'Curve:' not in description:
         return 'unknown'
 
@@ -209,9 +209,8 @@ def deserialise_certificate(
         subject_name=certificate_properties.get('subjectName'),
     )
 
-    if (
-        (not_valid_before_raw := certificate_properties.get('notValidBefore'))
-        and (not_valid_after_raw := certificate_properties.get('notValidAfter'))
+    if (not_valid_before_raw := certificate_properties.get('notValidBefore')) and (
+        not_valid_after_raw := certificate_properties.get('notValidAfter')
     ):
         not_valid_before = datetime.datetime.fromisoformat(not_valid_before_raw)
         not_valid_after = datetime.datetime.fromisoformat(not_valid_after_raw)
@@ -304,7 +303,9 @@ def deserialise_crypto_asset(
 
     elif asset_type is odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL:
         properties = deserialise_related_crypto_material(
-            related_crypto_material_properties=crypto_properties.get('relatedCryptoMaterialProperties'), # noqa: E501
+            related_crypto_material_properties=crypto_properties.get(
+                'relatedCryptoMaterialProperties'
+            ),  # noqa: E501
             crypto_assets_raw=crypto_assets_raw,
             description=description,
         )
@@ -325,12 +326,12 @@ def deserialise_crypto_asset(
 def aggregate_crypto_assets(
     crypto_assets: collections.abc.Iterable[odg.model.CryptoAsset],
 ) -> list[odg.model.CryptoAsset]:
-    '''
+    """
     Aggregates the provided `crypto_assets` based on their `key` property. If multiple assets have
     the same key, it means they are semantical identical but they may have a different name or were
     found at a different location. Therefore, all distinct names and locations are assigned to the
     aggregated asset as well.
-    '''
+    """
     aggregated_crypto_assets: dict[str, odg.model.CryptoAsset] = dict()
 
     for crypto_asset in crypto_assets:
@@ -360,17 +361,20 @@ def iter_crypto_assets(
         schema_version_raw=cbom['specVersion'],
     )
 
-    crypto_assets_raw = list(filter_crypto_assets(
-        components=cbom.get('components') or [],
-        known_crypto_libraries=crypto_libraries,
-        included_asset_types=included_asset_types,
-    ))
+    crypto_assets_raw = list(
+        filter_crypto_assets(
+            components=cbom.get('components') or [],
+            known_crypto_libraries=crypto_libraries,
+            included_asset_types=included_asset_types,
+        )
+    )
 
     crypto_assets = list(
         deserialise_crypto_asset(
             crypto_asset_raw=crypto_asset_raw,
             crypto_assets_raw=crypto_assets_raw,
-        ) for crypto_asset_raw in crypto_assets_raw
+        )
+        for crypto_asset_raw in crypto_assets_raw
     )
 
     return aggregate_crypto_assets(

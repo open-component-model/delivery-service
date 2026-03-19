@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def local_blob_access_as_blob_descriptor(
     access: ocm.LocalBlobAccess,
     oci_client: oci.client.Client,
-    image_reference: str=None,
+    image_reference: str = None,
 ) -> ioutil.BlobDescriptor:
     if access.globalAccess:
         image_reference = access.globalAccess.ref
@@ -68,18 +68,20 @@ def local_blob_access_as_blob_descriptor(
 async def find_artefact_node_async(
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
     artefact: odg.model.ComponentArtefactId,
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> ocm.iter.ResourceNode | ocm.iter.SourceNode | None:
     if not odg.model.is_ocm_artefact(artefact.artefact_kind):
         return None
 
-    component = (await component_descriptor_lookup(
-        ocm.ComponentIdentity(
-            name=artefact.component_name,
-            version=artefact.component_version,
-        ),
-        absent_ok=absent_ok,
-    )).component
+    component = (
+        await component_descriptor_lookup(
+            ocm.ComponentIdentity(
+                name=artefact.component_name,
+                version=artefact.component_version,
+            ),
+            absent_ok=absent_ok,
+        )
+    ).component
 
     if not component:
         return None
@@ -92,20 +94,13 @@ async def find_artefact_node_async(
         raise RuntimeError('this line should never be reached')
 
     for a in artefacts:
-        if (
-            (a.name or artefact.artefact.artefact_name)
-            and a.name != artefact.artefact.artefact_name
-        ):
+        if (a.name or artefact.artefact.artefact_name) and a.name != artefact.artefact.artefact_name:
             continue
         if (
-            (a.version or artefact.artefact.artefact_version)
-            and a.version != artefact.artefact.artefact_version
-        ):
+            a.version or artefact.artefact.artefact_version
+        ) and a.version != artefact.artefact.artefact_version:
             continue
-        if (
-            (a.type or artefact.artefact.artefact_type)
-            and a.type != artefact.artefact.artefact_type
-        ):
+        if (a.type or artefact.artefact.artefact_type) and a.type != artefact.artefact.artefact_type:
             continue
         if (
             odg.model.normalise_artefact_extra_id(a.extraIdentity)
@@ -133,35 +128,26 @@ async def find_artefact_node_async(
 
 def find_artefact_node(
     artefact_nodes: collections.abc.Sequence[ocm.iter.ArtefactNode],
-    artefact_name: str=None,
-    artefact_version: str=None,
-    artefact_type: str=None,
-    artefact_extra_id: dict=None,
-    absent_ok: bool=False,
+    artefact_name: str = None,
+    artefact_version: str = None,
+    artefact_type: str = None,
+    artefact_extra_id: dict = None,
+    absent_ok: bool = False,
 ) -> ocm.iter.ArtefactNode | None:
     for artefact_node in artefact_nodes:
-
-        if (
-            artefact_name is not None
-            and artefact_node.artefact.name != artefact_name
-        ):
+        if artefact_name is not None and artefact_node.artefact.name != artefact_name:
             continue
 
-        if (
-            artefact_version is not None
-            and artefact_node.artefact.version != artefact_version
-        ):
+        if artefact_version is not None and artefact_node.artefact.version != artefact_version:
             continue
 
-        if (
-            artefact_type is not None
-            and artefact_node.artefact.type != artefact_type
-        ):
+        if artefact_type is not None and artefact_node.artefact.type != artefact_type:
             continue
 
         if (
             artefact_extra_id is not None
-            and odg.model.normalise_artefact_extra_id(artefact_node.artefact.extraIdentity) != odg.model.normalise_artefact_extra_id(artefact_extra_id) # noqa: E501
+            and odg.model.normalise_artefact_extra_id(artefact_node.artefact.extraIdentity)
+            != odg.model.normalise_artefact_extra_id(artefact_extra_id)  # noqa: E501
         ):
             continue
 
@@ -171,8 +157,10 @@ def find_artefact_node(
         if absent_ok:
             return None
 
-        raise ValueError(f'no ocm node found for {artefact_name=} {artefact_version=} \
-                         {artefact_type=} {artefact_extra_id=}')
+        raise ValueError(
+            f'no ocm node found for {artefact_name=} {artefact_version=} \
+                         {artefact_type=} {artefact_extra_id=}'
+        )
 
 
 def iter_content_for_resource_node(
@@ -235,7 +223,7 @@ def image_layers_as_tarfile_generator(
     include_config_blob=True,
     fallback_to_first_subimage_if_index=False,
 ) -> collections.abc.Generator[bytes, None, None]:
-    '''
+    """
     returns a generator yielding a tar-archive with the passed oci-image's layer-blobs as
     members. This is somewhat similar to the result of a `docker save` with the notable difference
     that the cfg-blob is discarded.
@@ -245,7 +233,7 @@ def image_layers_as_tarfile_generator(
 
     If fallback_to_first_subimage_if_index is set to True, in case of oci-image-manifest-list the
     first sub-manifest is taken.
-    '''
+    """
     manifest = oci_client.manifest(
         image_reference=image_reference,
         accept=oci.model.MimeTypes.prefer_multiarch,

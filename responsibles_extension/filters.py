@@ -58,11 +58,13 @@ class ArtefactFilter(FilterBase):
         artefact: odg.model.ComponentArtefactId,
         datatype: odg.model.Datatype,
     ) -> bool:
-        return all((
-            self._artefact_name_filter(artefact),
-            self._artefact_type_filter(artefact),
-            self._artefact_kind_filter(artefact),
-        ))
+        return all(
+            (
+                self._artefact_name_filter(artefact),
+                self._artefact_type_filter(artefact),
+                self._artefact_kind_filter(artefact),
+            )
+        )
 
 
 @dataclasses.dataclass

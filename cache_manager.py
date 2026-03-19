@@ -1,10 +1,11 @@
-'''
+"""
 The cache manager is intended to be run as a regular cronjobs which takes care of pruning the cache
 according to a configurable maximum allowed caching size. The strategy according to which existing
 cache entries should be deleted, can be configured by setting custom property weights.
 Also, the cache manager can be used to prefill the cache for specific functions based on the
 supplied configuration.
-'''
+"""
+
 import asyncio
 import atexit
 import collections.abc
@@ -42,7 +43,7 @@ k8s.logging.configure_kubernetes_logging()
 
 def bytes_to_str(
     bytes: int,
-    ndigits: int=2,
+    ndigits: int = 2,
 ) -> str:
     return f'{round(bytes / 1000000, ndigits)}Mb'
 
@@ -76,7 +77,7 @@ async def prune_cache(
     cache_size_bytes: int,
     cfg: odg.extensions_cfg.CacheManagerConfig,
     db_session: sqlasync.session.AsyncSession,
-    chunk_size: int=50,
+    chunk_size: int = 50,
 ):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
@@ -109,13 +110,13 @@ async def prune_cache(
         async for partition in db_stream.partitions(size=chunk_size):
             for row in partition:
                 if prunable_size <= 0:
-                    break # deleted enough cache entries
+                    break  # deleted enough cache entries
                 entry = row[0]
                 prunable_size -= entry.size
                 await db_session.delete(entry)
             else:
                 continue
-            break # deleted enough cache entries
+            break  # deleted enough cache entries
 
         await db_session.commit()
         logger.info(
@@ -169,10 +170,12 @@ async def prefill_compliance_summary_caches(
             )
 
         for version in versions:
-            component_descriptor = await component_descriptor_lookup(ocm.ComponentIdentity(
-                name=component.component_name,
-                version=version,
-            ))
+            component_descriptor = await component_descriptor_lookup(
+                ocm.ComponentIdentity(
+                    name=component.component_name,
+                    version=version,
+                )
+            )
 
             async for component_node in ocm.iter_async.iter(
                 component=component_descriptor.component,

@@ -41,7 +41,7 @@ class GitHubApp:
     def find_installation_id(
         self,
         repo_url: str,
-        absent_ok: bool=True,
+        absent_ok: bool = True,
     ) -> int | None:
         parsed_repo_url = util.urlparse(repo_url)
         org = parsed_repo_url.path.strip('/').split('/')[0]
@@ -64,7 +64,7 @@ class GitHubApp:
 def find_app_cfg(
     secret_factory: secret_mgmt.SecretFactory,
     repo_url: str,
-    absent_ok: bool=True,
+    absent_ok: bool = True,
 ) -> GitHubApp | None:
     try:
         github_app_cfgs = secret_factory.github_app()
@@ -130,7 +130,7 @@ class GitHub:
 def find_cfg(
     secret_factory: secret_mgmt.SecretFactory,
     repo_url: str,
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> GitHub | None:
     try:
         github_cfgs: list[GitHub] = secret_factory.github()
@@ -140,14 +140,12 @@ def find_cfg(
         raise
 
     matching_cfgs = (
-        github_cfg
-        for github_cfg in github_cfgs
-        if github_cfg.repo_url_matches(repo_url)
+        github_cfg for github_cfg in github_cfgs if github_cfg.repo_url_matches(repo_url)
     )
 
     sorted_matching_cfgs = sorted(
         matching_cfgs,
-        key=lambda cfg: len(cfg.repo_urls), # prefer cfg with most configured repo urls
+        key=lambda cfg: len(cfg.repo_urls),  # prefer cfg with most configured repo urls
     )
 
     if not sorted_matching_cfgs:
@@ -166,7 +164,7 @@ def legacy_github_api(
     secret_factory: secret_mgmt.SecretFactory,
     repo_url: str,
     session: github3.session.GitHubSession,
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> github3.github.GitHub | None:
     github_cfg = find_cfg(
         secret_factory=secret_factory,
@@ -200,12 +198,12 @@ def legacy_github_api(
 def github_api(
     secret_factory: secret_mgmt.SecretFactory,
     repo_url: str,
-    absent_ok: bool=False,
+    absent_ok: bool = False,
 ) -> github3.github.GitHub | None:
     session = http_requests.mount_default_adapter(
         session=github3.session.GitHubSession(),
         flags=http_requests.AdapterFlag.RETRY,
-        max_pool_size=16, # increase with care, might cause github api "secondary-rate-limit"
+        max_pool_size=16,  # increase with care, might cause github api "secondary-rate-limit"
     )
 
     github_app_cfg = find_app_cfg(
@@ -262,10 +260,7 @@ def github_api(
         return github_api
 
     repo = repo_path_parts[1]
-    accessible_repos = [
-        repo.name
-        for repo in github_api.app_installation_repos()
-    ]
+    accessible_repos = [repo.name for repo in github_api.app_installation_repos()]
 
     if repo not in accessible_repos:
         msg = f'GitHub app with {installation_id=} has no access for {repo_url=}'

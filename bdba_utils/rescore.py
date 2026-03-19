@@ -18,12 +18,12 @@ def rescore(
     scanned_element: ocm.iter.ResourceNode,
     vulnerability_cfg: odg.findings.Finding,
 ) -> bool:
-    '''
+    """
     Rescores bdba-findings for the scanned element of the given components scan result.
     Rescoring is only possible if cve-categorisations are available from categoristion-label
     in either resource or component. Returns a boolean indicating whether a triage was applied
     or not (if yes, a refetching of the scan result may be required).
-    '''
+    """
     if not vulnerability_cfg.rescoring_ruleset:
         return False
 
@@ -41,8 +41,7 @@ def rescore(
     logger.info(f'rescoring {scan_result.display_name} - {scan_result.product_id=}')
 
     components_with_vulnerabilities = (
-        component for component in scan_result.components
-        if tuple(component.vulnerabilities)
+        component for component in scan_result.components if tuple(component.vulnerabilities)
     )
 
     components_with_vulnerabilities = sorted(
@@ -54,7 +53,7 @@ def rescore(
 
     for c in components_with_vulnerabilities:
         if not c.version:
-            continue # do not inject dummy-versions in fully automated mode, yet
+            continue  # do not inject dummy-versions in fully automated mode, yet
 
         vulns_to_assess = []
 
@@ -68,10 +67,7 @@ def rescore(
                 finding_property=v.cve_severity(),
             )
 
-            if (
-                not categorisation
-                or not categorisation.automatic_rescoring
-            ):
+            if not categorisation or not categorisation.automatic_rescoring:
                 continue
 
             matching_rules = ru.matching_rescore_rules(
@@ -87,20 +83,22 @@ def rescore(
                 operations=vulnerability_cfg.rescoring_ruleset.operations,
             )
 
-            if rescored_categorisation.value == 0: # BDBA only allows binary triages
+            if rescored_categorisation.value == 0:  # BDBA only allows binary triages
                 vulns_to_assess.append(v)
 
         if vulns_to_assess:
             logger.info(f'{len(vulns_to_assess)=}: {[v.cve for v in vulns_to_assess]}')
-            bdba_client.add_triage_raw({
-                'component': c.name,
-                'version': c.version,
-                'vulns': [v.cve for v in vulns_to_assess],
-                'scope': bm.TriageScope.RESULT.value,
-                'reason': 'OT',
-                'description': 'auto-assessed as irrelevant based on cve-categorisation',
-                'product_id': scan_result.product_id,
-            })
+            bdba_client.add_triage_raw(
+                {
+                    'component': c.name,
+                    'version': c.version,
+                    'vulns': [v.cve for v in vulns_to_assess],
+                    'scope': bm.TriageScope.RESULT.value,
+                    'reason': 'OT',
+                    'description': 'auto-assessed as irrelevant based on cve-categorisation',
+                    'product_id': scan_result.product_id,
+                }
+            )
             triages_were_applied = True
 
     return triages_were_applied

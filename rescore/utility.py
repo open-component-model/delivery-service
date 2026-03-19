@@ -51,14 +51,14 @@ def _iter_rescorings_for_finding(
         if (
             rescoring.artefact.artefact.artefact_version
             and rescoring.artefact.artefact.artefact_version
-                != finding.artefact.artefact.artefact_version
+            != finding.artefact.artefact.artefact_version
         ):
             continue
 
         if (
             rescoring.artefact.artefact.artefact_extra_id
             and rescoring.artefact.artefact.normalised_artefact_extra_id
-                != finding.artefact.artefact.normalised_artefact_extra_id
+            != finding.artefact.artefact.normalised_artefact_extra_id
         ):
             continue
 
@@ -94,7 +94,7 @@ def _iter_rescorings_for_finding(
 def _specificity_of_rescoring(
     rescoring: odg.model.ArtefactMetadata,
 ) -> odg.findings.RescoringSpecificity:
-    '''
+    """
     There are four possible scopes for a rescoring. If multiple rescorings match
     one finding, the rescoring with the greatest specificity based on its scope
     should be used.
@@ -103,7 +103,7 @@ def _specificity_of_rescoring(
     name or version set. The "Component" scope only refers to the component name,
     the "Artefact" scope only to the component name as well as the artefact name.
     Last, the "Single" scope requires all four parameters to be set.
-    '''
+    """
     if not rescoring.artefact.component_name:
         return odg.findings.RescoringSpecificity.GLOBAL
 
@@ -120,24 +120,26 @@ def rescorings_for_finding_by_specificity(
     finding: odg.model.ArtefactMetadata,
     rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
 ) -> tuple[odg.model.ArtefactMetadata]:
-    '''
+    """
     Returns all rescorings of `rescorings` which match the given `finding`. If multiple
     rescorings match the finding, they are ordered based on their specificity (greatest
     specificity first and if the specificity is the same, the latest rescorings wins).
-    '''
+    """
     rescorings_for_finding = _iter_rescorings_for_finding(
         finding=finding,
         rescorings=rescorings,
     )
 
-    return tuple(sorted(
-        rescorings_for_finding,
-        key=lambda rescoring: (
-            _specificity_of_rescoring(rescoring=rescoring),
-            rescoring.meta.creation_date,
-        ),
-        reverse=True,
-    ))
+    return tuple(
+        sorted(
+            rescorings_for_finding,
+            key=lambda rescoring: (
+                _specificity_of_rescoring(rescoring=rescoring),
+                rescoring.meta.creation_date,
+            ),
+            reverse=True,
+        )
+    )
 
 
 def find_cve_categorisation(
@@ -172,11 +174,11 @@ def rescore_finding(
     rescoring_rules: collections.abc.Iterable[rescore.model.Rule],
     operations: dict[str, rescore.model.Operation | str] | None,
 ) -> odg.findings.FindingCategorisation:
-    '''
+    """
     Applies the `rescoring_rules` to the `current_categorisation`. A rescoring rule may either
     express a generic operation (specified in the rescoring ruleset), or a rescoring to a concrete
     categorisation id.
-    '''
+    """
     for rule in rescoring_rules:
         if operations and rule.operation in operations.keys():
             # specified operation is one of the pre-defined operations
@@ -217,10 +219,13 @@ def iter_matching_sast_rescoring_rules(
     finding: odg.model.ArtefactMetadata,
 ) -> collections.abc.Generator[rescore.model.SastRescoringRule, None, None]:
     for rescoring_rule in rescoring_rules:
-        if any(
-            re.match(condition.component_name, finding.artefact.component_name)
-            for condition in rescoring_rule.match
-        ) and finding.data.sub_type in rescoring_rule.sub_types:
+        if (
+            any(
+                re.match(condition.component_name, finding.artefact.component_name)
+                for condition in rescoring_rule.match
+            )
+            and finding.data.sub_type in rescoring_rule.sub_types
+        ):
             yield rescoring_rule
 
 
@@ -229,7 +234,7 @@ def rescoring_for_sast_finding(
     sast_finding_cfg: odg.findings.Finding,
     categorisation: odg.findings.FindingCategorisation,
     user: odg.model.User,
-    creation_timestamp: datetime.datetime
+    creation_timestamp: datetime.datetime,
 ) -> odg.model.ArtefactMetadata | None:
     if (
         not categorisation
@@ -256,7 +261,7 @@ def rescoring_for_sast_finding(
     )
 
     if rescored_categorisation.id == categorisation.id:
-        return None # categorisation did not change -> no need to create a rescoring
+        return None  # categorisation did not change -> no need to create a rescoring
 
     return odg.model.ArtefactMetadata(
         artefact=finding.artefact,
@@ -285,7 +290,7 @@ def delivery_dashboard_rescoring_url(
     base_url: str,
     component_artefact_id: odg.model.ComponentArtefactId,
     finding_type: odg.model.Datatype,
-    sprint_name: str | None=None,
+    sprint_name: str | None = None,
 ) -> str:
     url = util.urljoin(base_url, '#/component')
 

@@ -39,10 +39,11 @@ logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass(frozen=True)
 class ComponentVector:
-    '''
+    """
     Holds two component objects of the same Component, but different Versions.
     Represents a change in the component version from old_component to new_component.
-    '''
+    """
+
     start: ocm.Component
     end: ocm.Component
 
@@ -52,8 +53,8 @@ cache_existing_components = []
 
 async def check_if_component_exists(
     component_name: str,
-    absent_ok: bool=False,
-    db_session: sqlasync.session.AsyncSession=None,
+    absent_ok: bool = False,
+    db_session: sqlasync.session.AsyncSession = None,
 ) -> bool:
     if component_name in cache_existing_components:
         return True
@@ -76,9 +77,9 @@ async def check_if_component_exists(
 async def greatest_version_if_none(
     component_name: str,
     version: str,
-    ocm_repo: ocm.OcmRepository=None,
-    oci_client: oci.client_async.Client=None,
-    db_session: sqlasync.session.AsyncSession=None,
+    ocm_repo: ocm.OcmRepository = None,
+    oci_client: oci.client_async.Client = None,
+    db_session: sqlasync.session.AsyncSession = None,
 ):
     if version is None:
         version = await greatest_component_version(
@@ -100,7 +101,7 @@ async def greatest_version_if_none(
 async def _component_descriptor(
     params: dict,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    db_session: sqlasync.session.AsyncSession=None,
+    db_session: sqlasync.session.AsyncSession = None,
 ) -> ocm.ComponentDescriptor:
     component_name = util.param(params, 'component_name', required=True)
 
@@ -183,7 +184,7 @@ async def _component_descriptor(
 
 class Component(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Components
@@ -213,7 +214,7 @@ class Component(aiohttp.web.View):
           type: boolean
           required: false
           default: false
-        '''
+        """
         params = self.request.rel_url.query
 
         component_descriptor = await _component_descriptor(
@@ -230,7 +231,7 @@ class Component(aiohttp.web.View):
 
 class ComponentDependencies(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Components
@@ -258,7 +259,7 @@ class ComponentDependencies(aiohttp.web.View):
           - componentReferences
           required: false
           default: all
-        '''
+        """
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'component_name', required=True)
@@ -317,11 +318,9 @@ class ComponentDependencies(aiohttp.web.View):
 
 
 class ComponentResponsibles(aiohttp.web.View):
-    @deliverydb.cache.dbcached_route(
-        skip_http_status=(http.HTTPStatus.ACCEPTED,)
-    )
+    @deliverydb.cache.dbcached_route(skip_http_status=(http.HTTPStatus.ACCEPTED,))
     async def get(self):
-        '''
+        """
         ---
         description:
           Returns a list of user-identities responsible for the given component or resource.
@@ -368,7 +367,7 @@ class ComponentResponsibles(aiohttp.web.View):
               $ref: '#/definitions/ComponentResponsibles'
           "202":
             description: GitHub statistics pending, client should retry.
-        '''
+        """
         params = self.request.rel_url.query
         statuses: list[responsibles.Status] = []
 
@@ -383,21 +382,20 @@ class ComponentResponsibles(aiohttp.web.View):
 
         def _responsibles_label(
             component: ocm.Component,
-            artifact_name: str | None=None,
-            owners_label: str='cloud.gardener.cnudie/responsibles',
+            artifact_name: str | None = None,
+            owners_label: str = 'cloud.gardener.cnudie/responsibles',
         ) -> responsibles.labels.ResponsiblesLabel | None:
-            '''
+            """
             Returns the most specific ResponsiblesLabel for the given component and artifact name,
             or `None` if no label is found.
 
             If `artifact_name` is given, a fitting artifact with an owner label is looked up and
             the attached label is returned. Otherwise, a fallback to component-level owner-label
             happens.
-            '''
+            """
             if artifact_name:
                 matching_artifacts = [
-                    a for a in component.resources + component.sources
-                    if a.name == artifact_name
+                    a for a in component.resources + component.sources if a.name == artifact_name
                 ]
                 if not matching_artifacts:
                     raise aiohttp.web.HTTPNotFound(
@@ -429,23 +427,27 @@ class ComponentResponsibles(aiohttp.web.View):
             dacite.exceptions.WrongTypeError,
             dacite.exceptions.UnexpectedDataError,
         ):
-            responsibles_label = None # fallback to heuristic
-            statuses.append(responsibles.Status(
-                type='error',
-                msg='responsibles-label malformed, falling back to responsibles-heuristic',
-            ))
+            responsibles_label = None  # fallback to heuristic
+            statuses.append(
+                responsibles.Status(
+                    type='error',
+                    msg='responsibles-label malformed, falling back to responsibles-heuristic',
+                )
+            )
             logger.warning(
                 'encountered errors while processing responsibles-label for '
                 f'{component.identity()=}, {artifact_name=}'
             )
 
         if responsibles_label:
-            user_identities = tuple(responsibles.user_identities_from_responsibles_label(
-                responsibles_label=responsibles_label,
-                source=main_source,
-                component_identity=component_descriptor.component.identity(),
-                github_api_lookup=self.request.app[consts.APP_GITHUB_API_LOOKUP],
-            ))
+            user_identities = tuple(
+                responsibles.user_identities_from_responsibles_label(
+                    responsibles_label=responsibles_label,
+                    source=main_source,
+                    component_identity=component_descriptor.component.identity(),
+                    github_api_lookup=self.request.app[consts.APP_GITHUB_API_LOOKUP],
+                )
+            )
         else:
             try:
                 user_identities = responsibles.user_identities_from_source(
@@ -454,13 +456,15 @@ class ComponentResponsibles(aiohttp.web.View):
                 )
             except ValueError:
                 user_identities = []
-                statuses.append(responsibles.Status(
-                    type='error',
-                    msg='responsibles-heuristic was not able to determine responsibles as '
+                statuses.append(
+                    responsibles.Status(
+                        type='error',
+                        msg='responsibles-heuristic was not able to determine responsibles as '
                         '(github) statistics are incomplete',
-                ))
+                    )
+                )
 
-        if user_identities is None: # can be falsy
+        if user_identities is None:  # can be falsy
             # github statistics pending, client should retry
             return aiohttp.web.Response(
                 status=http.HTTPStatus.ACCEPTED,
@@ -494,10 +498,10 @@ class ComponentResponsibles(aiohttp.web.View):
 )
 async def component_versions(
     component_name: str,
-    ocm_repo: ocm.OcmRepository=None,
-    version_filter: lookups.VersionFilter | str | None=None,
-    oci_client: oci.client_async.Client=None,
-    db_session: sqlasync.session.AsyncSession=None, # required for db-cache
+    ocm_repo: ocm.OcmRepository = None,
+    version_filter: lookups.VersionFilter | str | None = None,
+    oci_client: oci.client_async.Client = None,
+    db_session: sqlasync.session.AsyncSession = None,  # required for db-cache
 ) -> set[str]:
     if not oci_client:
         oci_client = lookups.semver_sanitising_oci_client_async()
@@ -521,23 +525,25 @@ async def component_versions(
             if e.status == cnudie.retrieve.error_code_indicating_not_found(
                 image_reference=image_reference,
             ):
-                continue # no versions found
+                continue  # no versions found
 
             raise
 
-        included_versions.update(ocm_repository_cfg.iter_matching_versions(
-            versions=versions,
-            version_filter_overwrite=version_filter,
-        ))
+        included_versions.update(
+            ocm_repository_cfg.iter_matching_versions(
+                versions=versions,
+                version_filter_overwrite=version_filter,
+            )
+        )
 
     return included_versions
 
 
 async def greatest_component_version(
     component_name: str,
-    ocm_repo: ocm.OcmRepository=None,
-    oci_client: oci.client_async.Client=None,
-    db_session: sqlasync.session.AsyncSession=None,
+    ocm_repo: ocm.OcmRepository = None,
+    oci_client: oci.client_async.Client = None,
+    db_session: sqlasync.session.AsyncSession = None,
 ) -> str | None:
     versions = await component_versions(
         component_name=component_name,
@@ -555,14 +561,14 @@ async def greatest_component_version(
 async def greatest_component_versions(
     component_name: str,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repo: ocm.OcmRepository=None,
-    max_versions: int=5,
-    greatest_version: str=None,
-    oci_client: oci.client_async.Client=None,
-    version_filter: lookups.VersionFilter | str | None=None,
-    start_date: datetime.date=None,
-    end_date: datetime.date=None,
-    db_session: sqlasync.session.AsyncSession=None,
+    ocm_repo: ocm.OcmRepository = None,
+    max_versions: int = 5,
+    greatest_version: str = None,
+    oci_client: oci.client_async.Client = None,
+    version_filter: lookups.VersionFilter | str | None = None,
+    start_date: datetime.date = None,
+    end_date: datetime.date = None,
+    db_session: sqlasync.session.AsyncSession = None,
 ) -> list[str]:
     versions = await component_versions(
         component_name=component_name,
@@ -576,6 +582,7 @@ async def greatest_component_versions(
 
     # Handle date range filtering only if start_date is provided
     if start_date:
+
         async def filter_by_date_range(versions):
             for version in reversed(versions):
                 component_descriptor = await util.retrieve_component_descriptor(
@@ -585,9 +592,9 @@ async def greatest_component_versions(
                     ),
                     component_descriptor_lookup=component_descriptor_lookup,
                 )
-                creation_date = util.get_creation_date(
-                    component_descriptor.component
-                ).strftime('%Y-%m-%d')
+                creation_date = util.get_creation_date(component_descriptor.component).strftime(
+                    '%Y-%m-%d'
+                )
 
                 if end_date and creation_date > end_date:
                     continue
@@ -597,13 +604,10 @@ async def greatest_component_versions(
 
                 yield version
 
-        versions = [
-            version async for version
-            in filter_by_date_range(versions)
-        ]
+        versions = [version async for version in filter_by_date_range(versions)]
 
     if greatest_version in versions:
-        versions = versions[:versions.index(greatest_version) + 1]
+        versions = versions[: versions.index(greatest_version) + 1]
 
     if not start_date:
         return versions[-max_versions:]
@@ -613,7 +617,7 @@ async def greatest_component_versions(
 
 class GreatestComponentVersions(aiohttp.web.View):
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Components
@@ -662,7 +666,7 @@ class GreatestComponentVersions(aiohttp.web.View):
               type: array
               items:
                 type: string
-        '''
+        """
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'component_name', required=True)
@@ -678,7 +682,7 @@ class GreatestComponentVersions(aiohttp.web.View):
         try:
             version_filter = lookups.VersionFilter(version_filter)
         except ValueError:
-            pass # in this case the provided version filter is to be interpreted as custom regex
+            pass  # in this case the provided version filter is to be interpreted as custom regex
 
         try:
             versions = await greatest_component_versions(
@@ -705,8 +709,8 @@ async def resolve_component_dependencies(
     component_name: str,
     component_version: str,
     component_descriptor_lookup: cnudie.retrieve_async.ComponentDescriptorLookupById,
-    ocm_repo: ocm.OcmRepository=None,
-    recursion_depth: int=-1,
+    ocm_repo: ocm.OcmRepository = None,
+    recursion_depth: int = -1,
 ) -> collections.abc.AsyncGenerator[ocm.iter.ComponentNode, None, None]:
     component_descriptor = await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
@@ -738,10 +742,12 @@ async def resolve_component_dependencies(
                     label_present = True
                     break
             if not label_present:
-                component_node.component.sources[0].labels.append(ocm.Label(
-                    name='cloud.gardener/cicd/source',
-                    value={'repository-classification': 'main'},
-                ))
+                component_node.component.sources[0].labels.append(
+                    ocm.Label(
+                        name='cloud.gardener/cicd/source',
+                        value={'repository-classification': 'main'},
+                    )
+                )
 
             yield component_node
     except dacite.exceptions.MissingValueError as e:
@@ -760,7 +766,7 @@ class UpgradePRs(aiohttp.web.View):
     required_features = (features.FeatureUpgradePRs,)
 
     async def get(self):
-        '''
+        """
         ---
         tags:
         - Components
@@ -792,7 +798,7 @@ class UpgradePRs(aiohttp.web.View):
           name: ocmRepo
           type: string
           required: false
-        '''
+        """
         params = self.request.rel_url.query
 
         component_name = util.param(params, 'componentName')
@@ -855,25 +861,27 @@ class UpgradePRs(aiohttp.web.View):
                     'url': pr.url,
                     'html_url': pr.html_url,
                     'number': pr.number,
-                }
+                },
             }
 
         @deliverydb.cache.dbcached_function(
-            ttl_seconds=60 * 60, # 1 hour
+            ttl_seconds=60 * 60,  # 1 hour
         )
         async def retrieve_upgrade_prs(
             repo_url: str,
             state: str,
-            db_session: sqlasync.session.AsyncSession, # required for db-cache
+            db_session: sqlasync.session.AsyncSession,  # required for db-cache
         ) -> list[dict]:
             github_repo_lookup = self.request.app[consts.APP_GITHUB_REPO_LOOKUP]
 
-            if not (repo := github_repo_lookup(
-                repo_url,
-                absent_ok=True,
-            )):
+            if not (
+                repo := github_repo_lookup(
+                    repo_url,
+                    absent_ok=True,
+                )
+            ):
                 logger.warning(f'no github-cfg found for {repo_url=}')
-                return [] # matching github-cfg is optional
+                return []  # matching github-cfg is optional
 
             upgrade_prs = github.pullrequest.iter_upgrade_pullrequests(
                 repository=repo,
@@ -881,10 +889,7 @@ class UpgradePRs(aiohttp.web.View):
                 reference_component=component,
             )
 
-            return [
-                upgrade_pr_to_dict(upgrade_pr=upgrade_pr)
-                for upgrade_pr in upgrade_prs
-            ]
+            return [upgrade_pr_to_dict(upgrade_pr=upgrade_pr) for upgrade_pr in upgrade_prs]
 
         upgrade_prs = await retrieve_upgrade_prs(
             repo_url=repo_url,
@@ -918,7 +923,7 @@ class ComponentDescriptorDiff(aiohttp.web.View):
 
     @deliverydb.cache.dbcached_route()
     async def post(self):
-        '''
+        """
         ---
         tags:
         - Components
@@ -938,7 +943,7 @@ class ComponentDescriptorDiff(aiohttp.web.View):
                 $ref: '#/definitions/ComponentId'
               right_component:
                 $ref: '#/definitions/ComponentId'
-        '''
+        """
         diff_request = ComponentDiffRequest.from_dict(await self.request.json())
 
         left_component_ref: ComponentRef = diff_request.left_component
@@ -968,9 +973,11 @@ class ComponentDescriptorDiff(aiohttp.web.View):
                 component_descriptor_lookup=component_descriptor_lookup,
             )
         except om.OciImageNotFoundException:
-            err_str = 'Error occurred during calculation of component diff of ' \
-            f'{left_descriptor.component.name=} in {left_descriptor.component.version=} and ' \
-            f'{right_descriptor.component.name=} in {right_descriptor.component.version=}'
+            err_str = (
+                'Error occurred during calculation of component diff of '
+                f'{left_descriptor.component.name=} in {left_descriptor.component.version=} and '
+                f'{right_descriptor.component.name=} in {right_descriptor.component.version=}'
+            )
             logger.warning(err_str)
             raise aiohttp.web.HTTPUnprocessableEntity(
                 reason='Error occurred during calculation of component diff',
@@ -1020,8 +1027,9 @@ class ComponentDescriptorDiff(aiohttp.web.View):
                     {
                         'from': left_label,
                         'to': right_label,
-                    } for left_label, right_label in label_diff.label_pairs_changed
-                ]
+                    }
+                    for left_label, right_label in label_diff.label_pairs_changed
+                ],
             }
 
             return {
@@ -1037,14 +1045,15 @@ class ComponentDescriptorDiff(aiohttp.web.View):
         return aiohttp.web.json_response(
             data={
                 'components_added': [
-                    component_ref(c) for c in diff.cidentities_only_right
+                    component_ref(c)
+                    for c in diff.cidentities_only_right
                     if c.name not in identity_names_only_left
                 ],
                 'components_removed': [
-                    component_ref(c) for c in diff.cidentities_only_left
+                    component_ref(c)
+                    for c in diff.cidentities_only_left
                     if c.name not in identity_names_only_right
                 ],
-
                 'components_changed': [
                     changed_component_info(left_comp=left_comp, right_comp=right_comp)
                     for left_comp, right_comp in diff.cpairs_version_changed
@@ -1061,7 +1070,7 @@ class ComplianceSummary(aiohttp.web.View):
         return aiohttp.web.Response()
 
     async def get(self):
-        '''
+        """
         ---
         description:
           Returns the most critical severity for artefact-metadata types, for all
@@ -1105,7 +1114,7 @@ class ComplianceSummary(aiohttp.web.View):
                     type: array
                     items:
                       $ref: '#/definitions/ComplianceSummary'
-        '''
+        """
         params = self.request.rel_url.query
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
 
@@ -1137,8 +1146,7 @@ class ComplianceSummary(aiohttp.web.View):
         )
 
         components = [
-            component_node.component_id
-            async for component_node in components_dependencies
+            component_node.component_id async for component_node in components_dependencies
         ]
 
         finding_cfgs = self.request.app[consts.APP_FINDING_CFGS]
@@ -1157,7 +1165,8 @@ class ComplianceSummary(aiohttp.web.View):
                 component_descriptor_lookup=component_descriptor_lookup,
                 ocm_repo=ocm_repo,
                 shortcut_cache=shortcut_cache,
-            ) for component in components
+            )
+            for component in components
         ]
 
         return aiohttp.web.json_response(

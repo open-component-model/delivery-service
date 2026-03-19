@@ -8,7 +8,7 @@ RoleName = str
 
 
 class OAuthCfgTypes(enum.StrEnum):
-   GITHUB = 'github'
+    GITHUB = 'github'
 
 
 class SubjectType(enum.StrEnum):

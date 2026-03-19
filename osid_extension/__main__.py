@@ -37,11 +37,11 @@ def determine_os_status(
     osid: odg.model.OperatingSystemId,
     eol_client: eol.EolClient,
 ) -> tuple[odg.model.OsStatus, str | None, datetime.datetime | None]:
-    '''
+    """
     determines the os status based on the given osid and release infos
 
     returns the os status, the greatest version and the eol date
-    '''
+    """
     # checks if os id is empty
     if not any(dataclasses.asdict(osid).values()):
         return odg.model.OsStatus.EMPTY_OS_ID, None, None
@@ -115,11 +115,9 @@ def base_image_osid(
             image_reference=image_reference,
             digest=layer.digest,
         )
-        fileproxy = tarutil.FilelikeProxy(
-            layer_blob.iter_content(chunk_size=tarfile.BLOCKSIZE)
-        )
+        fileproxy = tarutil.FilelikeProxy(layer_blob.iter_content(chunk_size=tarfile.BLOCKSIZE))
         tf = tarfile.open(fileobj=fileproxy, mode='r|*')
-        if (os_info := osidscan.determine_osinfo(tf)):
+        if os_info := osidscan.determine_osinfo(tf):
             last_os_info: odg.model.OperatingSystemId = os_info
 
     return last_os_info
@@ -181,9 +179,7 @@ def create_artefact_metadata(
         relation is ocm.ResourceRelation.EXTERNAL
         and os_status is not odg.model.OsStatus.BRANCH_REACHED_EOL
     ):
-        logger.info(
-            f'skipping osid finding for external non-EOL artefact {artefact}'
-        )
+        logger.info(f'skipping osid finding for external non-EOL artefact {artefact}')
         return
 
     yield odg.model.ArtefactMetadata(

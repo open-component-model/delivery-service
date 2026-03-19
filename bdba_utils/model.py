@@ -9,11 +9,12 @@ import odg.labels
 
 @dataclasses.dataclass
 class ScanRequest:
-    '''
+    """
     a scan request of an artefact (referenced by component and artefact).
 
     if a previous scan result was found, its "product-id" is stored as `target_product_id`
-    '''
+    """
+
     component: ocm.Component
     artefact: ocm.Artifact
     # The actual content to be scanned.
