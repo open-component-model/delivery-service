@@ -474,13 +474,12 @@ class VulnerabilityFinding(Finding, BDBAMixin):
 class RescoringIPFinding:
     package_name: str
     license: License
-    policy_violation: PolicyViolationRef
     labels: list[str]
 
     @property
     def key(self) -> str:
         labels_key = ','.join(sorted(self.labels))
-        return _as_key(self.package_name, self.license.name, labels_key, self.policy_violation.name)
+        return _as_key(self.package_name, self.license.name, labels_key)
 
 
 @dataclasses.dataclass
