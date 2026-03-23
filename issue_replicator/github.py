@@ -875,6 +875,14 @@ def ip_summary(
         ),
     }
 
+    report_urls_callback = lambda finding_group: sorted(
+        {
+            f'[Blackduck]({finding.finding.data.href})'
+            for finding in finding_group.findings
+            if finding.finding.data.href
+        }
+    )
+
     def group_aggregated_findings(
         aggregated_findings: tuple[AggregatedFinding],
     ) -> tuple[AggregatedFinding]:
@@ -926,6 +934,7 @@ def ip_summary(
         component_descriptor_lookup=component_descriptor_lookup,
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
+        report_urls_callback=report_urls_callback,
         delivery_dashboard_url=delivery_dashboard_url,
         sprint_name=sprint_name,
     )
