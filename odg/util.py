@@ -7,6 +7,7 @@ import os
 import signal
 import sys
 import time
+import uuid
 
 import cnudie.retrieve
 import delivery.client
@@ -275,3 +276,81 @@ def process_backlog_items(
                 kubernetes_api=_kubernetes_api,
             )
             logger.info(f'processed and deleted backlog item {name}')
+
+
+def uuid_for_artefact_id(
+    artefact_id: odg.model.ComponentArtefactId,
+    delivery_client: delivery.client.DeliveryServiceClient,
+    skip_verify: bool = False,
+) -> uuid.UUID:
+    """
+    Retrieve or create a UUID for an artefact.
+
+    This function queries the delivery service for an existing UUID associated with
+    the given artefact ID. If found, it returns the existing UUID. If not found,
+    it generates a new UUID, uploads it to the ODG metadata store, verifies the
+    upload was successful, and returns the newly created UUID.
+
+    Args:
+      artefact_id: The ComponentArtefactId identifying the artefact for which
+        to retrieve or create a UUID.
+      delivery_client: The DeliveryServiceClient used to query and update
+        metadata in the delivery service.
+      skip_verify: Whether to check if newly created UUID is fetchable from ODG
+
+    Returns:
+      uuid.UUID: The UUID associated with the artefact. Either an existing UUID
+        retrieved from the metadata store, or a newly generated and uploaded UUID.
+
+    Raises:
+      ValueError:
+      - if the UUID upload verification fails
+      - if more than one UUID is found for an artefact
+    """
+    result = delivery_client.query_metadata(
+        artefacts=[
+            artefact_id,
+        ],
+        type=odg.model.Datatype.UUID,
+    )
+
+    if len(result) == 1:
+        (am,) = result
+        return uuid.UUID(am['data']['uuid4'])
+
+    elif len(result) > 1:
+        # should not occur
+        raise ValueError(f'more than one UUID found for {artefact_id}')
+
+    uuid4 = uuid.uuid4()
+    delivery_client.update_metadata(
+        data=[
+            odg.model.ArtefactMetadata(
+                artefact=artefact_id,
+                meta=odg.model.Metadata(
+                    datasource=odg.model.Datasource.ODG,
+                    type=odg.model.Datatype.UUID,
+                ),
+                data=odg.model.ArtefactUUID(
+                    uuid4=str(uuid4),
+                ),
+            )
+        ]
+    )
+
+    if skip_verify:
+        return uuid4
+
+    result = delivery_client.query_metadata(
+        artefacts=[
+            artefact_id,
+        ],
+        type=odg.model.Datatype.UUID,
+    )
+    (am,) = result
+    db_uuid = am['data']['uuid4']
+
+    if str(uuid4) == db_uuid:
+        return uuid4
+
+    raise ValueError(f'Local UUID ({str(uuid4)}) and database entry ({db_uuid}) do not match!')
