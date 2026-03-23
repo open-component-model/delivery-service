@@ -11,6 +11,7 @@ import ocm
 import ocm.iter
 
 import bdba.client
+import bdba.limits
 import bdba.model as bm
 import bdba_utils.assessments
 import bdba_utils.rescore
@@ -19,6 +20,7 @@ import bdba_utils.model
 import odg.findings
 import odg.labels
 import odg.model
+import odg.util
 import ocm_util
 import secret_mgmt
 
@@ -41,6 +43,7 @@ class ResourceGroupProcessor:
         resource_node: ocm.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_artefact_scans: collections.abc.Iterable[bm.Product],
+        delivery_client: delivery.client.DeliveryServiceClient,
     ) -> bdba_utils.model.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
@@ -51,6 +54,21 @@ class ResourceGroupProcessor:
         if resource.extraIdentity:
             # peers are not required here as version is considered anyways
             display_name += '_' + normalize_display_name(value=f'{resource.identity(peers=())}')
+
+        uuid_for_artefact = odg.util.uuid_for_artefact_id(
+            artefact_id=odg.model.component_artefact_id_from_ocm(
+                component=resource_node.component,
+                artefact=resource_node.resource,
+            ),
+            delivery_client=delivery_client,
+        )
+
+        # ensure UUID is not truncated
+        display_name = bdba.limits.trim(
+            display_name,
+            (bdba.limits.app_name - len(str(uuid_for_artefact)) - 1),  # uuid and trailing underscore
+        )
+        display_name += f'_{str(uuid_for_artefact)}'
 
         component_artefact_metadata = bdba_utils.util.component_artefact_metadata(
             resource_node=resource_node,
@@ -188,6 +206,7 @@ class ResourceGroupProcessor:
             resource_node=resource_node,
             content_iterator=content_iterator,
             known_artefact_scans=known_scan_results,
+            delivery_client=delivery_client,
         )
         try:
             result = self.process_scan_request(

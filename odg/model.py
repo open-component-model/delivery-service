@@ -28,6 +28,7 @@ class Datatype(enum.StrEnum):
     COMPLIANCE_SNAPSHOTS = 'compliance/snapshots'
     RESCORING = 'rescorings'
     RESPONSIBLES = 'meta/responsibles'
+    UUID = 'meta/uuid'
 
     # finding types
     CRYPTO_FINDING = 'finding/crypto'
@@ -84,6 +85,7 @@ class Datasource(enum.StrEnum):
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
     SBOM_GENERATOR = 'sbom-generator'
+    ODG = 'odg'
 
     def datatypes(self) -> tuple[Datatype, ...]:
         return {
@@ -854,6 +856,11 @@ class MetaRescoringRules(enum.StrEnum):
 
 
 @dataclasses.dataclass
+class ArtefactUUID:
+    uuid4: str
+
+
+@dataclasses.dataclass
 class CustomRescoring:
     """
     The `allowed_processing_time` is stored relatively to allow the rescoring to apply to findings
@@ -1411,7 +1418,7 @@ FindingModels = (
     | VulnerabilityFinding
 )
 InformationalModels = StructureInfo | CryptoAsset | ResponsibleInfo
-MetaModels = CustomRescoring | ComplianceSnapshot | dict
+MetaModels = CustomRescoring | ComplianceSnapshot | ArtefactUUID | dict
 
 
 @dataclasses.dataclass
