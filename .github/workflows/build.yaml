@@ -464,6 +464,10 @@ jobs:
                 attribute: odg-operator.image.repository
               - ref: ocm-resource:extensions.tag
                 attribute: odg-operator.image.tag
+              - ref: ocm-resource:extensions.repository
+                attribute: sbom-generator.image.repository
+              - ref: ocm-resource:extensions.tag
+                attribute: sbom-generator.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             mappings: []
