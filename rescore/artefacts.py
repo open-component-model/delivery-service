@@ -735,7 +735,9 @@ class Rescore(aiohttp.web.View):
           name: type
           required: false
           schema:
-            $ref: '#/components/schemas/Datatype'
+            type: array
+            items:
+              $ref: '#/components/schemas/Datatype'
         responses:
           "200":
             description: Successful operation.
