@@ -607,7 +607,7 @@ class Rescore(aiohttp.web.View):
             description: Successful operation.
         """
         body = await self.request.json()
-        rescorings_raw: list[dict] = body.get('entries')
+        rescorings_raw: list[dict] = body.get('entries', [])
 
         extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
         user_id = self.request[consts.REQUEST_USER_ID]
