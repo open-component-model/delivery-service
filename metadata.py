@@ -1117,7 +1117,7 @@ class ArtefactMetadata(aiohttp.web.View):
         tags:
         - Artefact metadata
         requestBody:
-          required: false
+          required: true
           content:
             application/json:
               schema:
