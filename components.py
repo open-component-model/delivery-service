@@ -836,7 +836,9 @@ class UpgradePRs(aiohttp.web.View):
             content:
               application/json:
                 schema:
-                  type: object
+                  type: array
+                  items:
+                    type: object
         """
         params = self.request.rel_url.query
 
