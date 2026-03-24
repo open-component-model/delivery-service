@@ -1,4 +1,4 @@
-bdba==0.10.0
+bdba==0.11.0
 brotli
 cyclonedx-python-lib
 jsonpath-ng
