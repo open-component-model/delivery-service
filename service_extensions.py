@@ -122,7 +122,9 @@ class LogCollections(aiohttp.web.View):
           name: service
           required: false
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         - in: query
           name: log_level
           required: true
