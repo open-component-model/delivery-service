@@ -821,13 +821,32 @@ def ip_summary(
     delivery_dashboard_url: str | None = None,
     sprint_name: str | None = None,
 ) -> tuple[str, str, str]:
+    def package_versions_str(
+        aggregated_finding: AggregatedFinding,
+        finding_group: FindingGroup,
+    ) -> str:
+        return ', <br/>'.join(
+            f'`{package_version}`'
+            for package_version in sorted(
+                aggregated_finding.finding.data.package_version,
+                key=util.version_sorting_key,
+            )
+        )
+
+    def policy_violations_str(
+        aggregated_finding: AggregatedFinding,
+        finding_group: FindingGroup,
+    ) -> str:
+        return ', <br/>'.join(
+            f'[{policy_violation.name}]({policy_violation.url})'
+            for policy_violation in aggregated_finding.finding.data.policy_violation
+        )
+
     finding_table_callback = {
         'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
-        'Package Version': lambda f, _: f'`{f.finding.data.package_version}`',
+        'Package Version(s)': package_versions_str,
         'License': lambda f, _: f'`{f.finding.data.license.name}`',
-        'Policy Violation': lambda f, _: (
-            f'[{f.finding.data.policy_violation.name}]({f.finding.data.policy_violation.url})'
-        ),  # noqa: E501
+        'Policy Violation(s)': policy_violations_str,
         'Severity': lambda f, g: _severity_str(
             aggregated_finding=f,
             finding_group=g,
@@ -837,11 +856,9 @@ def ip_summary(
 
     historical_table_callback = {
         'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
-        'Package Version': lambda f, _: f'`{f.finding.data.package_version}`',
+        'Package Version(s)': package_versions_str,
         'License': lambda f, _: f'`{f.finding.data.license.name}`',
-        'Policy Violation': lambda f, _: (
-            f'[{f.finding.data.policy_violation.name}]({f.finding.data.policy_violation.url})'
-        ),  # noqa: E501
+        'Policy Violation(s)': policy_violations_str,
         'Severity': lambda f, g: _severity_str(
             aggregated_finding=f,
             finding_group=g,
@@ -858,12 +875,66 @@ def ip_summary(
         ),
     }
 
+    report_urls_callback = lambda finding_group: sorted(
+        {
+            f'[Blackduck]({finding.finding.data.href})'
+            for finding in finding_group.findings
+            if finding.finding.data.href
+        }
+    )
+
+    def group_aggregated_findings(
+        aggregated_findings: tuple[AggregatedFinding],
+    ) -> tuple[AggregatedFinding]:
+        """
+        returns `findings` grouped by the affected package of the finding and the license violation
+        """
+        findings_by_package_and_license = collections.defaultdict(dict)
+
+        for aggregated_finding in aggregated_findings:
+            package_name = aggregated_finding.finding.data.package_name
+            package_version = aggregated_finding.finding.data.package_version
+            license = aggregated_finding.finding.data.license.name
+            policy_violation = aggregated_finding.finding.data.policy_violation
+
+            if finding := findings_by_package_and_license[package_name].get(license):
+                finding.finding.data.package_version.append(package_version)
+                finding.finding.data.policy_violation.append(policy_violation)
+            else:
+                finding = copy.deepcopy(aggregated_finding)
+                finding.finding.data.package_version = [package_version]
+                finding.finding.data.policy_violation = [policy_violation]
+                findings_by_package_and_license[package_name][license] = finding
+
+        return tuple(
+            findings_for_package_and_license
+            for _, findings_for_package_by_license in sorted(
+                findings_by_package_and_license.items(),
+                key=lambda finding_by_package_and_license: finding_by_package_and_license[0],
+            )
+            for findings_for_package_and_license in sorted(
+                findings_for_package_by_license.values(),
+                key=lambda finding_for_package_and_license: (
+                    finding_for_package_and_license.finding.data.license.name,
+                ),
+            )
+        )
+
+    for finding_group in finding_groups:
+        finding_group.findings = group_aggregated_findings(
+            aggregated_findings=finding_group.findings,
+        )
+        finding_group.historical_findings = group_aggregated_findings(
+            aggregated_findings=finding_group.historical_findings,
+        )
+
     return findings_summary(
         finding_cfg=finding_cfg,
         finding_groups=finding_groups,
         component_descriptor_lookup=component_descriptor_lookup,
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
+        report_urls_callback=report_urls_callback,
         delivery_dashboard_url=delivery_dashboard_url,
         sprint_name=sprint_name,
     )

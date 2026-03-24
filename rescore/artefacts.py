@@ -46,7 +46,7 @@ class IPFinding(odg.model.Finding):
     package_name: str
     package_versions: tuple[str, ...]  # "..." for dacite.from_dict
     license: odg.model.License
-    policy_violation: odg.model.PolicyViolationRef
+    policy_violations: tuple[odg.model.PolicyViolationRef, ...]
     labels: list[str]
 
 
@@ -463,7 +463,6 @@ async def _iter_rescoring_proposals(
                         matching_am.data.license.name == license.name
                         and matching_am.data.package_name == package_name
                         and sorted(matching_am.data.labels) == sorted(am.data.labels)
-                        and matching_am.data.policy_violation.name == am.data.policy_violation.name
                     )
                 )
                 seen_ids.update(tuple(local_am.id for local_am in am_across_package_versions))
@@ -474,6 +473,10 @@ async def _iter_rescoring_proposals(
                     finding=am,
                 )
 
+                policy_violations = tuple(
+                    matching_am.data.policy_violation for matching_am in am_across_package_versions
+                )
+
                 yield dacite.from_dict(
                     data_class=RescoringProposal,
                     data={
@@ -482,7 +485,7 @@ async def _iter_rescoring_proposals(
                             'package_versions': package_versions,
                             'severity': severity,
                             'license': license,
-                            'policy_violation': am.data.policy_violation,
+                            'policy_violations': policy_violations,
                             'labels': am.data.labels,
                         },
                         'finding_type': finding_cfg.type,
