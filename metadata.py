@@ -1326,7 +1326,7 @@ class ArtefactMetadata(aiohttp.web.View):
             description: Successful operation.
         """
         body = await self.request.json()
-        entries: list[dict] = body.get('entries')
+        entries: list[dict] = body.get('entries', [])
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
