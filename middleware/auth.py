@@ -1049,16 +1049,23 @@ class User(aiohttp.web.View):
                           type:
                             type: string
                           identifier:
-                            type: object
-                            required:
-                            - username
-                            properties:
-                              username:
-                                type: string
-                              email_address:
-                                type: string
-                              hostname:
-                                type: string
+                            oneOf:
+                            - type: object
+                              required: [username, hostname]
+                              properties:
+                                username:
+                                  type: string
+                                email_address:
+                                  type: string
+                                hostname:
+                                  type: string
+                            - type: object
+                              required: [app_name, hostname]
+                              properties:
+                                app_name:
+                                  type: string
+                                hostname:
+                                  type: string
                     roles:
                       type: array
                       items:
