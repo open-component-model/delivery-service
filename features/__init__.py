@@ -1055,7 +1055,7 @@ class Profiles(aiohttp.web.View):
                 schema:
                   type: object
                   required:
-                  - features
+                  - profiles
                   properties:
                     profiles:
                       type: array
