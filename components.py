@@ -223,7 +223,9 @@ class Component(aiohttp.web.View):
             content:
               application/json:
                 schema:
-                  type: object
+                  oneOf:
+                  - type: object
+                  - type: string
         """
         params = self.request.rel_url.query
 
