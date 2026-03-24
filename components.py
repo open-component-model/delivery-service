@@ -685,7 +685,8 @@ class GreatestComponentVersions(aiohttp.web.View):
           required: false
           schema:
             type: string
-            description: One of `all`, `non_releases_only`, `releases_only`, `semver_all`, or a custom regex.
+            description: >-
+              One of `all`, `non_releases_only`, `releases_only`, `semver_all`, or a custom regex.
         responses:
           "200":
             description: Successful operation.
