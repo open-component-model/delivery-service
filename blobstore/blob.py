@@ -400,9 +400,9 @@ class Blob(aiohttp.web.View):
                 description: The size of the blob
                 schema:
                     type: integer
-            "400":
+          "400":
             description: The required parameters are not provided.
-            "404":
+          "404":
             description: Blob not found
         """
 
