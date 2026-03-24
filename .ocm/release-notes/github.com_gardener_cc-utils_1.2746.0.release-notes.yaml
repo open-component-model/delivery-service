@@ -1,0 +1,48 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2746.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: zkdev
+  category: noteworthy
+  contents: cc-utils GitHub Actions suite now features a custom docker-build step
+    with full control over used tooling
+  mimetype: text/markdown
+  reference: '[#1527](https://github.com/gardener/cc-utils/pull/1527)'
+  type: standard
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: zkdev
+  category: other
+  contents: GitHub Actions on GHE will now use default docker daemon
+  mimetype: text/markdown
+  reference: '[#1540](https://github.com/gardener/cc-utils/pull/1540)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: ocm traverse now offers `--format` with which users can optionally dump
+    output as json or yaml
+  mimetype: text/markdown
+  reference: '[#1536](https://github.com/gardener/cc-utils/pull/1536)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: breaking
+  contents: cc-utils no longer features "cc-job-image". This is an incompatible change
+    and marks the first cc-utils-version that no longer features means to deploy or
+    run concourse-pipelines.
+  mimetype: text/markdown
+  reference: '[#1541](https://github.com/gardener/cc-utils/pull/1541)'
+  type: standard
