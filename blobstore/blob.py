@@ -276,7 +276,7 @@ class Blob(aiohttp.web.View):
                 type: string
                 format: binary
         responses:
-          "201":
+          "200":
             description: Blob was successful stored in the blob store
             headers:
               Digest:
