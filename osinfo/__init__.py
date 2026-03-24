@@ -133,32 +133,33 @@ class OsInfoRoutes(aiohttp.web.View):
         ---
         tags:
         - OS info
-        produces:
-        - application/json
         parameters:
         - in: path
           name: os_id
-          type: string
           required: true
+          schema:
+            type: string
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                type: object
-                required:
-                - name
-                - reached_eol
-                properties:
-                  name:
-                    type: string
-                  reached_eol:
-                    type: boolean
-                  greatest_version:
-                    type: string
-                  eol_date:
-                    type: string
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - name
+                    - reached_eol
+                    properties:
+                      name:
+                        type: string
+                      reached_eol:
+                        type: boolean
+                      greatest_version:
+                        type: string
+                      eol_date:
+                        type: string
         """
         os_id = self.request.match_info.get('os_id')
 

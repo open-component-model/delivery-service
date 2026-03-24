@@ -188,32 +188,42 @@ class Component(aiohttp.web.View):
         ---
         tags:
         - Components
-        produces:
-        - application/json
         parameters:
         - in: query
           name: component_name
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: version
-          type: string
           required: false
-          default: greatest
+          schema:
+            type: string
+            default: greatest
         - in: query
           name: ocm_repo_url
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: raw
-          type: boolean
           required: false
-          default: false
+          schema:
+            type: boolean
+            default: false
         - in: query
           name: ignore_cache
-          type: boolean
           required: false
-          default: false
+          schema:
+            type: boolean
+            default: false
+        responses:
+          "200":
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: object
         """
         params = self.request.rel_url.query
 
@@ -235,30 +245,39 @@ class ComponentDependencies(aiohttp.web.View):
         ---
         tags:
         - Components
-        produces:
-        - application/json
         parameters:
         - in: query
           name: component_name
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: version
-          type: string
           required: false
-          default: greatest
+          schema:
+            type: string
+            default: greatest
         - in: query
           name: ocm_repo_url
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: populate
-          type: string
-          enum:
-          - all
-          - componentReferences
           required: false
-          default: all
+          schema:
+            type: string
+            enum:
+            - all
+            - componentReferences
+            default: all
+        responses:
+          "200":
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: object
         """
         params = self.request.rel_url.query
 
@@ -326,45 +345,51 @@ class ComponentResponsibles(aiohttp.web.View):
           Returns a list of user-identities responsible for the given component or resource.
         tags:
         - Components
-        produces:
-        - application/json
         parameters:
         - in: query
           name: component_name
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: version
-          type: string
           required: false
-          default: greatest
+          schema:
+            type: string
+            default: greatest
         - in: query
           name: artifact_name
-          type: string
           required: false
+          schema:
+            type: string
           description:
             If given and specific responsibles are configured for the given artefact, (using label
             `cloud.gardener.cnudie/responsibles`), then those take precedence over component-wide
             responsibles.
         - in: query
           name: ocm_repo_url
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: raw
-          type: boolean
           required: false
-          default: false
+          schema:
+            type: boolean
+            default: false
         - in: query
           name: ignore_cache
-          type: boolean
           required: false
-          default: false
+          schema:
+            type: boolean
+            default: false
         responses:
           "200":
             description: Successful operation.
-            schema:
-              $ref: '#/definitions/ComponentResponsibles'
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ComponentResponsibles'
           "202":
             description: GitHub statistics pending, client should retry.
         """
@@ -621,51 +646,58 @@ class GreatestComponentVersions(aiohttp.web.View):
         ---
         tags:
         - Components
-        produces:
-        - application/json
         parameters:
         - in: query
           name: component_name
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: version
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: ocm_repo_url
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: max
-          type: integer
           required: false
-          default: 5
+          schema:
+            type: integer
+            default: 5
         - in: query
           name: start_date
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: end_date
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: version_filter
-          type: string
-          enum:
-          - all
-          - non_releases_only
-          - releases_only
-          - semver_all
-          - <custom-regex>
           required: false
+          schema:
+            type: string
+            enum:
+            - all
+            - non_releases_only
+            - releases_only
+            - semver_all
+            - <custom-regex>
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                type: string
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: string
         """
         params = self.request.rel_url.query
 
@@ -770,34 +802,44 @@ class UpgradePRs(aiohttp.web.View):
         ---
         tags:
         - Components
-        produces:
-        - application/json
         parameters:
         - in: query
           name: componentName
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: componentVersion
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: repoUrl
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: state
-          type: string
-          enum:
-          - all
-          - open
-          - closed
           required: false
-          default: open
+          schema:
+            type: string
+            enum:
+            - all
+            - open
+            - closed
+            default: open
         - in: query
           name: ocmRepo
-          type: string
           required: false
+          schema:
+            type: string
+        responses:
+          "200":
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: object
         """
         params = self.request.rel_url.query
 
@@ -927,22 +969,27 @@ class ComponentDescriptorDiff(aiohttp.web.View):
         ---
         tags:
         - Components
-        produces:
-        - application/json
-        parameters:
-        - in: body
-          name: body
+        requestBody:
           required: true
-          schema:
-            type: object
-            required:
-            - left_component
-            - right_component
-            properties:
-              left_component:
-                $ref: '#/definitions/ComponentId'
-              right_component:
-                $ref: '#/definitions/ComponentId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - left_component
+                - right_component
+                properties:
+                  left_component:
+                    $ref: '#/components/schemas/ComponentId'
+                  right_component:
+                    $ref: '#/components/schemas/ComponentId'
+        responses:
+          "200":
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: object
         """
         diff_request = ComponentDiffRequest.from_dict(await self.request.json())
 
@@ -1078,42 +1125,47 @@ class ComplianceSummary(aiohttp.web.View):
           artefact-metadata types.
         tags:
         - Artefact metadata
-        produces:
-        - application/json
         parameters:
         - in: query
           name: component_name
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: version
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: ocm_repo_url
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: recursion_depth
-          type: integer
           required: false
-          default: -1
+          schema:
+            type: integer
+            default: -1
         - in: query
           name: profile
-          type: string
           required: false
+          schema:
+            type: string
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: object
-              required:
-                - complianceSummary
-              properties:
-                complianceSummary:
-                    type: array
-                    items:
-                      $ref: '#/definitions/ComplianceSummary'
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - complianceSummary
+                  properties:
+                    complianceSummary:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ComplianceSummary'
         """
         params = self.request.rel_url.query
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]

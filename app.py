@@ -6,8 +6,7 @@ import logging
 import os
 
 import aiohttp.web
-import aiohttp_swagger
-import yaml
+import aiohttp_swagger3
 
 import ci.log
 
@@ -201,179 +200,179 @@ class Ready(aiohttp.web.View):
 
 
 def add_routes(
-    app: aiohttp.web.Application,
-) -> aiohttp.web.Application:
-    app.router.add_view(
+    swagger: aiohttp_swagger3.SwaggerDocs,
+) -> aiohttp_swagger3.SwaggerDocs:
+    swagger.add_view(
         path='/ready',
         handler=Ready,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/features',
         handler=features.Features,
     )
 
     # dedicated route instead of `/features` route to allow unauthorised retrieval (-> login page)
-    app.router.add_view(
+    swagger.add_view(
         path='/profiles',
         handler=features.Profiles,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/ocm/artefacts/blob',
         handler=artefacts.ArtefactBlob,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/artefacts/metadata',
         handler=metadata.ArtefactMetadata,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/artefacts/metadata/query',
         handler=metadata.ArtefactMetadataQuery,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/components/upgrade-prs',
         handler=components.UpgradePRs,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/components/diff',
         handler=components.ComponentDescriptorDiff,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/special-component/current-dependencies',
         handler=special_component.CurrentDependencies,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/components/tests',
         handler=compliance_tests.DownloadTestResults,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/components/compliance-summary',
         handler=components.ComplianceSummary,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/delivery/sprint-infos',
         handler=sprint.SprintInfos,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/delivery/sprint-infos/current',
         handler=sprint.SprintInfosCurrent,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/auth',
         handler=middleware.auth.OAuthLogin,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/auth/refresh',
         handler=middleware.auth.OAuthRefresh,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/auth/logout',
         handler=middleware.auth.OAuthLogout,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/auth/configs',
         handler=middleware.auth.OAuthCfgs,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/auth/rbac',
         handler=middleware.auth.Rbac,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/auth/user',
         handler=middleware.auth.User,
     )
 
     # endpoint according to OpenID provider configuration request
     # https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
-    app.router.add_view(
+    swagger.add_view(
         path='/.well-known/openid-configuration',
         handler=middleware.auth.OpenIDCfg,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/openid/v1/jwks',
         handler=middleware.auth.OpenIDJwks,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/ocm/component',
         handler=components.Component,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/ocm/component/versions',
         handler=components.GreatestComponentVersions,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/ocm/component/dependencies',
         handler=components.ComponentDependencies,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/ocm/component/responsibles',
         handler=components.ComponentResponsibles,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/os/{os_id}/branches',
         handler=osinfo.OsInfoRoutes,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/rescore',
         handler=rescore.artefacts.Rescore,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/service-extensions',
         handler=service_extensions.ServiceExtensions,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/service-extensions/log-collections',
         handler=service_extensions.LogCollections,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/service-extensions/container-statuses',
         handler=service_extensions.ContainerStatuses,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/service-extensions/backlog-items',
         handler=service_extensions.BacklogItems,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/service-extensions/runtime-artefacts',
         handler=service_extensions.RuntimeArtefacts,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/dora/dora-metrics',
         handler=dora.DoraMetrics,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/metrics',
         handler=middleware.prometheus.Metrics,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/cache',
         handler=deliverydb.cache.DeliveryDBCache,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/artefacts/metadata/query-attributes',
         handler=metadata.ArtefactMetadataQueryAttributes,
     )
-    app.router.add_view(
+    swagger.add_view(
         path='/artefacts/metadata/query/by-search-expression',
         handler=metadata.ArtefactMetadataQueryBySearchExpression,
     )
 
-    app.router.add_view(
+    swagger.add_view(
         path='/blob',
         handler=blobstore.blob.Blob,
     )
-    return app
+    return swagger
 
 
 async def initialise_app():
@@ -426,18 +425,20 @@ async def initialise_app():
         parsed_arguments=parsed_arguments,
     )
 
-    app = add_routes(
-        app=app,
+    swagger = aiohttp_swagger3.SwaggerDocs(
+        app,
+        swagger_ui_settings=aiohttp_swagger3.SwaggerUiSettings(path='/api/v1/doc'),
+        components=paths.swagger_path,
+        info=aiohttp_swagger3.SwaggerInfo(
+            title='Delivery-Service by Gardener CICD',
+            version='1.0.0',
+            description='API definition',
+        ),
+        validate=False,  # disabled due to recursive $ref in ComponentArtefactId (valid in OAS 3.0)
     )
 
-    api_definitions = yaml.safe_load(open(paths.swagger_path)).get('definitions')
-
-    aiohttp_swagger.setup_swagger(
-        app=app,
-        swagger_url='/api/v1/doc',
-        description='API definition',
-        title='Delivery-Service by Gardener CICD',
-        definitions=api_definitions,
+    swagger = add_routes(
+        swagger=swagger,
     )
 
     return app

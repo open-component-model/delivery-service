@@ -45,20 +45,21 @@ class ContainerStatuses(aiohttp.web.View):
         ---
         tags:
         - Service extensions
-        produces:
-        - application/json
         parameters:
         - in: query
           name: service
-          type: string
           required: false
+          schema:
+            type: string
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                type: object
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
         """
         params = self.request.rel_url.query
 
@@ -114,29 +115,31 @@ class LogCollections(aiohttp.web.View):
         ---
         tags:
         - Service extensions
-        produces:
-        - application/json
         parameters:
         - in: query
           name: service
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: log_level
-          type: string
-          enum:
-          - ERROR
-          - WARNING
-          - INFO
-          - DEBUG
           required: true
+          schema:
+            type: string
+            enum:
+            - ERROR
+            - WARNING
+            - INFO
+            - DEBUG
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                type: object
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: object
         """
         params = self.request.rel_url.query
 
@@ -168,15 +171,15 @@ class ServiceExtensions(aiohttp.web.View):
         ---
         tags:
         - Service extensions
-        produces:
-        - application/json
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                type: string
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    type: string
         """
         extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
 
@@ -227,20 +230,21 @@ class BacklogItems(aiohttp.web.View):
         ---
         tags:
         - Service extensions
-        produces:
-        - application/json
         parameters:
         - in: query
           name: service
-          type: string
           required: true
+          schema:
+            type: string
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                $ref: '#/definitions/BacklogItem'
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BacklogItem'
         """
         params = self.request.rel_url.query
 
@@ -267,18 +271,20 @@ class BacklogItems(aiohttp.web.View):
         parameters:
         - in: query
           name: name
-          type: string
-          required: true
-        - in: body
-          name: body
           required: true
           schema:
-            type: object
-            required:
-            - spec
-            properties:
-              spec:
-                $ref: '#/definitions/BacklogItemSpec'
+            type: string
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - spec
+                properties:
+                  spec:
+                    $ref: '#/components/schemas/BacklogItemSpec'
         responses:
           "204":
             description: Successful operation.
@@ -311,31 +317,34 @@ class BacklogItems(aiohttp.web.View):
         parameters:
         - in: query
           name: service
-          type: string
-          required: true
-        - in: query
-          name: priority
-          type: string
-          enum:
-          - NONE
-          - LOW
-          - MEDIUM
-          - HIGH
-          - CRITICAL
-          required: false
-          default: CRITICAL
-        - in: body
-          name: body
           required: true
           schema:
-            type: object
-            required:
-            - artefacts
-            properties:
-              artefacts:
-                type: array
-                items:
-                 $ref: '#/definitions/ComponentArtefactId'
+            type: string
+        - in: query
+          name: priority
+          required: false
+          schema:
+            type: string
+            enum:
+            - NONE
+            - LOW
+            - MEDIUM
+            - HIGH
+            - CRITICAL
+            default: CRITICAL
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - artefacts
+                properties:
+                  artefacts:
+                    type: array
+                    items:
+                     $ref: '#/components/schemas/ComponentArtefactId'
         responses:
           "201":
             description: Successful operation.
@@ -446,23 +455,23 @@ class RuntimeArtefacts(aiohttp.web.View):
           Retrieve existing runtime artefacts, optionally pre-filtered using the `label_selector`.
         tags:
         - Service extensions
-        produces:
-        - application/json
         parameters:
         - in: query
           name: label
+          required: false
           schema:
             type: array
             items:
               type: string
-          required: false
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                $ref: '#/definitions/RuntimeArtefact'
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RuntimeArtefact'
         """
         params = self.request.rel_url.query
 
@@ -488,23 +497,24 @@ class RuntimeArtefacts(aiohttp.web.View):
         parameters:
         - in: query
           name: label
+          required: false
           schema:
             type: array
             items:
               type: string
-          required: false
-        - in: body
-          name: body
+        requestBody:
           required: true
-          schema:
-            type: object
-            required:
-            - artefacts
-            properties:
-              artefacts:
-                type: array
-                items:
-                  $ref: '#/definitions/ComponentArtefactId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - artefacts
+                properties:
+                  artefacts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ComponentArtefactId'
         responses:
           "201":
             description: Successful operation.

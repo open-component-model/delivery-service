@@ -254,33 +254,47 @@ class Blob(aiohttp.web.View):
         - in: header
           name: digest
           required: true
-          type: string
+          schema:
+            type: string
           description: The digest of the blob in the format <hash alg>:<hexdigest>
+        - in: header
+          name: Content-Length
+          required: true
+          schema:
+            type: integer
+        - in: header
+          name: Content-Type
+          required: true
+          schema:
+            type: string
         requestBody:
+          required: true
           description: The blob which should be stored in the blob store
           content:
-            */*
-          required: true
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         responses:
           "201":
             description: Blob was successful stored in the blob store
             headers:
-            Digest:
+              Digest:
                 description: The digest of the blob in the format <hash alg>:<hexdigest>
                 schema:
-                    type: string
-            Created:
+                  type: string
+              Created:
                 description: The date, the blob was stored into the blob store
                 schema:
-                    type: string
-            Content-Type:
+                  type: string
+              Content-Type:
                 description: The mime-type of the blob
                 schema:
-                    type: string
+                  type: string
           "400":
             description: The required parameters are not provided
           "422":
-            description:  The blob is already available in the blob store
+            description: The blob is already available in the blob store
           "500":
             description: The blob could not be stored
         """
@@ -377,32 +391,33 @@ class Blob(aiohttp.web.View):
         parameters:
         - in: query
           name: digest
-          type: string
           required: true
+          schema:
+            type: string
           description: The digest of the blob in the format <hash alg>:<hexdigest>
         responses:
           "200":
             description: Blob was found in the blob store
             headers:
-            Digest:
+              Digest:
                 description: The digest of the blob in the format <hash alg>:<hexdigest>
                 schema:
-                    type: string
-            Created:
+                  type: string
+              Created:
                 description: The date, the blob was stored into the blob store
                 schema:
-                    type: string
-            Content-Type:
+                  type: string
+              Content-Type:
                 description: The mime-type of the blob
                 schema:
-                    type: string
-            Content-Length:
+                  type: string
+              Content-Length:
                 description: The size of the blob
                 schema:
-                    type: integer
-            "400":
+                  type: integer
+          "400":
             description: The required parameters are not provided.
-            "404":
+          "404":
             description: Blob not found
         """
 
@@ -450,14 +465,15 @@ class Blob(aiohttp.web.View):
     async def delete(self) -> aiohttp.web.Response:
         """
         ---
-        description: Delete blob by his digest
+        description: Delete blob by its digest
         tags:
         - Blob
         parameters:
         - in: query
           name: digest
-          type: string
           required: true
+          schema:
+            type: string
           description: The digest of the blob in the format <hash alg>:<hexdigest>
         responses:
           "204":
@@ -516,13 +532,17 @@ class Blob(aiohttp.web.View):
         parameters:
         - in: query
           name: digest
-          type: string
           required: true
+          schema:
+            type: string
         responses:
           "200":
             description: Blob successfully streamed to the client
             content:
-              type: blob
+              application/octet-stream:
+                schema:
+                  type: string
+                  format: binary
           "400":
             description: The required parameters are not provided.
           "404":

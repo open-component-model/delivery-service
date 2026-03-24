@@ -24,17 +24,25 @@ class DownloadTestResults(aiohttp.web.View):
         description: Downloads the zipped test results for the specified component release.
         tags:
         - Components
-        produces:
-        - application/zip
         parameters:
         - in: query
           name: componentName
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: componentVersion
-          type: string
           required: true
+          schema:
+            type: string
+        responses:
+          "200":
+            description: Success
+            content:
+              application/zip:
+                schema:
+                  type: string
+                  format: binary
         """
         params = self.request.rel_url.query
 

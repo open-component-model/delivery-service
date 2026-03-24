@@ -720,41 +720,43 @@ class DoraMetrics(aiohttp.web.View):
         ---
         tags:
         - Dora
-        produces:
-        - application/json
         parameters:
         - in: query
           name: target_component_name
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: time_span_days
-          type: integer
           required: false
-          default: 90
+          schema:
+            type: integer
+            default: 90
         - in: query
           name: filter_component_names
+          required: false
           schema:
             type: array
             items:
               type: string
-          required: false
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: object
-              required:
-              - change_lead_time_median
-              - change_lead_time_average
-              - dependencies
-              properties:
-                change_lead_time_median:
-                  type: number
-                change_lead_time_average:
-                  type: number
-                dependencies:
+            content:
+              application/json:
+                schema:
                   type: object
+                  required:
+                  - change_lead_time_median
+                  - change_lead_time_average
+                  - dependencies
+                  properties:
+                    change_lead_time_median:
+                      type: number
+                    change_lead_time_average:
+                      type: number
+                    dependencies:
+                      type: object
           "202":
             description: Dora metric calculation pending, client should retry.
         """

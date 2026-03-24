@@ -67,20 +67,20 @@ class SprintInfos(aiohttp.web.View):
         ---
         tags:
         - Sprints
-        produces:
-        - application/json
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: object
-              required:
-              - sprints
-              properties:
-                sprints:
-                  type: array
-                  items:
-                    $ref: '#/definitions/Sprint'
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                  - sprints
+                  properties:
+                    sprints:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Sprint'
         """
         sprints_metadata = self.request.app[consts.APP_SPRINTS_METADATA]
         sprints = self.request.app[consts.APP_SPRINTS]
@@ -107,28 +107,30 @@ class SprintInfosCurrent(aiohttp.web.View):
           calculating "current" sprint.
         tags:
         - Sprints
-        produces:
-        - application/json
         parameters:
         - in: query
           name: offset
-          type: integer
           required: false
-          default: 0
+          schema:
+            type: integer
+            default: 0
           description:
             If set, the returned sprint is offset by given amount of sprints (positive value will
             yield future sprints, while negative numbers will yield past ones).
         - in: query
           name: before
-          type: string
           required: false
+          schema:
+            type: string
           description:
             If set, the returned sprint is calculated setting "today" to the specified date.
         responses:
           "200":
             description: Successful operation.
-            schema:
-              $ref: '#/definitions/Sprint'
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Sprint'
         """
         params = self.request.rel_url.query
 
