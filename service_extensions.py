@@ -50,7 +50,9 @@ class ContainerStatuses(aiohttp.web.View):
           name: service
           required: false
           schema:
-            type: string
+            type: array
+            items:
+              type: string
         responses:
           "200":
             description: Successful operation.
