@@ -994,7 +994,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 yield sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_name is None,
+                        dm.ArtefactMetaData.artefact_name.is_(None),
                     ),
                     dm.ArtefactMetaData.artefact_name == artefact_name,
                 )
@@ -1003,7 +1003,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 yield sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_version is None,
+                        dm.ArtefactMetaData.artefact_version.is_(None),
                     ),
                     dm.ArtefactMetaData.artefact_version == artefact_version,
                 )
@@ -1012,7 +1012,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 yield sa.or_(
                     sa.and_(
                         none_ok,
-                        dm.ArtefactMetaData.artefact_type is None,
+                        dm.ArtefactMetaData.artefact_type.is_(None),
                     ),
                     dm.ArtefactMetaData.artefact_type == artefact_type,
                 )
