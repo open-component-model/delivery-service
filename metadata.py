@@ -930,7 +930,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
             metadata will be returned. Check odg/model.py `Datatype` model class for a list of
             possible values.
         requestBody:
-          required: false
+          required: true
           content:
             application/json:
               schema:
