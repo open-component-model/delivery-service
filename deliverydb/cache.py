@@ -122,6 +122,7 @@ def dbcached_function(
     max_size_octets: int = 0,
     exclude_args_at_idx: collections.abc.Sequence[int] = tuple(),
     exclude_kwargs: collections.abc.Sequence[str] = tuple(),
+    skip_values: collections.abc.Sequence = tuple(),
 ):
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
@@ -168,6 +169,10 @@ def dbcached_function(
             start = datetime.datetime.now()
             result = await func(*args, **kwargs)
             duration = datetime.datetime.now() - start
+
+            if result in skip_values:
+                # don't store result in cache if it is explicitly excluded
+                return result
 
             value = dcu.serialise_cache_value(
                 value=result,

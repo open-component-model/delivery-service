@@ -250,6 +250,7 @@ async def artefact_datatype_summary(
         'component_descriptor_lookup',
         'ocm_repo',
     ),
+    skip_values=([],),
 )
 async def component_datatype_summaries(
     component: ocm.ComponentIdentity,
