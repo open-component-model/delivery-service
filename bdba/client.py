@@ -110,7 +110,7 @@ class BDBAApiRoutes:
     def export_product(
         self,
         product_id: int | str,
-        sbom_format: sbom.SBomFormat=sbom.SBomFormat.BDIO,
+        sbom_format: sbom.SBomFormat = sbom.SBomFormat.BDIO,
     ) -> str:
         url = self._api_url('product', str(product_id), f'?format={sbom_format}')
         if sbom.SBomFormat(sbom_format) is sbom.SBomFormat.CYCLONEDX:
@@ -647,9 +647,7 @@ class BDBAApi:
         )
 
     def export_sbom(
-        self,
-        product_id: int | str,
-        sbom_format: sbom.SBomFormat
+        self, product_id: int | str, sbom_format: sbom.SBomFormat
     ) -> dict | sbom.SBomFormat.BDIO:
         url = self._routes.export_product(product_id, sbom_format=sbom_format)
 
