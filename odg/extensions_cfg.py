@@ -15,6 +15,7 @@ import yaml
 import github.compliance.milestone as gcmi
 import ocm
 
+import bdba.model
 import crypto_extension.config
 import lookups
 import odg.filter
@@ -22,7 +23,7 @@ import odg.model
 import odg.shared_cfg
 import responsibles_extension.filters as ref
 import responsibles_extension.strategies as res
-import bdba.model
+import sbom
 
 logger = logging.getLogger(__name__)
 
@@ -1161,7 +1162,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
     mappings: list[SBOMGeneratorMapping]
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     create_new_scan_if_missing: bool = False
-    output_format: bdba.model.SBomFormat = bdba.model.SBomFormat.CYCLONEDX
+    output_format: sbom.SBomFormat = sbom.SBomFormat.CYCLONEDX
     processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
     interval: int = 60 * 60 * 24  # 24h
 

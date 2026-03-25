@@ -20,6 +20,7 @@ import requests
 import bdba.limits
 import bdba.model as bm
 import bdba.util as bu
+import sbom
 
 
 logger = logging.getLogger(__name__)
@@ -109,10 +110,10 @@ class BDBAApiRoutes:
     def export_product(
         self,
         product_id: int | str,
-        sbom_format: bm.SBomFormat = bm.SBomFormat.BDIO,
+        sbom_format: sbom.SBomFormat=sbom.SBomFormat.BDIO,
     ) -> str:
         url = self._api_url('product', str(product_id), f'?format={sbom_format}')
-        if bm.SBomFormat(sbom_format) is bm.SBomFormat.CYCLONEDX:
+        if sbom.SBomFormat(sbom_format) is sbom.SBomFormat.CYCLONEDX:
             url = f'{url.rstrip("/")}/json'
         return url
 
@@ -648,14 +649,14 @@ class BDBAApi:
     def export_sbom(
         self,
         product_id: int | str,
-        sbom_format: bm.SBomFormat,
-    ) -> dict | bm.BDIO:
+        sbom_format: sbom.SBomFormat
+    ) -> dict | sbom.SBomFormat.BDIO:
         url = self._routes.export_product(product_id, sbom_format=sbom_format)
 
         response = self._get(url=url)
         response_raw = response.json()
 
-        if sbom_format is bm.SBomFormat.BDIO:
+        if sbom_format is sbom.SBomFormat.BDIO:
             return dacite.from_dict(
                 data_class=bm.BDIO,
                 data=dict(
