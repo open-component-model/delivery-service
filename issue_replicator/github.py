@@ -732,7 +732,6 @@ def ghas_summary(
         component_descriptor_lookup=component_descriptor_lookup,
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
-        delivery_dashboard_url=delivery_dashboard_url,
         sprint_name=sprint_name,
     )
 
@@ -793,17 +792,6 @@ def inventory_summary(
                     issue_refs.append(issue_ref)
             if issue_refs:
                 finding_str += f'| Issue Refs | {", ".join(sorted(issue_refs))} |\n'
-
-            if delivery_dashboard_url:
-                delivery_dashboard_url = rescore.utility.delivery_dashboard_rescoring_url(
-                    base_url=delivery_dashboard_url,
-                    component_artefact_id=finding_group.artefact,
-                    finding_type=finding_cfg.type,
-                    sprint_name=sprint_name,
-                )
-                finding_str += (
-                    f'\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'  # noqa: E501
-                )
 
             summary_long += finding_str
             summary += finding_str
