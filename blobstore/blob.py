@@ -509,7 +509,10 @@ class Blob(aiohttp.web.View):
         try:
             await _delete_blob_from_store(ref=blob_ref.ref, db_session=db_session)
 
-            db_statement = sa.delete(dm.BlobStore).where(dm.BlobStore.digest == sanitized_digest)
+            db_statement = sa.delete(
+                dm.BlobStore).where(
+                dm.BlobStore.digest == sanitized_request_digest
+            )
             blob_deleted = await db_session.execute(db_statement)
 
             if blob_deleted.rowcount == 0:
