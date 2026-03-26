@@ -21,35 +21,45 @@ class ArtefactBlob(aiohttp.web.View):
           unambiguously, the first match will be used.
         tags:
         - Artefacts
-        produces:
-        - application/octet-stream
         parameters:
         - in: query
           name: component
-          type: string
           required: true
+          schema:
+            type: string
           description: component-name:component-version
         - in: query
           name: artefact
-          type: string
           required: true
+          schema:
+            type: string
           description: |
             has two forms:
             1. str - interpreted as `name` attribute
             2. json (object) - str-to-str mapping for attributes
         - in: query
           name: ocm_repository
-          type: string
           required: false
+          schema:
+            type: string
           description: ocm-repository-url
         - in: query
           name: unzip
-          type: boolean
           required: false
-          default: true
+          schema:
+            type: boolean
+            default: true
           description:
             if true and artefact's access is gzipped, returned content will be unzipped (for
             convenience)
+        responses:
+          "200":
+            description: Success
+            content:
+              application/octet-stream:
+                schema:
+                  type: string
+                  format: binary
         """
         params = self.request.rel_url.query
 

@@ -591,23 +591,23 @@ class Rescore(aiohttp.web.View):
         description: Applies rescoring to delivery-db.
         tags:
         - Rescoring
-        parameters:
-        - in: body
-          name: body
+        requestBody:
           required: false
-          schema:
-            type: object
-            properties:
-              entries:
-                type: array
-                items:
-                  $ref: '#/definitions/ArtefactMetadata'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArtefactMetadata'
         responses:
           "201":
             description: Successful operation.
         """
         body = await self.request.json()
-        rescorings_raw: list[dict] = body.get('entries')
+        rescorings_raw: list[dict] = body.get('entries', [])
 
         extensions_cfg = self.request.app[consts.APP_EXTENSIONS_CFG]
         user_id = self.request[consts.REQUEST_USER_ID]
@@ -695,49 +695,58 @@ class Rescore(aiohttp.web.View):
           "previewed".
         tags:
         - Rescoring
-        produces:
-        - application/json
         parameters:
         - in: query
           name: componentName
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: componentVersion
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: artefactKind
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: artefactName
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: artefactVersion
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: artefactType
-          type: string
           required: true
+          schema:
+            type: string
         - in: query
           name: artefactExtraId
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: type
-          schema:
-            $ref: '#/definitions/Datatype'
           required: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Datatype'
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                $ref: '#/definitions/RescoringProposal'
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RescoringProposal'
         """
         params = self.request.rel_url.query
 

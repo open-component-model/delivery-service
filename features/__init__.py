@@ -992,35 +992,37 @@ class Features(aiohttp.web.View):
         description: Returns a list of available and unavailable features with optional extra cfg.
         tags:
         - Features
-        produces:
-        - application/json
         parameters:
         - in: query
           name: profile
-          type: string
           required: false
+          schema:
+            type: string
         responses:
           "200":
-            schema:
-              type: object
-              required:
-              - features
-              properties:
-                features:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - name
-                    - state
-                    properties:
-                      name:
-                        type: string
-                      state:
-                        type: string
-                        enum:
-                          - available
-                          - unavailable
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                  - features
+                  properties:
+                    features:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                        - name
+                        - state
+                        properties:
+                          name:
+                            type: string
+                          state:
+                            type: string
+                            enum:
+                              - available
+                              - unavailable
         """
         params = self.request.rel_url.query
 
@@ -1045,19 +1047,20 @@ class Profiles(aiohttp.web.View):
         description: Returns a list of available profile names.
         tags:
         - Features
-        produces:
-        - application/json
         responses:
           "200":
-            schema:
-              type: object
-              required:
-              - features
-              properties:
-                profiles:
-                  type: array
-                  items:
-                    type: string
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                  - profiles
+                  properties:
+                    profiles:
+                      type: array
+                      items:
+                        type: string
         """
         profiles_feature = get_feature(FeatureProfiles)
 

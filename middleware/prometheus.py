@@ -19,11 +19,13 @@ class Metrics(aiohttp.web.View):
         ---
         tags:
         - Metrics
-        produces:
-        - text/plain
         responses:
           "200":
             description: Successful operation.
+            content:
+              text/plain:
+                schema:
+                  type: string
         """
         return aiohttp.web.Response(
             body=prometheus_client.generate_latest(),

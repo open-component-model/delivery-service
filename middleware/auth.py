@@ -149,13 +149,13 @@ class OAuthCfgs(aiohttp.web.View):
         ---
         tags:
         - Authentication
-        produces:
-        - application/json
         responses:
           "200":
             description: Successful operation.
-            schema:
-              $ref: '#/definitions/AuthConfig'
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/AuthConfig'
         """
 
         def oauth_cfg_to_dict(oauth_cfg: secret_mgmt.oauth_cfg.OAuthCfg):
@@ -524,30 +524,34 @@ class OAuthLogin(aiohttp.web.View):
         ---
         tags:
         - Authentication
-        produces:
-        - application/json
         parameters:
         - in: query
           name: code
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: client_id
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: access_token
-          type: string
           required: false
+          schema:
+            type: string
         - in: query
           name: api_url
-          type: string
           required: false
+          schema:
+            type: string
         responses:
           "200":
             description: Successfully logged in.
-            schema:
-              $ref: '#/definitions/AuthToken'
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/AuthToken'
           "401":
             description: The provided auth information is not valid.
         """
@@ -721,13 +725,13 @@ class OpenIDCfg(aiohttp.web.View):
         ---
         tags:
         - Authentication
-        produces:
-        - application/json
         responses:
           "200":
             description: Successful operation.
-            schema:
-              $ref: '#/definitions/OpenIdConfig'
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/OpenIdConfig'
         """
         base_url = self.request.app[consts.APP_BASE_URL]
 
@@ -755,20 +759,20 @@ class OpenIDJwks(aiohttp.web.View):
         ---
         tags:
         - Authentication
-        produces:
-        - application/json
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: object
-              required:
-              - keys
-              properties:
-                keys:
-                  type: array
-                  items:
-                    type: object
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                  - keys
+                  properties:
+                    keys:
+                      type: array
+                      items:
+                        type: object
         """
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
 
@@ -957,50 +961,50 @@ class Rbac(aiohttp.web.View):
           Returns a list of all available roles and permissions.
         tags:
         - Authentication
-        produces:
-        - application/json
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: object
-              required:
-              - roles
-              - permissions
-              properties:
-                roles:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - name
-                    - permissions
-                    properties:
-                      name:
-                        type: string
-                      permissions:
-                        type: array
-                        items:
-                          type: string
-                permissions:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - name
-                    - routes
-                    - methods
-                    properties:
-                      name:
-                        type: string
-                      routes:
-                        type: array
-                        items:
-                          type: string
-                      methods:
-                        type: array
-                        items:
-                          type: string
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                  - roles
+                  - permissions
+                  properties:
+                    roles:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                        - name
+                        - permissions
+                        properties:
+                          name:
+                            type: string
+                          permissions:
+                            type: array
+                            items:
+                              type: string
+                    permissions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                        - name
+                        - routes
+                        - methods
+                        properties:
+                          name:
+                            type: string
+                          routes:
+                            type: array
+                            items:
+                              type: string
+                          methods:
+                            type: array
+                            items:
+                              type: string
         """
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
 
@@ -1021,73 +1025,80 @@ class User(aiohttp.web.View):
           granted permissions.
         tags:
         - Authentication
-        produces:
-        - application/json
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: object
-              required:
-              - roles
-              - permissions
-              properties:
-                id:
-                  type: string
-                identifiers:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - type
-                    - identifier
-                    properties:
-                      type:
-                        type: string
-                      identifier:
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                  - roles
+                  - permissions
+                  properties:
+                    id:
+                      type: string
+                    identifiers:
+                      type: array
+                      items:
                         type: object
                         required:
-                        - username
+                        - type
+                        - identifier
                         properties:
-                          username:
+                          type:
                             type: string
-                          email_address:
+                          identifier:
+                            oneOf:
+                            - type: object
+                              required: [username, hostname]
+                              properties:
+                                username:
+                                  type: string
+                                email_address:
+                                  type: string
+                                hostname:
+                                  type: string
+                            - type: object
+                              required: [app_name, hostname]
+                              properties:
+                                app_name:
+                                  type: string
+                                hostname:
+                                  type: string
+                    roles:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                        - name
+                        - permissions
+                        properties:
+                          name:
                             type: string
-                          hostname:
+                          permissions:
+                            type: array
+                            items:
+                              type: string
+                    permissions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                        - name
+                        - routes
+                        - methods
+                        properties:
+                          name:
                             type: string
-                roles:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - name
-                    - permissions
-                    properties:
-                      name:
-                        type: string
-                      permissions:
-                        type: array
-                        items:
-                          type: string
-                permissions:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - name
-                    - routes
-                    - methods
-                    properties:
-                      name:
-                        type: string
-                      routes:
-                        type: array
-                        items:
-                          type: string
-                      methods:
-                        type: array
-                        items:
-                          type: string
+                          routes:
+                            type: array
+                            items:
+                              type: string
+                          methods:
+                            type: array
+                            items:
+                              type: string
         """
         secret_factory = self.request.app[consts.APP_SECRET_FACTORY]
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]

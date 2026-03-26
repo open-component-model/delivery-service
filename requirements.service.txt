@@ -1,4 +1,4 @@
-aiohttp-swagger
+aiohttp-swagger3
 awesomeversion
 dataclasses-json
 htmllistparse

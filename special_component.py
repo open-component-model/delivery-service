@@ -13,13 +13,19 @@ class CurrentDependencies(aiohttp.web.View):
         ---
         tags:
         - Components
-        produces:
-        - application/json
         parameters:
         - in: query
           name: id
-          type: string
           required: true
+          schema:
+            type: string
+        responses:
+          "200":
+            description: Success
+            content:
+              application/json:
+                schema:
+                  type: object
         """
         params = self.request.rel_url.query
 

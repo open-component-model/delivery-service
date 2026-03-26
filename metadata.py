@@ -650,11 +650,13 @@ class ArtefactMetadataQueryAttributes(aiohttp.web.View):
           supported operators. Also returns `defaultSearchFields` used for free-text search.
         tags:
         - Artefact metadata
-        produces:
-        - application/json
         responses:
           "200":
             description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
         """
         fields = [
             {'name': 'ocm', 'type': 'string', 'ops': ['eq']},
@@ -697,42 +699,43 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
           Results are returned in a stable order and can be paged using cursor-based pagination.
         tags:
         - Artefacts
-        consumes:
-        - application/json
-        produces:
-        - application/json
-        parameters:
-        - in: body
-          name: body
+        requestBody:
           required: true
-          schema:
-            type: object
-            required:
-            - criteria
-            properties:
-              criteria:
-                type: array
-                description: List of filter criteria (AND across types; OR within same field/attr).
-                items:
-                  type: object
-              limit:
-                type: integer
-                required: false
-                default: 50
-                description: Page size (capped server-side).
-              sort:
-                type: array
-                required: false
-                description: Sort specification.
-                items:
-                  type: object
-              cursor:
+          content:
+            application/json:
+              schema:
                 type: object
-                required: false
-                description: Cursor for next page (seek pagination); must contain all sort fields.
+                required:
+                - criteria
+                properties:
+                  criteria:
+                    type: array
+                    description: >-
+                      List of filter criteria
+                      (AND across types; OR within same field/attr).
+                    items:
+                      type: object
+                  limit:
+                    type: integer
+                    default: 50
+                    description: Page size (capped server-side).
+                  sort:
+                    type: array
+                    description: Sort specification.
+                    items:
+                      type: object
+                  cursor:
+                    type: object
+                    description: >-
+                      Cursor for next page (seek pagination);
+                      must contain all sort fields.
         responses:
           "200":
             description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
           "400":
             description: Bad Request (invalid criteria / cursor / sort)
           "401":
@@ -906,45 +909,46 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         description: Query artefact-metadata from delivery-db.
         tags:
         - Artefact metadata
-        produces:
-        - application/json
         parameters:
         - in: query
           name: type
-          schema:
-            $ref: '#/definitions/Datatype'
           required: false
+          schema:
+            $ref: '#/components/schemas/Datatype'
           description:
             The metadata types to retrieve. Can be given multiple times. If no type is
             given, all relevant metadata will be returned. Check odg/model.py `Datatype` model class
             for a list of possible values.
         - in: query
           name: referenced_type
-          schema:
-            $ref: '#/definitions/Datatype'
           required: false
+          schema:
+            $ref: '#/components/schemas/Datatype'
           description:
             The referenced types to retrieve (only applicable for metadata of type
             `rescorings`). Can be given multiple times. If no referenced type is given, all relevant
             metadata will be returned. Check odg/model.py `Datatype` model class for a list of
             possible values.
-        - in: body
-          name: body
-          required: false
-          schema:
-            type: object
-            properties:
-              entries:
-                type: array
-                items:
-                  $ref: '#/definitions/ComponentArtefactId'
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ComponentArtefactId'
         responses:
           "200":
             description: Successful operation.
-            schema:
-              type: array
-              items:
-                $ref: '#/definitions/ArtefactMetadata'
+            content:
+              application/json:
+                schema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ArtefactMetadata'
         """
         component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
         params = self.request.rel_url.query
@@ -1112,17 +1116,17 @@ class ArtefactMetadata(aiohttp.web.View):
         description: Update artefact-metadata in delivery-db.
         tags:
         - Artefact metadata
-        parameters:
-        - in: body
-          name: body
-          required: false
-          schema:
-            type: object
-            properties:
-              entries:
-                type: array
-                items:
-                  $ref: '#/definitions/ArtefactMetadata'
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArtefactMetadata'
         responses:
           "200":
             description: No entries were provided and no operation was performed.
@@ -1306,23 +1310,23 @@ class ArtefactMetadata(aiohttp.web.View):
         description: Delete artefact-metadata from delivery-db.
         tags:
         - Artefact metadata
-        parameters:
-        - in: body
-          name: body
+        requestBody:
           required: true
-          schema:
-            type: object
-            properties:
-              entries:
-                type: array
-                items:
-                  $ref: '#/definitions/ArtefactMetadata'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArtefactMetadata'
         responses:
           "204":
             description: Successful operation.
         """
         body = await self.request.json()
-        entries: list[dict] = body.get('entries')
+        entries: list[dict] = body.get('entries', [])
 
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 

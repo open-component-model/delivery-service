@@ -1,7 +1,8 @@
-definitions:
-  AuthToken:
-    type: object
-    required:
+components:
+  schemas:
+    AuthToken:
+      type: object
+      required:
       - version
       - sub
       - iss
@@ -9,27 +10,26 @@ definitions:
       - exp
       - key_id
       - roles
-    properties:
-      version:
-        type: string
-      sub:
-        type: string
-      iss:
-        type: string
-      iat:
-        type: integer
-      exp:
-        type: integer
-      key_id:
-        type: string
-      roles:
-        type: array
-        items:
+      properties:
+        version:
           type: string
-
-  AuthConfig:
-    type: object
-    required:
+        sub:
+          type: string
+        iss:
+          type: string
+        iat:
+          type: integer
+        exp:
+          type: integer
+        key_id:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+    AuthConfig:
+      type: object
+      required:
       - name
       - github_name
       - github_host
@@ -38,130 +38,123 @@ definitions:
       - client_id
       - redirect_uri
       - oauth_url_with_redirect
-    properties:
-      name:
-        type: string
-      github_name:
-        type: string
-      github_host:
-        type: string
-      api_url:
-        type: string
-      oauth_url:
-        type: string
-      client_id:
-        type: string
-      redirect_uri:
-        type: string
-      oauth_url_with_redirect:
-        type: string
-
-  OpenIdConfig:
-    type: object
-    required:
+      properties:
+        name:
+          type: string
+        github_name:
+          type: string
+        github_host:
+          type: string
+        api_url:
+          type: string
+        oauth_url:
+          type: string
+        client_id:
+          type: string
+        redirect_uri:
+          type: string
+        oauth_url_with_redirect:
+          type: string
+    OpenIdConfig:
+      type: object
+      required:
       - issuer
       - jwks_uri
       - response_types_supported
       - subject_types_supported
       - id_token_signing_alg_values_supported
-    properties:
-      issuer:
-        type: string
-      jwks_uri:
-        type: string
-      response_types_supported:
-        type: array
-        items:
+      properties:
+        issuer:
           type: string
-      subject_types_supported:
-        type: array
-        items:
+        jwks_uri:
           type: string
-      id_token_signing_alg_values_supported:
-        type: array
-        items:
-          type: string
-
-  UserIdentifier:
-    type: object
-    required:
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        subject_types_supported:
+          type: array
+          items:
+            type: string
+        id_token_signing_alg_values_supported:
+          type: array
+          items:
+            type: string
+    UserIdentifier:
+      type: object
+      required:
       - source
       - type
-    properties:
-      source:
-        type: string
-      type:
-        type: string
-      username:
-        type: string
-      github_hostname:
-        type: string
-      email:
-        type: string
-      first_name:
-        type: string
-      last_name:
-        type: string
-      origin_type:
-        type: string
-
-  UserIdentity:
-    type: object
-    properties:
-      identifiers:
-        type: array
-        items:
-          $ref: '#/definitions/UserIdentifier'
-
-  ComponentId:
-    type: object
-    required:
+      properties:
+        source:
+          type: string
+        type:
+          type: string
+        username:
+          type: string
+        github_hostname:
+          type: string
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        origin_type:
+          type: string
+    UserIdentity:
+      type: object
+      properties:
+        identifiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserIdentifier'
+    ComponentId:
+      type: object
+      required:
       - name
       - version
-    properties:
-      name:
-        type: string
-      version:
-        type: string
-
-  LocalArtefactId:
-    type: object
-    properties:
-      artefact_name:
-        type: string
-      artefact_version:
-        type: string
-      artefact_type:
-        type: string
-      artefact_extra_id:
-        type: object
-
-  ComponentArtefactId:
-    type: object
-    required:
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+    LocalArtefactId:
+      type: object
+      properties:
+        artefact_name:
+          type: string
+        artefact_version:
+          type: string
+        artefact_type:
+          type: string
+        artefact_extra_id:
+          type: object
+    ComponentArtefactId:
+      type: object
+      required:
       - artefact_kind
-    properties:
-      component_name:
-        type: string
-      component_version:
-        type: string
-      artefact_kind:
-        type: string
-        enum:
+      properties:
+        component_name:
+          type: string
+        component_version:
+          type: string
+        artefact_kind:
+          type: string
+          enum:
           - artefact
           - resource
           - runtime
           - source
-      artefact:
-        $ref: '#/definitions/LocalArtefactId'
-      references:
-        type: array
-        items:
-          $ref: '#/definitions/ComponentArtefactId'
-
-  Datasource:
-    type: string
-    enum:
+        artefact:
+          $ref: '#/components/schemas/LocalArtefactId'
+        references:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComponentArtefactId'
+    Datasource:
+      type: string
+      enum:
       - artefact-enumerator
       - bdba
       - clamav
@@ -174,10 +167,9 @@ definitions:
       - osid
       - responsibles
       - sast
-
-  Datatype:
-    type: string
-    enum:
+    Datatype:
+      type: string
+      enum:
       - meta/artefact_scan_info
       - meta/responsibles
       - compliance/snapshots
@@ -197,264 +189,257 @@ definitions:
       - crypto_asset
       - osid
       - structure_info
-
-  Metadata:
-    type: object
-    required:
+    Metadata:
+      type: object
+      required:
       - datasource
       - type
-    properties:
-      datasource:
-        $ref: '#/definitions/Datasource'
-      type:
-        $ref: '#/definitions/Datatype'
-      creation_date:
-        type: string
-      last_update:
-        type: string
-      responsibles:
-        type: array
-        items:
-          $ref: '#/definitions/UserIdentity'
-      assignee_mode:
-        type: string
-        enum:
+      properties:
+        datasource:
+          $ref: '#/components/schemas/Datasource'
+        type:
+          $ref: '#/components/schemas/Datatype'
+        creation_date:
+          type: string
+        last_update:
+          type: string
+        responsibles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserIdentity'
+        assignee_mode:
+          type: string
+          enum:
           - extend
           - overwrite
           - skip
-
-  ArtefactMetadata:
-    type: object
-    required:
+    ArtefactMetadata:
+      type: object
+      required:
       - artefact
       - meta
       - data
-    properties:
-      id:
-        type: integer
-      discovery_date:
-        type: string
-      artefact:
-        $ref: '#/definitions/ComponentArtefactId'
-      meta:
-        $ref: '#/definitions/Metadata'
-      data:
-        type: object
-
-  ComplianceSummaryEntry:
-    type: object
-    required:
+      properties:
+        id:
+          type: integer
+        discovery_date:
+          type: string
+        artefact:
+          $ref: '#/components/schemas/ComponentArtefactId'
+        meta:
+          $ref: '#/components/schemas/Metadata'
+        data:
+          type: object
+    ComplianceSummaryEntry:
+      type: object
+      required:
       - type
       - source
       - severity
       - scanStatus
-    properties:
-      type:
-        $ref: '#/definitions/Datatype'
-      source:
-        $ref: '#/definitions/Datasource'
-      categorisation:
-        type: string
-      value:
-        type: integer
-      scanStatus:
-        type: string
-        enum:
+      properties:
+        type:
+          $ref: '#/components/schemas/Datatype'
+        source:
+          $ref: '#/components/schemas/Datasource'
+        categorisation:
+          type: string
+        value:
+          type: integer
+        scanStatus:
+          type: string
+          enum:
           - ok
           - no_data
-
-  ComplianceSummary:
-    type: object
-    required:
+    ComplianceSummary:
+      type: object
+      required:
       - componentId
       - entries
       - artefacts
-    properties:
-      componentId:
-        $ref: '#/definitions/ComponentId'
-      entries:
-        type: array
-        items:
-          $ref: '#/definitions/ComplianceSummaryEntry'
-      artefacts:
-        type: array
-        items:
-          type: object
-          required:
+      properties:
+        componentId:
+          $ref: '#/components/schemas/ComponentId'
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComplianceSummaryEntry'
+        artefacts:
+          type: array
+          items:
+            type: object
+            required:
             - artefact
             - entries
-          properties:
-            artefact:
-              $ref: '#/definitions/ComponentArtefactId'
-            entries:
-              type: array
-              items:
-                $ref: '#/definitions/ComplianceSummaryEntry'
-
-  SprintDate:
-    type: object
-    required:
+            properties:
+              artefact:
+                $ref: '#/components/schemas/ComponentArtefactId'
+              entries:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComplianceSummaryEntry'
+    SprintDate:
+      type: object
+      required:
       - name
       - display_name
       - value
-    properties:
-      name:
-        type: string
-      display_name:
-        type: string
-      value:
-        type: string
-
-  Sprint:
-    type: object
-    required:
+      properties:
+        name:
+          type: string
+        display_name:
+          type: string
+        value:
+          type: string
+    Sprint:
+      type: object
+      required:
       - name
       - dates
-    properties:
-      name:
-        type: string
-      dates:
-        type: array
-        items:
-          $ref: '#/definitions/SprintDate'
-
-  ComponentResponsibles:
-    type: object
-    required:
-      - responsibles
-      - statuses
-    properties:
-      responsibles:
-        type: array
-        description: |
-          Each user-identity consists of a list of typed userinfo-entries. Callers should ignore
-          types they do not know or care about.
-        items:
+      properties:
+        name:
+          type: string
+        dates:
           type: array
           items:
-            $ref: '#/definitions/UserIdentifier'
-      statuses:
-        type: array
-        description: |
-          Statuses allow to provide additional information to caller, e.g. to communicate that
-          the responsible label was malformed and heuristic was used as fallback.
-        items:
-          type: object
-          required:
+            $ref: '#/components/schemas/SprintDate'
+    ComponentResponsibles:
+      type: object
+      required:
+      - responsibles
+      - statuses
+      properties:
+        responsibles:
+          type: array
+          description: 'Each user-identity consists of a list of typed userinfo-entries.
+            Callers should ignore
+
+            types they do not know or care about.
+
+            '
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/UserIdentifier'
+        statuses:
+          type: array
+          description: 'Statuses allow to provide additional information to caller,
+            e.g. to communicate that
+
+            the responsible label was malformed and heuristic was used as fallback.
+
+            '
+          items:
+            type: object
+            required:
             - type
             - msg
-          properties:
-            type:
-              type: string
-            msg:
-              type: string
-
-  RescoringProposal:
-    type: object
-    required:
+            properties:
+              type:
+                type: string
+              msg:
+                type: string
+    RescoringProposal:
+      type: object
+      required:
       - finding
       - finding_type
       - severity
       - matching_rules
       - applicable_rescorings
       - discovery_date
-    properties:
-      finding:
-        type: object
-      finding_type:
-        type: string
-      severity:
-        type: string
-      matching_rules:
-        type: array
-        items:
+      properties:
+        finding:
+          type: object
+        finding_type:
           type: string
-      applicable_rescorings:
-        type: array
-        items:
-          $ref: '#/definitions/ArtefactMetadata'
-      discovery_date:
-        type: string
-      sprint:
-        type: object
-        required:
+        severity:
+          type: string
+        matching_rules:
+          type: array
+          items:
+            type: string
+        applicable_rescorings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtefactMetadata'
+        discovery_date:
+          type: string
+        sprint:
+          type: object
+          required:
           - name
           - end_date
-        properties:
-          name:
-            type: string
-          end_date:
-            type: string
-
-  KubernetesMetadata:
-    type: object
-    required:
+          properties:
+            name:
+              type: string
+            end_date:
+              type: string
+    KubernetesMetadata:
+      type: object
+      required:
       - name
       - uid
       - labels
       - annotations
       - creationTimestamp
-    properties:
-      name:
-        type: string
-      uid:
-        type: string
-      labels:
-        type: object
-      annotations:
-        type: object
-      creationTimestamp:
-        type: string
-
-  BacklogItemSpec:
-    type: object
-    required:
+      properties:
+        name:
+          type: string
+        uid:
+          type: string
+        labels:
+          type: object
+        annotations:
+          type: object
+        creationTimestamp:
+          type: string
+    BacklogItemSpec:
+      type: object
+      required:
       - timestamp
       - artefact
       - priority
-    properties:
-      timestamp:
-        type: string
-      artefact:
-        $ref: '#/definitions/ComponentArtefactId'
-      priority:
-        type: integer
-        enum:
+      properties:
+        timestamp:
+          type: string
+        artefact:
+          $ref: '#/components/schemas/ComponentArtefactId'
+        priority:
+          type: integer
+          enum:
           - 0
           - 1
           - 2
           - 4
           - 8
-
-  BacklogItem:
-    type: object
-    required:
+    BacklogItem:
+      type: object
+      required:
       - metadata
       - spec
-    properties:
-      metadata:
-        $ref: '#/definitions/KubernetesMetadata'
-      spec:
-        $ref: '#/definitions/BacklogItemSpec'
-
-  RuntimeArtefactSpec:
-    type: object
-    required:
+      properties:
+        metadata:
+          $ref: '#/components/schemas/KubernetesMetadata'
+        spec:
+          $ref: '#/components/schemas/BacklogItemSpec'
+    RuntimeArtefactSpec:
+      type: object
+      required:
       - creation_date
       - artefact
-    properties:
-      creation_date:
-        type: string
-      artefact:
-        $ref: '#/definitions/ComponentArtefactId'
-
-  RuntimeArtefact:
-    type: object
-    required:
+      properties:
+        creation_date:
+          type: string
+        artefact:
+          $ref: '#/components/schemas/ComponentArtefactId'
+    RuntimeArtefact:
+      type: object
+      required:
       - metadata
       - spec
-    properties:
-      metadata:
-        $ref: '#/definitions/KubernetesMetadata'
-      spec:
-        $ref: '#/definitions/RuntimeArtefactSpec'
+      properties:
+        metadata:
+          $ref: '#/components/schemas/KubernetesMetadata'
+        spec:
+          $ref: '#/components/schemas/RuntimeArtefactSpec'

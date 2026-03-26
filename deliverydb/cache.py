@@ -396,25 +396,27 @@ class DeliveryDBCache(aiohttp.web.View):
         parameters:
         - in: query
           name: id
+          required: false
           schema:
             type: string
-          required: false
           description:
             The descriptor id of the cache entry which should be marked for deletion. See
             `deliverydb_cache.model.CacheDescriptorBase` for available descriptor types and how
             their id is composed. If not specified, the full descriptor must be passed in the body.
         - in: query
           name: deleteAfter
+          required: false
           schema:
             type: string
-          required: false
           description:
             Optional, timezone-aware iso-formated datetime to schedule the deletion of the
             referenced cache entry. If not set, the entry will be marked for immediate deletion.
-        - in: body
-          name: descriptor
-          schema:
-            type: object
+        requestBody:
+          required: false
+          content:
+            application/json:
+              schema:
+                type: object
           description:
             If the descriptor id is not passed as param, this descriptor is used to calculate the
             required id. The passed descriptor must be serialisable by one of the dataclasses which
