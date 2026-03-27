@@ -88,6 +88,7 @@ class CurrentVersionSource:
     type: CurrentVersionSourceType
     repo: str
     relpath: list[dict | str]
+    ref: str | None = None
     postprocess: bool = False
 
     def __post_init__(self):
@@ -131,10 +132,10 @@ class CurrentVersion:
         # every path in the relpath property which is not the last element has
         # to be a submodule. So, get the referenced submodule with the corresponding
         # commit ref and repeat it until no further submodule is specified
-        commit_sha = None
+        ref = self.source.ref
         for path in self.source.relpath[:-1]:
-            submodule = repo.file_contents(path, commit_sha)
-            commit_sha = submodule.links['git'].split('/')[-1]
+            submodule = repo.file_contents(path, ref)
+            ref = submodule.links['git'].split('/')[-1]
 
             repo = github_repository(submodule.links['html'])
 
@@ -143,11 +144,11 @@ class CurrentVersion:
         # is expected to be a file only containing the version)
         version = repo.file_contents(
             path=self.source.relpath[-1],
-            ref=commit_sha,
+            ref=ref,
         ).decoded.decode('utf-8')
 
         if self.source.postprocess:
-            version += f'-{next(repo.commits(number=1)).sha}'
+            version += f'-{next(repo.commits(number=1, sha=ref)).sha}'
 
         return version.strip()
 
