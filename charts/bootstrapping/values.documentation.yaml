@@ -1083,6 +1083,9 @@ features_cfg:
     #     end_date: "<YYYY-MM-DD>"
     sprintsRelpath: ""
 
+  # @param features_cfg.dora enables/disables the Dora tab in the delivery-dashboard
+  dora: false
+
   # @param features_cfg.upgradePRs enables/disables the upgrade-PR feature which enables the
   # component-diff tab in the delivery-dashboard and shows detected upgrade-PRs
   upgradePRs: false

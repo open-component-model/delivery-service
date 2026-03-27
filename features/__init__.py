@@ -277,6 +277,11 @@ class FeatureDeliveryDB(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
+class FeatureDora(FeatureBase):
+    name: str = 'dora'
+
+
+@dataclasses.dataclass(frozen=True)
 class FeatureExtensionsConfiguration(FeatureBase):
     name: str = 'extensions-configuration'
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration | None = None
@@ -809,6 +814,11 @@ def deserialise_cfg(raw: dict) -> collections.abc.Generator[FeatureBase, None, N
         yield deserialise_tests(tests)
     else:
         yield FeatureTests(FeatureStates.UNAVAILABLE)
+
+    if raw.get('dora'):
+        yield FeatureDora(FeatureStates.AVAILABLE)
+    else:
+        yield FeatureDora(FeatureStates.UNAVAILABLE)
 
     if raw.get('upgradePRs'):
         yield FeatureUpgradePRs(FeatureStates.AVAILABLE)
