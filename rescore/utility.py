@@ -295,11 +295,13 @@ def delivery_dashboard_rescoring_url(
 
     query_params = {
         'name': component_artefact_id.component_name,
-        'version': component_artefact_id.component_version,
         'view': 'bom',
         'rootExpanded': True,
         'findingType': finding_type,
     }
+
+    if component_artefact_id.component_version:
+        query_params['version'] = component_artefact_id.component_version
 
     if sprint_name:
         query_params['sprints'] = sprint_name
