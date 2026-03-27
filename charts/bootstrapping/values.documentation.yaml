@@ -45,6 +45,7 @@ extensions_cfg:
         #       - type: submodule
         #         name: <path>/<to>/<submodule>/<if>/<any>
         #       - <path>/<to>/<version-file>
+        #     ref: main
         #     postprocess: false
         version:
           # @param extensions_cfg.artefact_enumerator.components[].version.source used to specify a
@@ -65,6 +66,10 @@ extensions_cfg:
             # it must be specified via a tuple of name and type (see example above), otherwise a
             # plain string is expected
             relpath: []
+            # @param extensions_cfg.artefact_enumerator.components[].version.source.ref reference of
+            # the repository to read the version from (either a branch name, tag, or a commit hash).
+            # If not specified, the default branch will be used.
+            ref: null
             # @param extensions_cfg.artefact_enumerator.components[].version.source.postprocess if
             # set, the version will be appended by the current's commit sha, i.e. "{version}-{sha}"
             postprocess: false
@@ -234,6 +239,7 @@ extensions_cfg:
           #       - type: submodule
           #         name: <path>/<to>/<submodule>/<if>/<any>
           #       - <path>/<to>/<version-file>
+          #     ref: main
           #     postprocess: false
           version:
             # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version.source
@@ -254,6 +260,10 @@ extensions_cfg:
               # submodule, it must be specified via a tuple of name and type (see example above),
               # otherwise a plain string is expected
               relpath: []
+              # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version.source.ref
+              # reference of the repository to read the version from (either a branch name, tag, or
+              # a commit hash). If not specified, the default branch will be used.
+              ref: null
               # @param extensions_cfg.cache_manager.prefill_function_caches.components[].version.source.postprocess
               # if set, the version will be appended by the current's commit sha, i.e. "{version}-{sha}"
               postprocess: false
@@ -839,6 +849,7 @@ features_cfg:
       #       - type: submodule
       #         name: <path>/<to>/<submodule>/<if>/<any>
       #       - <path>/<to>/<version-file>
+      #     ref: main
       #     postprocess: false
       version:
         # @param features_cfg.specialComponents[].version.source used to specify a location from
@@ -857,6 +868,10 @@ features_cfg:
           # specified via a tuple of name and type (see example above), otherwise a plain string is
           # expected
           relpath: []
+          # @param features_cfg.specialComponents[].version.source.ref reference of the repository to
+          # read the version from (either a branch name, tag, or a commit hash). If not specified,
+          # the default branch will be used.
+          ref: null
           # @param features_cfg.specialComponents[].version.source.postprocess if set, the version
           # will be appended by the current's commit sha, i.e. "{version}-{sha}"
           postprocess: false
@@ -899,6 +914,7 @@ features_cfg:
       #       - type: submodule
       #         name: <path>/<to>/<submodule>/<if>/<any>
       #       - <path>/<to>/<version-file>
+      #     ref: main
       #     postprocess: false
       currentVersion:
         # @param features_cfg.specialComponents[].currentVersion.source used to specify a location
@@ -919,6 +935,10 @@ features_cfg:
           # specified via a tuple of name and type (see example above), otherwise a plain string is
           # expected
           relpath: []
+          # @param features_cfg.specialComponents[].currentVersion.source.ref reference of the
+          # repository to read the version from (either a branch name, tag, or a commit hash). If not
+          # specified, the default branch will be used.
+          ref: null
           # @param features_cfg.specialComponents[].currentVersion.source.postprocess if set, the
           # version will be appended by the current's commit sha, i.e. "{version}-{sha}"
           postprocess: false
@@ -946,6 +966,7 @@ features_cfg:
           #       - type: submodule
           #         name: <path>/<to>/<submodule>/<if>/<any>
           #       - <path>/<to>/<version-file>
+          #     ref: main
           #     postprocess: false
           currentVersion:
             # @param features_cfg.specialComponents[].dependencies[].currentVersion.source used to
@@ -966,6 +987,10 @@ features_cfg:
               # submodule, it must be specified via a tuple of name and type (see example above),
               # otherwise a plain string is expected
               relpath: []
+              # @param features_cfg.specialComponents[].dependencies[].currentVersion.source.ref
+              # reference of the repository to read the version from (either a branch name, tag, or a
+              # commit hash). If not specified, the default branch will be used.
+              ref: null
               # @param features_cfg.specialComponents[].dependencies[].currentVersion.source.postprocess
               # if set, the version will be appended by the current's commit sha, i.e.
               # "{version}-{sha}"
