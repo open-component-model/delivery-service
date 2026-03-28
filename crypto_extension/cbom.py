@@ -8,7 +8,7 @@ import tempfile
 import oci.client
 import ocm
 
-import crypto_extension.sbom
+import sbom
 import dockerutil
 import odg.extensions_cfg
 import secret_mgmt
@@ -88,7 +88,7 @@ def find_cbom_or_create(
         with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
             sbom_path = os.path.join(tmp_dir, 'sbom')
 
-            crypto_extension.sbom.derive_sbom_for_source(
+            sbom.derive_sbom_for_source(
                 source=access.imageReference,
                 output_path=sbom_path,
             )
@@ -130,7 +130,7 @@ def find_cbom_or_create(
                     filter=tar_filter,
                 )
 
-            crypto_extension.sbom.derive_sbom_for_source(
+            sbom.derive_sbom_for_source(
                 source=s3_path,
                 output_path=sbom_path,
             )
@@ -165,7 +165,7 @@ def find_cbom_or_create(
                 for chunk in blob.iter_content(chunk_size=4096):
                     file.write(chunk)
 
-            crypto_extension.sbom.derive_sbom_for_source(
+            sbom.derive_sbom_for_source(
                 source=local_blob_path,
                 output_path=sbom_path,
             )
