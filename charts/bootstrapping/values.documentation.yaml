@@ -164,6 +164,15 @@ extensions_cfg:
             # @param extensions_cfg.blackduck.mappings[].targets[].host the hostname of the BlackDuck
             # instance
             host: ""
+            # @param extensions_cfg.blackduck.mappings[].targets[].distribution_mode_overwrite an
+            # (optional) overwrite of the BlackDuck distribution mode of the project version. If not
+            # set, the distribution mode overwrite will be skipped.
+            # options:
+            # - EXTERNAL
+            # - INTERNAL
+            # - OPENSOURCE
+            # - SAAS
+            distribution_mode_overwrite: null
         # @param extensions_cfg.blackduck.mappings[].group_id_bdba the BDBA group id to retrieve the
         # scan results from
         group_id_bdba: -1
