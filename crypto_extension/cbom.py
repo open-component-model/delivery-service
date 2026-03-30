@@ -8,7 +8,7 @@ import tempfile
 import oci.client
 import ocm
 
-import sbom
+import syft
 import dockerutil
 import odg.extensions_cfg
 import secret_mgmt
@@ -88,10 +88,10 @@ def find_cbom_or_create(
         with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
             sbom_path = os.path.join(tmp_dir, 'sbom')
 
-            sbom.derive_sbom_for_source(
-                source=access.imageReference,
-                output_path=sbom_path,
-            )
+            sbom_raw = syft.run_syft(source=access.imageReference)
+
+            with open(sbom_path, 'w') as file:
+                file.write(sbom_raw)
 
             cbom = create_cbom(
                 image=access.imageReference,
@@ -130,10 +130,10 @@ def find_cbom_or_create(
                     filter=tar_filter,
                 )
 
-            sbom.derive_sbom_for_source(
-                source=s3_path,
-                output_path=sbom_path,
-            )
+            sbom_raw = syft.run_syft(source=s3_path)
+
+            with open(sbom_path, 'w') as file:
+                file.write(sbom_raw)
 
             cbom = create_cbom(
                 dir=s3_path,
@@ -165,10 +165,10 @@ def find_cbom_or_create(
                 for chunk in blob.iter_content(chunk_size=4096):
                     file.write(chunk)
 
-            sbom.derive_sbom_for_source(
-                source=local_blob_path,
-                output_path=sbom_path,
-            )
+            sbom_raw = syft.run_syft(source=local_blob_path)
+
+            with open(sbom_path, 'w') as file:
+                file.write(sbom_raw)
 
             cbom = create_cbom(
                 dir=local_blob_path,

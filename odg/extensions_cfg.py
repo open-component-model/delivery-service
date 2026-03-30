@@ -23,7 +23,7 @@ import odg.model
 import odg.shared_cfg
 import responsibles_extension.filters as ref
 import responsibles_extension.strategies as res
-import sbom
+import sbom_generator
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,12 @@ class WarningVerbosities(enum.StrEnum):
     FAIL = 'fail'
     IGNORE = 'ignore'
     WARNING = 'warning'
+
+
+class SbomFormat(enum.StrEnum):
+    CYCLONEDX = 'cyclonedx'
+    SPDX = 'spdx'
+    BDIO = 'bdio'
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -1162,19 +1168,10 @@ class SBOMGeneratorConfig(BacklogItemMixins):
     mappings: list[SBOMGeneratorMapping]
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     create_new_scan_if_missing: bool = False
-    output_format: sbom.SBomFormat = sbom.SBomFormat.CYCLONEDX
+    output_format: SbomFormat = SbomFormat.CYCLONEDX
     processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
     interval: int = 60 * 60 * 24  # 24h
-    generation_mode: sbom.GenerationMode = sbom.GenerationMode.SYFT
-
-    _supported_access_types_by_mode = {
-        sbom.GenerationMode.SYFT: (ocm.AccessType.OCI_REGISTRY,),
-        sbom.GenerationMode.BDBA: (
-            ocm.AccessType.OCI_REGISTRY,
-            ocm.AccessType.LOCAL_BLOB,
-            ocm.AccessType.S3,
-        ),
-    }
+    generation_mode: sbom_generator.GenerationMode = sbom_generator.GenerationMode.BDBA
 
     def is_supported(
         self,
@@ -1182,6 +1179,15 @@ class SBOMGeneratorConfig(BacklogItemMixins):
         access_type: ocm.AccessType | None = None,
     ) -> bool:
         supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
+
+        supported_access_types_by_mode = {
+            sbom_generator.GenerationMode.SYFT: (ocm.AccessType.OCI_REGISTRY,),
+            sbom_generator.GenerationMode.BDBA: (
+                ocm.AccessType.OCI_REGISTRY,
+                ocm.AccessType.LOCAL_BLOB,
+                ocm.AccessType.S3,
+            ),
+        }
 
         is_supported = True
 
@@ -1194,9 +1200,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
                 )
 
         if access_type:
-            supported_access_types = self._supported_access_types_by_mode.get(
-                self.generation_mode, ()
-            )
+            supported_access_types = supported_access_types_by_mode.get(self.generation_mode, ())
             if access_type not in supported_access_types:
                 is_supported = False
                 if self.on_unsupported is WarningVerbosities.WARNING:

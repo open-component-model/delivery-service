@@ -1,4 +1,3 @@
-import dataclasses
 import enum
 import logging
 import subprocess
@@ -7,32 +6,20 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-class SBomFormat(enum.StrEnum):
+class SyftSbomFormat(enum.StrEnum):
     CYCLONEDX = 'cyclonedx'
     SPDX = 'spdx'
-    BDIO = 'bdio'
-
-
-class GenerationMode(enum.StrEnum):
-    SYFT = 'syft'
-    BDBA = 'bdba'
-
-
-@dataclasses.dataclass
-class SBOM:
-    sbom_raw: dict
-    sbom_format: SBomFormat
 
 
 _SYFT_OUTPUT_FORMAT_MAP = {
-    SBomFormat.CYCLONEDX: 'cyclonedx-json',
-    SBomFormat.SPDX: 'spdx-json',
+    SyftSbomFormat.CYCLONEDX: 'cyclonedx-json',
+    SyftSbomFormat.SPDX: 'spdx-json',
 }
 
 
 def run_syft(
     source: str,
-    output_format: SBomFormat = SBomFormat.CYCLONEDX,
+    output_format: SyftSbomFormat = SyftSbomFormat.CYCLONEDX,
 ) -> str:
     """
     Runs `syft` (https://github.com/anchore/syft) to create a SBOM for the provided `source`.
@@ -63,18 +50,5 @@ def run_syft(
         e.add_note(f'{e.stdout=}')
         e.add_note(f'{e.stderr=}')
         raise
-
-    return sbom_raw
-
-
-def derive_sbom_for_source(
-    source: str,
-    output_path: str,
-    output_format: SBomFormat = SBomFormat.CYCLONEDX,
-) -> str:
-    sbom_raw = run_syft(source=source, output_format=output_format)
-
-    with open(output_path, 'w') as file:
-        file.write(sbom_raw)
 
     return sbom_raw

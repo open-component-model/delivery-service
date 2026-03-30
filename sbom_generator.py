@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+import dataclasses
 import datetime
+import enum
 import json
 import logging
 import os
@@ -19,7 +21,7 @@ import ocm.iter
 import odg.model
 import odg.util
 import odg.extensions_cfg
-import sbom
+import syft
 import secret_mgmt
 import secret_mgmt.bdba
 
@@ -28,26 +30,52 @@ ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
 
 
-SUPPORTED_SBOM_FORMATS = [sbom.SBomFormat.CYCLONEDX, sbom.SBomFormat.SPDX]
+class GenerationMode(enum.StrEnum):
+    SYFT = 'syft'
+    BDBA = 'bdba'
+
+
+SbomFormat = bdba.model.BdbaSbomFormat | syft.SyftSbomFormat
+
+
+@dataclasses.dataclass
+class SBOM:
+    sbom_raw: dict
+    sbom_format: SbomFormat
+
+
+_SUPPORTED_BDBA_SBOM_FORMATS = [
+    bdba.model.BdbaSbomFormat.BDIO,
+    bdba.model.BdbaSbomFormat.CYCLONEDX,
+    bdba.model.BdbaSbomFormat.SPDX,
+]
+
+_SUPPORTED_SYFT_SBOM_FORMATS = [
+    syft.SyftSbomFormat.CYCLONEDX,
+    syft.SyftSbomFormat.SPDX,
+]
+
+_SUPPORTED_SBOM_FORMATS = _SUPPORTED_BDBA_SBOM_FORMATS + _SUPPORTED_SYFT_SBOM_FORMATS
+
 
 _GENERATION_MODE_OUTPUT_FILES = {
-    sbom.GenerationMode.SYFT: 'sbom_output_syft.json',
-    sbom.GenerationMode.BDBA: 'sbom_output_bdba.json',
+    GenerationMode.SYFT: 'sbom_output_syft.json',
+    GenerationMode.BDBA: 'sbom_output_bdba.json',
 }
 
 
 def generate_sbom_with_syft(
     resource_node: ocm.iter.ResourceNode,
-    output_format: sbom.SBomFormat,
-) -> sbom.SBOM:
+    output_format: SbomFormat,
+) -> SBOM:
     logger.info(f'Creating SBOM for resource node {resource_node} using syft')
 
-    sbom_raw = sbom.run_syft(
+    sbom_raw = syft.run_syft(
         source=resource_node.resource.access.imageReference,
         output_format=output_format,
     )
 
-    return sbom.SBOM(sbom_raw=json.loads(sbom_raw), sbom_format=output_format)
+    return SBOM(sbom_raw=json.loads(sbom_raw), sbom_format=output_format)
 
 
 def get_or_create_bdba_scan(
@@ -118,9 +146,9 @@ def generate_sbom_with_bdba(
     secret_factory: secret_mgmt.SecretFactory,
     group_id: int,
     processing_mode: bdba.model.ProcessingMode,
-    output_format: sbom.SBomFormat,
+    output_format: SbomFormat,
     create_new_scan_if_missing: bool,
-) -> sbom.SBOM:
+) -> SBOM:
     if not (
         bdba_secret := secret_mgmt.bdba.find_cfg(
             secret_factory=secret_factory,
@@ -156,7 +184,7 @@ def generate_sbom_with_bdba(
 
     sbom_raw = bdba_api.export_sbom(product_id, output_format)
 
-    sbom_result = sbom.SBOM(sbom_raw=sbom_raw, sbom_format=output_format)
+    sbom_result = SBOM(sbom_raw=sbom_raw, sbom_format=output_format)
 
     return sbom_result
 
@@ -169,7 +197,7 @@ def generate_sbom_for_artefact(
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
     **kwargs,
-) -> sbom.SBOM:
+) -> SBOM:
     """
     Generates Software Bill of Materials (SBOM) for a component artefact.
     Resolves the component descriptor from OCM repositories,
@@ -178,10 +206,11 @@ def generate_sbom_for_artefact(
     """
     logger.info(f'Generating SBOM for artefact: {artefact}')
 
-    if extension_cfg.output_format not in SUPPORTED_SBOM_FORMATS:
+    if extension_cfg.output_format not in _SUPPORTED_SBOM_FORMATS:
         raise ValueError(
             f'Unsupported SBOM format: {extension_cfg.output_format}. '
-            f'Supported formats: {", ".join(SUPPORTED_SBOM_FORMATS)}'
+            f'Supported BDBA formats: {", ".join(f.value for f in _SUPPORTED_BDBA_SBOM_FORMATS)}. '
+            f'Supported Syft formats: {", ".join(f.value for f in _SUPPORTED_SYFT_SBOM_FORMATS)}'
         )
 
     resource_node = k8s.util.get_ocm_node(
@@ -205,8 +234,42 @@ def generate_sbom_for_artefact(
             )
         return
 
-    logger.info(f'Found resource node for {artefact=}: {resource_node}')
-    logger.info(f'Updating metadata for {artefact=}')
+    logger.info(f'Scanning using mode {extension_cfg.generation_mode}')
+
+    mapping = extension_cfg.mapping(artefact.component_name)
+
+    match extension_cfg.generation_mode:
+        case GenerationMode.SYFT:
+            sbom_result = generate_sbom_with_syft(
+                resource_node=resource_node,
+                output_format=extension_cfg.output_format,
+            )
+        case GenerationMode.BDBA:
+            sbom_result = generate_sbom_with_bdba(
+                resource_node=resource_node,
+                aws_secret_name=mapping.aws_secret_name,
+                delivery_client=delivery_client,
+                oci_client=oci_client,
+                secret_factory=secret_factory,
+                output_format=extension_cfg.output_format,
+                create_new_scan_if_missing=extension_cfg.create_new_scan_if_missing,
+                group_id=mapping.group_id,
+                processing_mode=extension_cfg.processing_mode,
+            )
+        case _:
+            raise ValueError(
+                f'Unsupported generation mode: {extension_cfg.generation_mode}. '
+                f'Supported modes: {", ".join(m.value for m in GenerationMode)}'
+            )
+
+    output_filename = _GENERATION_MODE_OUTPUT_FILES.get(extension_cfg.generation_mode)
+    output_dir = os.path.dirname(os.path.abspath(__file__))
+    output_path = os.path.join(output_dir, output_filename)
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(sbom_result.sbom_raw, f, indent=2, ensure_ascii=False)
+
+    logger.info(f'SBOM saved to: {output_path}')
 
     delivery_client.update_metadata(
         data=[
@@ -222,43 +285,6 @@ def generate_sbom_for_artefact(
             )
         ]
     )
-
-    logger.info(f'Scanning using mode {extension_cfg.generation_mode}')
-
-    mapping = extension_cfg.mapping(artefact.component_name)
-
-    match extension_cfg.generation_mode:
-        case sbom.GenerationMode.SYFT:
-            sbom_result = generate_sbom_with_syft(
-                resource_node=resource_node,
-                output_format=extension_cfg.output_format,
-            )
-        case sbom.GenerationMode.BDBA:
-            sbom_result = generate_sbom_with_bdba(
-                resource_node=resource_node,
-                aws_secret_name=mapping.aws_secret_name,
-                delivery_client=delivery_client,
-                oci_client=oci_client,
-                secret_factory=secret_factory,
-                output_format=extension_cfg.output_format,
-                create_new_scan_if_missing=extension_cfg.create_new_scan_if_missing,
-                group_id=mapping.group_id,
-                processing_mode=extension_cfg.processing_mode,
-            )
-        case _:
-            raise ValueError(f'Unsupported generation mode: {extension_cfg.generation_mode}')
-
-    base_name, ext = os.path.splitext(
-        _GENERATION_MODE_OUTPUT_FILES.get(extension_cfg.generation_mode)
-    )
-    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')
-    output_filename = f'{base_name}_{timestamp}{ext}'
-    output_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.join(output_dir, output_filename)
-
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(sbom_result.sbom_raw, f, indent=2, ensure_ascii=False)
-    logger.info(f'SBOM saved to: {output_path}')
 
     return sbom_result
 
