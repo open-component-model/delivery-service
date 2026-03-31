@@ -7,14 +7,8 @@ logger = logging.getLogger(__name__)
 
 
 class SyftSbomFormat(enum.StrEnum):
-    CYCLONEDX = 'cyclonedx'
-    SPDX = 'spdx'
-
-
-_SYFT_OUTPUT_FORMAT_MAP = {
-    SyftSbomFormat.CYCLONEDX: 'cyclonedx-json',
-    SyftSbomFormat.SPDX: 'spdx-json',
-}
+    CYCLONEDX = 'cyclonedx-json'
+    SPDX = 'spdx-json'
 
 
 def run_syft(
@@ -28,20 +22,13 @@ def run_syft(
 
     Returns the raw SBOM output as a string.
     """
-    syft_format = _SYFT_OUTPUT_FORMAT_MAP.get(output_format)
-    if syft_format is None:
-        raise ValueError(
-            f'Unsupported output format for syft: {output_format}. '
-            f'Supported formats: {list(_SYFT_OUTPUT_FORMAT_MAP.keys())}'
-        )
-
     sbom_cmd = (
         'syft',
         source,
         '--scope',
         'all-layers',
         '--output',
-        syft_format,
+        output_format,
     )
     logger.info(f'run cmd "{" ".join(sbom_cmd)}"')
     try:

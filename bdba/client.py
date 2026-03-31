@@ -645,7 +645,11 @@ class BDBAApi:
             ),
         )
 
-    def export_sbom(self, product_id: int | str, sbom_format: bm.BdbaSbomFormat) -> dict | bm.BDIO:
+    def export_sbom(
+        self,
+        product_id: int | str,
+        sbom_format: bm.BdbaSbomFormat,
+    ) -> dict | bm.BDIO:
         url = self._routes.export_product(product_id, sbom_format=sbom_format)
 
         response = self._get(url=url)

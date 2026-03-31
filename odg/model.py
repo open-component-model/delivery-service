@@ -1516,3 +1516,8 @@ def artefact_scan_info(
         meta=meta,
         data=data,
     )
+
+
+class SbomGenerationMode(enum.StrEnum):
+    SYFT = 'syft'
+    BDBA = 'bdba'

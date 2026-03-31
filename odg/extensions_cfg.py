@@ -23,7 +23,6 @@ import odg.model
 import odg.shared_cfg
 import responsibles_extension.filters as ref
 import responsibles_extension.strategies as res
-import sbom_generator
 
 logger = logging.getLogger(__name__)
 
@@ -1171,7 +1170,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
     output_format: SbomFormat = SbomFormat.CYCLONEDX
     processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
     interval: int = 60 * 60 * 24  # 24h
-    generation_mode: sbom_generator.GenerationMode = sbom_generator.GenerationMode.BDBA
+    generation_mode: odg.model.SbomGenerationMode = odg.model.SbomGenerationMode.BDBA
 
     def is_supported(
         self,
@@ -1181,8 +1180,8 @@ class SBOMGeneratorConfig(BacklogItemMixins):
         supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
 
         supported_access_types_by_mode = {
-            sbom_generator.GenerationMode.SYFT: (ocm.AccessType.OCI_REGISTRY,),
-            sbom_generator.GenerationMode.BDBA: (
+            odg.model.SbomGenerationMode.SYFT: (ocm.AccessType.OCI_REGISTRY,),
+            odg.model.SbomGenerationMode.BDBA: (
                 ocm.AccessType.OCI_REGISTRY,
                 ocm.AccessType.LOCAL_BLOB,
                 ocm.AccessType.S3,
