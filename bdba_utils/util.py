@@ -362,7 +362,7 @@ def _matching_analysis_result_id(
     if len(filtered_results) > 1:
         logger.warning(
             'more than one scan result found for component artefact with '
-            f'{component_artefact_metadata=}, will use latest scan result...'
+            f'{component_artefact_metadata=}, will use latest scan result...',
         )
         filtered_results = sorted(
             filtered_results,

@@ -214,7 +214,7 @@ def inject_github_users(
                 _github_url(
                     github_name=gh_name,
                     addressbook_github_mappings=addressbook_github_mappings,
-                )
+                ),
             )
             if gh_hostname in seen_github_hostnames:
                 # existing entries "win" over yellow-pages-entries

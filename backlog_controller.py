@@ -70,7 +70,7 @@ def on_backlog_change(
         if claimed_by and claimed_by not in running_pod_names:
             logger.warning(
                 f'the pod {claimed_by} which claimed the backlog item {crd_name} '
-                'is not available anymore'
+                'is not available anymore',
             )
             k8s.backlog.remove_claim(
                 namespace=namespace,
@@ -82,7 +82,7 @@ def on_backlog_change(
         ):
             logger.warning(
                 f'the backlog item {crd_name} was claimed for more than '
-                f'{backlog_controller_cfg.remove_claim_after_minutes} minutes by pod {claimed_by}'
+                f'{backlog_controller_cfg.remove_claim_after_minutes} minutes by pod {claimed_by}',
             )
             k8s.backlog.remove_claim(
                 namespace=namespace,

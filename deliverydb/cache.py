@@ -127,7 +127,7 @@ def dbcached_function(
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
             'If time-to-live (`ttl_seconds`) and `keep_at_least_seconds` are both specified, '
-            '`ttl_seconds` must be greater or equal than `keep_at_least_seconds`.'
+            '`ttl_seconds` must be greater or equal than `keep_at_least_seconds`.',
         )
 
     def decorator(func):
@@ -232,13 +232,13 @@ def dbcached_route(
 ):
     if not encoding_format.startswith('pickle'):
         raise ValueError(
-            f'Unsupported encoding format for HTTP route cache (must be pickle): {encoding_format}'
+            f'Unsupported encoding format for HTTP route cache (must be pickle): {encoding_format}',
         )
 
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
             'If time-to-live (`ttl_seconds`) and `keep_at_least_seconds` are both specified, '
-            '`ttl_seconds` must be greater or equal than `keep_at_least_seconds`.'
+            '`ttl_seconds` must be greater or equal than `keep_at_least_seconds`.',
         )
 
     def decorator(func):
@@ -463,7 +463,7 @@ class DeliveryDBCache(aiohttp.web.View):
                 db_session=db_session_low_prio,
                 id=id,
                 delete_after=delete_after,
-            )
+            ),
         )
 
         return aiohttp.web.Response(

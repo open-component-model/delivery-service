@@ -108,7 +108,7 @@ def user_identity_from_github_username_or_email(
                 odg.model.EmailAddress(
                     source=repo.html_url,
                     email=username_or_email,
-                )
+                ),
             ],
         )
     try:
@@ -196,7 +196,7 @@ def user_identities_from_github_repo(
             flattend_codeowners=flattend_codeowners,
             gh_api=github_api,
             repo=github_repo,
-        )
+        ),
     )
 
 
@@ -350,7 +350,7 @@ def user_identities_from_responsibles_label(
 
                 if not github_api:
                     logger.warning(
-                        f'did not find a GitHub cfg for {repo_url=}, skipping responsibles...'
+                        f'did not find a GitHub cfg for {repo_url=}, skipping responsibles...',
                     )
                     continue
 

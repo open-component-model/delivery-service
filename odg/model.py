@@ -272,7 +272,7 @@ class ComponentArtefactId:
     def key(self) -> str:
         artefact_key = self.artefact.key if self.artefact else None
         references_key = _as_key(
-            *(reference.key for reference in sorted(self.references, key=lambda ref: ref.key))
+            *(reference.key for reference in sorted(self.references, key=lambda ref: ref.key)),
         )
 
         return _as_key(
@@ -1264,10 +1264,10 @@ class KyvernoReportSummary:
     """Represents the complete metrics data structure."""
 
     namespace_summary: dict[str, KyvernoNamespaceSummary] = dataclasses.field(
-        default_factory=dict
+        default_factory=dict,
     )  # namespace -> NamespaceSummary
     policy_results: dict[str, dict[str, dict[str, KyvernoRuleResult]]] = dataclasses.field(
-        default_factory=dict
+        default_factory=dict,
     )  # namespace -> policy -> rule -> RuleResult
 
 

@@ -233,7 +233,7 @@ class VirtualOcmRepositoryCfg(OcmRepositoryCfgBase):
                     continue  # skip other virtual repository configurations
 
                 if selector.required_labels and not ocm_repository_cfg.labels_match(
-                    selector.required_labels
+                    selector.required_labels,
                 ):
                     continue  # required labels do not match
 
@@ -322,7 +322,7 @@ def resolve_ocm_repository_cfgs(
         filter_ocm_repository_cfgs(
             ocm_repo=ocm_repo,
             ocm_repository_cfgs=ocm_repository_cfgs,
-        )
+        ),
     )
 
     if not filtered_ocm_repository_cfgs:
@@ -344,7 +344,7 @@ def init_ocm_repository_lookup(
         resolve_ocm_repository_cfgs(
             ocm_repo=ocm_repo,
             ocm_repository_cfgs=ocm_repository_cfgs,
-        )
+        ),
     )
 
     def ocm_repository_lookup(
@@ -466,7 +466,7 @@ def db_cache_component_descriptor_lookup_async(
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
         raise ValueError(
             'If time-to-live (`ttl_seconds`) and `keep_at_least_seconds` are both specified, '
-            '`ttl_seconds` must be greater or equal than `keep_at_least_seconds`.'
+            '`ttl_seconds` must be greater or equal than `keep_at_least_seconds`.',
         )
 
     async def writeback(
@@ -586,7 +586,7 @@ def init_component_descriptor_lookup(
     lookups = [
         cnudie.retrieve.in_memory_cache_component_descriptor_lookup(
             ocm_repository_lookup=ocm_repository_lookup,
-        )
+        ),
     ]
 
     if cache_dir:
@@ -594,7 +594,7 @@ def init_component_descriptor_lookup(
             cnudie.retrieve.file_system_cache_component_descriptor_lookup(
                 ocm_repository_lookup=ocm_repository_lookup,
                 cache_dir=cache_dir,
-            )
+            ),
         )
 
     if delivery_client:
@@ -602,14 +602,14 @@ def init_component_descriptor_lookup(
             cnudie.retrieve.delivery_service_component_descriptor_lookup(
                 ocm_repository_lookup=ocm_repository_lookup,
                 delivery_client=delivery_client,
-            )
+            ),
         )
 
     lookups.append(
         cnudie.retrieve.oci_component_descriptor_lookup(
             ocm_repository_lookup=ocm_repository_lookup,
             oci_client=oci_client,
-        )
+        ),
     )
 
     return cnudie.retrieve.composite_component_descriptor_lookup(
@@ -644,7 +644,7 @@ def init_component_descriptor_lookup_async(
     lookups = [
         cnudie.retrieve_async.in_memory_cache_component_descriptor_lookup(
             ocm_repository_lookup=ocm_repository_lookup,
-        )
+        ),
     ]
 
     if cache_dir:
@@ -652,7 +652,7 @@ def init_component_descriptor_lookup_async(
             cnudie.retrieve_async.file_system_cache_component_descriptor_lookup(
                 ocm_repository_lookup=ocm_repository_lookup,
                 cache_dir=cache_dir,
-            )
+            ),
         )
 
     if db_url:
@@ -660,7 +660,7 @@ def init_component_descriptor_lookup_async(
             db_cache_component_descriptor_lookup_async(
                 db_url=db_url,
                 ocm_repository_lookup=ocm_repository_lookup,
-            )
+            ),
         )
 
     if delivery_client:
@@ -668,14 +668,14 @@ def init_component_descriptor_lookup_async(
             cnudie.retrieve_async.delivery_service_component_descriptor_lookup(
                 ocm_repository_lookup=ocm_repository_lookup,
                 delivery_client=delivery_client,
-            )
+            ),
         )
 
     lookups.append(
         cnudie.retrieve_async.oci_component_descriptor_lookup(
             ocm_repository_lookup=ocm_repository_lookup,
             oci_client=oci_client,
-        )
+        ),
     )
 
     return cnudie.retrieve_async.composite_component_descriptor_lookup(

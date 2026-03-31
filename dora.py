@@ -258,12 +258,14 @@ def can_process(dependency_update: components.ComponentVector):
     new_main_source = cnudie.util.main_source(dependency_update.end)
 
     if not isinstance(old_main_source.access, ocm.GithubAccess) or not isinstance(
-        new_main_source.access, ocm.GithubAccess
+        new_main_source.access,
+        ocm.GithubAccess,
     ):
         return False
 
     if not isinstance(old_main_source.access.commit, str) or not isinstance(
-        new_main_source.access.commit, str
+        new_main_source.access.commit,
+        str,
     ):
         return False
 
@@ -298,7 +300,7 @@ def commits_for_component_change(
         github_repo.compare_commits(
             left_commit,
             right_commit,
-        ).commits()
+        ).commits(),
     )
 
 
@@ -313,8 +315,8 @@ def _cache_key_changes_by_dependencies(
                     f'{target_descriptor_with_updates.component_descriptor.component.version}'
                 )
                 for target_descriptor_with_updates in target_descriptors_with_updates
-            ]
-        )
+            ],
+        ),
     )
 
 
@@ -323,7 +325,7 @@ def categorize_by_changed_component(
     github_api_lookup,
 ) -> dict[str, list[ComponentDependencyChangeWithCommits]]:
     dependencies: dict[str, list[ComponentDependencyChangeWithCommits]] = collections.defaultdict(
-        list[ComponentDependencyChangeWithCommits]
+        list[ComponentDependencyChangeWithCommits],
     )
 
     _github_api = functools.cache(github_api_lookup)
@@ -387,7 +389,7 @@ def categorize_by_changed_component(
                         right_commit=right_commit,
                         github_repo=github_repo,
                     ),
-                )
+                ),
             )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as tpe:
@@ -452,11 +454,11 @@ def calculate_change_lead_time(
         time_differences.append(datetime.timedelta(seconds=-1))
     if calculation_type is CalculationType.MEDIAN:
         result_in_seconds: float = statistics.median(
-            [time_difference.total_seconds() for time_difference in time_differences]
+            [time_difference.total_seconds() for time_difference in time_differences],
         )
     else:
         result_in_seconds: float = statistics.mean(
-            [time_difference.total_seconds() for time_difference in time_differences]
+            [time_difference.total_seconds() for time_difference in time_differences],
         )
     return datetime.timedelta(seconds=result_in_seconds)
 
@@ -490,7 +492,7 @@ def dora_changes_monthly(
                             commit_date=commit_date,
                             commit_sha=commit_sha,
                             deployment_date=util.get_creation_date(
-                                component_dependency_change_with_commits.component
+                                component_dependency_change_with_commits.component,
                             ),
                         ),
                     ),
@@ -504,8 +506,8 @@ def dora_changes_monthly(
                 [
                     (deploy_date - commits_and_date.commit_date).total_seconds()
                     for deploy_date, commits_and_date in code_changes
-                ]
-            )
+                ],
+            ),
         )
 
         by_month_list.append(
@@ -514,12 +516,12 @@ def dora_changes_monthly(
                 month=month,
                 year=year,
                 median_change_lead_time=median_change_lead_time.days,
-            )
+            ),
         )
 
     # create "empty" months which lie within the time_span_days
     entry_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
-        days=time_span_days
+        days=time_span_days,
     )
 
     while entry_date < datetime.datetime.now(datetime.timezone.utc):
@@ -530,7 +532,7 @@ def dora_changes_monthly(
                     month=entry_date.month,
                     year=entry_date.year,
                     median_change_lead_time=-1,
-                )
+                ),
             )
         entry_date += datetime.timedelta(days=30)
 
@@ -555,7 +557,7 @@ def dora_deployments(
                         - dateutil.parser.isoparse(commit.commit.author['date'])
                     ).total_seconds()
                     for commit in component_dependency_change_with_commits.commits
-                ]
+                ],
             )
             if component_dependency_change_with_commits.commits
             else 0,
@@ -579,7 +581,7 @@ def dora_deployments(
                     for commit in component_dependency_change_with_commits.commits
                 ],
                 median_change_lead_time=median_change_lead_time.days,
-            )
+            ),
         )
 
     return deployments
@@ -605,7 +607,7 @@ def all_change_lead_time_durations(
                         - datetime.timedelta(days=time_span_days)
                     )
                 )
-            ]
+            ],
         )
 
     return commit_durations
@@ -630,7 +632,7 @@ def all_changes(
                 for commit in component_dependency_change_with_commits.commits
                 if dateutil.parser.isoparse(commit.commit.author['date'])
                 > datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=time_span_days)
-            ]
+            ],
         )
 
     return all_changes
@@ -676,7 +678,7 @@ def create_response_object(
             time_span_days,
         )
         repo_url = cnudie.util.main_source(
-            component_dependency_changes_with_commits[0].dependency_component_vector.start
+            component_dependency_changes_with_commits[0].dependency_component_vector.start,
         ).access.repoUrl
 
         dependencies_response[dependency_name] = DoraDependencyResponse(
@@ -693,15 +695,15 @@ def create_response_object(
             all_change_lead_time_durations(
                 component_dependency_changes_with_commits,
                 time_span_days,
-            )
+            ),
         )
 
     if all_change_lead_time_durations_seconds != []:
         change_lead_time_median = datetime.timedelta(
-            seconds=statistics.median(all_change_lead_time_durations_seconds)
+            seconds=statistics.median(all_change_lead_time_durations_seconds),
         ).days
         change_lead_time_average = datetime.timedelta(
-            seconds=statistics.mean(all_change_lead_time_durations_seconds)
+            seconds=statistics.mean(all_change_lead_time_durations_seconds),
         ).days
     else:
         change_lead_time_median = -1
@@ -827,7 +829,7 @@ class DoraMetrics(aiohttp.web.View):
                 ComponentWithDependencyChanges(
                     component_descriptor=target_descriptors_in_time_span[index],
                     dependency_changes=dependency_changes,
-                )
+                ),
             )
 
         target_descriptors_with_updates = tuple(target_descriptors_with_updates)
@@ -920,7 +922,7 @@ async def _diff_components(
             current_biggest_version = component_list[0]
             for c in component_list[1:]:
                 if versionutil.parse_to_semver(c.version) > versionutil.parse_to_semver(
-                    current_biggest_version.version
+                    current_biggest_version.version,
                 ):
                     current_biggest_version = c
             greatest_component_versions.append(current_biggest_version)
@@ -1028,7 +1030,7 @@ def dependency_changes_between_versions(
             components.ComponentVector(
                 left_component,
                 right_component,
-            )
+            ),
         )
 
     return changes

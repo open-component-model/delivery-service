@@ -56,7 +56,7 @@ def cors_middleware(
                 request=request,
                 allow_origins=allow_origins,
                 allow_credentials=allow_credentials,
-            )
+            ),
         )
 
         if request.method == 'OPTIONS':

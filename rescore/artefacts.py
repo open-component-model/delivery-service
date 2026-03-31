@@ -146,7 +146,7 @@ async def _find_rescorings(
             ),
             dm.ArtefactMetaData.artefact_kind == artefact.artefact_kind,
             dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
-        )
+        ),
     )
 
     if type_filter:
@@ -231,7 +231,7 @@ def sprint_for_finding(
                 return sorted_sprints[tgt_idx]
 
     logger.warning(
-        f'could not determine target sprint for {due_date=} and {sprint_assignment_offset=}'
+        f'could not determine target sprint for {due_date=} and {sprint_assignment_offset=}',
     )
     return None
 
@@ -379,7 +379,7 @@ async def _iter_rescoring_proposals(
                             rescoring_rules=finding_cfg.rescoring_ruleset.rules,
                             categorisation=cve_categorisation,
                             cvss=cvss,
-                        )
+                        ),
                     )
 
                     current_severity = rescore.utility.rescore_finding(
@@ -566,7 +566,7 @@ async def create_backlog_items_for_rescored_artefacts(
             finding_cfg.issues.strip_artefact(
                 artefact=rescoring.artefact,
                 keep_group_attributes=True,
-            )
+            ),
         )
 
     for artefact in artefact_groups:
@@ -621,7 +621,7 @@ class Rescore(aiohttp.web.View):
                 sa.select(dm.UserIdentifiers).where(
                     dm.UserIdentifiers.user_id == user.id,
                     dm.UserIdentifiers.type == secret_mgmt.oauth_cfg.OAuthCfgTypes.GITHUB,
-                )
+                ),
             )
         ).first()[0]
         github_user = odg.model.GitHubUser(
@@ -657,7 +657,7 @@ class Rescore(aiohttp.web.View):
                 await db_session.execute(
                     sa.delete(dm.ArtefactMetaData).where(
                         dm.ArtefactMetaData.id == rescoring_db.id,
-                    )
+                    ),
                 )
 
                 db_session.add(rescoring_db)
@@ -678,7 +678,7 @@ class Rescore(aiohttp.web.View):
                     kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
                     rescorings=rescorings,
                     finding_cfgs=self.request.app[consts.APP_FINDING_CFGS],
-                )
+                ),
             )
 
         return aiohttp.web.Response(

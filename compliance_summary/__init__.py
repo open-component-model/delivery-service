@@ -323,7 +323,7 @@ async def component_datatype_summaries(
             (
                 artefact,
                 artefact_summary,
-            )
+            ),
         )
 
     if not summaries:

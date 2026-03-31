@@ -92,7 +92,7 @@ def create_ocm_descriptor(
                 ocm.OciOcmRepository(
                     baseUrl=ocm_repo,
                     type=ocm.AccessType.OCI_REGISTRY,
-                )
+                ),
             ],
             provider='internal',
             sources=[],
@@ -107,7 +107,7 @@ def create_ocm_descriptor(
                         mediaType=BACKUP_BLOB_MEDIA_TYPE,
                         size=size,
                     ),
-                )
+                ),
             ],
             labels=[
                 ocm.Label(
@@ -294,7 +294,7 @@ def main():
     delivery_db_cfgs = secret_factory.delivery_db()
     if len(delivery_db_cfgs) != 1:
         raise ValueError(
-            f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}'
+            f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}',
         )
     delivery_db_cfg = delivery_db_cfgs[0]
 

@@ -83,7 +83,7 @@ def handle_conflict(
     retry_interval = (retry_count + 1) * 10
     logger.info(
         f'trying to write logs to log collection {name} resulted in a conflict, '
-        f'will try to rewrite logs again in {retry_interval} sec...'
+        f'will try to rewrite logs again in {retry_interval} sec...',
     )
     time.sleep(retry_interval)
     return log_to_crd_for_level(

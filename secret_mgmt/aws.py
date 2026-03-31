@@ -35,5 +35,5 @@ def find_cfg(
 
     raise ValueError(
         'AWS secret name must be specified if more than one secret is available (found '
-        f'{len(aws_cfgs)})'
+        f'{len(aws_cfgs)})',
     )

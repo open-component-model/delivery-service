@@ -203,7 +203,7 @@ class SecretFactory:
 
         raise SecretTypeNotFound(
             f'Secret type "{secret_type}" is unknown or does not contain any secret elements. '
-            f'Known secret types: {known_secret_types}.'
+            f'Known secret types: {known_secret_types}.',
         )
 
     def _validate_secret_element_name(
@@ -218,7 +218,7 @@ class SecretFactory:
 
         raise SecretElementNotFound(
             f'Secret element "{secret_element_name}" is unknown for secret type "{secret_type}". '
-            f'Known secret elements: {sorted(secret_element_names)}.'
+            f'Known secret elements: {sorted(secret_element_names)}.',
         )
 
     def secret_types(self) -> list[str]:

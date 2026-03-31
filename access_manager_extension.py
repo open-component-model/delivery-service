@@ -220,14 +220,14 @@ def update_github_role_bindings(
                     oauth_cfgs=github_oauth_cfgs,
                     github_orgs_by_hostname=github_orgs_by_hostname,
                     github_teams_by_hostname=github_teams_by_hostname,
-                )
+                ),
             )
         elif isinstance(identifier, dm.GitHubAppIdentifier):
             github_role_bindings.update(
                 iter_github_app_role_bindings(
                     identifier=identifier,
                     oauth_cfgs=github_oauth_cfgs,
-                )
+                ),
             )
 
     role_bindings.extend(github_role_bindings)
@@ -276,7 +276,7 @@ async def update_user_role_bindings(
             user.role_bindings = util.dict_serialisation(role_bindings)
 
             logger.info(
-                f'updated user {user.id} ({len_role_bindings_before=}, {len_role_bindings_after=})'
+                f'updated user {user.id} ({len_role_bindings_before=}, {len_role_bindings_after=})',
             )
 
         await db_session.commit()
@@ -313,7 +313,7 @@ async def main():
     delivery_db_secrets = secret_factory.delivery_db()
     if len(delivery_db_secrets) != 1:
         raise ValueError(
-            f'There must be exactly one delivery-db secret, found {len(delivery_db_secrets)}'
+            f'There must be exactly one delivery-db secret, found {len(delivery_db_secrets)}',
         )
     db_url = delivery_db_secrets[0].connection_url(
         namespace=namespace,

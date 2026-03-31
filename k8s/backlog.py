@@ -225,7 +225,7 @@ def get_backlog_crd_and_claim(
         key=lambda backlog_crd: (
             -BacklogPriorities(backlog_crd.get('spec').get('priority')),  # negate for high to low
             backlog_crd.get('spec').get('timestamp'),
-        )
+        ),
     )
 
     backlog_crd = backlog_crds[0]
@@ -263,7 +263,7 @@ def get_backlog_crd_and_claim(
         retry_interval = 10
         logger.warning(
             'trying to claim a new backlog item resulted in a conflict, '
-            f'will try to claim a different backlog item in {retry_interval} sec...'
+            f'will try to claim a different backlog item in {retry_interval} sec...',
         )
         time.sleep(retry_interval)
         return get_backlog_crd_and_claim(
@@ -314,7 +314,7 @@ def remove_claim(
         retry_interval = (retry_count + 1) * 10
         logger.warning(
             f'trying to remove claim from backlog item {name} resulted in a conflict, '
-            f'will try to remove claim again in {retry_interval} sec...'
+            f'will try to remove claim again in {retry_interval} sec...',
         )
         time.sleep(retry_interval)
         return remove_claim(

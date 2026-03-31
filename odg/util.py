@@ -334,8 +334,8 @@ def uuid_for_artefact_id(
                 data=odg.model.ArtefactUUID(
                     uuid4=str(uuid4),
                 ),
-            )
-        ]
+            ),
+        ],
     )
 
     if skip_verify:

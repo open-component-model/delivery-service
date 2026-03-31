@@ -88,7 +88,7 @@ def get_or_create_bdba_scan(
     if create_new_scan_if_missing:
         logger.info(
             f'No existing BDBA scan found, creating a new BDBA scan for: '
-            f'{resource_node.resource.name}'
+            f'{resource_node.resource.name}',
         )
 
         metadata_generator = bdba_utils.scan.run_scan(
@@ -156,7 +156,7 @@ def generate_sbom_with_bdba(
             f'No BDBA scan available '
             f'for resource {resource_node.resource.name} '
             f'in component {resource_node.component.name}:'
-            f'{resource_node.component.version}'
+            f'{resource_node.component.version}',
         )
 
     sbom_raw = bdba_api.export_sbom(product_id, output_format)
@@ -184,7 +184,8 @@ def generate_sbom_for_artefact(
     logger.info(f'Generating SBOM for artefact: {artefact}')
 
     resource_node = k8s.util.get_ocm_node(
-        component_descriptor_lookup=component_descriptor_lookup, artefact=artefact
+        component_descriptor_lookup=component_descriptor_lookup,
+        artefact=artefact,
     )
 
     if not resource_node:
@@ -278,8 +279,8 @@ def generate_sbom_for_artefact(
                     last_update=datetime.datetime.now(datetime.timezone.utc),
                 ),
                 data={},
-            )
-        ]
+            ),
+        ],
     )
 
     return sbom_result

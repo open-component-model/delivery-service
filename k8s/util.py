@@ -141,7 +141,7 @@ def scale_replicas(
 
     logger.info(
         f'attempting to scale replica set {name} in {namespace=} '
-        f'from {current_replicas} to {desired_replicas}'
+        f'from {current_replicas} to {desired_replicas}',
     )
 
     try:
@@ -160,7 +160,7 @@ def scale_replicas(
         logger.warning(
             f'scaling replicas of deployment {name} in {namespace=} from {current_replicas} to '
             f'{desired_replicas} resulted  in a conflict, will try to scale replica set '
-            f'again in {retry_interval} sec...'
+            f'again in {retry_interval} sec...',
         )
         time.sleep(retry_interval)
         return scale_replicas(
@@ -173,7 +173,7 @@ def scale_replicas(
         )
 
     logger.info(
-        f'scaled replica set {name} in {namespace=} from {current_replicas} to {desired_replicas}'
+        f'scaled replica set {name} in {namespace=} from {current_replicas} to {desired_replicas}',
     )
 
 

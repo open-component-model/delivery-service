@@ -63,7 +63,7 @@ def cbom() -> dict:
                     {
                         'name': 'syft:location:0:path',
                         'value': '/opt/docker/dockerd',
-                    }
+                    },
                 ],
             },
             {
@@ -74,7 +74,7 @@ def cbom() -> dict:
                     'occurrences': [
                         {
                             'location': '/etc/ssl/cert.pem',
-                        }
+                        },
                     ],
                 },
                 'cryptoProperties': {
@@ -92,7 +92,7 @@ def cbom() -> dict:
                     'occurrences': [
                         {
                             'location': '/etc/ssl/cert.pem',
-                        }
+                        },
                     ],
                 },
                 'cryptoProperties': {
@@ -112,7 +112,7 @@ def cbom() -> dict:
                     'occurrences': [
                         {
                             'location': '/etc/ssl/cert.pem',
-                        }
+                        },
                     ],
                 },
                 'cryptoProperties': {
@@ -130,7 +130,7 @@ def cbom() -> dict:
                     'occurrences': [
                         {
                             'location': '/etc/ssl/cert.pem',
-                        }
+                        },
                     ],
                 },
                 'cryptoProperties': {
@@ -166,7 +166,7 @@ def test_crypto_validation(
                 crypto_asset
                 for crypto_asset in crypto_assets
                 if crypto_asset.asset_type is odg.model.CryptoAssetTypes.LIBRARY
-            ]
+            ],
         )
         == 1
     )
@@ -177,7 +177,7 @@ def test_crypto_validation(
                 crypto_asset
                 for crypto_asset in crypto_assets
                 if crypto_asset.asset_type is odg.model.CryptoAssetTypes.ALGORITHM
-            ]
+            ],
         )
         == 2
     )
@@ -188,7 +188,7 @@ def test_crypto_validation(
                 crypto_asset
                 for crypto_asset in crypto_assets
                 if crypto_asset.asset_type is odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL
-            ]
+            ],
         )
         == 1
     )
@@ -199,7 +199,7 @@ def test_crypto_validation(
                 crypto_asset
                 for crypto_asset in crypto_assets
                 if crypto_asset.asset_type is odg.model.CryptoAssetTypes.CERTIFICATE
-            ]
+            ],
         )
         == 1
     )
@@ -210,7 +210,7 @@ def test_crypto_validation(
                 crypto_asset
                 for crypto_asset in crypto_assets
                 if crypto_asset.asset_type is odg.model.CryptoAssetTypes.PROTOCOL
-            ]
+            ],
         )
         == 0
     )
@@ -220,7 +220,7 @@ def test_crypto_validation(
             crypto_assets=crypto_assets,
             standards=crypto_mapping.standards,
             crypto_finding_cfg=crypto_finding_cfg,
-        )
+        ),
     )
 
     assert len([finding for finding in findings if finding.standard == 'FIPS']) == 2

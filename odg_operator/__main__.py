@@ -280,7 +280,7 @@ def create_or_update_odg(
                 extension_definition.templated_outputs(odg.context),
             )
             for extension_definition in extension_definitions
-        ]
+        ],
     )
     outputs_jsonpath = outputs_as_jsonpath(outputs_for_extension)
 
@@ -547,7 +547,7 @@ def set_odg_state(
                 'error': error,
                 # k8s expects UTC timestamp
                 'last_reconcile': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            }
+            },
         },
     )
 
@@ -608,7 +608,7 @@ def reconcile(
                                 # set value to null so kubernetes deletes the annotation
                                 ODG_RECONCILE_ANNOTATION: None,
                             },
-                        }
+                        },
                     },
                 )
 
@@ -621,8 +621,8 @@ def reconcile(
             logger.info(
                 textwrap.dedent(
                     f'{event["type"]} "{odg.name}" in "{odg.namespace}'
-                    f'{" (has deletion timestamp)" if deletion_timestamp else ""}"'
-                )
+                    f'{" (has deletion timestamp)" if deletion_timestamp else ""}"',
+                ),
             )
 
             last_seen_generation_for_resource_uid[odg.uid] = odg.generation
@@ -664,7 +664,7 @@ def reconcile(
                                 for finaliser in metadata.get('finalizers', [])
                                 if finaliser != ODG_CLEAN_UP_FINALISER
                             ],
-                        }
+                        },
                     },
                 )
 
@@ -701,7 +701,7 @@ def reconcile(
                                 extension_name=extension_name,
                             )
                             for extension_name in required_extensions
-                        ]
+                        ],
                     )
 
                     requested_extension_definitions.extend(
@@ -709,8 +709,8 @@ def reconcile(
                             iter_missing_dependencies(
                                 requested=requested_extension_definitions,
                                 known=extension_definitions,
-                            )
-                        )
+                            ),
+                        ),
                     )
 
                     # make sure there are no duplicates
@@ -911,7 +911,7 @@ if __name__ == '__main__':
                         ),
                     )
                     for extension_raw in extensions_raw
-                ]
+                ],
             )
 
     recursion_depth = -1 if parsed.recursive else 0
@@ -960,7 +960,7 @@ if __name__ == '__main__':
             _iter_extension_definitions_from_resource_node(
                 resource_node=resource_node,
                 oci_client=oci_client,
-            )
+            ),
         )
 
     extension_definitions = sorted(

@@ -34,7 +34,7 @@ def feature_check_middleware(
             return await handler(request)
 
         if missing_features := _feature_name_set(required_features) & _feature_name_set(
-            unavailable_features
+            unavailable_features,
         ):
             raise aiohttp.web.HTTPBadRequest(
                 reason=f'Feature{"s are" if len(missing_features) != 1 else " is"} inactive',

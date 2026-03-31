@@ -57,7 +57,7 @@ def create_compliance_snapshot(
             odg.model.ComplianceSnapshotState(
                 timestamp=now,
                 status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
-            )
+            ),
         ],
     )
 
@@ -130,7 +130,7 @@ def _create_or_update_compliance_snapshot_of_artefact(
             odg.model.ComplianceSnapshotState(
                 timestamp=now,
                 status=odg.model.ComplianceSnapshotStatuses.ACTIVE,
-            )
+            ),
         )
 
     return compliance_snapshot
@@ -190,7 +190,7 @@ def _create_backlog_item(
             timestamp=now,
             status=status,
             service=service,
-        )
+        ),
     )
 
     uncommitted_backlog_item = UncommittedBacklogItem(
@@ -320,7 +320,7 @@ def _process_compliance_snapshot_of_artefact(
             delivery_client.query_metadata(
                 artefacts=(artefact,),
                 type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
-            )
+            ),
         )
 
         compliance_snapshot, uncommitted_backlog_item = _create_backlog_item(
@@ -426,7 +426,7 @@ def _process_inactive_compliance_snapshots(
                 odg.model.ComplianceSnapshotState(
                     timestamp=now,
                     status=odg.model.ComplianceSnapshotStatuses.INACTIVE,
-                )
+                ),
             )
             updated_compliance_snapshot = compliance_snapshot
             logger.info(f'updated inactive compliance snapshot ({artefact=})')
@@ -452,7 +452,7 @@ def _process_inactive_compliance_snapshots(
     delivery_client.delete_metadata(data=deletable_compliance_snapshots)
     logger.info(
         f'deleted {len(deletable_compliance_snapshots)} inactive compliance snapshots in '
-        f'delivery-db ({artefact=})'
+        f'delivery-db ({artefact=})',
     )
 
 
@@ -484,7 +484,7 @@ def enumerate_artefacts(
             components=extensions_cfg.artefact_enumerator.components,
             delivery_client=delivery_client,
             component_descriptor_lookup=component_descriptor_lookup,
-        )
+        ),
     )
     logger.info(f'{len(ocm_artefacts)=}')
 

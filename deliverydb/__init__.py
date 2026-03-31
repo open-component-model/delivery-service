@@ -12,7 +12,8 @@ def do_raise(self):
 sap.JSONB.__init__ = do_raise
 
 sessionmakers: dict[
-    tuple[int, int, int], sqlasync.async_sessionmaker[sqlasync.session.AsyncSession]
+    tuple[int, int, int],
+    sqlasync.async_sessionmaker[sqlasync.session.AsyncSession],
 ] = {}
 
 

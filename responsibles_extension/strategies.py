@@ -88,7 +88,7 @@ class ComponentResponsibles(StrategyBase):
                             source=odg.model.Datasource.RESPONSIBLES,
                             username=identifier['username'],
                             github_hostname=identifier['github_hostname'],
-                        )
+                        ),
                     ],
                 )
 
@@ -97,7 +97,7 @@ class ComponentResponsibles(StrategyBase):
 class StaticResponsibles(StrategyBase):
     type: typing.Literal[StrategyTypes.STATIC_RESPONSIBLES]
     responsibles: list[GitHubUserResponsible | GitHubTeamResponsible] = dataclasses.field(
-        default_factory=list
+        default_factory=list,
     )
 
     def iter_responsibles(
@@ -115,7 +115,7 @@ class StaticResponsibles(StrategyBase):
                             source=odg.model.Datasource.RESPONSIBLES,
                             username=responsible.username,
                             github_hostname=responsible.github_hostname,
-                        )
+                        ),
                     ],
                 )
 
@@ -138,7 +138,7 @@ class StaticResponsibles(StrategyBase):
                                 source=odg.model.Datasource.RESPONSIBLES,
                                 username=username,
                                 github_hostname=responsible.github_hostname,
-                            )
+                            ),
                         ],
                     )
                 time.sleep(3)  # prevent GitHub secondary rate limits

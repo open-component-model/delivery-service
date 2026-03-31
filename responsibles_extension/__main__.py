@@ -62,7 +62,7 @@ def update_responsibles(
                         datatype=finding_type,
                         secret_factory=secret_factory,
                         delivery_client=delivery_client,
-                    )
+                    ),
                 )
 
             responsibles_artefacts.append(
@@ -77,13 +77,13 @@ def update_responsibles(
                     data=odg.model.ResponsibleInfo(
                         referenced_type=finding_type,
                     ),
-                )
+                ),
             )
 
             break
         else:
             logger.warning(
-                f'did not find a matching rule for {artefact} and {finding_type=}, skipping...'
+                f'did not find a matching rule for {artefact} and {finding_type=}, skipping...',
             )
 
     delivery_client.update_metadata(

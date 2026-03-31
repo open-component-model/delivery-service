@@ -322,14 +322,14 @@ class BDBAConfig(BacklogItemMixins):
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{artefact_kind=} is not supported for BDBA scans, {supported_artefact_kinds=}'
+                    f'{artefact_kind=} is not supported for BDBA scans, {supported_artefact_kinds=}',
                 )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{access_type=} is not supported for BDBA scans, {supported_access_types=}'
+                    f'{access_type=} is not supported for BDBA scans, {supported_access_types=}',
                 )
 
         return is_supported
@@ -421,14 +421,14 @@ class BlackDuckConfig(BacklogItemMixins):
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{artefact_kind=} is not supported for BD scans, {supported_artefact_kinds=}'
+                    f'{artefact_kind=} is not supported for BD scans, {supported_artefact_kinds=}',
                 )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{access_type=} is not supported for BD scans, {supported_access_types=}'
+                    f'{access_type=} is not supported for BD scans, {supported_access_types=}',
                 )
 
         return is_supported
@@ -448,7 +448,7 @@ class PpmsReplication(ExtensionCfgMixins):
     ppms_build_version_name: str
 
     artefact_filters: list[odg.filter.ComponentArtefactFilter] = dataclasses.field(
-        default_factory=list
+        default_factory=list,
     )
 
     schedule: str = '0 0 * * *'  # daily at 00:00
@@ -498,7 +498,7 @@ class FunctionNames(enum.StrEnum):
 class PrefillFunctionCaches:
     components: list[Component] = dataclasses.field(default_factory=list)
     functions: list[FunctionNames] = dataclasses.field(
-        default_factory=lambda: [f for f in FunctionNames]
+        default_factory=lambda: [f for f in FunctionNames],
     )  # noqa: E501
 
 
@@ -522,10 +522,10 @@ class CacheManagerConfig(ExtensionCfgMixins):
     max_cache_size_bytes: int = 1000000000  # 1Gb
     min_pruning_bytes: int = 100000000  # 100Mb
     cache_pruning_weights: CachePruningWeights = dataclasses.field(
-        default_factory=CachePruningWeights.default
+        default_factory=CachePruningWeights.default,
     )  # noqa: E501
     prefill_function_caches: PrefillFunctionCaches = dataclasses.field(
-        default_factory=PrefillFunctionCaches
+        default_factory=PrefillFunctionCaches,
     )  # noqa: E501
     schedule: str = '*/10 * * * *'  # every 10 minutes
     successful_jobs_history_limit: int = 1
@@ -590,14 +590,14 @@ class ClamAVConfig(BacklogItemMixins):
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for ClamAV scans, '
-                    f'{supported_artefact_kinds=}'
+                    f'{supported_artefact_kinds=}',
                 )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{access_type=} is not supported for ClamAV scans, {supported_access_types=}'
+                    f'{access_type=} is not supported for ClamAV scans, {supported_access_types=}',
                 )
 
         if (
@@ -613,7 +613,7 @@ class ClamAVConfig(BacklogItemMixins):
                 if self.on_unsupported is WarningVerbosities.WARNING:
                     logger.warning(
                         f'{artefact_type=} is not supported for ClamAV scans with {access_type=}, '
-                        f'{supported_artefact_types_by_access_type=}'
+                        f'{supported_artefact_types_by_access_type=}',
                     )
 
         return is_supported
@@ -766,14 +766,14 @@ class CryptoConfig(BacklogItemMixins):
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for crypto scans, '
-                    f'{supported_artefact_kinds=}'
+                    f'{supported_artefact_kinds=}',
                 )
 
         if access_type and access_type not in supported_access_types:
             is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{access_type=} is not supported for crypto scans, {supported_access_types=}'
+                    f'{access_type=} is not supported for crypto scans, {supported_access_types=}',
                 )
 
         if (
@@ -789,7 +789,7 @@ class CryptoConfig(BacklogItemMixins):
                 if self.on_unsupported is WarningVerbosities.WARNING:
                     logger.warning(
                         f'{artefact_type=} is not supported for crypto scans with {access_type=}, '
-                        f'{supported_artefact_types_by_access_type=}'
+                        f'{supported_artefact_types_by_access_type=}',
                     )
 
         return is_supported
@@ -877,7 +877,7 @@ class GHASConfig(ExtensionCfgMixins):
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{artefact_kind=} is not supported for GHAS scans, {supported_artefact_kinds=}'
+                    f'{artefact_kind=} is not supported for GHAS scans, {supported_artefact_kinds=}',
                 )
             return False
 
@@ -896,7 +896,7 @@ class OdgOperatorConfig(ExtensionCfgMixins):
     service: Services = Services.ODG_OPERATOR
     required_extension_names: list[str] = dataclasses.field(default_factory=list)
     extension_ocm_references: list[ExtensionDefinitionOcmReference] = dataclasses.field(
-        default_factory=list
+        default_factory=list,
     )  # noqa: E501
 
 
@@ -917,7 +917,7 @@ class IssueReplicatorMapping(Mapping):
     github_issue_labels_to_preserve: list[str] = dataclasses.field(default_factory=list)
     number_included_closed_issues: int = 100
     milestones: gcmi.MilestoneConfiguration | dict = dataclasses.field(
-        default_factory=gcmi.MilestoneConfiguration
+        default_factory=gcmi.MilestoneConfiguration,
     )  # noqa: E501
 
     def __post_init__(self):
@@ -940,7 +940,7 @@ class IssueReplicatorMapping(Mapping):
                     str_format = title_sprint_cfg.get('date_string_format', '%Y-%m-%d')
 
                     title_callback = lambda sprint: sprint.find_sprint_date(name).value.strftime(
-                        str_format
+                        str_format,
                     )  # noqa: E501 E731
 
                 else:
@@ -1029,7 +1029,7 @@ class ResponsibleConfigRule:
         ref.ArtefactFilter | ref.ComponentFilter | ref.DatatypeFilter | ref.MatchAllFilter
     ] = dataclasses.field(default_factory=list)
     strategies: list[res.ComponentResponsibles | res.StaticResponsibles] = dataclasses.field(
-        default_factory=list
+        default_factory=list,
     )
     assignee_mode: odg.model.ResponsibleAssigneeModes | None = None
 
@@ -1078,7 +1078,7 @@ class SASTConfig(BacklogItemMixins):
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{artefact_kind=} is not supported for SAST scans, {supported_artefact_kinds=}'
+                    f'{artefact_kind=} is not supported for SAST scans, {supported_artefact_kinds=}',
                 )
             return False
 
@@ -1118,14 +1118,14 @@ class OsId(BacklogItemMixins):
         if access_type and access_type not in supported_access_types:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{access_type=} is not supported for OS_ID scans, {supported_access_types=}'
+                    f'{access_type=} is not supported for OS_ID scans, {supported_access_types=}',
                 )
             is_supported = False
 
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
-                    f'{artefact_kind=} is not supported for OS_ID scans, {supported_artefact_kinds=}'
+                    f'{artefact_kind=} is not supported for OS_ID scans, {supported_artefact_kinds=}',  # noqa: E501
                 )
             is_supported = False
 
@@ -1141,7 +1141,7 @@ class OsId(BacklogItemMixins):
                 if self.on_unsupported is WarningVerbosities.WARNING:
                     logger.warning(
                         f'{artefact_type=} is not supported for OS_ID scans with {access_type=}, '
-                        f'{supported_artefact_types_by_access_type=}'
+                        f'{supported_artefact_types_by_access_type=}',
                     )
                 is_supported = False
 
@@ -1196,7 +1196,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for SBOM Generation, '
-                    f'{supported_artefact_kinds=}'
+                    f'{supported_artefact_kinds=}',
                 )
 
         if access_type:
@@ -1239,7 +1239,7 @@ class ExtensionsConfiguration:
     sast: SASTConfig | None
     sbom_generator: SBOMGeneratorConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(
-        default_factory=BacklogControllerConfig
+        default_factory=BacklogControllerConfig,
     )  # noqa: E501
 
     @staticmethod

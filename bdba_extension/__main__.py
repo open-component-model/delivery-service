@@ -41,7 +41,7 @@ def _mark_compliance_summary_cache_for_deletion(
                 'component': component,
                 'finding_type': finding_type,
                 'datasource': odg.model.Datasource.BDBA,
-            }
+            },
         ),
     )
 
@@ -69,25 +69,25 @@ def scan(
     if not retrieve_vulnerability_findings and not retrieve_license_findings:
         logger.info(
             f'both the vulnerability and license finding configuration filter-out this {artefact=}, '
-            'hence further processing will be skipped...'
+            'hence further processing will be skipped...',
         )
         return
     elif not retrieve_vulnerability_findings:
         logger.info(
             f'the vulnerabiltiy finding configuration filters-out this {artefact=}, hence only '
-            'license findings will be considered'
+            'license findings will be considered',
         )
     elif not retrieve_license_findings:
         logger.info(
             f'the license finding configuration filters-out this {artefact=}, hence only '
-            'vulnerability findings will be considered'
+            'vulnerability findings will be considered',
         )
 
     if not extension_cfg.is_supported(artefact_kind=artefact.artefact_kind):
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{artefact.artefact_kind} is not supported by the BDBA extension, maybe the filter '
-                'configurations have to be adjusted to filter out this artefact kind'
+                'configurations have to be adjusted to filter out this artefact kind',
             )
         return
 
@@ -101,7 +101,7 @@ def scan(
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{access.type} is not supported by the BDBA extension, maybe the filter '
-                'configurations have to be adjusted to filter out this access type'
+                'configurations have to be adjusted to filter out this access type',
             )
         return
 

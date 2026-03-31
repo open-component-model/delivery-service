@@ -48,7 +48,7 @@ class ResourceGroupProcessor:
         component = resource_node.component
         resource = resource_node.resource
         display_name = normalize_display_name(
-            value=f'{resource.name}_{resource.version}_{component.name}_{resource.type}'
+            value=f'{resource.name}_{resource.version}_{component.name}_{resource.type}',
         )
 
         if resource.extraIdentity:
@@ -232,7 +232,7 @@ class ResourceGroupProcessor:
         if not (scan_result.binary_bytes and scan_result.scanned_bytes):
             logger.error(
                 f'scan of {scanned_element=} failed: uploaded or scanned file is empty '
-                f'({scan_result.binary_bytes=}, {scan_result.scanned_bytes=})'
+                f'({scan_result.binary_bytes=}, {scan_result.scanned_bytes=})',
             )
             return
 
@@ -313,7 +313,7 @@ def retrieve_existing_scan_results(
         bdba_client.list_apps(
             group_id=group_id,
             custom_attribs=query_data,
-        )
+        ),
     )
 
 

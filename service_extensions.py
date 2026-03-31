@@ -78,7 +78,7 @@ class ContainerStatuses(aiohttp.web.View):
                     service_filter=service_filter,
                     namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                     kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-                )
+                ),
             ),
             dumps=util.dict_to_json_factory,
         )
@@ -164,7 +164,7 @@ class LogCollections(aiohttp.web.View):
                     log_level=log_level,
                     namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                     kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-                )
+                ),
             ),
         )
 
@@ -260,7 +260,7 @@ class BacklogItems(aiohttp.web.View):
                     service=service,
                     namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                     kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
-                )
+                ),
             ),
         )
 
@@ -488,7 +488,7 @@ class RuntimeArtefacts(aiohttp.web.View):
                     namespace=self.request.app[consts.APP_NAMESPACE_CALLBACK](),
                     kubernetes_api=self.request.app[consts.APP_KUBERNETES_API_CALLBACK](),
                     labels=labels,
-                )
+                ),
             ),
         )
 

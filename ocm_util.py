@@ -159,7 +159,7 @@ def find_artefact_node(
 
         raise ValueError(
             f'no ocm node found for {artefact_name=} {artefact_version=} \
-                         {artefact_type=} {artefact_extra_id=}'
+                         {artefact_type=} {artefact_extra_id=}',
         )
 
 
@@ -192,7 +192,7 @@ def iter_content_for_resource_node(
                     s3_client=s3_client,
                     s3_access=access,
                 ),
-            ]
+            ],
         )
 
     elif access.type is ocm.AccessType.LOCAL_BLOB:
@@ -209,7 +209,7 @@ def iter_content_for_resource_node(
                     oci_client=oci_client,
                     image_reference=image_reference,
                 ),
-            ]
+            ],
         )
 
     else:
@@ -244,7 +244,7 @@ def image_layers_as_tarfile_generator(
     if fallback_to_first_subimage_if_index and isinstance(manifest, oci.model.OciImageManifestList):
         logger.warn(
             f'image-index handling not fully implemented - will only scan first image, '
-            f'{image_reference=}, {manifest.mediaType=}'
+            f'{image_reference=}, {manifest.mediaType=}',
         )
         manifest_ref = manifest.manifests[0]
         manifest = oci_client.manifest(

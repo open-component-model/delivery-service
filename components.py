@@ -426,7 +426,7 @@ class ComponentResponsibles(aiohttp.web.View):
                 ]
                 if not matching_artifacts:
                     raise aiohttp.web.HTTPNotFound(
-                        text=f'{component.name}:{component.version} has no {artifact_name=}'
+                        text=f'{component.name}:{component.version} has no {artifact_name=}',
                     )
 
                 for artifact in matching_artifacts:
@@ -459,11 +459,11 @@ class ComponentResponsibles(aiohttp.web.View):
                 responsibles.Status(
                     type='error',
                     msg='responsibles-label malformed, falling back to responsibles-heuristic',
-                )
+                ),
             )
             logger.warning(
                 'encountered errors while processing responsibles-label for '
-                f'{component.identity()=}, {artifact_name=}'
+                f'{component.identity()=}, {artifact_name=}',
             )
 
         if responsibles_label:
@@ -473,7 +473,7 @@ class ComponentResponsibles(aiohttp.web.View):
                     source=main_source,
                     component_identity=component_descriptor.component.identity(),
                     github_api_lookup=self.request.app[consts.APP_GITHUB_API_LOOKUP],
-                )
+                ),
             )
         else:
             try:
@@ -488,7 +488,7 @@ class ComponentResponsibles(aiohttp.web.View):
                         type='error',
                         msg='responsibles-heuristic was not able to determine responsibles as '
                         '(github) statistics are incomplete',
-                    )
+                    ),
                 )
 
         if user_identities is None:  # can be falsy
@@ -560,7 +560,7 @@ async def component_versions(
             ocm_repository_cfg.iter_matching_versions(
                 versions=versions,
                 version_filter_overwrite=version_filter,
-            )
+            ),
         )
 
     return included_versions
@@ -620,7 +620,7 @@ async def greatest_component_versions(
                     component_descriptor_lookup=component_descriptor_lookup,
                 )
                 creation_date = util.get_creation_date(component_descriptor.component).strftime(
-                    '%Y-%m-%d'
+                    '%Y-%m-%d',
                 )
 
                 if end_date and creation_date > end_date:
@@ -776,7 +776,7 @@ async def resolve_component_dependencies(
                     ocm.Label(
                         name='cloud.gardener/cicd/source',
                         value={'repository-classification': 'main'},
-                    )
+                    ),
                 )
 
             yield component_node

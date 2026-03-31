@@ -106,7 +106,7 @@ def test_future_iat(signing_cfg):
     payload['iat'] = int(
         (
             datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(minutes=100)
-        ).timestamp()
+        ).timestamp(),
     )
 
     token = gen_jwt_token(payload=payload)
@@ -149,7 +149,7 @@ def test_nbf_in_past():
     payload['nbf'] = int(
         (
             datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(minutes=100)
-        ).timestamp()
+        ).timestamp(),
     )
 
     middleware.auth.validate_jwt_payload(payload)
@@ -160,7 +160,7 @@ def test_nbf_in_future(signing_cfg):
     payload['nbf'] = int(
         (
             datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(minutes=100)
-        ).timestamp()
+        ).timestamp(),
     )
 
     token = gen_jwt_token(payload=payload)

@@ -325,7 +325,7 @@ class FindingIssues:
             'artefact_kind',
             'artefact.artefact_name',
             'artefact.artefact_type',
-        ]
+        ],
     )
     default_assignee_mode: odg.model.ResponsibleAssigneeModes = (
         odg.model.ResponsibleAssigneeModes.SKIP
@@ -488,7 +488,7 @@ class Finding:
     rescoring_ruleset: SharedCfgReference | dict | None
     issues: FindingIssues = dataclasses.field(default_factory=FindingIssues)
     default_scope: RescoringSpecificity = dataclasses.field(
-        default_factory=lambda: RescoringSpecificity.ARTEFACT
+        default_factory=lambda: RescoringSpecificity.ARTEFACT,
     )
     reuse_discovery_date: ReuseDiscoveryDate = dataclasses.field(default_factory=ReuseDiscoveryDate)
     sprint_assignment_offset: int = 0
@@ -700,7 +700,7 @@ class Finding:
         if not self.none_categorisation:
             violations.append(
                 'there must be at least one categorisation with "value=0" to express that a '
-                'finding is not relevant anymore'
+                'finding is not relevant anymore',
             )
 
         if self.rescoring_ruleset:
@@ -741,7 +741,7 @@ class Finding:
             if categorisation.id.startswith(consts.RESCORING_OPERATOR_SET_TO_PREFIX):
                 violations.append(
                     f'the prefix "{consts.RESCORING_OPERATOR_SET_TO_PREFIX}" is reserved for '
-                    'operations defined in the rescoring ruleset'
+                    'operations defined in the rescoring ruleset',
                 )
 
         return violations
@@ -758,7 +758,7 @@ class Finding:
                 self._validate_rescoring_ruleset_operation(
                     operation=rule.operation,
                     operations=self.rescoring_ruleset.operations,
-                )
+                ),
             )
 
         return violations
@@ -776,7 +776,7 @@ class Finding:
                 return []
 
             if operation.startswith(
-                consts.RESCORING_OPERATOR_SET_TO_PREFIX
+                consts.RESCORING_OPERATOR_SET_TO_PREFIX,
             ) and self.categorisation_by_id(
                 id=operation.removeprefix(consts.RESCORING_OPERATOR_SET_TO_PREFIX),
                 absent_ok=True,

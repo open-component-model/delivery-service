@@ -258,7 +258,7 @@ class ArtefactMetadataQueries:
                                     component=component,
                                     component_descriptor_lookup=component_descriptor_lookup,
                                 )
-                            ]
+                            ],
                         ),
                     ),
                 ),
@@ -285,13 +285,13 @@ async def findings_for_component(
                             async for query in ArtefactMetadataQueries.artefact_queries(
                                 component=component,
                             )
-                        ]
+                        ],
                     ),
                 ),
             ),
             dm.ArtefactMetaData.type == finding_type,
             dm.ArtefactMetaData.datasource == datasource,
-        )
+        ),
     )
 
     return [
@@ -319,7 +319,7 @@ async def rescorings_for_component(
             ),
             dm.ArtefactMetaData.type == odg.model.Datatype.RESCORING,
             dm.ArtefactMetaData.referenced_type == finding_type,
-        )
+        ),
     )
 
     return [
