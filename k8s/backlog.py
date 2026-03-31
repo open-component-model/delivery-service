@@ -122,7 +122,7 @@ def find_backlog_item(
         raise e
 
 
-def create_backlog_item(
+def _create_backlog_item(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -156,7 +156,7 @@ def create_backlog_item(
     )
 
 
-def create_unique_backlog_item(
+def create_backlog_item(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -171,7 +171,7 @@ def create_unique_backlog_item(
     Returns `True` if a new backlog item was created, otherwise `False`.
     """
     try:
-        create_backlog_item(
+        _create_backlog_item(
             service=service,
             namespace=namespace,
             kubernetes_api=kubernetes_api,
