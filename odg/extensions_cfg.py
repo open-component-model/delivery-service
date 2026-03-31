@@ -15,6 +15,7 @@ import yaml
 import github.compliance.milestone as gcmi
 import ocm
 
+import bdba.model
 import crypto_extension.config
 import lookups
 import odg.filter
@@ -22,7 +23,6 @@ import odg.model
 import odg.shared_cfg
 import responsibles_extension.filters as ref
 import responsibles_extension.strategies as res
-import bdba.model
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,12 @@ class WarningVerbosities(enum.StrEnum):
     FAIL = 'fail'
     IGNORE = 'ignore'
     WARNING = 'warning'
+
+
+class SbomFormat(enum.StrEnum):
+    CYCLONEDX = 'cyclonedx'
+    SPDX = 'spdx'
+    BDIO = 'bdio'
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -1162,25 +1168,48 @@ class SBOMGeneratorConfig(BacklogItemMixins):
     mappings: list[SBOMGeneratorMapping]
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     create_new_scan_if_missing: bool = False
-    output_format: bdba.model.SBomFormat = bdba.model.SBomFormat.CYCLONEDX
+    output_format: SbomFormat = SbomFormat.CYCLONEDX
     processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
     interval: int = 60 * 60 * 24  # 24h
+    generation_mode: odg.model.SbomGenerationMode = odg.model.SbomGenerationMode.BDBA
 
     def is_supported(
         self,
         artefact_kind: odg.model.ArtefactKind | None = None,
+        access_type: ocm.AccessType | None = None,
     ) -> bool:
         supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
 
+        supported_access_types_by_mode = {
+            odg.model.SbomGenerationMode.SYFT: (ocm.AccessType.OCI_REGISTRY,),
+            odg.model.SbomGenerationMode.BDBA: (
+                ocm.AccessType.OCI_REGISTRY,
+                ocm.AccessType.LOCAL_BLOB,
+                ocm.AccessType.S3,
+            ),
+        }
+
+        is_supported = True
+
         if artefact_kind and artefact_kind not in supported_artefact_kinds:
+            is_supported = False
             if self.on_unsupported is WarningVerbosities.WARNING:
                 logger.warning(
                     f'{artefact_kind=} is not supported for SBOM Generation, '
                     f'{supported_artefact_kinds=}'
                 )
-            return False
 
-        return True
+        if access_type:
+            supported_access_types = supported_access_types_by_mode.get(self.generation_mode, ())
+            if access_type not in supported_access_types:
+                is_supported = False
+                if self.on_unsupported is WarningVerbosities.WARNING:
+                    logger.warning(
+                        f'{access_type=} is not supported for SBOM Generation '
+                        f'with {self.generation_mode=}, {supported_access_types=}'
+                    )
+
+        return is_supported
 
     def mapping(self, name: str, /) -> SBOMGeneratorMapping:
         for mapping in self.mappings:

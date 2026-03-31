@@ -35,6 +35,7 @@ def modules():
         'responsibles_extension.filters',
         'responsibles_extension.strategies',
         'util',
+        'syft',
     ]
 
 

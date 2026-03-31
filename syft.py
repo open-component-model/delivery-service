@@ -1,3 +1,4 @@
+import enum
 import logging
 import subprocess
 
@@ -5,14 +6,21 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-def derive_sbom_for_source(
+class SyftSbomFormat(enum.StrEnum):
+    CYCLONEDX = 'cyclonedx-json'
+    SPDX = 'spdx-json'
+
+
+def run_syft(
     source: str,
-    output_path: str,
-):
+    output_format: SyftSbomFormat = SyftSbomFormat.CYCLONEDX,
+) -> str:
     """
-    Uses `syft` (https://github.com/anchore/syft) to create a SBOM document at `output_path` for the
-    provided `source`. `source` might be any of the accepted inputs for `syft`, e.g. an image
-    reference or a path to a directory, file, archive.
+    Runs `syft` (https://github.com/anchore/syft) to create a SBOM for the provided `source`.
+    `source` might be any of the accepted inputs for `syft`, e.g. an image reference or a path
+    to a directory, file, archive.
+
+    Returns the raw SBOM output as a string.
     """
     sbom_cmd = (
         'syft',
@@ -20,7 +28,7 @@ def derive_sbom_for_source(
         '--scope',
         'all-layers',
         '--output',
-        'cyclonedx-json',
+        output_format,
     )
     logger.info(f'run cmd "{" ".join(sbom_cmd)}"')
     try:
@@ -30,5 +38,4 @@ def derive_sbom_for_source(
         e.add_note(f'{e.stderr=}')
         raise
 
-    with open(output_path, 'w') as file:
-        file.write(sbom_raw)
+    return sbom_raw

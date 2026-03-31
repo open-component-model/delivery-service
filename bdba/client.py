@@ -109,10 +109,10 @@ class BDBAApiRoutes:
     def export_product(
         self,
         product_id: int | str,
-        sbom_format: bm.SBomFormat = bm.SBomFormat.BDIO,
+        sbom_format: bm.BdbaSbomFormat = bm.BdbaSbomFormat.BDIO,
     ) -> str:
         url = self._api_url('product', str(product_id), f'?format={sbom_format}')
-        if bm.SBomFormat(sbom_format) is bm.SBomFormat.CYCLONEDX:
+        if bm.BdbaSbomFormat(sbom_format) is bm.BdbaSbomFormat.CYCLONEDX:
             url = f'{url.rstrip("/")}/json'
         return url
 
@@ -648,14 +648,14 @@ class BDBAApi:
     def export_sbom(
         self,
         product_id: int | str,
-        sbom_format: bm.SBomFormat,
+        sbom_format: bm.BdbaSbomFormat,
     ) -> dict | bm.BDIO:
         url = self._routes.export_product(product_id, sbom_format=sbom_format)
 
         response = self._get(url=url)
         response_raw = response.json()
 
-        if sbom_format is bm.SBomFormat.BDIO:
+        if sbom_format is bm.BdbaSbomFormat.BDIO:
             return dacite.from_dict(
                 data_class=bm.BDIO,
                 data=dict(
