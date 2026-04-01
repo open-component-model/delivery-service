@@ -79,11 +79,14 @@ def get_base_url(
     if not is_productive or not kubernetes_api:
         return f'http://localhost:{port}'
 
-    ingress = kubernetes_api.networking_kubernetes_api.read_namespaced_ingress(
+    http_route = kubernetes_api.custom_kubernetes_api.get_namespaced_custom_object(
+        group='gateway.networking.k8s.io',
+        version='v1',
+        plural='httproutes',
         name='delivery-service',
         namespace=namespace,
     )
-    host = ingress.spec.rules[0].host
+    host = http_route['spec']['hostnames'][0]
 
     return f'https://{host}'
 
