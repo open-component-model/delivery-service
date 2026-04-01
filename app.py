@@ -417,7 +417,7 @@ async def initialise_app():
 
     app = aiohttp.web.Application(
         middlewares=middlewares,
-        client_max_size=0,  # max request body size is already configured via ingress
+        client_max_size=0,
     )
 
     app = middleware.prometheus.add_prometheus_middleware(app=app)
