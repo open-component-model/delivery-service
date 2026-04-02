@@ -242,7 +242,7 @@ def image_layers_as_tarfile_generator(
     image_reference = oci.model.OciImageReference.to_image_ref(image_reference)
 
     if fallback_to_first_subimage_if_index and isinstance(manifest, oci.model.OciImageManifestList):
-        logger.warn(
+        logger.warning(
             f'image-index handling not fully implemented - will only scan first image, '
             f'{image_reference=}, {manifest.mediaType=}',
         )
