@@ -1206,7 +1206,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
                 if self.on_unsupported is WarningVerbosities.WARNING:
                     logger.warning(
                         f'{access_type=} is not supported for SBOM Generation '
-                        f'with {self.generation_mode=}, {supported_access_types=}'
+                        f'with {self.generation_mode=}, {supported_access_types=}',
                     )
 
         return is_supported
