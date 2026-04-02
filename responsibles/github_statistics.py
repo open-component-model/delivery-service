@@ -77,7 +77,7 @@ def fit_sigmoid_for_repo_days(
             repo_age_in_days / 5 * 3,
             repo_age_in_days / 4 * 3,
             repo_age_in_days,
-        ]
+        ],
     )
     ydata = numpy.array(
         [
@@ -88,7 +88,7 @@ def fit_sigmoid_for_repo_days(
             0.70,
             0.95,
             0.99,
-        ]
+        ],
     )
 
     # fit sigmoid
@@ -236,7 +236,7 @@ def global_stats(
             {
                 'username': r['author']['login'],
                 'commits': weighted_commit_count,
-            }
+            },
         )
 
     commit_n, commit_n_percentile, authors_in_commit_n_percentile = n_percentile_with_member_count(
@@ -267,7 +267,7 @@ def global_stats(
             {
                 'username': r['author']['login'],
                 'loc': weighted_loc_count,
-            }
+            },
         )
 
     usernames_values = {e['username']: e['loc'] for e in total_weighted_loc}
@@ -478,7 +478,7 @@ def user_identities(
                 negative_list=negative_list,
             ),
             repo_stats,
-        )
+        ),
     )
 
     # e.g. not enough commits
@@ -516,7 +516,7 @@ def user_identities(
                     username=responsible,
                     repo_url=repo_url,
                     gh_api=gh_api,
-                )
+                ),
             )
             + [meta_origin],
         )

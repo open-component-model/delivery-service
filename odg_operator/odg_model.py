@@ -176,7 +176,7 @@ class ExtensionInstance:
                 ExtensionInstallationArtefact(
                     helm_chart_name=ocm_ref.helm_chart_name,
                     artefact=resource_node.resource,
-                )
+                ),
             )
 
             for mapping in ocm_ref.mappings:
@@ -206,7 +206,7 @@ class ExtensionInstance:
                         image_mappings=image_mappings,
                         component=component,
                         component_descriptor_lookup=component_descriptor_lookup,
-                    )
+                    ),
                 )
 
                 for path, value in image_mappings.items():
@@ -215,7 +215,7 @@ class ExtensionInstance:
                             helm_chart_name=mapping.name,
                             helm_attribute=path,
                             value=value,
-                        )
+                        ),
                     )
 
         return ExtensionInstance(

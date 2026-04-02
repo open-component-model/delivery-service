@@ -178,7 +178,7 @@ class LoggingRetry(urllib3.util.retry.Retry):
         # Use the Retry history to determine the number of retries.
         num_retries = len(self.history) if self.history else 0
         logger.warning(
-            f'{method=} {url=} returned {response=} {error=} {num_retries=} - trying again'
+            f'{method=} {url=} returned {response=} {error=} {num_retries=} - trying again',
         )
         return retry
 
@@ -287,7 +287,7 @@ class BDBAApi:
             name = bdba.limits.trim(application_name, limit=bdba.limits.file_name)
             logger.warning(
                 f'{application_name=} exceeds character limit of {bdba.limits.file_name} and was '
-                f'truncated to {name}'
+                f'truncated to {name}',
             )
 
         url = self._routes.upload(file_name=name)
@@ -538,7 +538,7 @@ class BDBAApi:
             product_name = bdba.limits.trim(name, limit=bdba.limits.app_name)
             logger.warning(
                 f'{name=} exceeds character limit of {bdba.limits.app_name} and was truncated '
-                f'to {product_name}'
+                f'to {product_name}',
             )
 
         self._patch(
@@ -583,7 +583,7 @@ class BDBAApi:
         elif scope is bm.VersionOverrideScope.GROUP:
             if not group_id:
                 raise RuntimeError(
-                    'A Group ID is required when overriding versions with Group scope.'
+                    'A Group ID is required when overriding versions with Group scope.',
                 )
             override_dict['group_scope'] = group_id
         else:

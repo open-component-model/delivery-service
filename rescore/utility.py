@@ -137,7 +137,7 @@ def rescorings_for_finding_by_specificity(
                 rescoring.meta.creation_date,
             ),
             reverse=True,
-        )
+        ),
     )
 
 
@@ -189,7 +189,7 @@ def rescore_finding(
             if not operation.startswith(consts.RESCORING_OPERATOR_SET_TO_PREFIX):
                 raise ValueError(
                     f'invalid {operation=}, must match pattern '
-                    f'`{consts.RESCORING_OPERATOR_SET_TO_PREFIX}<categorisation-id>`'
+                    f'`{consts.RESCORING_OPERATOR_SET_TO_PREFIX}<categorisation-id>`',
                 )
             operation = operation.removeprefix(consts.RESCORING_OPERATOR_SET_TO_PREFIX)
 
@@ -246,7 +246,7 @@ def rescoring_for_sast_finding(
         iter_matching_sast_rescoring_rules(
             rescoring_rules=sast_finding_cfg.rescoring_ruleset.rules,
             finding=finding,
-        )
+        ),
     )
 
     if not matching_rules:

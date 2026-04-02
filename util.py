@@ -195,7 +195,7 @@ def param_as_bool(
             name=name,
             required=required,
             default=default,
-        )
+        ),
     )
 
     if val in true_strings:
@@ -222,7 +222,7 @@ def error_description(
         {
             'error_id': error_id,
             **kwargs,
-        }
+        },
     )
 
 

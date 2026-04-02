@@ -64,7 +64,7 @@ def _iter_findings_for_artefact(
                     artefacts=chunked_artefacts,
                     type=[odg.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
                 )
-            ]
+            ],
         )
 
         rescorings.update(
@@ -75,7 +75,7 @@ def _iter_findings_for_artefact(
                     type=odg.model.Datatype.RESCORING,
                     referenced_type=finding_type,
                 )
-            ]
+            ],
         )
 
     for finding in findings:
@@ -88,7 +88,7 @@ def _iter_findings_for_artefact(
             rescore.utility.rescorings_for_finding_by_specificity(
                 finding=finding,
                 rescorings=rescorings,
-            )
+            ),
         )
 
         yield issue_replicator.github.AggregatedFinding(
@@ -313,12 +313,12 @@ def _github_assignees(
         logger.warning(
             f'unable to assign {invalid_assignees} to issues in repository '
             f'{repository.html_url}. Please make sure the users have the necessary '
-            'permissions to see issues in the repository.'
+            'permissions to see issues in the repository.',
         )
         assignees -= invalid_assignees
         logger.info(
             f'removed invalid assignees {invalid_assignees} from target assignees for '
-            f'issue. Remaining assignees: {assignees}'
+            f'issue. Remaining assignees: {assignees}',
         )
 
     return assignees
@@ -373,7 +373,7 @@ def replicate_issue_for_finding_type(
                 findings=findings,
                 finding_cfg=finding_cfg,
                 due_dates=due_dates,
-            )
+            ),
         )
         logger.info(f'{len(findings)=}')
     else:
@@ -494,7 +494,7 @@ def replicate_issue(
     sprints = tuple(
         gcmi.sprints_cached(
             delivery_svc_client=delivery_client,
-        )
+        ),
     )
 
     if not (due_dates := sprint_dates(sprints=sprints)):
@@ -515,7 +515,7 @@ def replicate_issue(
             sprints=sprints,
             repo=repo,
             milestone_cfg=mapping.milestones,
-        )
+        ),
     )
 
     for finding_cfg in finding_cfgs:

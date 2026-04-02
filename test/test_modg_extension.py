@@ -27,7 +27,8 @@ def extension_definitions():
 
 def test_jsonpatch_patch():
     assert {'foo': {'bar': {'foo.bar': 42}}} == odgu.patch_jsonpath_into_dict(
-        'foo.bar."foo.bar"', 42
+        'foo.bar."foo.bar"',
+        42,
     )  # noqa: E501
 
 
@@ -47,7 +48,7 @@ def test_extensions(extension_definitions):
         odgc.iter_missing_dependencies(
             requested=(dd,),
             known=(ds, dd, db, sb),
-        )
+        ),
     )
     assert missing == set([ds, db])
 
@@ -60,7 +61,7 @@ def test_extensions(extension_definitions):
         [
             (extension_definition.name, extension_definition.templated_outputs(context))
             for extension_definition in (dd, ds, db)
-        ]
+        ],
     )
 
     ds_outputs = outputs['delivery-service']
@@ -116,7 +117,7 @@ def test_extensions(extension_definitions):
         odgc.iter_missing_dependencies(
             requested=(sb,),
             known=(ds, dd, db, sb),
-        )
+        ),
     )
     assert missing == {ds, db}
 

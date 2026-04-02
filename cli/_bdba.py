@@ -168,7 +168,7 @@ def scan(
                             s3_client=s3_client,
                             s3_access=access,
                         ),
-                    ]
+                    ],
                 )
 
             elif access.type is ocm.AccessType.LOCAL_BLOB:
@@ -185,7 +185,7 @@ def scan(
                             oci_client=oci_client,
                             image_reference=image_reference,
                         ),
-                    ]
+                    ],
                 )
 
             else:
@@ -264,7 +264,7 @@ def scan(
                     'vulnerabilities': 'Vulnerabilities',
                 },
                 tablefmt='grid',
-            )
+            ),
         )
 
     print(f'Summary of found vulnerabilites above {cve_threshold=}')

@@ -380,7 +380,7 @@ def crypto_summary(
         finding_group: FindingGroup,
     ) -> str:
         return '<br/>'.join(
-            sorted(f'`{name}`' for name in aggregated_finding.finding.data.asset.names if name)
+            sorted(f'`{name}`' for name in aggregated_finding.finding.data.asset.names if name),
         )
 
     finding_table_callback = {
@@ -868,7 +868,7 @@ def ip_summary(
             f'[Blackduck]({finding.finding.data.href})'
             for finding in finding_group.findings
             if finding.finding.data.href
-        }
+        },
     )
 
     def group_aggregated_findings(
@@ -1052,7 +1052,7 @@ def license_summary(
         {  # noqa: E731
             f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
             for finding in finding_group.findings
-        }
+        },
     )
 
     return findings_summary(
@@ -1258,7 +1258,7 @@ def vulnerability_summary(
                 rescoring_rules=finding_cfg.rescoring_ruleset.rules,
                 categorisation=cve_categorisation,
                 cvss=aggregated_finding.finding.data.cvss,
-            )
+            ),
         )
 
         current_categorisation = odg.findings.categorise_finding(
@@ -1326,7 +1326,7 @@ def vulnerability_summary(
         {  # noqa: E731
             f'[BDBA {finding.finding.data.product_id}]({finding.finding.data.report_url})'
             for finding in finding_group.findings
-        }
+        },
     )
 
     def group_aggregated_findings(
@@ -1514,7 +1514,7 @@ def template_issue_body(
                 artefact=artefact,
                 findings=findings_for_artefact,
                 historical_findings=historical_findings_for_artefact,
-            )
+            ),
         )
 
     # secondly, display the combinations of artefact properties which are not part of the group

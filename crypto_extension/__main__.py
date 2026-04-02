@@ -103,7 +103,7 @@ def scan(
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{artefact.artefact_kind} is not supported by the crypto extension, maybe the '
-                'filter configurations have to be adjusted to filter out this artefact kind'
+                'filter configurations have to be adjusted to filter out this artefact kind',
             )
         return
 
@@ -121,7 +121,7 @@ def scan(
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{access_type=} with {resource_type=} is not supported by the crypto extension, '
-                'maybe the filter configurations have to be adjusted to filter out these types'
+                'maybe the filter configurations have to be adjusted to filter out these types',
             )
         return
 
@@ -148,7 +148,7 @@ def scan(
             crypto_assets=crypto_assets,
             standards=mapping.standards,
             crypto_finding_cfg=crypto_finding_cfg,
-        )
+        ),
     )
 
     artefact_metadata = list(
@@ -157,7 +157,7 @@ def scan(
             crypto_assets=crypto_assets,
             findings=findings,
             crypto_finding_cfg=crypto_finding_cfg,
-        )
+        ),
     )
 
     existing_artefact_metadata = (

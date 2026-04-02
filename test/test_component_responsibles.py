@@ -80,7 +80,7 @@ def user_identities(
             flattend_codeowners=flattend_codeowners,
             gh_api=gh_api,
             repo=repo,
-        )
+        ),
     )
 
 

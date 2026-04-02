@@ -297,7 +297,8 @@ def create_ghas_findings(
                     )
 
                     categorisation = odg.findings.categorise_finding(
-                        finding_cfg=ghas_finding_cfg, finding_property=alert.resolution
+                        finding_cfg=ghas_finding_cfg,
+                        finding_property=alert.resolution,
                     )
                     if not categorisation:
                         continue
@@ -343,7 +344,7 @@ def build_artefact_from_finding(
             ocm.ComponentIdentity(
                 name=possible_component_name,
                 version=component_version,
-            )
+            ),
         )
 
         source = ocm.util.main_source(
@@ -410,7 +411,7 @@ def scan(
             if ghas_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
                 raise TypeError(
                     f'{artefact.artefact_kind} is not supported, maybe the filter '
-                    'configurations have to be adjusted to filter out this artefact kind'
+                    'configurations have to be adjusted to filter out this artefact kind',
                 )
             continue
 
@@ -419,7 +420,7 @@ def scan(
                 artefact=artefact,
                 ghas_finding=finding,
                 ghas_finding_cfg=ghas_finding_cfg,
-            )
+            ),
         )
 
         all_metadata.extend(metadata)

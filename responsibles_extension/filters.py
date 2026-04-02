@@ -63,7 +63,7 @@ class ArtefactFilter(FilterBase):
                 self._artefact_name_filter(artefact),
                 self._artefact_type_filter(artefact),
                 self._artefact_kind_filter(artefact),
-            )
+            ),
         )
 
 

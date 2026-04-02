@@ -53,7 +53,7 @@ def test_apiserver(
                 negative_list=negative_list,
             ),
             repo_stats,
-        )
+        ),
     )
     processed_stats = rg.global_stats(
         repo_stats=repo_stats,
@@ -85,7 +85,7 @@ def test_mcm(
                 negative_list=negative_list,
             ),
             repo_stats,
-        )
+        ),
     )
     processed_stats = rg.global_stats(
         repo_stats=repo_stats,

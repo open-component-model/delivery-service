@@ -34,7 +34,7 @@ def validate_supported_schema_version(schema_version_raw: str):
                     cyclonedx.schema.SchemaVersion.to_version(version.value)
                     for version in SupportedSchemaVersions
                 ]
-            }'
+            }',
         )
 
 
@@ -267,14 +267,14 @@ def deserialise_crypto_asset(
     elif type is ComponentTypes.CRYPTOGRAPHIC_ASSET:
         if not crypto_properties:
             raise ValueError(
-                f'The component property `cryptoProperties` must be set for components of {type=}'
+                f'The component property `cryptoProperties` must be set for components of {type=}',
             )
         asset_type = odg.model.CryptoAssetTypes(crypto_properties['assetType'])
 
     else:
         raise ValueError(
             f'{type=} is not a supported crypto asset type, '
-            f'supported values: {[asset_type.value for asset_type in odg.model.CryptoAssetTypes]}'
+            f'supported values: {[asset_type.value for asset_type in odg.model.CryptoAssetTypes]}',
         )
 
     if asset_type is odg.model.CryptoAssetTypes.ALGORITHM:
@@ -304,7 +304,7 @@ def deserialise_crypto_asset(
     elif asset_type is odg.model.CryptoAssetTypes.RELATED_CRYPTO_MATERIAL:
         properties = deserialise_related_crypto_material(
             related_crypto_material_properties=crypto_properties.get(
-                'relatedCryptoMaterialProperties'
+                'relatedCryptoMaterialProperties',
             ),  # noqa: E501
             crypto_assets_raw=crypto_assets_raw,
             description=description,
@@ -366,7 +366,7 @@ def iter_crypto_assets(
             components=cbom.get('components') or [],
             known_crypto_libraries=crypto_libraries,
             included_asset_types=included_asset_types,
-        )
+        ),
     )
 
     crypto_assets = list(

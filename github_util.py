@@ -61,7 +61,7 @@ def all_issues(
         repository.issues(
             state=state,
             number=number,
-        )
+        ),
     )
 
 

@@ -59,7 +59,7 @@ async def test_vulnerability(component_artefact_id):
                         cvss=dict(),
                         summary=None,
                     ),
-                )
+                ),
             ],
             rescorings=[],
         )
@@ -85,7 +85,7 @@ async def test_vulnerability(component_artefact_id):
                         cvss=dict(),
                         summary=None,
                     ),
-                )
+                ),
             ],
             rescorings=[],
         )
@@ -125,7 +125,7 @@ async def test_malware(component_artefact_id):
                         signature_version=None,
                         freshclam_timestamp=None,
                     ),
-                )
+                ),
             ],
             rescorings=[],
         )
@@ -152,7 +152,7 @@ async def test_malware(component_artefact_id):
                         signature_version=None,
                         freshclam_timestamp=None,
                     ),
-                )
+                ),
             ],
             rescorings=[],
         )
@@ -188,7 +188,7 @@ async def test_licenses(component_artefact_id):
                         severity='NONE',
                         license=None,
                     ),
-                )
+                ),
             ],
             rescorings=[],
         )
@@ -211,7 +211,7 @@ async def test_licenses(component_artefact_id):
                         severity='BLOCKER',
                         license=None,
                     ),
-                )
+                ),
             ],
             rescorings=[],
         )

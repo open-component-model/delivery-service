@@ -363,7 +363,7 @@ class FeatureOcmRepositoryCfgs(FeatureBase):
             ocm_repository_cfg_raw['repositories'] = list(
                 ocm_repository_cfg.iter_ocm_repositories(
                     ocm_repository_cfgs=self.ocm_repository_cfgs,
-                )
+                ),
             )
 
             yield ocm_repository_cfg_raw
@@ -509,7 +509,8 @@ def sprint_name(
     cycle_options = 'abcdefghijklmnopqrstuvwxyz'
 
     custom_sprint_format = sprint_name_pattern.replace('%S', f'{sprint_number:02d}').replace(
-        '%C', cycle_options[cycle % 26]
+        '%C',
+        cycle_options[cycle % 26],
     )
 
     return sprint_date.strftime(custom_sprint_format)
@@ -526,7 +527,7 @@ def iter_sprints(
             end_date=end_date,
             days_per_sprint=sprints_cfg.days_per_sprint,
             offset=sprints_cfg.offset,
-        )
+        ),
     )
 
     last_sprint_number = None
@@ -917,7 +918,7 @@ async def init_features(
             middleware.auth.auth_middleware(
                 signing_cfgs=feature_authentication.signing_cfgs,
                 default_auth=middleware.auth.AuthType.BEARER,
-            )
+            ),
         )
     feature_cfgs.append(feature_authentication)
 
@@ -938,7 +939,7 @@ async def init_features(
     else:
         logger.warning(
             'required cfgs for cluster access feature missing, will be disabled; '
-            f'{k8s_cfg_name=}, {k8s_namespace=}'
+            f'{k8s_cfg_name=}, {k8s_namespace=}',
         )
 
     feature_cfgs.append(cluster_access_feature)
@@ -952,7 +953,7 @@ async def init_features(
                 delivery_db_cfgs = secret_factory.delivery_db()
                 if len(delivery_db_cfgs) != 1:
                     raise ValueError(
-                        f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}'  # noqa: E501
+                        f'There must be exactly one delivery-db secret, found {len(delivery_db_cfgs)}',  # noqa: E501
                     )
 
                 delivery_db_cfg: secret_mgmt.delivery_db.DeliveryDB = delivery_db_cfgs[0]
@@ -965,7 +966,7 @@ async def init_features(
 
         else:
             logger.warning(
-                'required cluster-access for delivery-db feature missing, will be disabled'
+                'required cluster-access for delivery-db feature missing, will be disabled',
             )
 
     if delivery_db_feature_state is FeatureStates.AVAILABLE:
@@ -973,7 +974,7 @@ async def init_features(
             await middleware.db_session.db_session_middleware(
                 db_url=db_url,
                 verify_db_session=False,
-            )
+            ),
         )
 
     feature_cfgs.append(FeatureDeliveryDB(delivery_db_feature_state, db_url=db_url))

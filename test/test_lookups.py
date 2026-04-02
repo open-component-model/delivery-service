@@ -19,7 +19,7 @@ def ocm_repository_cfgs() -> list[lookups.VirtualOcmRepositoryCfg | lookups.OciO
             'selectors': [
                 {
                     'required_labels': 'releases',
-                }
+                },
             ],
         },
         {

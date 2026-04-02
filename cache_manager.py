@@ -96,14 +96,14 @@ async def prune_cache(
         + dm.DBCache.read_count * cfg.cache_pruning_weights.read_count_weight
         + dm.DBCache.revision * cfg.cache_pruning_weights.revision_weight
         + dm.DBCache.costs * cfg.cache_pruning_weights.costs_weight
-        + dm.DBCache.size * cfg.cache_pruning_weights.size_weight
+        + dm.DBCache.size * cfg.cache_pruning_weights.size_weight,
     )
     db_stream = await db_session.stream(db_statement)
 
     prunable_size = cache_size_bytes - cfg.min_pruning_bytes
     logger.info(
         f'Will prune cache (prunable size {bytes_to_str(prunable_size)}) until '
-        f'{bytes_to_str(cfg.min_pruning_bytes)} are available again.'
+        f'{bytes_to_str(cfg.min_pruning_bytes)} are available again.',
     )
 
     try:
@@ -120,7 +120,7 @@ async def prune_cache(
 
         await db_session.commit()
         logger.info(
-            f'Pruned {bytes_to_str(cache_size_bytes - cfg.min_pruning_bytes - prunable_size)}'
+            f'Pruned {bytes_to_str(cache_size_bytes - cfg.min_pruning_bytes - prunable_size)}',
         )
     except Exception:
         await db_session.rollback()
@@ -174,7 +174,7 @@ async def prefill_compliance_summary_caches(
                 ocm.ComponentIdentity(
                     name=component.component_name,
                     version=version,
-                )
+                ),
             )
 
             async for component_node in ocm.iter_async.iter(
@@ -278,7 +278,7 @@ async def main():
     delivery_db_secrets = secret_factory.delivery_db()
     if len(delivery_db_secrets) != 1:
         raise ValueError(
-            f'There must be exactly one delivery-db secret, found {len(delivery_db_secrets)}'
+            f'There must be exactly one delivery-db secret, found {len(delivery_db_secrets)}',
         )
     db_url = delivery_db_secrets[0].connection_url(
         namespace=namespace,

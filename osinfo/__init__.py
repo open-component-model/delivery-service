@@ -44,7 +44,7 @@ def release_infos_from_cfg(
                 'eol': release_info_raw.get('eol_date'),
                 'cycle': release_info_raw['name'],
                 'latest': release_info_raw.get('greatest_version'),
-            }
+            },
         )
         for release_info_raw in release_infos_raw
     ]

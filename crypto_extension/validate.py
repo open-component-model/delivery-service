@@ -48,7 +48,7 @@ def iter_unmet_requirements(
                 continue
         elif isinstance(requirement.required_value, cc.MinMaxEnumProperties):
             if isinstance(requirement.actual_value, int) and requirement.required_value.check_value(
-                requirement.actual_value
+                requirement.actual_value,
             ):
                 continue
         else:
@@ -110,7 +110,7 @@ def validate_symmetric_algorithm(
                 unmet_requirements = list(iter_unmet_requirements(all_requirements))
 
                 if best_unmet_requirements is None or len(unmet_requirements) < len(
-                    best_unmet_requirements
+                    best_unmet_requirements,
                 ):
                     # store those requirements which are the closest to be fulfilled for reporting
                     best_unmet_requirements = unmet_requirements
@@ -203,7 +203,7 @@ def validate_asymmetric_algorithm(
                 unmet_requirements = list(iter_unmet_requirements(all_requirements))
 
                 if best_unmet_requirements is None or len(unmet_requirements) < len(
-                    best_unmet_requirements
+                    best_unmet_requirements,
                 ):
                     # store those requirements which are the closest to be fulfilled for reporting
                     best_unmet_requirements = unmet_requirements
@@ -287,7 +287,7 @@ def validate_hash_function(
                 unmet_requirements = list(iter_unmet_requirements(all_requirements))
 
                 if best_unmet_requirements is None or len(unmet_requirements) < len(
-                    best_unmet_requirements
+                    best_unmet_requirements,
                 ):
                     # store those requirements which are the closest to be fulfilled for reporting
                     best_unmet_requirements = unmet_requirements
@@ -533,7 +533,7 @@ def validate_certificate(
                 unmet_requirements = list(iter_unmet_requirements(all_requirements))
 
                 if best_unmet_requirements is None or len(unmet_requirements) < len(
-                    best_unmet_requirements
+                    best_unmet_requirements,
                 ):
                     # store those requirements which are the closest to be fulfilled for reporting
                     best_unmet_requirements = unmet_requirements

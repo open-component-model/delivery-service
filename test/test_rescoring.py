@@ -34,7 +34,7 @@ def cve_rescoring_ruleset() -> dict:
                         'operation': 'not-exploitable',
                     },
                 ],
-            }
+            },
         ],
     }
 
@@ -79,7 +79,7 @@ def vulnerability_finding_cfg(
                     },
                 ],
                 'rescoring_ruleset': cve_rescoring_ruleset,
-            }
+            },
         ],
         finding_type=odg.model.Datatype.VULNERABILITY_FINDING,
     )
@@ -140,7 +140,7 @@ def sast_finding_cfg(
                     },
                 ],
                 'rescoring_ruleset': sast_rescoring_ruleset,
-            }
+            },
         ],
         finding_type=odg.model.Datatype.SAST_FINDING,
     )
@@ -171,7 +171,8 @@ def test_deserialise_sast_rescoring_ruleset(
 
 
 def test_deserialise_with_extra_attributes(
-    cve_rescoring_ruleset: dict, sast_rescoring_ruleset: dict
+    cve_rescoring_ruleset: dict,
+    sast_rescoring_ruleset: dict,
 ):
     cve_rescoring_ruleset['extra_attribute'] = 'extra_value'
     sast_rescoring_ruleset['extra_attribute'] = 'extra_value'

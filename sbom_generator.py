@@ -88,7 +88,7 @@ def get_or_create_bdba_scan(
     if create_new_scan_if_missing:
         logger.info(
             f'No existing BDBA scan found, creating a new BDBA scan for: '
-            f'{resource_node.resource.name}'
+            f'{resource_node.resource.name}',
         )
 
         metadata_generator = bdba_utils.scan.run_scan(
@@ -111,7 +111,7 @@ def get_or_create_bdba_scan(
 
     raise RuntimeError(
         f'No existing BDBA scan found for {resource_node.resource.name} '
-        f'and {create_new_scan_if_missing=}'
+        f'and {create_new_scan_if_missing=}',
     )
 
 
@@ -156,7 +156,7 @@ def generate_sbom_with_bdba(
             f'No BDBA scan available '
             f'for resource {resource_node.resource.name} '
             f'in component {resource_node.component.name}:'
-            f'{resource_node.component.version}'
+            f'{resource_node.component.version}',
         )
 
     sbom_raw = bdba_api.export_sbom(product_id, output_format)
@@ -184,7 +184,8 @@ def generate_sbom_for_artefact(
     logger.info(f'Generating SBOM for artefact: {artefact}')
 
     resource_node = k8s.util.get_ocm_node(
-        component_descriptor_lookup=component_descriptor_lookup, artefact=artefact
+        component_descriptor_lookup=component_descriptor_lookup,
+        artefact=artefact,
     )
 
     if not resource_node:
@@ -200,7 +201,7 @@ def generate_sbom_for_artefact(
                 f'{artefact.artefact_kind} / {resource_node.resource.access.type} is not '
                 'supported by the SBOM Generator extension, '
                 'maybe the filter configurations have to be adjusted '
-                'to filter out this artefact kind or access type'
+                'to filter out this artefact kind or access type',
             )
         return
 
@@ -217,7 +218,7 @@ def generate_sbom_for_artefact(
                 raise ValueError(
                     f'Unsupported SBOM format "{extension_cfg.output_format}" for generation mode '
                     f'"{extension_cfg.generation_mode}". Supported formats: '
-                    f'{", ".join(f.value for f in syft.SyftSbomFormat)}'
+                    f'{", ".join(f.value for f in syft.SyftSbomFormat)}',
                 )
 
             sbom_result = generate_sbom_with_syft(
@@ -237,7 +238,7 @@ def generate_sbom_for_artefact(
                 raise ValueError(
                     f'Unsupported SBOM format "{extension_cfg.output_format}" for generation mode '
                     f'"{extension_cfg.generation_mode}". Supported formats: '
-                    f'{", ".join(f.value for f in bdba.model.BdbaSbomFormat)}'
+                    f'{", ".join(f.value for f in bdba.model.BdbaSbomFormat)}',
                 )
 
             sbom_result = generate_sbom_with_bdba(
@@ -255,7 +256,7 @@ def generate_sbom_for_artefact(
         case _:
             raise ValueError(
                 f'Unsupported generation mode: {extension_cfg.generation_mode}. '
-                f'Supported modes: {", ".join(m.value for m in odg.model.SbomGenerationMode)}'
+                f'Supported modes: {", ".join(m.value for m in odg.model.SbomGenerationMode)}',
             )
 
     output_filename = _GENERATION_MODE_OUTPUT_FILES.get(extension_cfg.generation_mode)
@@ -278,8 +279,8 @@ def generate_sbom_for_artefact(
                     last_update=datetime.datetime.now(datetime.timezone.utc),
                 ),
                 data={},
-            )
-        ]
+            ),
+        ],
     )
 
     return sbom_result

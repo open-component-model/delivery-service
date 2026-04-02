@@ -97,7 +97,7 @@ def rescore(
                     'reason': 'OT',
                     'description': 'auto-assessed as irrelevant based on cve-categorisation',
                     'product_id': scan_result.product_id,
-                }
+                },
             )
             triages_were_applied = True
 

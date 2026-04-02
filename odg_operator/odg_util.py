@@ -176,7 +176,7 @@ def template_and_resolve_jsonpath(
                     ),
                 )
                 for key, value in value.items()
-            ]
+            ],
         )
 
     elif isinstance(value, list):

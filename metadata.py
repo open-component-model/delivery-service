@@ -88,7 +88,7 @@ def _categorisation_value_case(
                 (
                     sa.and_(type_expr == cfg.type, severity_id_expr == cat.id),
                     cat.value,
-                )
+                ),
             )
 
     return sa.case(*whens, else_=0)
@@ -266,7 +266,7 @@ def _pred_cmp(
         except Exception:
             if not selected_finding_type:
                 raise aiohttp.web.HTTPBadRequest(
-                    text='data.severity symbolic comparisons require exactly one finding type'
+                    text='data.severity symbolic comparisons require exactly one finding type',
                 )
             if finding_cfgs is None:
                 raise aiohttp.web.HTTPBadRequest(text='severity comparisons require finding cfgs')
@@ -623,7 +623,7 @@ async def resolve_component_scope(
                 _artefact_key_tuple_from_ocm(
                     artefact_kind=kind,
                     artefact=artefact,
-                )
+                ),
             )
 
         if not recursive:
@@ -682,7 +682,7 @@ class ArtefactMetadataQueryAttributes(aiohttp.web.View):
             {
                 'fields': fields,
                 'defaultSearchFields': default_search_fields,
-            }
+            },
         )
 
 
@@ -781,12 +781,12 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
 
             if recursive and not comp_ver:
                 raise aiohttp.web.HTTPBadRequest(
-                    text='recursive ocm search requires a versioned component id'
+                    text='recursive ocm search requires a versioned component id',
                 )
 
             if recursive and component_descriptor_lookup is None:
                 raise aiohttp.web.HTTPBadRequest(
-                    text='recursive search is not available: cd lookup is not configured'
+                    text='recursive search is not available: cd lookup is not configured',
                 )
 
             if comp_ver and component_descriptor_lookup is not None:
@@ -893,7 +893,7 @@ class ArtefactMetadataQueryBySearchExpression(aiohttp.web.View):
             {
                 'items': items,
                 'nextCursor': next_cursor,
-            }
+            },
         )
 
 
@@ -981,7 +981,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                     ocm.ComponentIdentity(
                         name=artefact_ref.component_name,
                         version=artefact_ref.component_version,
-                    )
+                    ),
                 ],
                 none_ok=none_ok,
                 component_descriptor_lookup=component_descriptor_lookup,
@@ -1033,7 +1033,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         async def artefact_refs_queries(artefact_refs: list[odg.model.ComponentArtefactId]):
             for artefact_ref in artefact_refs:
                 yield sa.and_(
-                    *[query async for query in artefact_queries(artefact_ref=artefact_ref)]
+                    *[query async for query in artefact_queries(artefact_ref=artefact_ref)],
                 )
 
         db_statement = sa.select(dm.ArtefactMetaData)
@@ -1051,7 +1051,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         if artefact_refs:
             db_statement = db_statement.where(
                 sa.or_(
-                    *[query async for query in artefact_refs_queries(artefact_refs=artefact_refs)]
+                    *[query async for query in artefact_refs_queries(artefact_refs=artefact_refs)],
                 ),
             )
 
@@ -1084,7 +1084,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
                 # only yield findings which were not explicitly filtered-out by central finding-cfg
                 for finding_cfg in finding_cfgs:
                     if finding_cfg.type == artefact_metadatum.meta.type and not finding_cfg.matches(
-                        artefact_metadatum.artefact
+                        artefact_metadatum.artefact,
                     ):
                         # artefact metadatum is filtered-out, do not include it
                         break
@@ -1341,7 +1341,7 @@ class ArtefactMetadata(aiohttp.web.View):
                 await db_session.execute(
                     sa.delete(dm.ArtefactMetaData).where(
                         dm.ArtefactMetaData.id == artefact_metadata.id,
-                    )
+                    ),
                 )
 
                 await _mark_compliance_summary_cache_for_deletion(
@@ -1374,7 +1374,7 @@ def reuse_discovery_date_if_possible(
 
     if new_metadata.type == odg.model.Datatype.VULNERABILITY_FINDING:
         if new_metadata.data.get('package_name') == old_metadata.data.get(
-            'package_name'
+            'package_name',
         ) and new_metadata.data.get('cve') == old_metadata.data.get('cve'):
             # found the same cve in existing entry, independent of the component-/
             # resource-/package-version, so we must re-use its discovery date
@@ -1382,9 +1382,9 @@ def reuse_discovery_date_if_possible(
 
     elif new_metadata.type == odg.model.Datatype.LICENSE_FINDING:
         if new_metadata.data.get('package_name') == old_metadata.data.get(
-            'package_name'
+            'package_name',
         ) and new_metadata.data.get('license').get('name') == old_metadata.data.get('license').get(
-            'name'
+            'name',
         ):
             # found the same license in existing entry, independent of the component-/
             # resource-/package-version, so we must re-use its discovery date
@@ -1405,7 +1405,7 @@ def reuse_discovery_date_if_possible(
 
     elif new_metadata.type == odg.model.Datatype.OSID_FINDING:
         if new_metadata.data.get('osid').get('VERSION_ID') == old_metadata.data.get('osid').get(
-            'VERSION_ID'
+            'VERSION_ID',
         ) and new_metadata.data.get('osid').get('NAME') == old_metadata.data.get('osid').get('NAME'):
             # found the same version and name in existing entry, so we must re-use its discovery date
             return old_metadata.discovery_date

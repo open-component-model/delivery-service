@@ -136,7 +136,7 @@ def _check_if_oauth_feature_available() -> 'features.FeatureAuthentication':  # 
             {
                 'error_id': 'feature-inactive',
                 'missing_features': [feature_authentication.name],
-            }
+            },
         ),
         content_type='application/json',
     )
@@ -170,7 +170,7 @@ class OAuthCfgs(aiohttp.web.View):
                 + urllib.parse.urlencode(
                     {
                         'client_id': oauth_cfg.client_id,
-                    }
+                    },
                 )
             )
 
@@ -181,7 +181,7 @@ class OAuthCfgs(aiohttp.web.View):
                     {
                         'client_id': oauth_cfg.client_id,
                         'redirect_uri': redirect_uri,
-                    }
+                    },
                 )
             )
 
@@ -263,7 +263,7 @@ async def find_github_identifier(
                     'client_id': oauth_cfg.client_id,
                     'client_secret': oauth_cfg.client_secret,
                     'code': github_code,
-                }
+                },
             )
         )
 
@@ -455,7 +455,7 @@ async def set_session_and_refresh_token(
             {
                 'identifier': refresh_token_identifier,
                 'exp': int((now + REFRESH_TOKEN_MAX_AGE).timestamp()),
-            }
+            },
         )
 
     # remove already expired refresh tokens
@@ -617,7 +617,7 @@ class OAuthLogin(aiohttp.web.View):
                 find_role_bindings(
                     oauth_cfg=oauth_cfg,
                     user_identifier=user_identifier,
-                )
+                ),
             )
 
             try:
@@ -626,7 +626,7 @@ class OAuthLogin(aiohttp.web.View):
                         id=user_id,
                         role_bindings=util.dict_serialisation(role_bindings),
                         refresh_tokens=[],
-                    )
+                    ),
                 )
                 db_session.add(
                     dm.UserIdentifiers(
@@ -634,7 +634,7 @@ class OAuthLogin(aiohttp.web.View):
                         type=idp_type,
                         identifier=util.dict_serialisation(user_identifier),
                         identifier_normalised_digest=user_identifier.normalised_digest,
-                    )
+                    ),
                 )
                 await db_session.commit()
             except:

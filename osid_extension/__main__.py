@@ -220,7 +220,7 @@ def process_artefact(
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{artefact.artefact_kind} is not supported by the OSID extension, maybe the filter '
-                'configurations have to be adjusted to filter out this artefact kind'
+                'configurations have to be adjusted to filter out this artefact kind',
             )
         return
 
@@ -234,7 +234,7 @@ def process_artefact(
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{access.type} is not supported by the OSID extension, maybe the filter '
-                'configurations have to be adjusted to filter out this access type'
+                'configurations have to be adjusted to filter out this access type',
             )
         return
 
@@ -248,7 +248,7 @@ def process_artefact(
             raise TypeError(
                 f'{access.type} with {resource_node.resource.type=} is not supported by the OSID '
                 'extension, maybe the filter configurations have to be adjusted to filter out these '
-                'types'
+                'types',
             )
         return
 

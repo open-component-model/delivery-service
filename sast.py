@@ -147,7 +147,7 @@ def iter_artefact_metadata(
         if sast_config.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
                 f'{artefact.artefact_kind} is not supported by the SAST extension, maybe the filter '
-                'configurations have to be adjusted to filter out this artefact kind'
+                'configurations have to be adjusted to filter out this artefact kind',
             )
         return
 
@@ -186,7 +186,7 @@ def iter_artefact_metadata(
 
     if find_scan_policy(source_node) is odg.labels.ScanPolicy.SKIP:
         logger.info(
-            f'Skip label found for source {source_node.source.name}. No SAST Linting required ...'
+            f'Skip label found for source {source_node.source.name}. No SAST Linting required ...',
         )
         return
 
@@ -220,7 +220,7 @@ def scan(
             component_descriptor_lookup=component_descriptor_lookup,
             sast_finding_config=sast_finding_config,
             sast_config=extension_cfg,
-        )
+        ),
     )
 
     delivery_client.update_metadata(data=all_metadata)

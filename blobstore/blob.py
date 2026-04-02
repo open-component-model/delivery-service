@@ -218,7 +218,7 @@ def _validate_and_sanitize_digest(blob_digest: str) -> str:
     if digest_alg not in Algorithm.__members__:
         raise aiohttp.web.HTTPBadRequest(
             reason=f'Hash algorithm "{digest_alg}" is not supported. Supported algorithms: \
-              {", ".join(Algorithm.__members__.keys())}'
+              {", ".join(Algorithm.__members__.keys())}',
         )
 
     # Check if hexdigest contains only valid hex characters
@@ -226,7 +226,7 @@ def _validate_and_sanitize_digest(blob_digest: str) -> str:
         int(hex_digest, 16)
     except ValueError:
         raise aiohttp.web.HTTPBadRequest(
-            reason='Hexdigest must contain only valid hexadecimal characters (0-9, a-f, A-F)'
+            reason='Hexdigest must contain only valid hexadecimal characters (0-9, a-f, A-F)',
         )
 
     # Validate hexdigest length for the algorithm
@@ -234,7 +234,7 @@ def _validate_and_sanitize_digest(blob_digest: str) -> str:
     if expected_length and len(hex_digest) != expected_length:
         raise aiohttp.web.HTTPBadRequest(
             reason=f'Invalid hexdigest length for {digest_alg}. Expected {expected_length} \
-              characters, got {len(hex_digest)}'
+              characters, got {len(hex_digest)}',
         )
 
     # Return lowercase sanitized version
@@ -331,7 +331,7 @@ class Blob(aiohttp.web.View):
 
         if blob_metadata:
             raise aiohttp.web.HTTPUnprocessableEntity(
-                text='A blob with the same digest is already in blob store'
+                text='A blob with the same digest is already in blob store',
             )
 
         hash_algorithm: str = sanitized_request_digest.split(':')[0]
@@ -426,7 +426,7 @@ class Blob(aiohttp.web.View):
                 params=self.request.rel_url.query,
                 name=DIGEST_PARAM,
                 required=True,
-            )
+            ),
         )
 
         sanitized_request_digest: str = _validate_and_sanitize_digest(blob_digest=raw_request_digest)
@@ -447,7 +447,7 @@ class Blob(aiohttp.web.View):
 
         if not blob_metadata:
             raise aiohttp.web.HTTPNotFound(
-                reason=f'The blob with the digest: {sanitized_request_digest} could not be found'
+                reason=f'The blob with the digest: {sanitized_request_digest} could not be found',
             )
 
         response_header: dict[str, str] = _create_response_header(
@@ -489,7 +489,7 @@ class Blob(aiohttp.web.View):
                 params=self.request.rel_url.query,
                 name=DIGEST_PARAM,
                 required=True,
-            )
+            ),
         )
 
         # Validate and sanitize the digest
@@ -498,7 +498,7 @@ class Blob(aiohttp.web.View):
         db_session: sqlasync.session.AsyncSession = self.request[consts.REQUEST_DB_SESSION]
 
         db_statement = sa.select(dm.BlobStore.ref).where(
-            dm.BlobStore.digest == sanitized_request_digest
+            dm.BlobStore.digest == sanitized_request_digest,
         )
         blob_ref = (await db_session.execute(statement=db_statement)).one_or_none()
 
@@ -510,7 +510,7 @@ class Blob(aiohttp.web.View):
             await _delete_blob_from_store(ref=blob_ref.ref, db_session=db_session)
 
             db_statement = sa.delete(dm.BlobStore).where(
-                dm.BlobStore.digest == sanitized_request_digest
+                dm.BlobStore.digest == sanitized_request_digest,
             )
             blob_deleted = await db_session.execute(db_statement)
 
@@ -552,7 +552,7 @@ class Blob(aiohttp.web.View):
         """
 
         raw_request_digest: str = str(
-            util.param(params=self.request.rel_url.query, name=DIGEST_PARAM, required=True)
+            util.param(params=self.request.rel_url.query, name=DIGEST_PARAM, required=True),
         )
 
         sanitized_request_digest: str = _validate_and_sanitize_digest(blob_digest=raw_request_digest)

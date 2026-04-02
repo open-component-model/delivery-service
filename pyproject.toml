@@ -25,6 +25,7 @@ skip-magic-trailing-comma = false # allow one parameter per line
 [tool.ruff.lint]
 preview = true
 select = [
+  'COM812',
   'E101',
   'E117',
   'E201',

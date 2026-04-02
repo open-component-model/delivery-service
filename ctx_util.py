@@ -49,7 +49,7 @@ def secret_factory() -> secret_mgmt.SecretFactory:
             'Found no directory containing credentials, hence no secrets will be available. If '
             'secrets are required, consider either setting the `SECRET_FACTORY_PATH` env-var '
             'pointing to the directory containing the secrets, or use the templates provided at the '
-            f'standard lookup location at "{local_path}".'
+            f'standard lookup location at "{local_path}".',
         )
     else:
         logger.info(f'Found secrets of the following types: {secret_types}')
