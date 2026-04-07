@@ -9,6 +9,7 @@ import tarfile
 
 import aiohttp.web
 import dacite.exceptions
+import sqlalchemy as sa
 import sqlalchemy.ext.asyncio as sqlasync
 import yaml
 
@@ -26,8 +27,11 @@ import ocm.oci
 import compliance_summary as cs
 import consts
 import deliverydb.cache
+import deliverydb.model as dm
+import deliverydb.util as du
 import features
 import lookups
+import odg.model
 import responsibles
 import responsibles.labels
 import util
@@ -1227,3 +1231,208 @@ class ComplianceSummary(aiohttp.web.View):
             },
             dumps=util.dict_to_json_factory,
         )
+
+
+class DownloadSBOM(aiohttp.web.View):
+    required_features = (features.FeatureDeliveryDB,)
+
+    async def get(self):
+        """
+        ---
+        description:
+          Streams a tar archive containing the SBOM documents for all artefacts included in the given
+          component (and its transitive dependencies). Artefacts which do not (yet) have an existing
+          SBOM document are being skipped without notice. Each entry in the archive is placed under a
+          directory named `<component_name>_<component_version>/<artefact_name>_<artefact_type>`.
+        tags:
+        - Components
+        parameters:
+        - in: query
+          name: component_name
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: version
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: ocm_repo_url
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: recursion_depth
+          required: false
+          schema:
+            type: integer
+            default: -1
+        responses:
+          "200":
+            description: Successful operation.
+            content:
+              application/x-tar:
+                schema:
+                  type: string
+                  format: binary
+          "422":
+            description: >-
+              A component descriptor or one of its transitive dependencies could not be retrieved
+              from the OCI registry.
+        """
+        params = self.request.rel_url.query
+        component_descriptor_lookup = self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP]
+        db_session: sqlasync.session.AsyncSession = self.request.get(consts.REQUEST_DB_SESSION)
+
+        component_name = util.param(params, 'component_name', required=True)
+
+        ocm_repo_url = util.param(params, 'ocm_repo_url')
+        ocm_repo = ocm.OciOcmRepository(baseUrl=ocm_repo_url) if ocm_repo_url else None
+
+        version = util.param(params, 'version', required=True)
+        recursion_depth = int(util.param(params, 'recursion_depth', default=-1))
+
+        if version == 'greatest':
+            version = await greatest_version_if_none(
+                component_name=component_name,
+                version=None,
+                ocm_repo=ocm_repo,
+                db_session=db_session,
+            )
+
+        component_descriptor = await util.retrieve_component_descriptor(
+            ocm.ComponentIdentity(
+                name=component_name,
+                version=version,
+            ),
+            component_descriptor_lookup=component_descriptor_lookup,
+            ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
+        )
+        component = component_descriptor.component
+
+        artefact_queries = []
+
+        try:
+            async for artefact_node in ocm.iter_async.iter(
+                component=component,
+                lookup=component_descriptor_lookup,
+                recursion_depth=recursion_depth,
+                node_filter=ocm.iter.Filter.artefacts,
+            ):
+                if isinstance(artefact_node.artefact, ocm.Resource):
+                    artefact_kind = odg.model.ArtefactKind.RESOURCE
+                elif isinstance(artefact_node.artefact, ocm.Source):
+                    artefact_kind = odg.model.ArtefactKind.SOURCE
+                else:
+                    raise TypeError(artefact_node.artefact)
+
+                extra_id_normalised = odg.model.normalise_artefact_extra_id(
+                    artefact_extra_id=artefact_node.artefact.extraIdentity,
+                )
+
+                artefact_queries.append(
+                    sa.and_(
+                        dm.ArtefactMetaData.component_name == artefact_node.component.name,
+                        dm.ArtefactMetaData.component_version == artefact_node.component.version,
+                        dm.ArtefactMetaData.artefact_kind == artefact_kind,
+                        dm.ArtefactMetaData.artefact_name == artefact_node.artefact.name,
+                        dm.ArtefactMetaData.artefact_version == artefact_node.artefact.version,
+                        dm.ArtefactMetaData.artefact_type == artefact_node.artefact.type,
+                        dm.ArtefactMetaData.artefact_extra_id_normalised == extra_id_normalised,
+                    ),
+                )
+        except om.OciImageNotFoundException:
+            err_str = (
+                'Error occurred during retrieval of component dependencies of '
+                f'{component.identity()}'
+            )
+            logger.warning(err_str)
+            raise aiohttp.web.HTTPUnprocessableEntity(
+                text=err_str,
+            )
+
+        db_statement = sa.select(dm.ArtefactMetaData).where(
+            dm.ArtefactMetaData.type == odg.model.Datatype.ARTEFACT_SCAN_INFO,
+            dm.ArtefactMetaData.datasource == odg.model.Datasource.SBOM_GENERATOR,
+            sa.or_(*artefact_queries),
+        )
+
+        db_stream = await db_session.stream(db_statement)
+
+        filename = f'{component.name}_{component.version}.sboms.tar'.replace('/', '_')
+        response = aiohttp.web.StreamResponse(
+            headers={
+                'Content-Type': 'application/x-tar',
+                'Content-Disposition': f'attachment; filename="{filename}"',
+            },
+        )
+        await response.prepare(self.request)
+
+        async for partition in db_stream.partitions(size=50):
+            for row in partition:
+                artefact_metadatum = du.db_artefact_metadata_row_to_dso(row)
+                artefact = artefact_metadatum.artefact.artefact
+                digest = artefact_metadatum.data['digest']
+
+                db_statement = sa.select(dm.BlobStore).where(dm.BlobStore.digest == digest)
+                blob_metadata = (await db_session.execute(statement=db_statement)).one()[0]
+
+                component_dir = (
+                    f'{artefact_metadatum.artefact.component_name}_'
+                    f'{artefact_metadatum.artefact.component_version}'
+                ).replace('/', '_')
+
+                artefact_file = f'{artefact.artefact_name}_{artefact.artefact_type}'
+                if artefact.artefact_extra_id:
+                    artefact_file += f'_{artefact.normalised_artefact_extra_id}'
+                artefact_file = artefact_file.replace('/', '_').replace(':', '_')
+
+                tarinfo = tarfile.TarInfo(name=f'{component_dir}/{artefact_file}')
+                tarinfo.size = blob_metadata.size
+
+                tarinfo_bytes = tarinfo.tobuf()
+                await response.write(tarinfo_bytes)
+                written_bytes = len(tarinfo_bytes)
+
+                conn = None
+                lo_fd = None
+                try:
+                    conn = await db_session.connection()
+                    result = await conn.exec_driver_sql(
+                        statement='SELECT lo_open(%(oid)s, %(mode)s)',
+                        parameters={
+                            'oid': int(blob_metadata.ref),
+                            'mode': int('0x20000', base=0),  # 0x20000 = Read mode
+                        },
+                    )
+                    lo_fd = result.scalar()
+
+                    while True:
+                        result = await conn.exec_driver_sql(
+                            statement='SELECT loread(%(fd)s, %(len)s)',
+                            parameters={'fd': lo_fd, 'len': 4096},
+                        )
+
+                        if not (buffer := result.scalar()):
+                            break
+
+                        await response.write(data=buffer)
+                        written_bytes += len(buffer)
+
+                    # pad to full blocks
+                    if remainder := written_bytes % tarfile.BLOCKSIZE:
+                        missing = tarfile.BLOCKSIZE - remainder
+                        await response.write(tarfile.NUL * missing)
+                finally:
+                    if conn is not None and lo_fd is not None:
+                        await conn.exec_driver_sql(
+                            statement='SELECT lo_close(%(fd)s)',
+                            parameters={'fd': lo_fd},
+                        )
+
+        # terminate tarchive w/ two empty blocks
+        await response.write(tarfile.NUL * tarfile.BLOCKSIZE * 2)
+
+        await response.write_eof()
+        return response
