@@ -559,7 +559,7 @@ def enumerate_artefacts(
         priority = uncommitted_backlog_item.priority
         artefact = uncommitted_backlog_item.artefact
 
-        was_created = k8s.backlog.create_unique_backlog_item(
+        was_created = k8s.backlog.create_backlog_item(
             service=service,
             namespace=namespace,
             kubernetes_api=kubernetes_api,

@@ -1,7 +1,7 @@
-import collections.abc
 import dataclasses
 import datetime
 import enum
+import hashlib
 import http
 import logging
 import os
@@ -61,6 +61,22 @@ class BacklogItem:
         )
 
 
+def create_backlog_item_name(
+    service: odg.extensions_cfg.Services,
+    artefact: odg.model.ComponentArtefactId,
+) -> str:
+    artefact_digest = hashlib.blake2s(
+        artefact.key.encode('utf-8'),
+        digest_size=16,
+        usedforsecurity=False,
+    ).hexdigest()
+
+    return k8s.util.generate_kubernetes_name(
+        name_parts=(service, artefact_digest),
+        generate_num_suffix=False,
+    )
+
+
 def create_backlog_crd_body(
     service: str,
     name: str,
@@ -81,47 +97,41 @@ def create_backlog_crd_body(
     }
 
 
-def iter_existing_backlog_items_for_artefact(
+def find_backlog_item(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: odg.model.ComponentArtefactId,
-) -> collections.abc.Generator[dict, None, None]:
-    labels = {
-        k8s.model.LABEL_SERVICE: service,
-    }
-    label_selector = k8s.util.create_label_selector(labels=labels)
+) -> dict | None:
+    name = create_backlog_item_name(
+        service=service,
+        artefact=artefact,
+    )
 
-    backlog_crds = kubernetes_api.custom_kubernetes_api.list_namespaced_custom_object(
-        group=k8s.model.BacklogItemCrd.DOMAIN,
-        version=k8s.model.BacklogItemCrd.VERSION,
-        plural=k8s.model.BacklogItemCrd.PLURAL_NAME,
-        namespace=namespace,
-        label_selector=label_selector,
-    ).get('items')
-
-    for backlog_crd in backlog_crds:
-        crd_artefact = dacite.from_dict(
-            data_class=odg.model.ComponentArtefactId,
-            data=backlog_crd.get('spec').get('artefact'),
-            config=dacite.Config(
-                cast=[odg.model.ArtefactKind],
-            ),
+    try:
+        return kubernetes_api.custom_kubernetes_api.get_namespaced_custom_object(
+            group=k8s.model.BacklogItemCrd.DOMAIN,
+            version=k8s.model.BacklogItemCrd.VERSION,
+            plural=k8s.model.BacklogItemCrd.PLURAL_NAME,
+            namespace=namespace,
+            name=name,
         )
+    except kubernetes.client.rest.ApiException as e:
+        if e.status == http.HTTPStatus.NOT_FOUND:
+            return None
+        raise e
 
-        if crd_artefact == artefact:
-            yield backlog_crd
 
-
-def create_backlog_item(
+def _create_backlog_item(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
     artefact: odg.model.ComponentArtefactId,
     priority: BacklogPriorities = BacklogPriorities.LOW,
 ):
-    name = k8s.util.generate_kubernetes_name(
-        name_parts=(service, str(priority)),
+    name = create_backlog_item_name(
+        service=service,
+        artefact=artefact,
     )
 
     backlog_item = BacklogItem(
@@ -146,7 +156,7 @@ def create_backlog_item(
     )
 
 
-def create_unique_backlog_item(
+def create_backlog_item(
     service: odg.extensions_cfg.Services,
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
@@ -160,42 +170,45 @@ def create_unique_backlog_item(
     `priority`, the old backlog item will be patched with the new priority.
     Returns `True` if a new backlog item was created, otherwise `False`.
     """
-    backlog_items = iter_existing_backlog_items_for_artefact(
-        service=service,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-        artefact=artefact,
-    )
+    try:
+        _create_backlog_item(
+            service=service,
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+            artefact=artefact,
+            priority=priority,
+        )
+        return True
+    except kubernetes.client.rest.ApiException as e:
+        if e.status != http.HTTPStatus.CONFLICT:
+            raise
 
-    found_backlog_item = False
-    for backlog_item in backlog_items:
-        found_backlog_item = True
-        metadata = backlog_item.get('metadata')
-        crd_priority = backlog_item.get('spec').get('priority')
+    if not (
+        backlog_item := find_backlog_item(
+            service=service,
+            namespace=namespace,
+            kubernetes_api=kubernetes_api,
+            artefact=artefact,
+        )
+    ):
+        raise RuntimeError('create conflict but backlog item could not be reloaded')
 
-        if crd_priority < priority:
-            backlog_item['spec']['priority'] = priority
+    metadata = backlog_item.get('metadata')
+    old_priority = backlog_item.get('spec').get('priority')
 
-            kubernetes_api.custom_kubernetes_api.patch_namespaced_custom_object(
-                group=k8s.model.BacklogItemCrd.DOMAIN,
-                version=k8s.model.BacklogItemCrd.VERSION,
-                plural=k8s.model.BacklogItemCrd.PLURAL_NAME,
-                namespace=namespace,
-                name=metadata.get('name'),
-                body=backlog_item,
-            )
+    if old_priority < priority:
+        backlog_item['spec']['priority'] = priority
 
-    if found_backlog_item:
-        return False
+        kubernetes_api.custom_kubernetes_api.patch_namespaced_custom_object(
+            group=k8s.model.BacklogItemCrd.DOMAIN,
+            version=k8s.model.BacklogItemCrd.VERSION,
+            plural=k8s.model.BacklogItemCrd.PLURAL_NAME,
+            namespace=namespace,
+            name=metadata.get('name'),
+            body=backlog_item,
+        )
 
-    create_backlog_item(
-        service=service,
-        namespace=namespace,
-        kubernetes_api=kubernetes_api,
-        artefact=artefact,
-        priority=priority,
-    )
-    return True
+    return False
 
 
 def get_backlog_crd_and_claim(
