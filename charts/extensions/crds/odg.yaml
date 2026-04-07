@@ -61,7 +61,6 @@ spec:
                     - ghas
                     - issue-replicator
                     - malware-scanner
-                    - nginx-ingress-controller
                     - osid
                     - prometheus-operator
                     - responsibles

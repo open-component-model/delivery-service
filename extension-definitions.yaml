@@ -17,11 +17,6 @@ installation:
       value: delivery-service.${base_url}
       value_type: python-string-template
     - helm_chart_name: delivery-service
-      helm_attribute: ingress.hosts
-      value:
-        - delivery-service.${base_url}
-      value_type: python-string-template
-    - helm_chart_name: delivery-service
       helm_attribute: target_namespace
       value: ${target_namespace}
       value_type: python-string-template
@@ -29,42 +24,6 @@ installation:
       # prevents resource-manager from rolling back scaling changes
       helm_attribute: deployment.annotations."resources.gardener.cloud/preserve-replicas"
       value: '"true"'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.class
-      value: nginx-${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.annotations."cert.gardener.cloud/purpose"
-      value: 'managed'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.annotations."dns.gardener.cloud/class"
-      value: 'garden'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.annotations."dns.gardener.cloud/dnsnames"
-      value: '"*"'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-body-size"
-      value: '16m'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-read-timeout"
-      value: '"900"'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-next-upstream"
-      value: 'error timeout http_503'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-next-upstream-timeout"
-      value: '"0"'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: ingress.annotations."nginx.ingress.kubernetes.io/proxy-next-upstream-tries"
-      value: '"0"'
       value_type: literal
     - helm_chart_name: delivery-service
       helm_attribute: autoscaler.minReplicas

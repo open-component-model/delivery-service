@@ -1,8 +1,4 @@
-ingress:
-  class: nginx
-  disableTls: True
-  hosts:
-    - localhost
+host: localhost
 
 envVars:
   REACT_APP_DELIVERY_SERVICE_API_URL: http://localhost:5000
