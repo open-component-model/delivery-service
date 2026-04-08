@@ -261,6 +261,11 @@ def add_routes(
     )
 
     swagger.add_view(
+        path='/components/sbom',
+        handler=components.DownloadSBOM,
+    )
+
+    swagger.add_view(
         path='/delivery/sprint-infos',
         handler=sprint.SprintInfos,
     )
