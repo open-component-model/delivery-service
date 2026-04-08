@@ -44,9 +44,10 @@ class GitHubApp:
         absent_ok: bool = True,
     ) -> int | None:
         parsed_repo_url = util.urlparse(repo_url)
+        hostname = parsed_repo_url.hostname.removeprefix('api.')
         org = parsed_repo_url.path.strip('/').split('/')[0]
 
-        if self.hostname.lower() == parsed_repo_url.hostname.lower():
+        if self.hostname.lower() == hostname.lower():
             for mapping in self.mappings:
                 if mapping.org == org:
                     return mapping.installation_id
