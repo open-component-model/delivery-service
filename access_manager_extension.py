@@ -104,7 +104,7 @@ def iter_github_user_role_bindings(
         ) -> secret_mgmt.oauth_cfg.Subject | None:
             for subject in subjects:
                 if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_USER:
-                    if subject.name == identifier.username:
+                    if subject.matches(identifier.username):
                         return subject
 
                 elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_ORG:
@@ -162,7 +162,7 @@ def iter_github_app_role_bindings(
         ) -> secret_mgmt.oauth_cfg.Subject | None:
             for subject in subjects:
                 if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_APP:
-                    if subject.name == identifier.app_name:
+                    if subject.matches(identifier.app_name):
                         return subject
 
         for role_binding in oauth_cfg.role_bindings:
