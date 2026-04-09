@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import dataclasses
 import datetime
+import hashlib
 import json
 import logging
 import os
+import tempfile
 
 import bdba.client
 import bdba.model
@@ -33,12 +35,6 @@ k8s.logging.configure_kubernetes_logging()
 class SBOM:
     sbom_raw: dict
     sbom_format: odg.extensions_cfg.SbomFormat
-
-
-_GENERATION_MODE_OUTPUT_FILES = {
-    odg.model.SbomGenerationMode.SYFT: 'sbom_output_syft.json',
-    odg.model.SbomGenerationMode.BDBA: 'sbom_output_bdba.json',
-}
 
 
 def generate_sbom_with_syft(
@@ -259,14 +255,35 @@ def generate_sbom_for_artefact(
                 f'Supported modes: {", ".join(m.value for m in odg.model.SbomGenerationMode)}',
             )
 
-    output_filename = _GENERATION_MODE_OUTPUT_FILES.get(extension_cfg.generation_mode)
-    output_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.join(output_dir, output_filename)
+    with tempfile.NamedTemporaryFile(
+        mode='w',
+        suffix='.json',
+        encoding='utf-8',
+        delete=False,
+    ) as tmp:
+        tmp_path = tmp.name
+        json.dump(sbom_result.sbom_raw, tmp, indent=2, ensure_ascii=False)
 
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(sbom_result.sbom_raw, f, indent=2, ensure_ascii=False)
+    try:
+        sha256_hash = hashlib.sha256()
+        size = 0
+        with open(tmp_path, 'rb') as f:
+            while chunk := f.read(8192):
+                sha256_hash.update(chunk)
+                size += len(chunk)
+        digest = 'sha256:' + sha256_hash.hexdigest()
 
-    logger.info(f'SBOM saved to: {output_path}')
+        with open(tmp_path, 'rb') as f:
+            delivery_client.upload_blob(
+                data=f,
+                digest=digest,
+                size=size,
+                mime_type='application/json',
+            )
+    finally:
+        os.remove(tmp_path)
+
+    logger.info(f'SBOM uploaded to blob storage with digest {digest}')
 
     delivery_client.update_metadata(
         data=[
@@ -278,7 +295,11 @@ def generate_sbom_for_artefact(
                     creation_date=datetime.datetime.now(datetime.timezone.utc),
                     last_update=datetime.datetime.now(datetime.timezone.utc),
                 ),
-                data={},
+                data={
+                    'digest': digest,
+                    'size': size,
+                    'sbom_format': sbom_result.sbom_format.value,
+                },
             ),
         ],
     )
