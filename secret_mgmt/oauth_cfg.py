@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import re
 
 import util
 
@@ -22,6 +23,9 @@ class SubjectType(enum.StrEnum):
 class Subject:
     type: SubjectType
     name: str
+
+    def matches(self, name: str) -> bool:
+        return bool(re.fullmatch(self.name, name))
 
 
 @dataclasses.dataclass

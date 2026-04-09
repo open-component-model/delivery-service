@@ -1663,12 +1663,16 @@ secrets:
           subjects:
               # @param secrets.oauth-cfg.<name>.role_bindings[].subjects[].type the type of subject
               # options:
-              # - github-app: name is expected as <app-slug>
-              # - github-user: name is expected as <username>
-              # - github-org: name is expected as <org-name>
-              # - github-team: name is expected as <org-name>/<team-slug>
+              # - github-app: name is matched as a regex against the app slug
+              # - github-user: name is matched as a regex against the username
+              # - github-org: name is expected as <org-name> (exact, used to query GitHub API)
+              # - github-team: name is expected as <org-name>/<team-slug> (exact, used to query GitHub API)
             - type: ""
-              # @param secrets.oauth-cfg.<name>.role_bindings[].subjects[].name the name of subject
+              # @param secrets.oauth-cfg.<name>.role_bindings[].subjects[].name the name of the subject.
+              # For github-user and github-app, the value is interpreted as a Python regex (re.fullmatch)
+              # so plain names (e.g. "alice") match literally, while patterns (e.g. "^my-bot-.*") are
+              # also supported. For github-org and github-team, the value is used as-is to query the
+              # GitHub API for membership and is not interpreted as a regex.
               name: ""
 
   # @param secrets.ppms mapping of named PPMS credentials (name is freely selectable)

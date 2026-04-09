@@ -337,7 +337,7 @@ def find_role_bindings(
             for subject in subjects:
                 if isinstance(user_identifier, dm.GitHubUserIdentifier):
                     if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_USER:
-                        if subject.name == user_identifier.username:
+                        if subject.matches(user_identifier.username):
                             return subject
 
                     elif subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_ORG:
@@ -362,7 +362,7 @@ def find_role_bindings(
 
                 elif isinstance(user_identifier, dm.GitHubAppIdentifier):
                     if subject.type is secret_mgmt.oauth_cfg.SubjectType.GITHUB_APP:
-                        if subject.name == user_identifier.app_name:
+                        if subject.matches(user_identifier.app_name):
                             return subject
 
         for role_binding in oauth_cfg.role_bindings:
