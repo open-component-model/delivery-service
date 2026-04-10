@@ -1,8 +1,9 @@
-'''
+"""
 This module comprises model classes to define JSON Web Keys according
 to https://datatracker.ietf.org/doc/html/rfc7518 as well as convenience
 functions to it.
-'''
+"""
+
 import base64
 import dataclasses
 import datetime
@@ -24,7 +25,7 @@ REFRESH_TOKEN_KEY = 'refresh_token'
 
 class KeyType(enum.StrEnum):
     RSA = 'RSA'
-    OCTET_SEQUENCE = 'oct' # used to represent symmetric keys
+    OCTET_SEQUENCE = 'oct'  # used to represent symmetric keys
 
 
 class Use(enum.StrEnum):
@@ -69,8 +70,8 @@ class JSONWebKey:
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class RSAPublicKey(JSONWebKey):
-    n: str # modulus (Base64urlUInt encoded)
-    e: str # exponent (Base64urlUInt encoded)
+    n: str  # modulus (Base64urlUInt encoded)
+    e: str  # exponent (Base64urlUInt encoded)
     kty: KeyType = KeyType.RSA
     alg: Algorithm = Algorithm.RS256
 
@@ -86,7 +87,7 @@ class RSAPublicKey(JSONWebKey):
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class SymmetricKey(JSONWebKey):
-    k: str # key value (base64url encoded)
+    k: str  # key value (base64url encoded)
     kty: KeyType = KeyType.OCTET_SEQUENCE
     alg: Algorithm = Algorithm.HS256
 
@@ -120,14 +121,14 @@ def decodeBase64urlUInt(s: str) -> int:
 @functools.cache
 def decode_jwt(
     token: str,
-    verify_signature: bool=True,
-    json_web_key: JSONWebKey | None=None,
+    verify_signature: bool = True,
+    json_web_key: JSONWebKey | None = None,
     **kwargs,
 ) -> dict:
-    '''
+    """
     This is just a convenience wrapper for `jwt.decode` which eases
     signature validation of a given `token` using a `JSONWebKey`.
-    '''
+    """
     if verify_signature and not json_web_key:
         raise ValueError('`json_web_key` must be specified if `verify_signature` is `True`')
 
@@ -144,7 +145,7 @@ def decode_jwt(
 
 def is_jwt_token_expired(
     token: str,
-    token_expiration_buffer_seconds: int=0,
+    token_expiration_buffer_seconds: int = 0,
 ) -> bool:
     decoded_jwt = decode_jwt(
         token=token,

@@ -38,10 +38,10 @@ class DeliveryServiceRoutes:
         )
 
     def openid_configuration(self):
-        '''
+        """
         endpoint according to OpenID provider configuration request
         https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
-        '''
+        """
         return ci.util.urljoin(
             self._base_url,
             '.well-known',
@@ -121,13 +121,13 @@ class DeliveryServiceRoutes:
 
 Url: typing.TypeAlias = str
 AuthToken: typing.TypeAlias = str
-'''
+"""
 A lookup crafted slightly special-cased for auth-token-based authentication. Implementations *must*
 accept a single positional parameter, which is the URL for which the lookup should return a (valid)
 auth-token.
 If the lookup cannot offer an authtoken for a given URL, it *must* return None. Exceptions raised
 by lookups are not handled.
-'''
+"""
 AuthTokenLookup: typing.TypeAlias = typing.Callable[[Url], AuthToken]
 
 
@@ -135,10 +135,10 @@ class DeliveryServiceClient:
     def __init__(
         self,
         routes: DeliveryServiceRoutes,
-        auth_token_lookup: AuthTokenLookup | None=None,
-        auth_token: str | None=None,
+        auth_token_lookup: AuthTokenLookup | None = None,
+        auth_token: str | None = None,
     ):
-        '''
+        """
         Initialises a client which can be used to interact with the delivery-service.
 
         :param DeliveryServiceRoutes routes
@@ -148,7 +148,7 @@ class DeliveryServiceClient:
             the lookup to use for retrieving auth-tokens against oauth-endpoints
         :param str auth_token (optional)
             the auth-token to use for authentication
-        '''
+        """
 
         if auth_token_lookup and auth_token:
             raise ValueError('at most one of `auth_token_lookup` or `auth_token` must be provided')
@@ -156,16 +156,16 @@ class DeliveryServiceClient:
         self._routes = routes
         self.auth_token_lookup = auth_token_lookup
         self.auth_token = auth_token
-        self.auth_credentials: dm.GitHubAuthCredentials = None # filled lazily as needed
+        self.auth_credentials: dm.GitHubAuthCredentials = None  # filled lazily as needed
 
         self._bearer_token = None
         self._session = requests.sessions.Session()
 
     def _openid_configuration(self):
-        '''
+        """
         response according to OpenID provider configuration response
         https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationResponse
-        '''
+        """
         res = self._session.get(
             url=self._routes.openid_configuration(),
             timeout=(4, 31),
@@ -197,7 +197,7 @@ class DeliveryServiceClient:
         if not self.auth_token_lookup and not self.auth_token:
             logger.info(
                 'Delivery-Service-Client has no auth-token-lookup or auth-token - '
-                'attempting anonymous auth'
+                'attempting anonymous auth',
             )
             return
 
@@ -251,7 +251,7 @@ class DeliveryServiceClient:
         if not res.ok:
             logger.warning(
                 'authentication against delivery-service failed: '
-                f'{res.status_code=} {res.reason=} {res.content=}'
+                f'{res.status_code=} {res.reason=} {res.content=}',
             )
 
         res.raise_for_status()
@@ -264,8 +264,8 @@ class DeliveryServiceClient:
     def request(
         self,
         url: str,
-        method: str='GET',
-        headers: dict=None,
+        method: str = 'GET',
+        headers: dict = None,
         **kwargs,
     ):
         try:
@@ -304,9 +304,9 @@ class DeliveryServiceClient:
         self,
         name: str,
         version: str,
-        ocm_repo_url: str=None,
-        version_filter: str | None=None,
-        validation_mode: ocm.ValidationMode | None=None,
+        ocm_repo_url: str = None,
+        version_filter: str | None = None,
+        validation_mode: ocm.ValidationMode | None = None,
     ):
         params = {
             'component_name': name,
@@ -332,13 +332,13 @@ class DeliveryServiceClient:
     def greatest_component_versions(
         self,
         component_name: str,
-        max_versions: int=5,
-        greatest_version: str=None,
-        ocm_repo: ocm.OcmRepository=None,
-        version_filter: str | None=None,
-        start_date: datetime.date=None,
-        end_date: datetime.date=None,
-        timeout: tuple[float, float]=(4.0, 121.0),
+        max_versions: int = 5,
+        greatest_version: str = None,
+        ocm_repo: ocm.OcmRepository = None,
+        version_filter: str | None = None,
+        start_date: datetime.date = None,
+        end_date: datetime.date = None,
+        timeout: tuple[float, float] = (4.0, 121.0),
     ):
         params = {
             'component_name': component_name,
@@ -378,13 +378,17 @@ class DeliveryServiceClient:
         }
 
         data, headers = http_requests.encode_request(
-            json={'entries': [
-                dataclasses.asdict(
-                    artefact_metadata,
-                    dict_factory=ci.util.dict_to_json_factory,
-                ) if dataclasses.is_dataclass(artefact_metadata) else artefact_metadata
-                for artefact_metadata in data
-            ]},
+            json={
+                'entries': [
+                    dataclasses.asdict(
+                        artefact_metadata,
+                        dict_factory=ci.util.dict_to_json_factory,
+                    )
+                    if dataclasses.is_dataclass(artefact_metadata)
+                    else artefact_metadata
+                    for artefact_metadata in data
+                ],
+            },
             headers=headers,
         )
 
@@ -407,13 +411,17 @@ class DeliveryServiceClient:
         }
 
         data, headers = http_requests.encode_request(
-            json={'entries': [
-                dataclasses.asdict(
-                    artefact_metadata,
-                    dict_factory=ci.util.dict_to_json_factory,
-                ) if dataclasses.is_dataclass(artefact_metadata) else artefact_metadata
-                for artefact_metadata in data
-            ]},
+            json={
+                'entries': [
+                    dataclasses.asdict(
+                        artefact_metadata,
+                        dict_factory=ci.util.dict_to_json_factory,
+                    )
+                    if dataclasses.is_dataclass(artefact_metadata)
+                    else artefact_metadata
+                    for artefact_metadata in data
+                ],
+            },
             headers=headers,
         )
 
@@ -429,15 +437,15 @@ class DeliveryServiceClient:
 
     def component_responsibles(
         self,
-        name: str=None,
-        version: str=None,
-        ocm_repo_url: str=None,
-        version_filter: str | None=None,
-        component: ocm.Component | ocm.ComponentDescriptor=None,
-        artifact: ocm.Artifact | str=None,
-        absent_ok: bool=False,
+        name: str = None,
+        version: str = None,
+        ocm_repo_url: str = None,
+        version_filter: str | None = None,
+        component: ocm.Component | ocm.ComponentDescriptor = None,
+        artifact: ocm.Artifact | str = None,
+        absent_ok: bool = False,
     ) -> tuple[list[dict] | None, list[dm.Status] | None]:
-        '''
+        """
         retrieves component-responsibles and optional status info.
         Status info can be used to communicate additional information, e.g. that responsible-label
         was malformed.
@@ -452,7 +460,7 @@ class DeliveryServiceClient:
             {type: emailAddress, email: <email-addr>, source: <url>},
             {type: peronalName, firstName, lastName, source: <url>},
         ]
-        '''
+        """
 
         if any((name, version, ocm_repo_url)):
             if component:
@@ -536,12 +544,9 @@ class DeliveryServiceClient:
 
         sprints_raw = resp.json()['sprints']
 
-        return [
-            dm.Sprint.from_dict(sprint_info)
-            for sprint_info in sprints_raw
-        ]
+        return [dm.Sprint.from_dict(sprint_info) for sprint_info in sprints_raw]
 
-    def sprint_current(self, offset: int=0, before: datetime.date=None) -> dm.Sprint:
+    def sprint_current(self, offset: int = 0, before: datetime.date = None) -> dm.Sprint:
         extra_args = {}
         if before:
             if isinstance(before, datetime.date) or isinstance(before, datetime.date):
@@ -560,12 +565,12 @@ class DeliveryServiceClient:
 
     def query_metadata(
         self,
-        components: collections.abc.Iterable[ocm.Component]=(),
-        artefacts: collections.abc.Iterable[typing.Union[dict, 'ComponentArtefactId']]=(),
-        type: str | collections.abc.Sequence[str]=None,
-        referenced_type: str | collections.abc.Sequence[str]=None,
+        components: collections.abc.Iterable[ocm.Component] = (),
+        artefacts: collections.abc.Iterable[typing.Union[dict, 'ComponentArtefactId']] = (),
+        type: str | collections.abc.Sequence[str] = None,
+        referenced_type: str | collections.abc.Sequence[str] = None,
     ) -> tuple[dict]:
-        '''
+        """
         Query artefact metadata from the delivery-db.
 
         @param components:      component identities used for filtering; if no identities are
@@ -575,7 +580,7 @@ class DeliveryServiceClient:
         @param referenced_type: referenced datatype(s) used for filtering (only applies to artefact
                                 metadata of type `rescorings`); if no datatype(s) is (are)
                                 specified, no referenced datatype filtering is done
-        '''
+        """
         if components and artefacts:
             raise ValueError('at most one of `artefacts` or `components` must be specified')
 
@@ -596,7 +601,8 @@ class DeliveryServiceClient:
                 {
                     'component_name': c.name,
                     'component_version': c.version,
-                } for c in components
+                }
+                for c in components
             ]
         else:
             entries = [
@@ -626,9 +632,9 @@ class DeliveryServiceClient:
 
     def mark_cache_for_deletion(
         self,
-        id: str | None=None,
-        descriptor: dict | None=None,
-        delete_after: datetime.datetime | None=None,
+        id: str | None = None,
+        descriptor: dict | None = None,
+        delete_after: datetime.datetime | None = None,
     ):
         if not id and not descriptor:
             raise ValueError('either `id` or `descriptor` must be specified')
@@ -653,8 +659,8 @@ class DeliveryServiceClient:
     def create_backlog_item(
         self,
         service: str,
-        artefacts: collections.abc.Iterable[typing.Union[dict, 'ComponentArtefactId']]=(),
-        priority: str | None=None, # see delivery-service k8s/backlog for allowed priorities
+        artefacts: collections.abc.Iterable[typing.Union[dict, 'ComponentArtefactId']] = (),
+        priority: str | None = None,  # see delivery-service k8s/backlog for allowed priorities
     ):
         headers = {
             'Content-Type': 'application/json',
@@ -668,10 +674,12 @@ class DeliveryServiceClient:
             params['priority'] = priority
 
         data, headers = http_requests.encode_request(
-            json={'artefacts': [
-                dataclasses.asdict(artefact) if dataclasses.is_dataclass(artefact) else artefact
-                for artefact in artefacts
-            ]},
+            json={
+                'artefacts': [
+                    dataclasses.asdict(artefact) if dataclasses.is_dataclass(artefact) else artefact
+                    for artefact in artefacts
+                ],
+            },
             headers=headers,
         )
 
@@ -725,7 +733,7 @@ class DeliveryServiceClient:
     def get_blob(
         self,
         digest: str,
-        chunk_size: int=8192,
+        chunk_size: int = 8192,
     ) -> collections.abc.Generator[bytes, None, None]:
         res = self.request(
             url=self._routes.blob(),
@@ -766,16 +774,16 @@ def _normalise_github_hostname(github_url: str):
 
 def github_usernames_from_responsibles(
     responsibles: collections.abc.Iterable[dict],
-    github_url: str=None,
+    github_url: str = None,
 ) -> collections.abc.Generator[str, None, None]:
-    '''
+    """
     returns a generator yielding all github-users from the given `responsibles`.
     use `DeliveryServiceClient.component_responsibles` to retrieve responsibles
     if github_url is given, only github-users on a matching github-host are returned.
     This is useful if the returned users should exist on a certain target github-instance.
     github_url is gracefully parsed down to relevant hostname. It is okay to pass-in, e.g.
     a repository- or github-user-URL for convenience.
-    '''
+    """
     if github_url:
         target_github_hostname = _normalise_github_hostname(github_url)
     else:

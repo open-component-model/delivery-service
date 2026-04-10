@@ -19,7 +19,7 @@ class SprintDate:
     value: datetime.datetime
 
 
-@dataclasses.dataclass(frozen=True) # TODO: deduplicate w/ modelclass in delivery-service/yp.py
+@dataclasses.dataclass(frozen=True)  # TODO: deduplicate w/ modelclass in delivery-service/yp.py
 class Sprint:
     name: str
     dates: frozenset[SprintDate]
@@ -55,7 +55,7 @@ class StatusType(enum.StrEnum):
     INFO = enum.auto()
 
 
-@dataclasses.dataclass(frozen=True) # TODO: deduplicate with model-class delivery-service
+@dataclasses.dataclass(frozen=True)  # TODO: deduplicate with model-class delivery-service
 class Status:
     type: StatusType
     msg: str
