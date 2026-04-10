@@ -9,4 +9,6 @@ kubernetes
 requests
 urllib3
 watchdog
+pycryptodome
+pyjwt
 python-dateutil
