@@ -424,7 +424,16 @@ async def initialise_app():
         middlewares=middlewares,
         client_max_size=0,
     )
-
+    # Register on_response_prepare signal handler for CORS headers
+    # This ensures CORS headers are added before StreamResponse.prepare() is called
+    app.on_response_prepare.append(
+        lambda request, response: middleware.cors._on_response_prepare_handler(
+            request,
+            response,
+            allow_origins='*',
+            allow_credentials='*',
+        ),
+    )
     app = middleware.prometheus.add_prometheus_middleware(app=app)
 
     app = add_app_context_vars(

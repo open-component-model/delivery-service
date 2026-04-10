@@ -66,3 +66,22 @@ def cors_middleware(
         return response
 
     return middleware
+
+
+async def _on_response_prepare_handler(
+    request: aiohttp.web.Request,
+    response: aiohttp.web.StreamResponse,
+    allow_origins: str | collections.abc.Iterable[str] = '*',
+    allow_credentials: str | collections.abc.Iterable[str] = '*',
+):
+    """
+    Signal handler for on_response_prepare to add CORS headers before response is sent.
+    This is necessary for StreamResponse where headers must be set before prepare() is called.
+    """
+    response.headers.update(
+        cors_headers(
+            request=request,
+            allow_origins=allow_origins,
+            allow_credentials=allow_credentials,
+        ),
+    )
