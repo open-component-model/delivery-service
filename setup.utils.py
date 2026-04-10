@@ -41,6 +41,7 @@ def modules():
 
 def packages():
     return [
+        'delivery',
         'deliverydb_cache',
         'k8s',
         'odg',
