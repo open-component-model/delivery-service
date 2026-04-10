@@ -1243,7 +1243,7 @@ class DownloadSBOM(aiohttp.web.View):
           Streams a tar archive containing the SBOM documents for all artefacts included in the given
           component (and its transitive dependencies). Artefacts which do not (yet) have an existing
           SBOM document are being skipped without notice. Each entry in the archive is placed under a
-          directory named `<component_name>_<component_version>/<artefact_name>_<artefact_type>`.
+          directory named `<component_name>_<component_version>/<artefact_name>_<artefact_type>.json`
         tags:
         - Components
         parameters:
@@ -1388,7 +1388,7 @@ class DownloadSBOM(aiohttp.web.View):
                     artefact_file += f'_{artefact.normalised_artefact_extra_id}'
                 artefact_file = artefact_file.replace('/', '_').replace(':', '_')
 
-                tarinfo = tarfile.TarInfo(name=f'{component_dir}/{artefact_file}')
+                tarinfo = tarfile.TarInfo(name=f'{component_dir}/{artefact_file}.json')
                 tarinfo.size = blob_metadata.size
 
                 tarinfo_bytes = tarinfo.tobuf()
