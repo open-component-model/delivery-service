@@ -15,7 +15,7 @@ def _create_github_jwt(
         github_app_private_key = github_app_private_key.encode('utf-8')
 
     github_app_id = int(github_app_id)  # validate input
-    now = int(time.time())
+    now = int(time.time()) - 60  # set to 60s in the past to prevent clock skew failures
 
     payload = {
         'iat': now,

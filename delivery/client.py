@@ -136,6 +136,7 @@ class DeliveryServiceClient:
         routes: DeliveryServiceRoutes,
         auth_token_lookup: AuthTokenLookup | None = None,
         auth_token: str | None = None,
+        api_url: str | None = None,
     ):
         """
         Initialises a client which can be used to interact with the delivery-service.
@@ -147,6 +148,8 @@ class DeliveryServiceClient:
             the lookup to use for retrieving auth-tokens against oauth-endpoints
         :param str auth_token (optional)
             the auth-token to use for authentication
+        :param str api_url (optional)
+            the (GitHub) API URL to use for authentication. Only considered if `auth_token` is set
         """
 
         if auth_token_lookup and auth_token:
@@ -155,6 +158,7 @@ class DeliveryServiceClient:
         self._routes = routes
         self.auth_token_lookup = auth_token_lookup
         self.auth_token = auth_token
+        self.api_url = api_url
         self.auth_credentials: dm.GitHubAuthCredentials = None  # filled lazily as needed
 
         self._bearer_token = None
@@ -223,7 +227,7 @@ class DeliveryServiceClient:
             for auth_config in auth_configs:
                 api_url = auth_config.get('api_url')
 
-                if auth_token := self.auth_token:
+                if (auth_token := self.auth_token) and (not self.api_url or api_url == self.api_url):
                     break
                 elif self.auth_token_lookup and (auth_token := self.auth_token_lookup(api_url)):
                     break
@@ -506,6 +510,8 @@ class DeliveryServiceClient:
             if resp.status_code != 202:
                 break
             time.sleep(5)
+        else:
+            raise TimeoutError(f'timed out waiting for responsibles with {params=}')
 
         try:
             resp.raise_for_status()
