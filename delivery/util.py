@@ -1,8 +1,10 @@
 import collections.abc
+import datetime
 import enum
 import io
 import json as js
 import typing
+import urllib.parse
 import zlib
 
 
@@ -79,3 +81,35 @@ def encode_request(
         return compressed_data, headers
 
     return compressed_data
+
+
+def urljoin(*parts):
+    if len(parts) == 1:
+        return parts[0]
+    first = parts[0]
+    last = parts[-1]
+    middle = parts[1:-1]
+
+    first = first.rstrip('/')
+    middle = list(map(lambda s: s.strip('/'), middle))
+    last = last.lstrip('/')
+
+    return '/'.join([first] + middle + [last])
+
+
+def urlparse(url: str) -> urllib.parse.ParseResult:
+    if '://' not in url:
+        url = f'x://{url}'
+
+    return urllib.parse.urlparse(url)
+
+
+def dict_to_json_factory(data):
+    def convert_value(obj):
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+        elif isinstance(obj, enum.Enum):
+            return obj.value
+        return obj
+
+    return dict((k, convert_value(v)) for k, v in data)

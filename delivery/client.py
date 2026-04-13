@@ -11,7 +11,6 @@ import requests.sessions
 
 import ocm
 
-import ci.util
 import delivery.jwt
 import delivery.model as dm
 import delivery.util
@@ -25,13 +24,13 @@ class DeliveryServiceRoutes:
         self._base_url = base_url
 
     def auth(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'auth',
         )
 
     def auth_configs(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'auth',
             'configs',
@@ -42,21 +41,21 @@ class DeliveryServiceRoutes:
         endpoint according to OpenID provider configuration request
         https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
         """
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             '.well-known',
             'openid-configuration',
         )
 
     def component_descriptor(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'ocm',
             'component',
         )
 
     def greatest_component_versions(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'ocm',
             'component',
@@ -64,7 +63,7 @@ class DeliveryServiceRoutes:
         )
 
     def component_responsibles(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'ocm',
             'component',
@@ -72,7 +71,7 @@ class DeliveryServiceRoutes:
         )
 
     def _delivery(self, *suffix: collections.abc.Iterable[str]):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'delivery',
             *suffix,
@@ -85,14 +84,14 @@ class DeliveryServiceRoutes:
         return self._delivery('sprint-infos', 'current')
 
     def artefact_metadata(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'artefacts',
             'metadata',
         )
 
     def artefact_metadata_query(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'artefacts',
             'metadata',
@@ -100,20 +99,20 @@ class DeliveryServiceRoutes:
         )
 
     def cache(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'cache',
         )
 
     def backlog_items(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'service-extensions',
             'backlog-items',
         )
 
     def blob(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'blob',
         )
@@ -382,7 +381,7 @@ class DeliveryServiceClient:
                 'entries': [
                     dataclasses.asdict(
                         artefact_metadata,
-                        dict_factory=ci.util.dict_to_json_factory,
+                        dict_factory=delivery.util.dict_to_json_factory,
                     )
                     if dataclasses.is_dataclass(artefact_metadata)
                     else artefact_metadata
@@ -415,7 +414,7 @@ class DeliveryServiceClient:
                 'entries': [
                     dataclasses.asdict(
                         artefact_metadata,
-                        dict_factory=ci.util.dict_to_json_factory,
+                        dict_factory=delivery.util.dict_to_json_factory,
                     )
                     if dataclasses.is_dataclass(artefact_metadata)
                     else artefact_metadata
@@ -763,7 +762,7 @@ class DeliveryServiceClient:
 
 def _normalise_github_hostname(github_url: str):
     # hack: for github.com, we might get a different subdomain (api.github.com)
-    github_hostname = ci.util.urlparse(github_url).hostname
+    github_hostname = delivery.util.urlparse(github_url).hostname
     parts = github_hostname.strip('.').split('.')
     if parts[0] == 'api':
         parts = parts[1:]
