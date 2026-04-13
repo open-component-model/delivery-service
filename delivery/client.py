@@ -14,7 +14,7 @@ import ocm
 import ci.util
 import delivery.jwt
 import delivery.model as dm
-import http_requests
+import delivery.util
 
 
 logger = logging.getLogger(__name__)
@@ -377,7 +377,7 @@ class DeliveryServiceClient:
             'Content-Type': 'application/json',
         }
 
-        data, headers = http_requests.encode_request(
+        data, headers = delivery.util.encode_request(
             json={
                 'entries': [
                     dataclasses.asdict(
@@ -410,7 +410,7 @@ class DeliveryServiceClient:
             'Content-Type': 'application/json',
         }
 
-        data, headers = http_requests.encode_request(
+        data, headers = delivery.util.encode_request(
             json={
                 'entries': [
                     dataclasses.asdict(
@@ -610,7 +610,7 @@ class DeliveryServiceClient:
                 for artefact in artefacts
             ]
 
-        data, headers = http_requests.encode_request(
+        data, headers = delivery.util.encode_request(
             json={'entries': entries},
             headers=headers,
         )
@@ -673,7 +673,7 @@ class DeliveryServiceClient:
         if priority:
             params['priority'] = priority
 
-        data, headers = http_requests.encode_request(
+        data, headers = delivery.util.encode_request(
             json={
                 'artefacts': [
                     dataclasses.asdict(artefact) if dataclasses.is_dataclass(artefact) else artefact
