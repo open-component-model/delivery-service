@@ -445,6 +445,11 @@ installation:
       helm_attribute: sbom-generator.enabled
       value: True
       value_type: literal
+    - helm_chart_name: extensions
+      # prevents resource-manager from rolling back scaling changes
+      helm_attribute: sbom-generator.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+      value: '"true"'
+      value_type: literal
 outputs: []
 dependencies:
   - delivery-service
