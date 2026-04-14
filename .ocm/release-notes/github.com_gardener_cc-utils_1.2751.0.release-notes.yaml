@@ -1,0 +1,26 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2751.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: bugfix
+  contents: The OCI client now supports pagination for listing tags (required for
+    (at least) GHCR)
+  mimetype: text/markdown
+  reference: '[#1557](https://github.com/gardener/cc-utils/pull/1557)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: install-gardener-gha-libs now packages sources installed from cc-utils
+    (avoids git-clone-dependency against upstream repository).
+  mimetype: text/markdown
+  reference: '[#1559](https://github.com/gardener/cc-utils/pull/1559)'
+  type: standard
