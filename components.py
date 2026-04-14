@@ -129,7 +129,7 @@ async def _component_descriptor(
         version=version,
     )
 
-    ocm_repository_lookup = lookups.init_ocm_repository_lookup(ocm_repo_url)
+    ocm_repository_lookup = lookups.extended_ocm_repository_lookup(ocm_repo)
     ocm_repos = list(ocm_repository_lookup(component_name))
 
     if raw or ignore_cache:
@@ -176,7 +176,7 @@ async def _component_descriptor(
         descriptor = await util.retrieve_component_descriptor(
             component_id,
             component_descriptor_lookup=component_descriptor_lookup,
-            ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
+            ocm_repository_lookup=ocm_repository_lookup,
         )
     except dacite.exceptions.MissingValueError as e:
         raise aiohttp.web.HTTPFailedDependency(
@@ -746,13 +746,15 @@ async def resolve_component_dependencies(
     ocm_repo: ocm.OcmRepository = None,
     recursion_depth: int = -1,
 ) -> collections.abc.AsyncGenerator[ocm.iter.ComponentNode, None, None]:
+    ocm_repository_lookup = lookups.extended_ocm_repository_lookup(ocm_repo)
+
     component_descriptor = await util.retrieve_component_descriptor(
         ocm.ComponentIdentity(
             name=component_name,
             version=component_version,
         ),
         component_descriptor_lookup=component_descriptor_lookup,
-        ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
+        ocm_repository_lookup=ocm_repository_lookup,
     )
     component = component_descriptor.component
 
@@ -763,6 +765,7 @@ async def resolve_component_dependencies(
             recursion_depth=recursion_depth,
             prune_unique=False,
             node_filter=ocm.iter.Filter.components,
+            ocm_repo=ocm_repository_lookup,
         ):
             # add repo classification label if not present in component labels
             label_present = False
@@ -874,7 +877,7 @@ class UpgradePRs(aiohttp.web.View):
                     version=component_version,
                 ),
                 component_descriptor_lookup=self.request.app[consts.APP_COMPONENT_DESCRIPTOR_LOOKUP],
-                ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
+                ocm_repository_lookup=lookups.extended_ocm_repository_lookup(ocm_repo),
             )
             component = component_descriptor.component
             source = cnudie.util.main_source(
@@ -1301,13 +1304,15 @@ class DownloadSBOM(aiohttp.web.View):
                 db_session=db_session,
             )
 
+        ocm_repository_lookup = lookups.extended_ocm_repository_lookup(ocm_repo)
+
         component_descriptor = await util.retrieve_component_descriptor(
             ocm.ComponentIdentity(
                 name=component_name,
                 version=version,
             ),
             component_descriptor_lookup=component_descriptor_lookup,
-            ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
+            ocm_repository_lookup=ocm_repository_lookup,
         )
         component = component_descriptor.component
 
@@ -1319,6 +1324,7 @@ class DownloadSBOM(aiohttp.web.View):
                 lookup=component_descriptor_lookup,
                 recursion_depth=recursion_depth,
                 node_filter=ocm.iter.Filter.artefacts,
+                ocm_repo=ocm_repository_lookup,
             ):
                 if isinstance(artefact_node.artefact, ocm.Resource):
                     artefact_kind = odg.model.ArtefactKind.RESOURCE
