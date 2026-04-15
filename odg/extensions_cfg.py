@@ -1171,7 +1171,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
     output_format: SbomFormat = SbomFormat.CYCLONEDX
     processing_mode: bdba.model.ProcessingMode = bdba.model.ProcessingMode.FORCE_UPLOAD
     interval: int = 60 * 60 * 24  # 24h
-    generation_mode: odg.model.SbomGenerationMode = odg.model.SbomGenerationMode.BDBA
+    generation_mode: odg.model.SbomGenerationMode = odg.model.SbomGenerationMode.SYFT
 
     def is_supported(
         self,
