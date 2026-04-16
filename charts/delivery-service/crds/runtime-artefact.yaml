@@ -59,3 +59,28 @@ spec:
                       items:
                         x-kubernetes-preserve-unknown-fields: true
                         type: object
+      additionalPrinterColumns:
+        - name: Component
+          type: string
+          jsonPath: .spec.artefact.component_name
+          priority: 1
+        - name: Version
+          type: string
+          jsonPath: .spec.artefact.component_version
+          priority: 1
+        - name: Artefact
+          type: string
+          jsonPath: .spec.artefact.artefact.artefact_name
+          priority: 1
+        - name: Version
+          type: string
+          jsonPath: .spec.artefact.artefact.artefact_version
+          priority: 1
+        - name: Type
+          type: string
+          jsonPath: .spec.artefact.artefact.artefact_type
+          priority: 1
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+          priority: 0
