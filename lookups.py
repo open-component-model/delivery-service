@@ -368,6 +368,34 @@ def init_ocm_repository_lookup(
     return ocm_repository_lookup
 
 
+def extended_ocm_repository_lookup(
+    ocm_repo: ocm.OciOcmRepository | str | None = None,
+    ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup = None,
+) -> ocm.OcmRepositoryLookup:
+    """
+    Creates an extended OCM repository lookup that also includes the specified `ocm_repo`. Useful
+    in scenarios where an explicit OCM repository is selected, but the default lookup should be
+    still honoured in case the specified OCM repository does not include all required components.
+    """
+    if not ocm_repository_lookup:
+        ocm_repository_lookup = init_ocm_repository_lookup()
+
+    if not ocm_repo:
+        return ocm_repository_lookup
+
+    if isinstance(ocm_repo, ocm.OciOcmRepository):
+        ocm_repo = ocm_repo.oci_ref
+
+    def _ocm_repository_lookup(
+        component: ocm.ComponentName,
+        /,
+    ) -> collections.abc.Iterable[str]:
+        yield ocm_repo
+        yield from ocm_repository_lookup(component)
+
+    return _ocm_repository_lookup
+
+
 @functools.cache
 def semver_sanitising_oci_client(
     secret_factory: secret_mgmt.SecretFactory = None,

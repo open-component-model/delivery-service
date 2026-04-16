@@ -105,3 +105,21 @@ def test_ocm_repository_cfgs(
 
     assert len(list(ocm_repository_lookup('ocm.software/ocm-gear/delivery-service'))) == 1
     assert len(list(ocm_repository_lookup('github.com/gardener/gardener'))) == 1
+
+    # test explicitly _added_ repository
+    ocm_repository_lookup = lookups.extended_ocm_repository_lookup(
+        ocm_repo='foo',
+        ocm_repository_lookup=lookups.init_ocm_repository_lookup(
+            ocm_repository_cfgs=ocm_repository_cfgs,
+        ),
+    )
+
+    assert list(ocm_repository_lookup('ocm.software/ocm-gear/delivery-service')) == [
+        'foo',
+        'europe-docker.pkg.dev/gardener-project/releases',
+        'europe-docker.pkg.dev/gardener-project/releases/odg',
+    ]
+    assert list(ocm_repository_lookup('github.com/gardener/gardener')) == [
+        'foo',
+        'europe-docker.pkg.dev/gardener-project/releases',
+    ]

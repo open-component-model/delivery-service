@@ -85,24 +85,24 @@ def _iter_ocm_artefacts(
                 ocm_repo=component.ocm_repo,
             )
 
+        ocm_repository_lookup = lookups.extended_ocm_repository_lookup(component.ocm_repo)
+
         for version in versions:
             component_id = ocm.ComponentIdentity(
                 name=component.component_name,
                 version=version,
             )
 
-            if ocm_repo := component.ocm_repo:
-                component_descriptor = component_descriptor_lookup(
-                    component_id,
-                    ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
-                ).component
-            else:
-                component_descriptor = component_descriptor_lookup(component_id).component
+            component_descriptor = component_descriptor_lookup(
+                component_id,
+                ocm_repository_lookup=ocm_repository_lookup,
+            )
 
             for artefact_node in ocm.iter.iter(
                 component=component_descriptor,
                 lookup=component_descriptor_lookup,
                 node_filter=ocm.iter.Filter.artefacts,
+                ocm_repo=ocm_repository_lookup,
             ):
                 yield odg.model.component_artefact_id_from_ocm(
                     component=artefact_node.component,

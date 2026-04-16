@@ -262,15 +262,12 @@ async def component_datatype_summaries(
     ocm_repo: ocm.OciOcmRepository | None = None,
     shortcut_cache: bool = False,
 ) -> list[tuple[odg.model.ComponentArtefactId, ComplianceSummaryEntry]]:
-    if ocm_repo:
-        component = (
-            await component_descriptor_lookup(
-                component,
-                ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repo),
-            )
-        ).component
-    else:
-        component = (await component_descriptor_lookup(component)).component
+    component = (
+        await component_descriptor_lookup(
+            component,
+            ocm_repository_lookup=lookups.extended_ocm_repository_lookup(ocm_repo),
+        )
+    ).component
 
     artefact_scan_infos = await deliverydb.util.findings_for_component(
         component=component,

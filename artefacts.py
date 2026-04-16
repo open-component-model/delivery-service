@@ -91,7 +91,7 @@ class ArtefactBlob(aiohttp.web.View):
         try:
             component_descriptor = await component_descriptor_lookup(
                 component_id,
-                ocm_repository_lookup=lookups.init_ocm_repository_lookup(ocm_repository),
+                ocm_repository_lookup=lookups.extended_ocm_repository_lookup(ocm_repository),
             )
             component = component_descriptor.component
         except oci.model.OciImageNotFoundException:
