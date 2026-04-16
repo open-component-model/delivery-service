@@ -10,6 +10,10 @@ if [ ! -d ${out_dir} ]; then
   exit 1
 fi
 
+pip3 install \
+  Sphinx \
+  sphinx_rtd_theme
+
 src_dir="${repo_dir}/docs"
 sphinx-build -E -av "${src_dir}" "${out_dir}"
 
