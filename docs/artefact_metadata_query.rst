@@ -6,7 +6,7 @@ interface for searching artefact metadata stored in the delivery-db. It supports
 excluding, full-text search, OCM scope resolution, severity comparisons, and cursor-based
 pagination.
 
-A companion endpoint ``GET /artefacts/metadata/query/attributes`` returns the list of queryable
+A companion endpoint ``GET /artefacts/metadata/query-attributes`` returns the list of queryable
 fields, their types, and supported operators — useful for building UIs or validating queries
 client-side.
 
@@ -42,7 +42,7 @@ Request format
      - Page size, capped server-side at ``200``
    * - ``sort``
      - array
-     - ``[meta.creation_date desc, id]``
+     - ``[{"field": "meta.creation_date", "order": "desc" }, {"field": "id", "order": "desc" }]``
      - Sort specification (see `Sorting`_)
    * - ``cursor``
      - object
@@ -84,7 +84,7 @@ Filters by OCM component identity (``name`` or ``name:version``).
      - ``name`` or ``name:version``
    * - ``recursive``
      - no
-     - If ``true``, resolves the full component dependency tree and matches all transitive components. Requires a versioned value and a configured component descriptor lookup.
+     - If ``true``, resolves the full component dependency tree and matches all transitive components. Requires a versioned value.
    * - ``mode``
      - no
      - ``"exclude"`` negates the predicate
@@ -108,7 +108,7 @@ version since they apply across all versions of a component.
 
 ----
 
-2. ``artefact-metadata`` — field filter
+1. ``artefact-metadata`` — field filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Filters on a specific attribute of the artefact metadata row.
@@ -291,7 +291,7 @@ For ``rescorings`` rows, ``referenced_type`` holds the finding type the rescorin
 Querying rescorings
 -------------------
 
-Rescorings are stored without a component version because they are intended to apply across
+Rescorings might be stored without a component version because it can be intended to apply across
 all versions of a component. To query rescorings effectively:
 
 .. code-block:: json
