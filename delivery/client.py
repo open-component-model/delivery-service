@@ -11,10 +11,9 @@ import requests.sessions
 
 import ocm
 
-import ci.util
 import delivery.jwt
 import delivery.model as dm
-import http_requests
+import delivery.util
 
 
 logger = logging.getLogger(__name__)
@@ -25,13 +24,13 @@ class DeliveryServiceRoutes:
         self._base_url = base_url
 
     def auth(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'auth',
         )
 
     def auth_configs(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'auth',
             'configs',
@@ -42,21 +41,21 @@ class DeliveryServiceRoutes:
         endpoint according to OpenID provider configuration request
         https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest
         """
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             '.well-known',
             'openid-configuration',
         )
 
     def component_descriptor(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'ocm',
             'component',
         )
 
     def greatest_component_versions(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'ocm',
             'component',
@@ -64,7 +63,7 @@ class DeliveryServiceRoutes:
         )
 
     def component_responsibles(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'ocm',
             'component',
@@ -72,7 +71,7 @@ class DeliveryServiceRoutes:
         )
 
     def _delivery(self, *suffix: collections.abc.Iterable[str]):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'delivery',
             *suffix,
@@ -85,14 +84,14 @@ class DeliveryServiceRoutes:
         return self._delivery('sprint-infos', 'current')
 
     def artefact_metadata(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'artefacts',
             'metadata',
         )
 
     def artefact_metadata_query(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'artefacts',
             'metadata',
@@ -100,20 +99,20 @@ class DeliveryServiceRoutes:
         )
 
     def cache(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'cache',
         )
 
     def backlog_items(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'service-extensions',
             'backlog-items',
         )
 
     def blob(self):
-        return ci.util.urljoin(
+        return delivery.util.urljoin(
             self._base_url,
             'blob',
         )
@@ -137,6 +136,7 @@ class DeliveryServiceClient:
         routes: DeliveryServiceRoutes,
         auth_token_lookup: AuthTokenLookup | None = None,
         auth_token: str | None = None,
+        api_url: str | None = None,
     ):
         """
         Initialises a client which can be used to interact with the delivery-service.
@@ -148,6 +148,8 @@ class DeliveryServiceClient:
             the lookup to use for retrieving auth-tokens against oauth-endpoints
         :param str auth_token (optional)
             the auth-token to use for authentication
+        :param str api_url (optional)
+            the (GitHub) API URL to use for authentication. Only considered if `auth_token` is set
         """
 
         if auth_token_lookup and auth_token:
@@ -156,6 +158,7 @@ class DeliveryServiceClient:
         self._routes = routes
         self.auth_token_lookup = auth_token_lookup
         self.auth_token = auth_token
+        self.api_url = api_url
         self.auth_credentials: dm.GitHubAuthCredentials = None  # filled lazily as needed
 
         self._bearer_token = None
@@ -224,7 +227,7 @@ class DeliveryServiceClient:
             for auth_config in auth_configs:
                 api_url = auth_config.get('api_url')
 
-                if auth_token := self.auth_token:
+                if (auth_token := self.auth_token) and (not self.api_url or api_url == self.api_url):
                     break
                 elif self.auth_token_lookup and (auth_token := self.auth_token_lookup(api_url)):
                     break
@@ -377,12 +380,12 @@ class DeliveryServiceClient:
             'Content-Type': 'application/json',
         }
 
-        data, headers = http_requests.encode_request(
+        data, headers = delivery.util.encode_request(
             json={
                 'entries': [
                     dataclasses.asdict(
                         artefact_metadata,
-                        dict_factory=ci.util.dict_to_json_factory,
+                        dict_factory=delivery.util.dict_to_json_factory,
                     )
                     if dataclasses.is_dataclass(artefact_metadata)
                     else artefact_metadata
@@ -410,12 +413,12 @@ class DeliveryServiceClient:
             'Content-Type': 'application/json',
         }
 
-        data, headers = http_requests.encode_request(
+        data, headers = delivery.util.encode_request(
             json={
                 'entries': [
                     dataclasses.asdict(
                         artefact_metadata,
-                        dict_factory=ci.util.dict_to_json_factory,
+                        dict_factory=delivery.util.dict_to_json_factory,
                     )
                     if dataclasses.is_dataclass(artefact_metadata)
                     else artefact_metadata
@@ -507,6 +510,8 @@ class DeliveryServiceClient:
             if resp.status_code != 202:
                 break
             time.sleep(5)
+        else:
+            raise TimeoutError(f'timed out waiting for responsibles with {params=}')
 
         try:
             resp.raise_for_status()
@@ -610,7 +615,7 @@ class DeliveryServiceClient:
                 for artefact in artefacts
             ]
 
-        data, headers = http_requests.encode_request(
+        data, headers = delivery.util.encode_request(
             json={'entries': entries},
             headers=headers,
         )
@@ -673,7 +678,7 @@ class DeliveryServiceClient:
         if priority:
             params['priority'] = priority
 
-        data, headers = http_requests.encode_request(
+        data, headers = delivery.util.encode_request(
             json={
                 'artefacts': [
                     dataclasses.asdict(artefact) if dataclasses.is_dataclass(artefact) else artefact
@@ -763,7 +768,7 @@ class DeliveryServiceClient:
 
 def _normalise_github_hostname(github_url: str):
     # hack: for github.com, we might get a different subdomain (api.github.com)
-    github_hostname = ci.util.urlparse(github_url).hostname
+    github_hostname = delivery.util.urlparse(github_url).hostname
     parts = github_hostname.strip('.').split('.')
     if parts[0] == 'api':
         parts = parts[1:]

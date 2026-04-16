@@ -1,0 +1,91 @@
+name: Publish ODG Client
+on:
+  workflow_dispatch:
+    inputs:
+      release-to-pypi:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build and Update Python Package
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: gardener/cc-utils/.github/actions/setup-git-identity@master
+      - name: Install setuptools and semver
+        shell: bash
+        run: |
+          pip3 install \
+            setuptools \
+            semver
+      - name: Create Distribution Package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pkg_dir=dist
+          mkdir -p ${pkg_dir}
+          pkg_dir="$(readlink -f ${pkg_dir})"
+
+          path="setup.odg-client.py"
+
+          echo "Building distribution package from ${path} to ${pkg_dir}"
+          python3 ${path} \
+            bdist_wheel \
+            --dist-dir ${pkg_dir}
+
+          echo "Built package:"
+          ls "${pkg_dir}"
+      - name: Upload Distribution Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: distribution-package
+          path: dist/
+      - name: Retrieve Version
+        id: version
+        shell: python
+        run: |
+          import os
+          import semver
+
+          with open('ODG_CLIENT_VERSION') as f:
+            from_version = f.read().strip()
+
+          to_version = semver.Version.parse(from_version).bump_minor()
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f'from-version={from_version}\n')
+            f.write(f'to-version={to_version}\n')
+      - name: Update Version
+        shell: bash
+        if: ${{ inputs.release-to-pypi }}
+        run: |
+          from_version=${{ steps.version.outputs.from-version }}
+          to_version=${{ steps.version.outputs.to-version }}
+
+          echo "$to_version" > ODG_CLIENT_VERSION
+
+          git add ODG_CLIENT_VERSION
+          git commit -m "Upgrade ODG Client" -m "from ${from_version} to ${to_version}"
+          git push
+
+  pypi:
+    if: ${{ inputs.release-to-pypi }}
+    runs-on: ubuntu-latest
+    name: Publish to PyPI
+    needs:
+      - build
+    permissions:
+      id-token: write
+    steps:
+      - name: Retrieve Distribution Package
+        uses: actions/download-artifact@v4
+        with:
+          name: distribution-package
+          path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1 # assumes package to be located in `dist/`
