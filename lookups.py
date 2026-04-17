@@ -755,8 +755,12 @@ def github_repo_lookup(
         if '://' not in repo_url:
             repo_url = f'x://{repo_url}'
 
-        parsed = urllib.parse.urlparse(repo_url)
-        org, repo = parsed.path.strip('/').split('/')[:2]
+        path_segments = urllib.parse.urlparse(repo_url).path.strip('/').split('/')
+
+        if len(path_segments) < 2 and absent_ok:
+            return None  # not a valid repository URL
+
+        org, repo = path_segments[:2]
 
         gh_api = github_api_lookup(
             repo_url,
