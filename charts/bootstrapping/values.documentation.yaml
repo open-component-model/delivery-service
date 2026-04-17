@@ -1161,6 +1161,10 @@ findings:
         # @param findings[].categorisations[].allowed_processing_time the time after which a finding
         # must have been assessed at the latest. If null is specified, it means it does not have to
         # be processed and therefore, for example, no GitHub issues will be created
+        # options:
+        # - null (default): no need to process the finding (no GitHub issues will be created, etc.)
+        # - input: allow custom user selection via date picker
+        # - <number><unit>: time after which the finding must have been processed, e.g. "2w" for 2 weeks
         # known units:
         # - seconds: s, sec
         # - minutes: m, min
