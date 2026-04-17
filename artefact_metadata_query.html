@@ -1,0 +1,611 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artefact Metadata Search &mdash; Open Delivery Gear  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+    <link rel="shortcut icon" href="_static/favicon.ico"/>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Data Model" href="model.html" />
+    <link rel="prev" title="Using the delivery-service HTTP API" href="delivery_service.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Open Delivery Gear
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="local_setup.html">Setup Local Development Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribute_extension.html">Contribute a new Extension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="delivery_service.html">Using the delivery-service HTTP API</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Artefact Metadata Search</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="model.html">Data Model</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="extensions/artefact_enumerator.html">Artefact-Enumerator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/diki.html">Diki</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/issue_replicator.html">Issue-Replicator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions/responsibles.html">Responsibles</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Open Delivery Gear</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Artefact Metadata Search</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/artefact_metadata_query.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="artefact-metadata-search">
+<h1>Artefact Metadata Search<a class="headerlink" href="#artefact-metadata-search" title="Link to this heading"></a></h1>
+<p>The endpoint <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/artefacts/metadata/query/by-search-expression</span></code> provides a structured query
+interface for searching artefact metadata stored in the delivery-db. It supports filtering,
+excluding, full-text search, OCM scope resolution, severity comparisons, and cursor-based
+pagination.</p>
+<p>A companion endpoint <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/artefacts/metadata/query-attributes</span></code> returns the list of queryable
+fields, their types, and supported operators — useful for building UIs or validating queries
+client-side.</p>
+<hr class="docutils" />
+<section id="request-format">
+<h2>Request format<a class="headerlink" href="#request-format" title="Link to this heading"></a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">&lt;cri</span><span class="kc">ter</span><span class="err">io</span><span class="kc">n</span><span class="err">&gt;</span><span class="p">,</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;sort&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;field&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta.creation_date&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;desc&quot;</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;cursor&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 10.0%" />
+<col style="width: 30.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">criteria</span></code></p></td>
+<td><p>array</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
+<td><p>List of filter criteria (see below)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">limit</span></code></p></td>
+<td><p>integer</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">50</span></code></p></td>
+<td><p>Page size, capped server-side at <code class="docutils literal notranslate"><span class="pre">200</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sort</span></code></p></td>
+<td><p>array</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[{&quot;field&quot;:</span> <span class="pre">&quot;meta.creation_date&quot;,</span> <span class="pre">&quot;order&quot;:</span> <span class="pre">&quot;desc&quot;</span> <span class="pre">},</span> <span class="pre">{&quot;field&quot;:</span> <span class="pre">&quot;id&quot;,</span> <span class="pre">&quot;order&quot;:</span> <span class="pre">&quot;desc&quot;</span> <span class="pre">}]</span></code></p></td>
+<td><p>Sort specification (see <a class="reference internal" href="#sorting">Sorting</a>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cursor</span></code></p></td>
+<td><p>object</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">null</span></code></p></td>
+<td><p>Seek cursor for next page (see <a class="reference internal" href="#pagination">Pagination</a>)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<hr class="docutils" />
+<section id="criteria">
+<h2>Criteria<a class="headerlink" href="#criteria" title="Link to this heading"></a></h2>
+<p>Every criterion is a JSON object with a required <code class="docutils literal notranslate"><span class="pre">type</span></code> field. All criteria are <strong>AND</strong>ed
+together. Within criteria of the same type and attribute, <strong>OR</strong> semantics apply (see details
+per type below).</p>
+<p>An optional <code class="docutils literal notranslate"><span class="pre">&quot;mode&quot;:</span> <span class="pre">&quot;exclude&quot;</span></code> field negates any criterion.</p>
+<section id="ocm-component-artefact-scope">
+<h3>1. <code class="docutils literal notranslate"><span class="pre">ocm</span></code> — component/artefact scope<a class="headerlink" href="#ocm-component-artefact-scope" title="Link to this heading"></a></h3>
+<p>Filters by OCM component identity (<code class="docutils literal notranslate"><span class="pre">name</span></code> or <code class="docutils literal notranslate"><span class="pre">name:version</span></code>).</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/my-comp&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/my-comp:1.2.3&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/my-comp:1.2.3&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;recursive&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/my-comp:1.2.3&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;exclude&quot;</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 10.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>yes</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">name</span></code> or <code class="docutils literal notranslate"><span class="pre">name:version</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">recursive</span></code></p></td>
+<td><p>no</p></td>
+<td><p>If <code class="docutils literal notranslate"><span class="pre">true</span></code>, resolves the full component dependency tree and matches all transitive components. Requires a versioned value.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mode</span></code></p></td>
+<td><p>no</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;exclude&quot;</span></code> negates the predicate</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Multiple</strong> <code class="docutils literal notranslate"><span class="pre">ocm</span></code> <strong>includes are OR-ed</strong> — useful for scoping across several components at once.</p>
+<p><strong>Version-less queries</strong> (<code class="docutils literal notranslate"><span class="pre">acme.org/my-comp</span></code> without a version) match all rows with that
+component name regardless of version, including rows where <code class="docutils literal notranslate"><span class="pre">component_version</span></code> is <code class="docutils literal notranslate"><span class="pre">NULL</span></code>.</p>
+<p><strong>Versioned queries</strong> without a component descriptor lookup perform a strict
+<code class="docutils literal notranslate"><span class="pre">component_name</span> <span class="pre">=</span> <span class="pre">X</span> <span class="pre">AND</span> <span class="pre">component_version</span> <span class="pre">=</span> <span class="pre">Y</span></code> match. With a component descriptor lookup
+configured, the server resolves the component’s artefact list from the OCM registry and
+additionally matches rows where <code class="docutils literal notranslate"><span class="pre">component_version</span></code> is <code class="docutils literal notranslate"><span class="pre">NULL</span></code> but the artefact key matches
+a known artefact of that component version (handles findings stored without a component
+version).</p>
+<p><strong>Rescoring-aware version matching</strong>: when <code class="docutils literal notranslate"><span class="pre">type:rescorings</span></code> is present in the criteria,
+versioned <code class="docutils literal notranslate"><span class="pre">ocm:</span></code> filters also match rows where <code class="docutils literal notranslate"><span class="pre">component_version</span> <span class="pre">IS</span> <span class="pre">NULL</span></code> (in addition to
+the exact version). This is because rescorings are typically stored without a component
+version since they apply across all versions of a component.</p>
+</section>
+<hr class="docutils" />
+<section id="artefact-metadata-field-filter">
+<h3>1. <code class="docutils literal notranslate"><span class="pre">artefact-metadata</span></code> — field filter<a class="headerlink" href="#artefact-metadata-field-filter" title="Link to this heading"></a></h3>
+<p>Filters on a specific attribute of the artefact metadata row.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data.cve&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;in&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;values&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;CVE-2024-1234&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;CVE-2024-5678&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data.severity&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cmp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cmp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&gt;=&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HIGH&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta.creation_date&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;range&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gte&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-01-01T00:00:00Z&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;exclude&quot;</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<section id="supported-attr-values">
+<h4>Supported <code class="docutils literal notranslate"><span class="pre">attr</span></code> values<a class="headerlink" href="#supported-attr-values" title="Link to this heading"></a></h4>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 40.0%" />
+<col style="width: 35.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Column / source</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ArtefactMetaData.type</span></code></p></td>
+<td><p>See <a class="reference internal" href="#data-types">Data types</a></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">referenced_type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ArtefactMetaData.referenced_type</span></code></p></td>
+<td><p>Only populated for <code class="docutils literal notranslate"><span class="pre">rescorings</span></code> rows; holds the finding type the rescoring applies to</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">datasource</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ArtefactMetaData.datasource</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">artefact_kind</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ArtefactMetaData.artefact_kind</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">artefact.name</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ArtefactMetaData.artefact_name</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">artefact.version</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ArtefactMetaData.artefact_version</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">artefact.type</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ArtefactMetaData.artefact_type</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">meta.&lt;key&gt;</span></code></p></td>
+<td><p>JSONB <code class="docutils literal notranslate"><span class="pre">meta</span></code> column, key extracted as text</p></td>
+<td><p>e.g. <code class="docutils literal notranslate"><span class="pre">meta.creation_date</span></code>, <code class="docutils literal notranslate"><span class="pre">meta.last_update</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">data.&lt;path&gt;</span></code></p></td>
+<td><p>JSONB <code class="docutils literal notranslate"><span class="pre">data</span></code> column, nested path extracted as text</p></td>
+<td><p>e.g. <code class="docutils literal notranslate"><span class="pre">data.cve</span></code>, <code class="docutils literal notranslate"><span class="pre">data.severity</span></code>, <code class="docutils literal notranslate"><span class="pre">data.package_name</span></code>, <code class="docutils literal notranslate"><span class="pre">data.osid.NAME</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="supported-op-values">
+<h4>Supported <code class="docutils literal notranslate"><span class="pre">op</span></code> values<a class="headerlink" href="#supported-op-values" title="Link to this heading"></a></h4>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 10.0%" />
+<col style="width: 25.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">op</span></code></p></th>
+<th class="head"><p>Required fields</p></th>
+<th class="head"><p>Semantics</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">eq</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>Exact match. If <code class="docutils literal notranslate"><span class="pre">value</span></code> contains <code class="docutils literal notranslate"><span class="pre">*</span></code>, performs a case-insensitive <code class="docutils literal notranslate"><span class="pre">LIKE</span></code> match (<code class="docutils literal notranslate"><span class="pre">*</span></code> → <code class="docutils literal notranslate"><span class="pre">%</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">in</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">values</span></code> (list)</p></td>
+<td><p>Any-of match (OR semantics). All values compared as strings.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">range</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">gte</span></code> and/or <code class="docutils literal notranslate"><span class="pre">lte</span></code></p></td>
+<td><p>Datetime range, both bounds inclusive. Values must be ISO 8601. Either bound may be omitted for an open range. Only applicable to datetime attributes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cmp</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cmp</span></code>, <code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>Comparison operator: <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">!=</span></code>. For <code class="docutils literal notranslate"><span class="pre">data.severity</span></code>, symbolic severity IDs (e.g. <code class="docutils literal notranslate"><span class="pre">HIGH</span></code>) are resolved to numeric values when exactly one finding type is selected (see <a class="reference internal" href="#severity-comparisons">Severity comparisons</a>).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="and-or-semantics">
+<h4>AND/OR semantics<a class="headerlink" href="#and-or-semantics" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>Criteria on <strong>different attributes</strong> are <strong>AND</strong>ed.</p></li>
+<li><p>Multiple criteria on the <strong>same attribute</strong> (same <code class="docutils literal notranslate"><span class="pre">attr</span></code>) are <strong>OR</strong>ed (include) or
+<code class="docutils literal notranslate"><span class="pre">NOT(OR(...))</span></code> (exclude).</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="fulltext-free-text-search">
+<h3>3. <code class="docutils literal notranslate"><span class="pre">fulltext</span></code> — free-text search<a class="headerlink" href="#fulltext-free-text-search" title="Link to this heading"></a></h3>
+<p>Searches for a token across a set of default fields using a case-insensitive contains match.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fulltext&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kerberos&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fulltext&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kerberos&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;fields&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;data.summary&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;data.cve&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fulltext&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kerberos&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;exclude&quot;</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 10.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">value</span></code></p></td>
+<td><p>yes</p></td>
+<td><p>Token to search for</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">fields</span></code></p></td>
+<td><p>no</p></td>
+<td><p>List of attributes to search in. Defaults to <code class="docutils literal notranslate"><span class="pre">data.summary</span></code>, <code class="docutils literal notranslate"><span class="pre">data.cve</span></code>, <code class="docutils literal notranslate"><span class="pre">data.package_name</span></code>, <code class="docutils literal notranslate"><span class="pre">data.package_version</span></code>, <code class="docutils literal notranslate"><span class="pre">artefact.name</span></code>, <code class="docutils literal notranslate"><span class="pre">ocm.name</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mode</span></code></p></td>
+<td><p>no</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;exclude&quot;</span></code> negates the predicate</p></td>
+</tr>
+</tbody>
+</table>
+<p>Multiple fulltext criteria are <strong>AND</strong>ed — all tokens must match (somewhere across the
+configured fields).</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="severity-comparisons">
+<h2>Severity comparisons<a class="headerlink" href="#severity-comparisons" title="Link to this heading"></a></h2>
+<p>Severity values in the DB are stored as string IDs (e.g. <code class="docutils literal notranslate"><span class="pre">NONE</span></code>, <code class="docutils literal notranslate"><span class="pre">LOW</span></code>, <code class="docutils literal notranslate"><span class="pre">MEDIUM</span></code>, <code class="docutils literal notranslate"><span class="pre">HIGH</span></code>,
+<code class="docutils literal notranslate"><span class="pre">CRITICAL</span></code>). Numeric comparison (<code class="docutils literal notranslate"><span class="pre">op:</span> <span class="pre">cmp</span></code>) works directly against the raw string. However,
+for symbolic comparisons (<code class="docutils literal notranslate"><span class="pre">data.severity&gt;=HIGH</span></code>) to work correctly, the server resolves the
+symbolic ID to a numeric value via the configured finding categorisations.</p>
+<p><strong>This resolution requires exactly one included finding type in the criteria.</strong> If multiple
+finding types are selected (or none), symbolic severity comparisons will be rejected with a
+<code class="docutils literal notranslate"><span class="pre">400</span> <span class="pre">Bad</span> <span class="pre">Request</span></code>.</p>
+<p>Example:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data.severity&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cmp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cmp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&gt;=&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HIGH&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="data-types">
+<h2>Data types<a class="headerlink" href="#data-types" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">type</span></code> field on each row identifies what kind of data it holds. Common values:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">finding/vulnerability</span></code></p></td>
+<td><p>CVE vulnerability finding</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">finding/license</span></code></p></td>
+<td><p>License compliance finding</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">finding/crypto</span></code></p></td>
+<td><p>Cryptography finding</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">finding/malware</span></code></p></td>
+<td><p>Malware scan finding</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">finding/diki</span></code></p></td>
+<td><p>Diki policy finding</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">finding/sast</span></code></p></td>
+<td><p>SAST finding</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">finding/falco</span></code></p></td>
+<td><p>Falco runtime finding</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">finding/osid</span></code></p></td>
+<td><p>OS identification finding</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">finding/ip</span></code></p></td>
+<td><p>IP finding</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rescorings</span></code></p></td>
+<td><p>Custom rescoring applied to a finding</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">meta/artefact_scan_info</span></code></p></td>
+<td><p>Scan metadata</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">compliance/snapshots</span></code></p></td>
+<td><p>Compliance snapshot</p></td>
+</tr>
+</tbody>
+</table>
+<p>For <code class="docutils literal notranslate"><span class="pre">rescorings</span></code> rows, <code class="docutils literal notranslate"><span class="pre">referenced_type</span></code> holds the finding type the rescoring applies to
+(e.g. <code class="docutils literal notranslate"><span class="pre">finding/vulnerability</span></code>).</p>
+</section>
+<hr class="docutils" />
+<section id="querying-rescorings">
+<h2>Querying rescorings<a class="headerlink" href="#querying-rescorings" title="Link to this heading"></a></h2>
+<p>Rescorings might be stored without a component version because it can be intended to apply across
+all versions of a component. To query rescorings effectively:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rescorings&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>Scope to a specific finding type:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w">            </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rescorings&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;referenced_type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>Scope to a component (versioned). Because rescorings typically have no <code class="docutils literal notranslate"><span class="pre">component_version</span></code>,
+the server automatically widens the match to also include rows where <code class="docutils literal notranslate"><span class="pre">component_version</span> <span class="pre">IS</span> <span class="pre">NULL</span></code>
+whenever <code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">rescorings</span></code> is the only included type filter:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rescorings&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/my-comp:1.2.3&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>This returns rescorings for <code class="docutils literal notranslate"><span class="pre">acme.org/my-comp</span></code> regardless of whether they were stored with
+version <code class="docutils literal notranslate"><span class="pre">1.2.3</span></code> or without any version.</p>
+</section>
+<hr class="docutils" />
+<section id="sorting">
+<h2>Sorting<a class="headerlink" href="#sorting" title="Link to this heading"></a></h2>
+<p>Default sort is <code class="docutils literal notranslate"><span class="pre">meta.creation_date</span> <span class="pre">DESC,</span> <span class="pre">id</span> <span class="pre">DESC</span></code>. A secondary <code class="docutils literal notranslate"><span class="pre">id</span></code> sort is always appended
+automatically to guarantee a stable cursor position.</p>
+<p>Supported sort fields:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">meta.creation_date</span></code></p></td>
+<td><p>Creation timestamp (datetime-aware)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">meta.last_update</span></code></p></td>
+<td><p>Last update timestamp (datetime-aware)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">type</span></code></p></td>
+<td><p>Data type string</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ocm.name</span></code></p></td>
+<td><p>Component name</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ocm.version</span></code></p></td>
+<td><p>Component version</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">id</span></code></p></td>
+<td><p>Row ID (always appended as tiebreaker)</p></td>
+</tr>
+</tbody>
+</table>
+<p>All sort fields in a single request must use the same direction (<code class="docutils literal notranslate"><span class="pre">asc</span></code> or <code class="docutils literal notranslate"><span class="pre">desc</span></code>). Mixed
+sort orders are rejected with <code class="docutils literal notranslate"><span class="pre">400</span> <span class="pre">Bad</span> <span class="pre">Request</span></code>.</p>
+</section>
+<hr class="docutils" />
+<section id="pagination">
+<h2>Pagination<a class="headerlink" href="#pagination" title="Link to this heading"></a></h2>
+<p>The endpoint uses <strong>cursor-based client-facing pagination</strong>. After receiving a page,
+pass the returned <code class="docutils literal notranslate"><span class="pre">nextCursor</span></code> object as <code class="docutils literal notranslate"><span class="pre">cursor</span></code> in the next request to continue from where
+the previous page ended. A <code class="docutils literal notranslate"><span class="pre">null</span></code> <code class="docutils literal notranslate"><span class="pre">nextCursor</span></code> means there are no more results.</p>
+<p>The cursor encodes the sort-field values of the last returned row. It is opaque and must not
+be modified. Changing <code class="docutils literal notranslate"><span class="pre">criteria</span></code> or <code class="docutils literal notranslate"><span class="pre">sort</span></code> between pages yields undefined results.</p>
+<p>To avoid pagination becoming arbitrarily expensive on very large result sets that are
+heavily filtered post-fetch (by finding configs), the server over-fetches from the database
+(up to <code class="docutils literal notranslate"><span class="pre">10x</span></code> the page size per round, capped at 2000 rows) and iterates up to 10 rounds
+before returning a partial page.</p>
+</section>
+<hr class="docutils" />
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<section id="all-vulnerability-findings-for-a-component-version">
+<h3>All vulnerability findings for a component version<a class="headerlink" href="#all-vulnerability-findings-for-a-component-version" title="Link to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/my-comp:1.2.3&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="high-or-critical-vulnerabilities-across-a-component-tree">
+<h3>High or critical vulnerabilities across a component tree<a class="headerlink" href="#high-or-critical-vulnerabilities-across-a-component-tree" title="Link to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w">          </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w">  </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data.severity&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cmp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;cmp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&gt;=&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;HIGH&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/my-comp:1.2.3&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;recursive&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="specific-cve-across-all-component-versions">
+<h3>Specific CVE across all component versions<a class="headerlink" href="#specific-cve-across-all-component-versions" title="Link to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w">     </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data.cve&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CVE-2024-1234&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="all-rescorings-for-a-component-any-finding-type">
+<h3>All rescorings for a component, any finding type<a class="headerlink" href="#all-rescorings-for-a-component-any-finding-type" title="Link to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;rescorings&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/my-comp:1.2.3&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="findings-created-after-a-specific-date-excluding-a-known-noisy-component">
+<h3>Findings created after a specific date, excluding a known noisy component<a class="headerlink" href="#findings-created-after-a-specific-date-excluding-a-known-noisy-component" title="Link to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w">               </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w">    </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;meta.creation_date&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;range&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;gte&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-06-01T00:00:00Z&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ocm&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme.org/noisy-comp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;exclude&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="free-text-search-for-a-package-name">
+<h3>Free-text search for a package name<a class="headerlink" href="#free-text-search-for-a-package-name" title="Link to this heading"></a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;criteria&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;artefact-metadata&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;attr&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;op&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eq&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;finding/vulnerability&quot;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;fulltext&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;openssl&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="delivery_service.html" class="btn btn-neutral float-left" title="Using the delivery-service HTTP API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="model.html" class="btn btn-neutral float-right" title="Data Model" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SAP SE or an SAP affiliate company.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

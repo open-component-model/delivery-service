@@ -12,6 +12,7 @@ Getting Started
    local_setup
    contribute_extension
    delivery_service
+   artefact_metadata_query
 
 Data Model
 ==========
