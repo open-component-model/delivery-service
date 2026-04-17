@@ -248,7 +248,8 @@ def findings_summary(
     finding_name = finding_cfg.type.removeprefix('finding/')
     summary_long = summary = summary_short = f'# Summary of found {finding_name} findings\n'
 
-    for finding_group in finding_groups:
+    total_groups = len(finding_groups)
+    for idx, finding_group in enumerate(finding_groups, start=1):
         # only show rescoring URL in case there are actually open findings to rescore
         show_delivery_dashboard_url = bool(finding_group.findings)
         group_summary_long, group_summary, group_summary_short = finding_group.summary(
@@ -287,7 +288,8 @@ def findings_summary(
         if group_summary:
             summary += f'{group_summary}\n---\n'
         if group_summary_short:
-            summary_short += f'{group_summary_short}\n---\n'
+            # add counter to short summary for better navigation
+            summary_short += f'**[{idx}/{total_groups}]** {group_summary_short}\n---\n'
 
     return summary_long, summary, summary_short
 
