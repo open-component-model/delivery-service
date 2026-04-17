@@ -252,7 +252,7 @@ class Blob(aiohttp.web.View):
         - Blob
         parameters:
         - in: header
-          name: digest
+          name: Digest
           required: true
           schema:
             type: string
