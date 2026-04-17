@@ -525,7 +525,7 @@ class ComponentResponsibles(aiohttp.web.View):
 # unnecessary load.
 @deliverydb.cache.dbcached_function(
     ttl_seconds=60,
-    exclude_kwargs=('oci_client'),
+    exclude_kwargs=('oci_client',),
 )
 async def component_versions(
     component_name: str,
