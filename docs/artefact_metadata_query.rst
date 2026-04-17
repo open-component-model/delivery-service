@@ -360,7 +360,7 @@ sort orders are rejected with ``400 Bad Request``.
 Pagination
 ----------
 
-The endpoint uses **seek (keyset) pagination** instead of ``OFFSET``. After receiving a page,
+The endpoint uses **cursor-based client-facing pagination**. After receiving a page,
 pass the returned ``nextCursor`` object as ``cursor`` in the next request to continue from where
 the previous page ended. A ``null`` ``nextCursor`` means there are no more results.
 
