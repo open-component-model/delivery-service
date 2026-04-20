@@ -212,7 +212,7 @@ class ExtensionInstance:
                 for path, value in image_mappings.items():
                     installation_values.append(
                         ExtensionInstanceValue(
-                            helm_chart_name=mapping.name,
+                            helm_chart_name=ocm_ref.helm_chart_name,
                             helm_attribute=path,
                             value=value,
                         ),
