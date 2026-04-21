@@ -198,7 +198,7 @@ class ResourceGroupProcessor:
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_scan_results: collections.abc.Iterable[bm.Product],
         processing_mode: bm.ProcessingMode,
-        delivery_service_client: odg_client.DeliveryServiceClient | None = None,
+        delivery_service_client: odg_client.DeliveryServiceClient,
         vulnerability_cfg: odg.findings.Finding | None = None,
         license_cfg: odg.findings.Finding | None = None,
     ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
@@ -325,9 +325,9 @@ def run_scan(
     processing_mode: bm.ProcessingMode,
     resource_node: ocm.iter.ResourceNode,
     secret_factory: secret_mgmt.SecretFactory,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     vulnerability_cfg: odg.findings.Finding | None = None,
     license_cfg: odg.findings.Finding | None = None,
-    delivery_service_client: odg_client.DeliveryServiceClient | None = None,
 ) -> collections.abc.Iterator[odg.model.ArtefactMetadata]:
 
     content_iterator = ocm_util.iter_content_for_resource_node(

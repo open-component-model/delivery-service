@@ -50,7 +50,7 @@ def iter_existing_findings(
 def iter_artefact_metadata(
     scanned_element: ocm.iter.ResourceNode,
     scan_result: bm.AnalysisResult,
-    delivery_service_client: odg_client.DeliveryServiceClient = None,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     vulnerability_cfg: odg.findings.Finding | None = None,
     license_cfg: odg.findings.Finding | None = None,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
@@ -240,34 +240,33 @@ def iter_artefact_metadata(
                 findings.append(artefact_metadata)
                 yield artefact_metadata
 
-    if delivery_service_client:
-        # delete those BDBA findings which were found before for this scan but which are not part
-        # of the current scan anymore -> those are either solved license findings or (now)
-        # historical vulnerability findings (e.g. because a custom version was entered)
-        existing_findings = iter_existing_findings(
-            delivery_service_client=delivery_service_client,
-            resource_node=scanned_element,
-            finding_type=(
-                odg.model.Datatype.VULNERABILITY_FINDING,
-                odg.model.Datatype.LICENSE_FINDING,
-            ),
-        )
+    # delete those BDBA findings which were found before for this scan but which are not part
+    # of the current scan anymore -> those are either solved license findings or (now)
+    # historical vulnerability findings (e.g. because a custom version was entered)
+    existing_findings = iter_existing_findings(
+        delivery_service_client=delivery_service_client,
+        resource_node=scanned_element,
+        finding_type=(
+            odg.model.Datatype.VULNERABILITY_FINDING,
+            odg.model.Datatype.LICENSE_FINDING,
+        ),
+    )
 
-        stale_findings = []
-        for existing_finding in existing_findings:
-            for finding in findings:
-                if (
-                    existing_finding.meta.type == finding.meta.type
-                    and existing_finding.data.key == finding.data.key
-                ):
-                    # finding still appeared in current scan result -> keep it
-                    break
-            else:
-                # finding did not appear in current scan result -> delete it
-                stale_findings.append(existing_finding)
+    stale_findings = []
+    for existing_finding in existing_findings:
+        for finding in findings:
+            if (
+                existing_finding.meta.type == finding.meta.type
+                and existing_finding.data.key == finding.data.key
+            ):
+                # finding still appeared in current scan result -> keep it
+                break
+        else:
+            # finding did not appear in current scan result -> delete it
+            stale_findings.append(existing_finding)
 
-        if stale_findings:
-            delivery_service_client.delete_metadata(data=stale_findings)
+    if stale_findings:
+        delivery_service_client.delete_metadata(data=stale_findings)
 
 
 def iter_filesystem_paths(

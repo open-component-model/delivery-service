@@ -152,8 +152,11 @@ def is_jwt_token_expired(
         verify_signature=False,
     )
 
+    if 'exp' not in decoded_jwt:
+        raise ValueError('`exp` claim is missing in the provided JWT')
+
     expiration_date = datetime.datetime.fromtimestamp(
-        timestamp=decoded_jwt.get('exp'),
+        timestamp=decoded_jwt['exp'],
         tz=datetime.timezone.utc,
     )
 
