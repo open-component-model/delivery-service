@@ -30,6 +30,9 @@ setuptools.setup(
     long_description_content_type='text/markdown',
     python_requires='>=3.11',
     py_modules=[],
-    packages=['delivery'],
+    packages=[
+        'delivery',
+        'odg_client',
+    ],
     install_requires=list(requirements()),
 )
