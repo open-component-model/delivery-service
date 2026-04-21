@@ -16,7 +16,6 @@ import github3.issues.milestone
 import github3.repos
 
 import cnudie.retrieve
-import delivery.model
 import github.limits
 import github.retry
 import github.util
@@ -28,6 +27,7 @@ import k8s.util
 import odg.extensions_cfg
 import odg.findings
 import odg.model
+import odg_client.model
 import rescore.utility
 import util
 
@@ -1685,7 +1685,7 @@ def create_issue(
     title: str,
     milestone: github3.issues.milestone.Milestone | None,
     assignees: set[str],
-    assignees_statuses: set[delivery.model.Status] | None,
+    assignees_statuses: set[odg_client.model.Status] | None,
     labels: set[str],
 ) -> github3.issues.issue.ShortIssue:
     try:
@@ -1732,7 +1732,7 @@ def _create_or_update_issue(
     delivery_dashboard_url: str,
     sprint_name: str,
     assignees: set[str],
-    assignees_statuses: set[delivery.model.Status] | None,
+    assignees_statuses: set[odg_client.model.Status] | None,
     assignee_mode: odg.model.ResponsibleAssigneeModes,
     labels: set[str],
 ) -> github3.issues.issue.ShortIssue | None:
@@ -1836,7 +1836,7 @@ def _create_or_update_or_close_issue_per_finding(
     delivery_dashboard_url: str,
     sprint_name: str,
     assignees: set[str],
-    assignees_statuses: set[delivery.model.Status] | None,
+    assignees_statuses: set[odg_client.model.Status] | None,
     assignee_mode: odg.model.ResponsibleAssigneeModes,
     labels: set[str],
 ):
@@ -1911,7 +1911,7 @@ def create_or_update_or_close_issue(
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
     assignees: set[str],
-    assignees_statuses: set[delivery.model.Status] | None,
+    assignees_statuses: set[odg_client.model.Status] | None,
     assignee_mode: odg.model.ResponsibleAssigneeModes,
 ):
     if len(artefacts_without_scan) == 0:

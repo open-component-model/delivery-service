@@ -15,7 +15,6 @@ import urllib3.util.retry
 
 import ci.log
 import cnudie.retrieve
-import delivery.client
 import ocm
 import ocm.util
 
@@ -26,6 +25,7 @@ import odg.extensions_cfg
 import odg.findings
 import odg.model
 import odg.util
+import odg_client
 import paths
 import secret_mgmt
 import secret_mgmt.github
@@ -322,7 +322,7 @@ def create_ghas_findings(
 def build_artefact_from_finding(
     finding: odg.model.GitHubSecretFinding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_service_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
 ) -> odg.model.ComponentArtefactId:
     """
     Extract component info from finding and return a ComponentArtefactId.
@@ -376,7 +376,7 @@ def scan(
     ghas_config: odg.extensions_cfg.GHASConfig,
     ghas_finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     secret_factory: secret_mgmt.SecretFactory,
 ):
     logger.info('Starting GHAS scan...')
@@ -388,7 +388,7 @@ def scan(
 
     all_existing_metadata = [
         odg.model.ArtefactMetadata.from_dict(raw)
-        for raw in delivery_client.query_metadata(
+        for raw in delivery_service_client.query_metadata(
             type=odg.model.Datatype.GHAS_FINDING,
         )
     ]
@@ -401,7 +401,7 @@ def scan(
         artefact = build_artefact_from_finding(
             finding=finding,
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_service_client=delivery_client,
+            delivery_service_client=delivery_service_client,
         )
 
         if not ghas_finding_cfg.matches(artefact):
@@ -472,7 +472,7 @@ def scan(
 
     # Deliver new metadata
     if all_metadata:
-        delivery_client.update_metadata(data=all_metadata)
+        delivery_service_client.update_metadata(data=all_metadata)
         logger.info(f'GHAS metadata successfully delivered: {len(all_metadata)} entries.')
     else:
         logger.info('No artefact metadata was created from findings.')
@@ -520,8 +520,8 @@ def main():
     if not delivery_service_url:
         delivery_service_url = ghas_config.delivery_service_url
 
-    delivery_client = delivery.client.DeliveryServiceClient(
-        routes=delivery.client.DeliveryServiceRoutes(
+    delivery_service_client = odg_client.DeliveryServiceClient(
+        routes=odg_client.DeliveryServiceRoutes(
             base_url=delivery_service_url,
         ),
         auth_token_lookup=lookups.github_auth_token_lookup,
@@ -529,7 +529,7 @@ def main():
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
         cache_dir=parsed_arguments.cache_dir,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
     )
 
     secret_factory = ctx_util.secret_factory()
@@ -538,7 +538,7 @@ def main():
         ghas_config=ghas_config,
         ghas_finding_cfg=ghas_finding_config,
         component_descriptor_lookup=component_descriptor_lookup,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
         secret_factory=secret_factory,
     )
 

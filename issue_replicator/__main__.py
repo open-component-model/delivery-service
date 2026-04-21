@@ -9,8 +9,6 @@ import github3.repos
 
 import ci.log
 import cnudie.retrieve
-import delivery.client
-import delivery.model
 import github.compliance.milestone as gcmi
 import github.user
 
@@ -21,6 +19,8 @@ import odg.extensions_cfg
 import odg.findings
 import odg.model
 import odg.util
+import odg_client
+import odg_client.model
 import paths
 import rescore.utility
 import util
@@ -33,7 +33,7 @@ k8s.logging.configure_kubernetes_logging()
 
 @functools.cache
 def sprint_dates(
-    sprints: collections.abc.Iterable[delivery.model.Sprint],
+    sprints: collections.abc.Iterable[odg_client.model.Sprint],
     date_name: str = 'release_decision',
 ) -> tuple[datetime.date]:
     sprint_dates = tuple(sprint.find_sprint_date(name=date_name).value.date() for sprint in sprints)
@@ -45,7 +45,7 @@ def sprint_dates(
 
 
 def _iter_findings_for_artefact(
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     artefacts: collections.abc.Iterable[odg.model.ComponentArtefactId],
     finding_type: odg.model.Datatype,
     finding_source: odg.model.Datasource,
@@ -60,7 +60,7 @@ def _iter_findings_for_artefact(
         findings.extend(
             [
                 odg.model.ArtefactMetadata.from_dict(raw)
-                for raw in delivery_client.query_metadata(
+                for raw in delivery_service_client.query_metadata(
                     artefacts=chunked_artefacts,
                     type=[odg.model.Datatype.ARTEFACT_SCAN_INFO, finding_type],
                 )
@@ -70,7 +70,7 @@ def _iter_findings_for_artefact(
         rescorings.update(
             [
                 odg.model.ArtefactMetadata.from_dict(raw)
-                for raw in delivery_client.query_metadata(
+                for raw in delivery_service_client.query_metadata(
                     artefacts=chunked_artefacts,
                     type=odg.model.Datatype.RESCORING,
                     referenced_type=finding_type,
@@ -175,7 +175,7 @@ def _group_findings_by_due_date(
 def _responsibles_from_responsible_infos(
     artefacts: collections.abc.Sequence[odg.model.ComponentArtefactId],
     finding_type: odg.model.Datatype,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
 ) -> tuple[list[dict] | None, odg.model.ResponsibleAssigneeModes | None]:
     """
     If at least one responsible-info exists for one of the passed-in `artefacts` and the
@@ -183,7 +183,7 @@ def _responsibles_from_responsible_infos(
     returned together with the defined `assignee_mode`. If no such info exists, `None` is returned
     instead.
     """
-    responsible_infos_raw = delivery_client.query_metadata(
+    responsible_infos_raw = delivery_service_client.query_metadata(
         artefacts=artefacts,
         type=odg.model.Datatype.RESPONSIBLES,
         referenced_type=finding_type,
@@ -237,11 +237,11 @@ def _responsibles(
     artefacts: collections.abc.Sequence[odg.model.ComponentArtefactId],
     finding_type: odg.model.Datatype,
     default_assignee_mode: odg.model.ResponsibleAssigneeModes,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
 ) -> tuple[
     list[dict] | None,
     odg.model.ResponsibleAssigneeModes,
-    list[delivery.model.Status] | None,
+    list[odg_client.model.Status] | None,
 ]:
     """
     If responsibles can be retrieved via overwrites, a list of these responsibles is returned
@@ -259,14 +259,14 @@ def _responsibles(
     current_responsibles, assignee_mode = _responsibles_from_responsible_infos(
         artefacts=artefacts,
         finding_type=finding_type,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
     )
 
     if current_responsibles is not None:
         return current_responsibles, assignee_mode or default_assignee_mode, None
 
     artefact = artefacts[0]
-    component_responsibles, statuses = delivery_client.component_responsibles(
+    component_responsibles, statuses = delivery_service_client.component_responsibles(
         name=artefact.component_name,
         version=artefact.component_version,
         artifact=artefact.artefact.artefact_name,
@@ -293,7 +293,7 @@ def _github_assignees(
     repository = odg.extensions_cfg.github_repository(mapping.github_repository)
     gh_api = odg.extensions_cfg.github_api(mapping.github_repository)
 
-    gh_usernames = delivery.client.github_usernames_from_responsibles(
+    gh_usernames = odg_client.github_usernames_from_responsibles(
         responsibles=responsibles,
         github_url=repository.html_url,
     )
@@ -328,7 +328,7 @@ def replicate_issue_for_finding_type(
     artefact: odg.model.ComponentArtefactId,
     finding_cfg: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_dashboard_url: str,
     due_dates: collections.abc.Iterable[datetime.date],
@@ -346,7 +346,7 @@ def replicate_issue_for_finding_type(
 
     active_compliance_snapshots = tuple(
         compliance_snapshot
-        for raw in delivery_client.query_metadata(
+        for raw in delivery_service_client.query_metadata(
             artefacts=(artefact_group,),
             type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
         )
@@ -362,7 +362,7 @@ def replicate_issue_for_finding_type(
 
     if is_in_bom := len(active_compliance_snapshots) > 0 and finding_cfg.matches(artefact):
         findings = _iter_findings_for_artefact(
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             artefacts=artefacts,
             finding_type=finding_type,
             finding_source=finding_source,
@@ -428,7 +428,7 @@ def replicate_issue_for_finding_type(
             artefacts=artefacts,
             finding_type=finding_cfg.type,
             default_assignee_mode=finding_cfg.issues.default_assignee_mode,
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
         )
         github_assignees = _github_assignees(
             responsibles=responsibles,
@@ -486,14 +486,14 @@ def replicate_issue(
     extension_cfg: odg.extensions_cfg.IssueReplicatorConfig,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     **kwargs,
 ):
     logger.info(f'starting issue replication of {artefact}')
 
     sprints = tuple(
         gcmi.sprints_cached(
-            delivery_svc_client=delivery_client,
+            delivery_svc_client=delivery_service_client,
         ),
     )
 
@@ -523,7 +523,7 @@ def replicate_issue(
             artefact=artefact,
             finding_cfg=finding_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             mapping=mapping,
             delivery_dashboard_url=extension_cfg.delivery_dashboard_url,
             due_dates=due_dates,

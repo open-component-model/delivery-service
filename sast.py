@@ -7,7 +7,6 @@ import logging
 
 import ci.log
 import cnudie.retrieve
-import delivery.client
 import ocm
 import ocm.iter
 
@@ -18,6 +17,7 @@ import odg.findings
 import odg.labels
 import odg.model
 import odg.util
+import odg_client
 import paths
 import rescore.utility
 
@@ -211,7 +211,7 @@ def scan(
     extension_cfg: odg.extensions_cfg.OsId,
     sast_finding_config: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     **kwargs,
 ):
     all_metadata = list(
@@ -223,7 +223,7 @@ def scan(
         ),
     )
 
-    delivery_client.update_metadata(data=all_metadata)
+    delivery_service_client.update_metadata(data=all_metadata)
 
 
 def main():

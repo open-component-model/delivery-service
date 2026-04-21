@@ -5,7 +5,6 @@ import botocore.exceptions
 import requests
 
 import ci.log
-import delivery.client
 import oci.client
 import ocm
 import ocm.iter
@@ -21,6 +20,7 @@ import odg.findings
 import odg.labels
 import odg.model
 import odg.util
+import odg_client
 import ocm_util
 import secret_mgmt
 
@@ -43,7 +43,7 @@ class ResourceGroupProcessor:
         resource_node: ocm.iter.ResourceNode,
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_artefact_scans: collections.abc.Iterable[bm.Product],
-        delivery_client: delivery.client.DeliveryServiceClient,
+        delivery_service_client: odg_client.DeliveryServiceClient,
     ) -> bdba_utils.model.ScanRequest:
         component = resource_node.component
         resource = resource_node.resource
@@ -60,7 +60,7 @@ class ResourceGroupProcessor:
                 component=resource_node.component,
                 artefact=resource_node.resource,
             ),
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
         )
 
         # ensure UUID is not truncated
@@ -198,7 +198,7 @@ class ResourceGroupProcessor:
         content_iterator: collections.abc.Generator[bytes, None, None],
         known_scan_results: collections.abc.Iterable[bm.Product],
         processing_mode: bm.ProcessingMode,
-        delivery_client: delivery.client.DeliveryServiceClient | None = None,
+        delivery_service_client: odg_client.DeliveryServiceClient | None = None,
         vulnerability_cfg: odg.findings.Finding | None = None,
         license_cfg: odg.findings.Finding | None = None,
     ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
@@ -206,7 +206,7 @@ class ResourceGroupProcessor:
             resource_node=resource_node,
             content_iterator=content_iterator,
             known_artefact_scans=known_scan_results,
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
         )
         try:
             result = self.process_scan_request(
@@ -272,7 +272,7 @@ class ResourceGroupProcessor:
         yield from bdba_utils.util.iter_artefact_metadata(
             scanned_element=scanned_element,
             scan_result=scan_result,
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             vulnerability_cfg=vulnerability_cfg,
             license_cfg=license_cfg,
         )
@@ -327,7 +327,7 @@ def run_scan(
     secret_factory: secret_mgmt.SecretFactory,
     vulnerability_cfg: odg.findings.Finding | None = None,
     license_cfg: odg.findings.Finding | None = None,
-    delivery_client: delivery.client.DeliveryServiceClient | None = None,
+    delivery_service_client: odg_client.DeliveryServiceClient | None = None,
 ) -> collections.abc.Iterator[odg.model.ArtefactMetadata]:
 
     content_iterator = ocm_util.iter_content_for_resource_node(
@@ -353,7 +353,7 @@ def run_scan(
         content_iterator=content_iterator,
         known_scan_results=known_scan_results,
         processing_mode=bm.ProcessingMode(processing_mode),
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
         vulnerability_cfg=vulnerability_cfg,
         license_cfg=license_cfg,
     )

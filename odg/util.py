@@ -10,7 +10,6 @@ import time
 import uuid
 
 import cnudie.retrieve
-import delivery.client
 import oci.client
 
 import consts
@@ -22,6 +21,7 @@ import k8s.util
 import lookups
 import odg.extensions_cfg
 import odg.model
+import odg_client
 import paths
 import secret_mgmt
 
@@ -131,7 +131,7 @@ def process_backlog_items(
             odg.model.ComponentArtefactId,
             object,  # extension_cfg
             cnudie.retrieve.ComponentDescriptorLookupById,
-            delivery.client.DeliveryServiceClient | None,
+            odg_client.DeliveryServiceClient | None,
             oci.client.Client,
             secret_mgmt.SecretFactory,
         ],
@@ -147,7 +147,7 @@ def process_backlog_items(
         - `artefact`: odg.model.ComponentArtefactId
         - `extension_cfg`: object
         - `component_descriptor_lookup`: cnudie.retrieve.ComponentDescriptorLookup
-        - `delivery_client`: delivery.client.DeliveryServiceClient
+        - `delivery_service_client`: odg_client.DeliveryServiceClient
         - `oci_client`: oci.client.Client
         - `secret_factory`: secret_mgmt.SecretFactory
 
@@ -197,14 +197,14 @@ def process_backlog_items(
             delivery_service_url = extension_cfg.delivery_service_url
 
     if delivery_service_url:
-        delivery_client = delivery.client.DeliveryServiceClient(
-            routes=delivery.client.DeliveryServiceRoutes(
+        delivery_service_client = odg_client.DeliveryServiceClient(
+            routes=odg_client.DeliveryServiceRoutes(
                 base_url=delivery_service_url,
             ),
             auth_token_lookup=lookups.github_auth_token_lookup,
         )
     else:
-        delivery_client = None
+        delivery_service_client = None
 
     oci_client = lookups.semver_sanitising_oci_client(
         secret_factory=secret_factory,
@@ -212,7 +212,7 @@ def process_backlog_items(
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
         cache_dir=parsed_arguments.cache_dir,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
         oci_client=oci_client,
     )
 
@@ -260,7 +260,7 @@ def process_backlog_items(
             artefact=backlog_item.artefact,
             extension_cfg=extension_cfg,
             component_descriptor_lookup=component_descriptor_lookup,
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             oci_client=oci_client,
             secret_factory=secret_factory,
         )
@@ -280,7 +280,7 @@ def process_backlog_items(
 
 def uuid_for_artefact_id(
     artefact_id: odg.model.ComponentArtefactId,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     skip_verify: bool = False,
 ) -> uuid.UUID:
     """
@@ -294,7 +294,7 @@ def uuid_for_artefact_id(
     Args:
       artefact_id: The ComponentArtefactId identifying the artefact for which
         to retrieve or create a UUID.
-      delivery_client: The DeliveryServiceClient used to query and update
+      delivery_service_client: The DeliveryServiceClient used to query and update
         metadata in the delivery service.
       skip_verify: Whether to check if newly created UUID is fetchable from ODG
 
@@ -307,7 +307,7 @@ def uuid_for_artefact_id(
       - if the UUID upload verification fails
       - if more than one UUID is found for an artefact
     """
-    result = delivery_client.query_metadata(
+    result = delivery_service_client.query_metadata(
         artefacts=[
             artefact_id,
         ],
@@ -323,7 +323,7 @@ def uuid_for_artefact_id(
         raise ValueError(f'more than one UUID found for {artefact_id}')
 
     uuid4 = uuid.uuid4()
-    delivery_client.update_metadata(
+    delivery_service_client.update_metadata(
         data=[
             odg.model.ArtefactMetadata(
                 artefact=artefact_id,
@@ -341,7 +341,7 @@ def uuid_for_artefact_id(
     if skip_verify:
         return uuid4
 
-    result = delivery_client.query_metadata(
+    result = delivery_service_client.query_metadata(
         artefacts=[
             artefact_id,
         ],

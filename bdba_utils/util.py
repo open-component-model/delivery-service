@@ -11,13 +11,13 @@ import logging
 import dacite
 
 import ci.log
-import delivery.client
 import ocm.iter
 
 import bdba.model as bm
 import odg.cvss
 import odg.findings
 import odg.model
+import odg_client
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ ci.log.configure_default_logging(print_thread_id=True)
 
 
 def iter_existing_findings(
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     resource_node: ocm.iter.ResourceNode,
     finding_type: odg.model.Datatype | tuple[odg.model.Datatype],
     datasource: odg.model.Datasource = odg.model.Datasource.BDBA,
@@ -35,7 +35,7 @@ def iter_existing_findings(
         artefact=resource_node.resource,
     )
 
-    findings_raw = delivery_client.query_metadata(
+    findings_raw = delivery_service_client.query_metadata(
         artefacts=(artefact,),
         type=finding_type,
     )
@@ -50,7 +50,7 @@ def iter_existing_findings(
 def iter_artefact_metadata(
     scanned_element: ocm.iter.ResourceNode,
     scan_result: bm.AnalysisResult,
-    delivery_client: delivery.client.DeliveryServiceClient = None,
+    delivery_service_client: odg_client.DeliveryServiceClient = None,
     vulnerability_cfg: odg.findings.Finding | None = None,
     license_cfg: odg.findings.Finding | None = None,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
@@ -240,12 +240,12 @@ def iter_artefact_metadata(
                 findings.append(artefact_metadata)
                 yield artefact_metadata
 
-    if delivery_client:
+    if delivery_service_client:
         # delete those BDBA findings which were found before for this scan but which are not part
         # of the current scan anymore -> those are either solved license findings or (now)
         # historical vulnerability findings (e.g. because a custom version was entered)
         existing_findings = iter_existing_findings(
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             resource_node=scanned_element,
             finding_type=(
                 odg.model.Datatype.VULNERABILITY_FINDING,
@@ -267,7 +267,7 @@ def iter_artefact_metadata(
                 stale_findings.append(existing_finding)
 
         if stale_findings:
-            delivery_client.delete_metadata(data=stale_findings)
+            delivery_service_client.delete_metadata(data=stale_findings)
 
 
 def iter_filesystem_paths(

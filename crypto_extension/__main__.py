@@ -5,7 +5,6 @@ import logging
 
 import ci.log
 import cnudie.retrieve
-import delivery.client
 import oci.client
 
 import crypto_extension.cbom
@@ -17,6 +16,7 @@ import odg.extensions_cfg
 import odg.findings
 import odg.model
 import odg.util
+import odg_client
 import paths
 import secret_mgmt
 
@@ -86,7 +86,7 @@ def scan(
     extension_cfg: odg.extensions_cfg.CryptoConfig,
     crypto_finding_cfg: odg.findings.Finding | None,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
     **kwargs,
@@ -162,7 +162,7 @@ def scan(
 
     existing_artefact_metadata = (
         odg.model.ArtefactMetadata.from_dict(raw)
-        for raw in delivery_client.query_metadata(
+        for raw in delivery_service_client.query_metadata(
             artefacts=(artefact,),
             type=(
                 odg.model.Datatype.CRYPTO_ASSET,
@@ -183,9 +183,9 @@ def scan(
             stale_artefact_metadata.append(existing_artefact_metadatum)
 
     if stale_artefact_metadata:
-        delivery_client.delete_metadata(data=stale_artefact_metadata)
+        delivery_service_client.delete_metadata(data=stale_artefact_metadata)
 
-    delivery_client.update_metadata(
+    delivery_service_client.update_metadata(
         data=artefact_metadata,
     )
 

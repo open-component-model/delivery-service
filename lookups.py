@@ -21,7 +21,6 @@ import requests.adapters
 import cnudie.retrieve
 import cnudie.retrieve_async
 import cnudie.util
-import delivery.client
 import oci.client
 import oci.client_async
 import ocm
@@ -30,6 +29,7 @@ import version as versionutil
 import ctx_util
 import deliverydb_cache.model as dcm
 import deliverydb_cache.util as dcu
+import odg_client
 import paths
 import secret_mgmt
 import secret_mgmt.github
@@ -594,7 +594,7 @@ def db_cache_component_descriptor_lookup_async(
 def init_component_descriptor_lookup(
     ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup = None,
     cache_dir: str = None,
-    delivery_client: delivery.client.DeliveryServiceClient = None,
+    delivery_service_client: odg_client.DeliveryServiceClient = None,
     oci_client: oci.client.Client = None,
     default_absent_ok: bool = False,
 ) -> cnudie.retrieve.ComponentDescriptorLookupById:
@@ -602,7 +602,7 @@ def init_component_descriptor_lookup(
     convenience function to create a composite component descriptor lookup consisting of:
     - in-memory cache lookup
     - file-system cache lookup (if `cache_dir` is specified)
-    - delivery-client lookup (if `delivery_client` is specified)
+    - delivery-service-client lookup (if `delivery_service_client` is specified)
     - oci-client lookup
     """
     if not ocm_repository_lookup:
@@ -625,11 +625,11 @@ def init_component_descriptor_lookup(
             ),
         )
 
-    if delivery_client:
+    if delivery_service_client:
         lookups.append(
             cnudie.retrieve.delivery_service_component_descriptor_lookup(
                 ocm_repository_lookup=ocm_repository_lookup,
-                delivery_client=delivery_client,
+                delivery_client=delivery_service_client,
             ),
         )
 
@@ -651,7 +651,7 @@ def init_component_descriptor_lookup_async(
     ocm_repository_lookup: cnudie.retrieve.OcmRepositoryLookup = None,
     cache_dir: str = None,
     db_url: str = None,
-    delivery_client: delivery.client.DeliveryServiceClient = None,
+    delivery_service_client: odg_client.DeliveryServiceClient = None,
     oci_client: oci.client_async.Client = None,
     default_absent_ok: bool = False,
 ) -> cnudie.retrieve_async.ComponentDescriptorLookupById:
@@ -660,7 +660,7 @@ def init_component_descriptor_lookup_async(
     - in-memory cache lookup
     - file-system cache lookup (if `cache_dir` is specified)
     - database (persistent) cache lookup (if `db_url` is specified)
-    - delivery-client lookup (if `delivery_client` is specified)
+    - delivery-service-client lookup (if `delivery_service_client` is specified)
     - oci-client lookup
     """
     if not ocm_repository_lookup:
@@ -691,11 +691,11 @@ def init_component_descriptor_lookup_async(
             ),
         )
 
-    if delivery_client:
+    if delivery_service_client:
         lookups.append(
             cnudie.retrieve_async.delivery_service_component_descriptor_lookup(
                 ocm_repository_lookup=ocm_repository_lookup,
-                delivery_client=delivery_client,
+                delivery_client=delivery_service_client,
             ),
         )
 
@@ -777,7 +777,7 @@ def github_repo_lookup(
 
 def github_auth_token_lookup(url: str, /) -> str | None:
     """
-    an implementation of delivery.client.AuthTokenLookup
+    an implementation of odg_client.AuthTokenLookup
     """
     secret_factory = ctx_util.secret_factory()
 
