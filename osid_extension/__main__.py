@@ -8,7 +8,6 @@ import tarfile
 import awesomeversion.exceptions
 
 import ci.log
-import delivery.client
 import oci.client
 import oci.model
 import ocm
@@ -22,6 +21,7 @@ import odg.extensions_cfg
 import odg.findings
 import odg.model
 import odg.util
+import odg_client
 import osinfo
 import osid_extension.scan as osidscan
 import osid_extension.util as osidutil
@@ -207,7 +207,7 @@ def process_artefact(
     extension_cfg: odg.extensions_cfg.OsId,
     osid_finding_config: odg.findings.Finding,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     oci_client: oci.client.Client,
     eol_client: eol.EolClient,
     **kwargs,
@@ -266,7 +266,7 @@ def process_artefact(
         relation=resource_node.resource.relation,
     )
 
-    delivery_client.update_metadata(data=osid_metadata)
+    delivery_service_client.update_metadata(data=osid_metadata)
 
 
 def main():

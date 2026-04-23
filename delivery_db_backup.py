@@ -11,7 +11,6 @@ import ci.log
 import cnudie.purge
 import cnudie.retrieve
 import cnudie.util
-import delivery.client
 import oci.auth
 import oci.client
 import ocm
@@ -24,6 +23,7 @@ import k8s.logging
 import lookups
 import odg.extensions_cfg
 import odg.util
+import odg_client
 import paths
 import secret_mgmt
 import secret_mgmt.oci_registry
@@ -305,8 +305,8 @@ def main():
     backup_retention_count = delivery_db_backup_cfg.backup_retention_count
     initial_version = delivery_db_backup_cfg.initial_version
 
-    delivery_service_client = delivery.client.DeliveryServiceClient(
-        routes=delivery.client.DeliveryServiceRoutes(
+    delivery_service_client = odg_client.DeliveryServiceClient(
+        routes=odg_client.DeliveryServiceRoutes(
             base_url=delivery_service_url,
         ),
         auth_token_lookup=lookups.github_auth_token_lookup,

@@ -6,7 +6,6 @@ import logging
 
 import ci.log
 import cnudie.retrieve
-import delivery.client
 import ocm
 import ocm.iter
 
@@ -19,6 +18,7 @@ import odg.extensions_cfg
 import odg.findings
 import odg.model
 import odg.util
+import odg_client
 import paths
 
 
@@ -71,7 +71,7 @@ def create_compliance_snapshot(
 
 def _iter_ocm_artefacts(
     components: collections.abc.Iterable[odg.extensions_cfg.Component],
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> collections.abc.Generator[odg.model.ComponentArtefactId, None, None]:
     for component in components:
@@ -79,7 +79,7 @@ def _iter_ocm_artefacts(
             # if an explicit version is specified, use it without any further implict lookup
             versions = [resolved_version]
         else:
-            versions = delivery_client.greatest_component_versions(
+            versions = delivery_service_client.greatest_component_versions(
                 component_name=component.component_name,
                 max_versions=component.max_versions_limit,
                 ocm_repo=component.ocm_repo,
@@ -231,7 +231,7 @@ def _create_backlog_item_for_extension(
 def _process_compliance_snapshot_of_artefact(
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration,
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     artefact: odg.model.ComponentArtefactId,
     compliance_snapshot: odg.model.ArtefactMetadata | None,
     now: datetime.datetime = datetime.datetime.now(),
@@ -317,7 +317,7 @@ def _process_compliance_snapshot_of_artefact(
     if extensions_cfg.issue_replicator and extensions_cfg.issue_replicator.enabled:
         # if the number of executed scans has changed, trigger an issue update
         scan_count = len(
-            delivery_client.query_metadata(
+            delivery_service_client.query_metadata(
                 artefacts=(artefact,),
                 type=odg.model.Datatype.ARTEFACT_SCAN_INFO,
             ),
@@ -400,7 +400,7 @@ def _process_compliance_snapshot_of_artefact(
 
 def _process_inactive_compliance_snapshots(
     extensions_cfg: odg.extensions_cfg.ExtensionsConfiguration,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     compliance_snapshots: list[odg.model.ArtefactMetadata],
     now: datetime.datetime = datetime.datetime.now(),
 ) -> collections.abc.Generator[
@@ -449,7 +449,7 @@ def _process_inactive_compliance_snapshots(
     if not deletable_compliance_snapshots:
         return
 
-    delivery_client.delete_metadata(data=deletable_compliance_snapshots)
+    delivery_service_client.delete_metadata(data=deletable_compliance_snapshots)
     logger.info(
         f'deleted {len(deletable_compliance_snapshots)} inactive compliance snapshots in '
         f'delivery-db ({artefact=})',
@@ -461,7 +461,7 @@ def enumerate_artefacts(
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     namespace: str,
     kubernetes_api: k8s.util.KubernetesApi,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ):
     """
@@ -482,7 +482,7 @@ def enumerate_artefacts(
     ocm_artefacts = set(
         _iter_ocm_artefacts(
             components=extensions_cfg.artefact_enumerator.components,
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             component_descriptor_lookup=component_descriptor_lookup,
         ),
     )
@@ -502,7 +502,7 @@ def enumerate_artefacts(
 
     compliance_snapshots = tuple(
         odg.model.ArtefactMetadata.from_dict(raw)
-        for raw in delivery_client.query_metadata(
+        for raw in delivery_service_client.query_metadata(
             type=odg.model.Datatype.COMPLIANCE_SNAPSHOTS,
         )
     )
@@ -532,7 +532,7 @@ def enumerate_artefacts(
         compliance_snapshot, uncommitted_backlog_items = _process_compliance_snapshot_of_artefact(
             extensions_cfg=extensions_cfg,
             finding_cfgs=finding_cfgs,
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             artefact=artefact,
             compliance_snapshot=active_cs_by_artefact.get(artefact),
             now=now,
@@ -543,7 +543,7 @@ def enumerate_artefacts(
 
     for compliance_snapshot, uncommitted_backlog_item in _process_inactive_compliance_snapshots(
         extensions_cfg=extensions_cfg,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
         compliance_snapshots=inactive_compliance_snapshots,
         now=now,
     ):
@@ -552,7 +552,7 @@ def enumerate_artefacts(
             all_uncommitted_backlog_items.append(uncommitted_backlog_item)
 
     logger.info(f'updating {len(updated_compliance_snapshots)} compliance snapshots in delivery-db')
-    delivery_client.update_metadata(data=updated_compliance_snapshots)
+    delivery_service_client.update_metadata(data=updated_compliance_snapshots)
 
     for uncommitted_backlog_item in all_uncommitted_backlog_items:
         service = uncommitted_backlog_item.service
@@ -603,8 +603,8 @@ def main():
     if not (delivery_service_url := parsed_arguments.delivery_service_url):
         delivery_service_url = extensions_cfg.artefact_enumerator.delivery_service_url
 
-    delivery_client = delivery.client.DeliveryServiceClient(
-        routes=delivery.client.DeliveryServiceRoutes(
+    delivery_service_client = odg_client.DeliveryServiceClient(
+        routes=odg_client.DeliveryServiceRoutes(
             base_url=delivery_service_url,
         ),
         auth_token_lookup=lookups.github_auth_token_lookup,
@@ -612,7 +612,7 @@ def main():
 
     component_descriptor_lookup = lookups.init_component_descriptor_lookup(
         cache_dir=parsed_arguments.cache_dir,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
     )
 
     enumerate_artefacts(
@@ -620,7 +620,7 @@ def main():
         finding_cfgs=finding_cfgs,
         namespace=namespace,
         kubernetes_api=kubernetes_api,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
         component_descriptor_lookup=component_descriptor_lookup,
     )
 

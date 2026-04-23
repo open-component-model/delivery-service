@@ -2,9 +2,8 @@ import collections.abc
 import datetime
 import dataclasses
 
-import delivery.model
-
 import odg.model
+import odg_client.model
 import util
 
 
@@ -34,8 +33,8 @@ class Sprint:
     def iter_sprint_dates(
         self,
         meta: SprintMetadata | None = None,
-    ) -> collections.abc.Generator[delivery.model.SprintDate, None, None]:
-        yield delivery.model.SprintDate(
+    ) -> collections.abc.Generator[odg_client.model.SprintDate, None, None]:
+        yield odg_client.model.SprintDate(
             value=self.end_date.isoformat(),
             name='end_date',
             display_name='End Date',
@@ -47,7 +46,7 @@ class Sprint:
         for offset in meta.offsets:
             date = self.end_date + datetime.timedelta(days=offset.offset_days)
 
-            yield delivery.model.SprintDate(
+            yield odg_client.model.SprintDate(
                 value=date.isoformat(),
                 name=offset.name,
                 display_name=offset.display_name,

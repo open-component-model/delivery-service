@@ -7,21 +7,21 @@ import logging
 import os
 import tempfile
 
+import ci.log
+import cnudie.retrieve
+import oci.client
+
 import bdba.client
 import bdba.model
 import bdba_utils.scan
 import bdba_utils.util
-import ci.log
-import cnudie.retrieve
-import delivery.client
-import oci.client
 import k8s.util
 import k8s.logging
-
 import ocm.iter
 import odg.model
 import odg.util
 import odg.extensions_cfg
+import odg_client
 import syft
 import secret_mgmt
 import secret_mgmt.bdba
@@ -56,7 +56,7 @@ def get_or_create_bdba_scan(
     bdba_api: bdba.client.BDBAApi,
     group_id: int,
     aws_secret_name: str | None,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
     processing_mode: bdba.model.ProcessingMode,
@@ -95,7 +95,7 @@ def get_or_create_bdba_scan(
             resource_node=resource_node,
             secret_factory=secret_factory,
             oci_client=oci_client,
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
         )
 
         if product_id := next(metadata_generator).data.get('product_id'):
@@ -114,7 +114,7 @@ def get_or_create_bdba_scan(
 def generate_sbom_with_bdba(
     resource_node: ocm.iter.ResourceNode,
     aws_secret_name: str | None,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
     group_id: int,
@@ -140,7 +140,7 @@ def generate_sbom_with_bdba(
         bdba_api=bdba_api,
         group_id=group_id,
         aws_secret_name=aws_secret_name,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
         oci_client=oci_client,
         secret_factory=secret_factory,
         create_new_scan_if_missing=create_new_scan_if_missing,
@@ -166,7 +166,7 @@ def generate_sbom_for_artefact(
     artefact: odg.model.ComponentArtefactId,
     extension_cfg: odg.extensions_cfg.SBOMGeneratorConfig,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
     **kwargs,
@@ -242,7 +242,7 @@ def generate_sbom_for_artefact(
             sbom_result = generate_sbom_with_bdba(
                 resource_node=resource_node,
                 aws_secret_name=mapping.aws_secret_name,
-                delivery_client=delivery_client,
+                delivery_service_client=delivery_service_client,
                 oci_client=oci_client,
                 secret_factory=secret_factory,
                 output_format=bdba_output_format,
@@ -276,7 +276,7 @@ def generate_sbom_for_artefact(
         digest = 'sha256:' + sha256_hash.hexdigest()
 
         with open(tmp_path, 'rb') as f:
-            delivery_client.upload_blob(
+            delivery_service_client.upload_blob(
                 data=f,
                 digest=digest,
                 size=size,
@@ -287,7 +287,7 @@ def generate_sbom_for_artefact(
 
     logger.info(f'SBOM uploaded to blob storage with digest {digest}')
 
-    delivery_client.update_metadata(
+    delivery_service_client.update_metadata(
         data=[
             odg.model.ArtefactMetadata(
                 artefact=artefact,

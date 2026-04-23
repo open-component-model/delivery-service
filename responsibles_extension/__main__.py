@@ -3,13 +3,13 @@ import functools
 import logging
 
 import ci.log
-import delivery.client
 
 import k8s.logging
 import odg.extensions_cfg
 import odg.findings
 import odg.model
 import odg.util
+import odg_client
 import paths
 import responsibles_extension.filters
 import secret_mgmt
@@ -35,7 +35,7 @@ def update_responsibles(
     artefact: odg.model.ComponentArtefactId,
     extension_cfg: odg.extensions_cfg.ResponsiblesConfig,
     finding_cfgs: collections.abc.Iterable[odg.findings.Finding],
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     secret_factory: secret_mgmt.SecretFactory,
     **kwargs,
 ):
@@ -61,7 +61,7 @@ def update_responsibles(
                         artefact=artefact,
                         datatype=finding_type,
                         secret_factory=secret_factory,
-                        delivery_client=delivery_client,
+                        delivery_service_client=delivery_service_client,
                     ),
                 )
 
@@ -86,7 +86,7 @@ def update_responsibles(
                 f'did not find a matching rule for {artefact} and {finding_type=}, skipping...',
             )
 
-    delivery_client.update_metadata(
+    delivery_service_client.update_metadata(
         data=responsibles_artefacts,
     )
 

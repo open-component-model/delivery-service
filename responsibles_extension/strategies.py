@@ -4,10 +4,10 @@ import enum
 import time
 import typing
 
-import delivery.client
 import github.codeowners
 
 import odg.model
+import odg_client
 import secret_mgmt
 import secret_mgmt.github
 import util
@@ -51,7 +51,7 @@ class StrategyBase:
         artefact: odg.model.ComponentArtefactId,
         datatype: odg.model.Datatype,
         secret_factory: secret_mgmt.SecretFactory,
-        delivery_client: delivery.client.DeliveryServiceClient,
+        delivery_service_client: odg_client.DeliveryServiceClient,
     ) -> collections.abc.Generator[odg.model.UserIdentity, None, None]:
         raise NotImplementedError('must be implemented by its subclasses')
 
@@ -65,9 +65,9 @@ class ComponentResponsibles(StrategyBase):
         artefact: odg.model.ComponentArtefactId,
         datatype: odg.model.Datatype,
         secret_factory: secret_mgmt.SecretFactory,
-        delivery_client: delivery.client.DeliveryServiceClient,
+        delivery_service_client: odg_client.DeliveryServiceClient,
     ) -> collections.abc.Generator[odg.model.UserIdentity, None, None]:
-        user_identities, _ = delivery_client.component_responsibles(
+        user_identities, _ = delivery_service_client.component_responsibles(
             name=artefact.component_name,
             version=artefact.component_version,
             artifact=artefact.artefact.artefact_name,
@@ -105,7 +105,7 @@ class StaticResponsibles(StrategyBase):
         artefact: odg.model.ComponentArtefactId,
         datatype: odg.model.Datatype,
         secret_factory: secret_mgmt.SecretFactory,
-        delivery_client: delivery.client.DeliveryServiceClient,
+        delivery_service_client: odg_client.DeliveryServiceClient,
     ) -> collections.abc.Generator[odg.model.UserIdentity, None, None]:
         for responsible in self.responsibles:
             if responsible.type is ResponsibleTypes.GITHUB_USER:

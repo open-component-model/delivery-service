@@ -3,7 +3,6 @@ import logging
 
 import ci.log
 import cnudie.retrieve
-import delivery.client
 import oci.client
 import ocm
 
@@ -17,6 +16,7 @@ import odg.extensions_cfg
 import odg.findings
 import odg.model
 import odg.util
+import odg_client
 import paths
 import secret_mgmt
 import secret_mgmt.bdba
@@ -28,7 +28,7 @@ k8s.logging.configure_kubernetes_logging()
 
 
 def _mark_compliance_summary_cache_for_deletion(
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     component: ocm.ComponentIdentity,
     finding_type: odg.model.Datatype,
 ):
@@ -45,7 +45,7 @@ def _mark_compliance_summary_cache_for_deletion(
         ),
     )
 
-    delivery_client.mark_cache_for_deletion(
+    delivery_service_client.mark_cache_for_deletion(
         id=descriptor.id,
     )
 
@@ -56,7 +56,7 @@ def scan(
     vulnerability_cfg: odg.findings.Finding | None,
     license_cfg: odg.findings.Finding | None,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
-    delivery_client: delivery.client.DeliveryServiceClient,
+    delivery_service_client: odg_client.DeliveryServiceClient,
     oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
     **kwargs,
@@ -129,12 +129,12 @@ def scan(
         resource_node=resource_node,
         secret_factory=secret_factory,
         oci_client=oci_client,
-        delivery_client=delivery_client,
+        delivery_service_client=delivery_service_client,
         vulnerability_cfg=vulnerability_cfg,
         license_cfg=license_cfg,
     )
 
-    delivery_client.update_metadata(data=scan_results)
+    delivery_service_client.update_metadata(data=scan_results)
 
     component = ocm.ComponentIdentity(
         name=artefact.component_name,
@@ -143,13 +143,13 @@ def scan(
 
     if retrieve_vulnerability_findings:
         _mark_compliance_summary_cache_for_deletion(
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             component=component,
             finding_type=odg.model.Datatype.VULNERABILITY_FINDING,
         )
     if retrieve_license_findings:
         _mark_compliance_summary_cache_for_deletion(
-            delivery_client=delivery_client,
+            delivery_service_client=delivery_service_client,
             component=component,
             finding_type=odg.model.Datatype.LICENSE_FINDING,
         )
