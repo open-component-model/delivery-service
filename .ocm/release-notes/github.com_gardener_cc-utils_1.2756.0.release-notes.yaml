@@ -1,0 +1,48 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2756.0
+release_notes:
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: upgrade-dependencies.yaml reusable workflow now creates all upgrade-pullrequests
+    in one run
+  mimetype: text/markdown
+  reference: '[#1563](https://github.com/gardener/cc-utils/pull/1563)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: ocm-spec contained on `ocm` package now features strict OCI-Image-Reference
+    schema.
+  mimetype: text/markdown
+  reference: '[#1568](https://github.com/gardener/cc-utils/pull/1568)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: feature
+  contents: The oci-ocm build pipeline now generates an SPDX SBOM (via anchore/sbom-action)
+    and pushes it as an OCI 1.1 referrer manifest alongside built images.
+  mimetype: text/markdown
+  reference: '[#1556](https://github.com/gardener/cc-utils/pull/1556)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: bugfix
+  contents: OCI Client auth retries now honour configurable max_retries and default_backoff_base_seconds
+    (with exponential backoff), consistent with request retries
+  mimetype: text/markdown
+  reference: '[#1566](https://github.com/gardener/cc-utils/pull/1566)'
+  type: standard
