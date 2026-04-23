@@ -191,13 +191,15 @@ def generate_sbom_for_artefact(
     if not extension_cfg.is_supported(
         artefact_kind=artefact.artefact_kind,
         access_type=resource_node.resource.access.type,
+        artefact_type=resource_node.resource.type,
     ):
         if extension_cfg.on_unsupported is odg.extensions_cfg.WarningVerbosities.FAIL:
             raise TypeError(
-                f'{artefact.artefact_kind} / {resource_node.resource.access.type} is not '
+                f'{artefact.artefact_kind} / {resource_node.resource.access.type} / '
+                f'{resource_node.resource.type} is not '
                 'supported by the SBOM Generator extension, '
                 'maybe the filter configurations have to be adjusted '
-                'to filter out this artefact kind or access type',
+                'to filter out this artefact kind, access type, or artefact type',
             )
         return
 

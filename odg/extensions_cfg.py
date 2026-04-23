@@ -1177,6 +1177,7 @@ class SBOMGeneratorConfig(BacklogItemMixins):
         self,
         artefact_kind: odg.model.ArtefactKind | None = None,
         access_type: ocm.AccessType | None = None,
+        artefact_type: ocm.ArtefactType | None = None,
     ) -> bool:
         supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
 
@@ -1186,6 +1187,13 @@ class SBOMGeneratorConfig(BacklogItemMixins):
                 ocm.AccessType.OCI_REGISTRY,
                 ocm.AccessType.LOCAL_BLOB,
                 ocm.AccessType.S3,
+            ),
+        }
+
+        supported_artefact_types_by_mode = {
+            odg.model.SbomGenerationMode.SYFT: (
+                ocm.ArtefactType.OCI_IMAGE,
+                ocm.ArtefactType.DIRECTORY_TREE,
             ),
         }
 
@@ -1207,6 +1215,16 @@ class SBOMGeneratorConfig(BacklogItemMixins):
                     logger.warning(
                         f'{access_type=} is not supported for SBOM Generation '
                         f'with {self.generation_mode=}, {supported_access_types=}',
+                    )
+
+        if artefact_type:
+            supported_artefact_types = supported_artefact_types_by_mode.get(self.generation_mode, ())
+            if supported_artefact_types and artefact_type not in supported_artefact_types:
+                is_supported = False
+                if self.on_unsupported is WarningVerbosities.WARNING:
+                    logger.warning(
+                        f'{artefact_type=} is not supported for SBOM Generation '
+                        f'with {self.generation_mode=}, {supported_artefact_types=}',
                     )
 
         return is_supported
