@@ -971,10 +971,14 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         ]
 
         async def artefact_queries(artefact_ref: odg.model.ComponentArtefactId):
-            # when filtering for metadata of type `rescorings`, entries without a component
-            # name or version should also be considered a "match" (caused by different rescoring
-            # scopes)
-            none_ok = not type_filter or odg.model.Datatype.RESCORING in type_filter
+            # when filtering for metadata of type `rescorings` or `meta/scanner_writeback`, entries
+            # without a component name or version should also be considered a "match" (caused by
+            # different rescoring scopes)
+            none_ok = (
+                not type_filter
+                or odg.model.Datatype.RESCORING in type_filter
+                or odg.model.Datatype.SCANNER_WRITEBACK in type_filter
+            )
 
             async for query in du.ArtefactMetadataQueries.component_queries(
                 components=[
