@@ -27,7 +27,7 @@ def encode_request(
     If `headers` is provided and not `None`, the response is a tuple of the compression result and
     the patched headers, otherwise only the compression result is returned.
     """
-    if not (data is not None ^ json is not None):
+    if not ((data is not None) ^ (json is not None)):
         raise ValueError('Exactly one of `data` or `json` must be set')
 
     if isinstance(data, dict) and encoding_method == EncodingMethod.GZIP:
