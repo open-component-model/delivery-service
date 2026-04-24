@@ -354,3 +354,20 @@ def uuid_for_artefact_id(
         return uuid4
 
     raise ValueError(f'Local UUID ({str(uuid4)}) and database entry ({db_uuid}) do not match!')
+
+
+def iter_scanner_writebacks(
+    scanner_writeback_type: odg.model.ScannerWritebackType,
+    artefact_id: odg.model.ComponentArtefactId,
+    delivery_service_client: odg_client.DeliveryServiceClient,
+) -> collections.abc.Iterable[odg.model.ScannerWriteback]:
+    scanner_writebacks_raw = delivery_service_client.query_metadata(
+        artefacts=(artefact_id,),
+        type=odg.model.Datatype.SCANNER_WRITEBACK,
+    )
+
+    for scanner_writeback_raw in scanner_writebacks_raw:
+        if scanner_writeback_raw['data'].get('sub_type') != scanner_writeback_type:
+            continue
+
+        yield odg.model.ArtefactMetadata.from_dict(scanner_writeback_raw).data

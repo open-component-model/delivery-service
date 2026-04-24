@@ -1,8 +1,10 @@
 import collections
+import collections.abc
 import dataclasses
 import datetime
 import enum
 import hashlib
+import logging
 import textwrap
 import typing
 
@@ -12,6 +14,9 @@ import ocm
 import ocm.iter
 
 import odg.cvss
+
+
+logger = logging.getLogger(__name__)
 
 
 def _as_key(
@@ -28,6 +33,7 @@ class Datatype(enum.StrEnum):
     COMPLIANCE_SNAPSHOTS = 'compliance/snapshots'
     RESCORING = 'rescorings'
     RESPONSIBLES = 'meta/responsibles'
+    SCANNER_WRITEBACK = 'meta/scanner_writeback'
     UUID = 'meta/uuid'
 
     # finding types
@@ -1402,6 +1408,112 @@ class ResponsibleInfo:
         return _as_key(self.referenced_type)
 
 
+class ScannerWritebackType(enum.StrEnum):
+    LICENSE = 'license'
+    PACKAGE_VERSION = 'package-version'
+
+
+@dataclasses.dataclass
+class ScannerWriteback:
+    sub_type: ScannerWritebackType
+
+
+@dataclasses.dataclass(kw_only=True)
+class LicenseScannerWriteback(ScannerWriteback):
+    package_name: str
+    package_version: str | None
+    license_from: str | None
+    license_to: str | None
+    sub_type: ScannerWritebackType = dataclasses.field(
+        default=ScannerWritebackType.LICENSE,
+        init=False,
+    )
+
+    @property
+    def key(self) -> str:
+        return _as_key(
+            self.sub_type,
+            self.package_name,
+            self.package_version,
+            self.license_from,
+            self.license_to,
+        )
+
+    def matches(
+        self,
+        package_name: str,
+        package_version: str | None,
+    ) -> bool:
+        if self.package_version and self.package_version != package_version:
+            return False
+
+        return self.package_name == package_name
+
+    def apply(
+        self,
+        license_names: collections.abc.Iterable[str],
+    ) -> set[str]:
+        license_from = self.license_from
+        license_to = self.license_to
+
+        license_names = set(license_names)
+
+        if license_from and license_to:
+            logger.info(f'Applying license overwrite REPLACE "{license_from}" -> "{license_to}"')
+            if license_from in license_names:
+                license_names.remove(license_from)
+                license_names.add(license_to)
+            else:
+                logger.info(f'Skipped because "{license_from}" is not an existing license')
+
+        elif license_from:
+            logger.info(f'Applying license overwrite REMOVE "{license_from}"')
+            if license_from in license_names:
+                license_names.remove(license_from)
+
+        elif license_to:
+            logger.info(f'Applying license overwrite ADD "{license_to}"')
+            license_names.add(license_to)
+
+        else:
+            raise ValueError(
+                f'Invalid license overwrite: {self}. At least one of `license_from` or `license_to` '
+                'must be set.',
+            )
+
+        return license_names
+
+
+@dataclasses.dataclass(kw_only=True)
+class PackageVersionScannerWriteback(ScannerWriteback):
+    package_name: str
+    package_version_from: str | None
+    package_version_to: str
+    sub_type: ScannerWritebackType = dataclasses.field(
+        default=ScannerWritebackType.PACKAGE_VERSION,
+        init=False,
+    )
+
+    @property
+    def key(self) -> str:
+        return _as_key(
+            self.sub_type,
+            self.package_name,
+            self.package_version_from,
+            self.package_version_to,
+        )
+
+    def matches(
+        self,
+        package_name: str,
+        package_version: str | None,
+    ) -> bool:
+        if self.package_version_from and self.package_version_from != package_version:
+            return False
+
+        return self.package_name == package_name
+
+
 FindingModels = (
     ClamAVMalwareFinding
     | CryptoFinding
@@ -1417,7 +1529,14 @@ FindingModels = (
     | VulnerabilityFinding
 )
 InformationalModels = StructureInfo | CryptoAsset | ResponsibleInfo
-MetaModels = CustomRescoring | ComplianceSnapshot | ArtefactUUID | dict
+MetaModels = (
+    PackageVersionScannerWriteback
+    | LicenseScannerWriteback
+    | CustomRescoring
+    | ComplianceSnapshot
+    | ArtefactUUID
+    | dict
+)
 
 
 @dataclasses.dataclass
