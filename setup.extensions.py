@@ -9,7 +9,8 @@ own_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 def requirements():
-    yield 'delivery-gear-utils'
+    version = os.environ.get('ODG_UTILS_PACKAGE_VERSION', setup.finalize_version())
+    yield f'delivery-gear-utils=={version}'
 
     with open(os.path.join(own_dir, 'requirements.extensions.txt')) as f:
         for line in f.readlines():
