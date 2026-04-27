@@ -115,6 +115,12 @@ async def _component_descriptor(
     version = util.param(params, 'version', default='greatest')
     raw = util.param_as_bool(params, 'raw')
     ignore_cache = util.param_as_bool(params, 'ignore_cache')
+    ignore_lookup = util.param_as_bool(params, 'ignore_lookup')
+
+    if ignore_lookup and not ocm_repo:
+        raise aiohttp.web.HTTPBadRequest(
+            text='If `ignore_lookup` is true, an `ocm_repo_url` must be specified explicitly',
+        )
 
     if version == 'greatest':
         version = await greatest_version_if_none(
@@ -129,7 +135,11 @@ async def _component_descriptor(
         version=version,
     )
 
-    ocm_repository_lookup = lookups.extended_ocm_repository_lookup(ocm_repo)
+    if ignore_lookup:
+        ocm_repository_lookup = cnudie.retrieve.ocm_repository_lookup(ocm_repo)
+    else:
+        ocm_repository_lookup = lookups.extended_ocm_repository_lookup(ocm_repo)
+
     ocm_repos = list(ocm_repository_lookup(component_name))
 
     if raw or ignore_cache:
@@ -217,6 +227,12 @@ class Component(aiohttp.web.View):
             default: false
         - in: query
           name: ignore_cache
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - in: query
+          name: ignore_lookup
           required: false
           schema:
             type: boolean
@@ -385,6 +401,12 @@ class ComponentResponsibles(aiohttp.web.View):
             default: false
         - in: query
           name: ignore_cache
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - in: query
+          name: ignore_lookup
           required: false
           schema:
             type: boolean

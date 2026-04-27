@@ -310,11 +310,13 @@ class DeliveryServiceClient:
         version: str,
         ocm_repo_url: str = None,
         version_filter: str | None = None,
+        ignore_lookup: bool = False,
         validation_mode: ocm.ValidationMode | None = None,
     ):
         params = {
             'component_name': name,
             'version': version,
+            'ignore_lookup': ignore_lookup,
         }
         if ocm_repo_url:
             params['ocm_repo_url'] = ocm_repo_url
