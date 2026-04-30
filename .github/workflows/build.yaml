@@ -181,8 +181,6 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    container:
-      image: python:3.12-alpine
     needs:
       - packages
     permissions:
@@ -195,14 +193,6 @@ jobs:
           name: distribution-packages
       - name: lint
         run: |
-          echo "install dependencies for python-packages"
-
-          if ! apk add --no-cache $(cat apk-packages) >/tmp/apk.log; then
-            echo "error while trying to install apk-packages:"
-            cat /tmp/apk.log
-            exit 1
-          fi
-
           tar xf distribution-packages.tar.gz -C /tmp
 
           echo "installing linters"
@@ -257,8 +247,6 @@ jobs:
 
   unittests:
     runs-on: ubuntu-latest
-    container:
-      image: alpine
     needs:
       - packages
     permissions:
@@ -271,14 +259,6 @@ jobs:
           name: distribution-packages
       - name: run-tests
         run: |
-          echo "install dependencies for python-packages"
-
-          if ! apk add --no-cache $(cat apk-packages) >/tmp/apk.log; then
-            echo "error while trying to install apk-packages:"
-            cat /tmp/apk.log
-            exit 1
-          fi
-
           tar xf distribution-packages.tar.gz -C /tmp
 
           echo "installing packages"
