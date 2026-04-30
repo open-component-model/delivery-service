@@ -195,9 +195,17 @@ def create_or_update_resource(
             if isinstance(resource, dict):
                 resource_version = resource['metadata']['resourceVersion']
             else:
-                resource_version = resource.to_dict()['metadata']['resource_version']
+                resource = resource.to_dict()
+                resource_version = resource['metadata']['resource_version']
+
+            existing_annotations = resource['metadata'].get('annotations') or {}
+            desired_annotations = data['metadata'].get('annotations') or {}
 
             data['metadata']['resourceVersion'] = resource_version
+            data['metadata']['annotations'] = {
+                **existing_annotations,
+                **desired_annotations,
+            }
 
             kwargs['body'] = data
             replace_namespaced_resource(**kwargs)
