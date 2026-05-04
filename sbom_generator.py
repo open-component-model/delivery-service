@@ -15,8 +15,10 @@ import bdba.client
 import bdba.model
 import bdba_utils.scan
 import bdba_utils.util
+import dockerutil
 import k8s.util
 import k8s.logging
+import ocm
 import ocm.iter
 import odg.model
 import odg.util
@@ -25,6 +27,7 @@ import odg_client
 import syft
 import secret_mgmt
 import secret_mgmt.bdba
+import secret_mgmt.oci_registry
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
@@ -40,11 +43,27 @@ class SBOM:
 def generate_sbom_with_syft(
     resource_node: ocm.iter.ResourceNode,
     output_format: odg.extensions_cfg.SbomFormat,
+    secret_factory: secret_mgmt.SecretFactory,
 ) -> SBOM:
     logger.info(f'Creating SBOM for resource node {resource_node} using syft')
 
+    access = resource_node.resource.access
+
+    if access.type is ocm.AccessType.OCI_REGISTRY:
+        oci_secret = secret_mgmt.oci_registry.find_cfg(
+            secret_factory=secret_factory,
+            image_reference=access.imageReference,
+        )
+
+        if oci_secret:
+            dockerutil.prepare_docker_cfg(
+                image_reference=access.imageReference,
+                username=oci_secret.username,
+                password=oci_secret.password,
+            )
+
     sbom_raw = syft.run_syft(
-        source=resource_node.resource.access.imageReference,
+        source=access.imageReference,
         output_format=output_format,
     )
 
@@ -222,6 +241,7 @@ def generate_sbom_for_artefact(
             sbom_result = generate_sbom_with_syft(
                 resource_node=resource_node,
                 output_format=syft_output_format,
+                secret_factory=secret_factory,
             )
 
         case odg.model.SbomGenerationMode.BDBA:
