@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass
 class LicenseFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
+    package_versions: set[str]
     license: odg.model.License
     filesystem_paths: list[odg.model.FilesystemPath]
 
@@ -44,16 +44,16 @@ class LicenseFinding(odg.model.Finding):
 @dataclasses.dataclass
 class IPFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
-    licenses: tuple[odg.model.License, ...]
-    policy_violations: tuple[odg.model.PolicyViolationRef, ...]
+    package_versions: set[str]
+    licenses: set[odg.model.License]
+    policy_violations: set[odg.model.PolicyViolationRef]
     labels: list[str]
 
 
 @dataclasses.dataclass
 class VulnerabilityFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
+    package_versions: set[str]
     cve: str
     cvss_v3_score: float
     cvss: str
@@ -206,12 +206,12 @@ def _package_versions_and_filesystem_paths(
     artefact_metadata_across_package_version: tuple[odg.model.ArtefactMetadata],
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
     finding: odg.model.ArtefactMetadata,
-) -> tuple[tuple[str], list[odg.model.FilesystemPath]]:
-    package_versions = tuple(
+) -> tuple[set[str], list[odg.model.FilesystemPath]]:
+    package_versions = {
         matching_am.data.package_version
         for matching_am in artefact_metadata_across_package_version
         if matching_am.data.package_version
-    )
+    }
 
     filesystem_paths = filesystem_paths_for_finding(
         artefact_metadata=artefact_metadata,
@@ -444,10 +444,10 @@ async def _iter_rescoring_proposals(
                     finding=am,
                 )
 
-                licenses = tuple(
+                licenses = set(
                     matching_am.data.license for matching_am in am_across_package_versions
                 )
-                policy_violations = tuple(
+                policy_violations = set(
                     matching_am.data.policy_violation for matching_am in am_across_package_versions
                 )
 

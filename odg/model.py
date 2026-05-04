@@ -398,11 +398,27 @@ class PolicyViolationRef:
     id: str | None
     url: str | None
 
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+    def __eq__(self, other: typing.Self) -> bool:
+        if not isinstance(other, type(self)):
+            return False
+        return self.name == other.name
+
 
 @dataclasses.dataclass
 class License:
     name: str
     id: str | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+    def __eq__(self, other: typing.Self) -> bool:
+        if not isinstance(other, type(self)):
+            return False
+        return self.name == other.name
 
 
 @dataclasses.dataclass
