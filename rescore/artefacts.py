@@ -45,7 +45,7 @@ class LicenseFinding(odg.model.Finding):
 class IPFinding(odg.model.Finding):
     package_name: str
     package_versions: tuple[str, ...]  # "..." for dacite.from_dict
-    license: odg.model.License
+    licenses: tuple[odg.model.License, ...]
     policy_violations: tuple[odg.model.PolicyViolationRef, ...]
     labels: list[str]
 
@@ -460,8 +460,7 @@ async def _iter_rescoring_proposals(
                     matching_am
                     for matching_am in artefact_metadata_with_same_ocm
                     if (
-                        matching_am.data.license.name == license.name
-                        and matching_am.data.package_name == package_name
+                        matching_am.data.package_name == package_name
                         and sorted(matching_am.data.labels) == sorted(am.data.labels)
                     )
                 )
@@ -473,6 +472,9 @@ async def _iter_rescoring_proposals(
                     finding=am,
                 )
 
+                licenses = tuple(
+                    matching_am.data.license for matching_am in am_across_package_versions
+                )
                 policy_violations = tuple(
                     matching_am.data.policy_violation for matching_am in am_across_package_versions
                 )
@@ -484,7 +486,7 @@ async def _iter_rescoring_proposals(
                             'package_name': package_name,
                             'package_versions': package_versions,
                             'severity': severity,
-                            'license': license,
+                            'licenses': licenses,
                             'policy_violations': policy_violations,
                             'labels': am.data.labels,
                         },
