@@ -2,18 +2,14 @@ import json
 import logging
 import os
 import subprocess
-import tarfile
 import tempfile
 
 import oci.client
 import ocm
 
 import syft
-import dockerutil
 import odg.extensions_cfg
 import secret_mgmt
-import secret_mgmt.aws
-import secret_mgmt.oci_registry
 
 
 logger = logging.getLogger(__name__)
@@ -72,111 +68,36 @@ def find_cbom_or_create(
     Looks up an existing CBOM document (to be implemented once it is aligned on target picture) or
     creates a CBOM ad-hoc using `syft` and `cbomkit-theia`.
     """
-    if access.type is ocm.AccessType.OCI_REGISTRY:
-        oci_secret = secret_mgmt.oci_registry.find_cfg(
+    with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
+        filename_for_access_type = {
+            ocm.AccessType.LOCAL_BLOB: 'local_blob',
+            ocm.AccessType.S3: 's3',
+            ocm.AccessType.OCI_REGISTRY: 'oci_registry',
+        }
+        sbom_path = os.path.join(tmp_dir, 'sbom')
+        file_path = os.path.join(tmp_dir, filename_for_access_type[access.type])
+
+        sbom_raw = syft.generate_raw_sbom_for_artefact(
+            component=component,
+            access=access,
             secret_factory=secret_factory,
-            image_reference=access.imageReference,
+            oci_client=oci_client,
+            aws_secret_name=mapping.aws_secret_name,
         )
 
-        if oci_secret:
-            dockerutil.prepare_docker_cfg(
-                image_reference=access.imageReference,
-                username=oci_secret.username,
-                password=oci_secret.password,
-            )
+        with open(sbom_path, 'w') as file:
+            file.write(sbom_raw)
 
-        with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
-            sbom_path = os.path.join(tmp_dir, 'sbom')
-
-            sbom_raw = syft.run_syft(source=access.imageReference)
-
-            with open(sbom_path, 'w') as file:
-                file.write(sbom_raw)
-
+        if access.type is ocm.AccessType.OCI_REGISTRY:
             cbom = create_cbom(
                 image=access.imageReference,
                 sbom_path=sbom_path,
             )
 
-    elif access.type is ocm.AccessType.S3:
-        aws_secret = secret_mgmt.aws.find_cfg(
-            secret_factory=secret_factory,
-            secret_name=mapping.aws_secret_name,
-        )
-        s3_client = aws_secret.session.client('s3')
-
-        if isinstance(access, ocm.LegacyS3Access):
-            bucket = access.bucketName
-            key = access.objectKey
         else:
-            bucket = access.bucket
-            key = access.key
-
-        fileobj = s3_client.get_object(Bucket=bucket, Key=key)['Body']
-
-        def tar_filter(member: tarfile.TarInfo, dest_path: str) -> tarfile.TarInfo | None:
-            if member.islnk() or member.issym():
-                if os.path.isabs(member.linkname):
-                    return None
-            return member
-
-        with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
-            sbom_path = os.path.join(tmp_dir, 'sbom')
-            s3_path = os.path.join(tmp_dir, 's3')
-
-            with tarfile.open(fileobj=fileobj, mode='r|*') as tar:
-                tar.extractall(
-                    path=s3_path,
-                    filter=tar_filter,
-                )
-
-            sbom_raw = syft.run_syft(source=s3_path)
-
-            with open(sbom_path, 'w') as file:
-                file.write(sbom_raw)
-
             cbom = create_cbom(
-                dir=s3_path,
+                dir=file_path,
                 sbom_path=sbom_path,
             )
-
-    elif access.type is ocm.AccessType.LOCAL_BLOB:
-        if access.globalAccess:
-            image_reference = access.globalAccess.ref
-            digest = access.globalAccess.digest
-        else:
-            image_reference = component.current_ocm_repo.component_version_oci_ref(
-                name=component.name,
-                version=component.version,
-            )
-            digest = access.localReference
-
-        blob = oci_client.blob(
-            image_reference=image_reference,
-            digest=digest,
-            stream=True,
-        )
-
-        with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
-            sbom_path = os.path.join(tmp_dir, 'sbom')
-            local_blob_path = os.path.join(tmp_dir, 'local_blob')
-
-            with open(local_blob_path, 'wb') as file:
-                for chunk in blob.iter_content(chunk_size=4096):
-                    file.write(chunk)
-
-            sbom_raw = syft.run_syft(source=local_blob_path)
-
-            with open(sbom_path, 'w') as file:
-                file.write(sbom_raw)
-
-            cbom = create_cbom(
-                dir=local_blob_path,
-                sbom_path=sbom_path,
-            )
-
-    else:
-        # we filtered supported access types already earlier
-        raise RuntimeError('this is a bug, this line should never be reached')
 
     return cbom
