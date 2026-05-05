@@ -1,37 +1,101 @@
 import collections.abc
+import logging
+
+import ocm
 
 import bdba.client
 import bdba.model as bm
-
 import odg.labels
+import odg.model
+import odg.util
+import odg_client
+
+
+logger = logging.getLogger(__name__)
+
+
+def iter_package_version_overwrites(
+    component: ocm.Component,
+    resource: ocm.Resource,
+    delivery_service_client: odg_client.DeliveryServiceClient,
+) -> collections.abc.Iterable[odg.model.PackageVersionScannerWriteback]:
+    artefact = odg.model.component_artefact_id_from_ocm(
+        component=component,
+        artefact=resource,
+    )
+
+    yield from odg.util.iter_scanner_writebacks(
+        scanner_writeback_type=odg.model.ScannerWritebackType.PACKAGE_VERSION,
+        artefact_id=artefact,
+        delivery_service_client=delivery_service_client,
+    )
+
+    package_hints_label = resource.find_label(name=odg.labels.PackageVersionHintLabel.name)
+
+    if not package_hints_label:
+        package_hints_label = component.find_label(name=odg.labels.PackageVersionHintLabel.name)
+
+        if not package_hints_label:
+            return
+
+    yield from (
+        odg.model.PackageVersionScannerWriteback(
+            package_name=package_name,
+            package_version_from=None,
+            package_version_to=package_version_to,
+        )
+        for hint in package_hints_label.value
+        if ((package_name := hint.get('name')) and (package_version_to := hint.get('version')))
+    )
 
 
 def upload_version_hints(
     scan_result: bm.AnalysisResult,
-    hints: collections.abc.Iterable[odg.labels.PackageVersionHint],
+    component: ocm.Component,
+    resource: ocm.Resource,
     bdba_client: bdba.client.BDBAApi,
+    delivery_service_client: odg_client.DeliveryServiceClient,
 ) -> bm.AnalysisResult:
-    for component in scan_result.components:
-        name = component.name
-        version = component.version
+    if not (
+        package_version_overwrites := tuple(
+            iter_package_version_overwrites(
+                component=component,
+                resource=resource,
+                delivery_service_client=delivery_service_client,
+            ),
+        )
+    ):
+        return scan_result
 
-        if version and version != 'unknown':
-            # check if package is unique -> in that case we can overwrite the detected version
-            if len([c for c in scan_result.components if c.name == name]) > 1:
-                # not unique, so we cannot overwrite package version
-                continue
+    logger.info(f'uploading package-version-hints for {scan_result.display_name}')
 
-        for hint in hints:
-            if hint.name == name and hint.version != version:
-                break
-        else:
+    for bdba_component in scan_result.components:
+        name = bdba_component.name
+        version = bdba_component.version
+
+        if not (
+            filtered_package_version_overwrites := tuple(
+                package_version_overwrite
+                for package_version_overwrite in package_version_overwrites
+                if package_version_overwrite.matches(
+                    package_name=name,
+                    package_version=version,
+                )
+                and package_version_overwrite.package_version_to != version
+            )
+        ):
             continue
 
-        digests = [eo.sha1 for eo in component.extended_objects]
+        # take the first overwrite since they are sorted by specificity/creation-date already
+        package_version_overwrite = filtered_package_version_overwrites[0]
+
+        logger.info(f'Found {package_version_overwrite=} for {name}:{version}')
+
+        digests = [eo.sha1 for eo in bdba_component.extended_objects]
 
         bdba_client.set_component_version(
             component_name=name,
-            component_version=hint.version,
+            component_version=package_version_overwrite.package_version_to,
             objects=digests,
             app_id=scan_result.product_id,
         )
