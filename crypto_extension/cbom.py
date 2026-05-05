@@ -72,10 +72,11 @@ def find_cbom_or_create(
         filename_for_access_type = {
             ocm.AccessType.LOCAL_BLOB: 'local_blob',
             ocm.AccessType.S3: 's3',
-            ocm.AccessType.OCI_REGISTRY: None, # unused
         }
-        sbom_path = os.path.join(tmp_dir, 'sbom')
-        file_path = os.path.join(tmp_dir, filename_for_access_type[access.type])
+
+        file_path = None
+        if filename := filename_for_access_type.get(access.type):
+            file_path = os.path.join(tmp_dir, filename)
 
         sbom_raw = syft.generate_raw_sbom_for_artefact(
             component=component,
@@ -83,8 +84,10 @@ def find_cbom_or_create(
             secret_factory=secret_factory,
             oci_client=oci_client,
             aws_secret_name=mapping.aws_secret_name,
+            file_path=file_path,
         )
 
+        sbom_path = os.path.join(tmp_dir, 'sbom')
         with open(sbom_path, 'w') as file:
             file.write(sbom_raw)
 

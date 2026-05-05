@@ -3,7 +3,6 @@ import logging
 import os
 import subprocess
 import tarfile
-import tempfile
 
 import oci.client
 import ocm
@@ -57,6 +56,7 @@ def generate_raw_sbom_for_artefact(
     access: ocm.Access,
     secret_factory: secret_mgmt.SecretFactory,
     oci_client: oci.client.Client,
+    file_path: str | None = None,
     aws_secret_name: str | None = None,
     sbom_output_format: SyftSbomFormat = SyftSbomFormat.CYCLONEDX,
 ) -> str:
@@ -104,19 +104,16 @@ def generate_raw_sbom_for_artefact(
                     return None
             return member
 
-        with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
-            s3_path = os.path.join(tmp_dir, 's3')
-
-            with tarfile.open(fileobj=fileobj, mode='r|*') as tar:
-                tar.extractall(
-                    path=s3_path,
-                    filter=tar_filter,
-                )
-
-            return run_syft(
-                source=s3_path,
-                output_format=sbom_output_format,
+        with tarfile.open(fileobj=fileobj, mode='r|*') as tar:
+            tar.extractall(
+                path=file_path,
+                filter=tar_filter,
             )
+
+        return run_syft(
+            source=file_path,
+            output_format=sbom_output_format,
+        )
 
     elif access.type is ocm.AccessType.LOCAL_BLOB:
         access: ocm.LocalBlobAccess | ocm.LocalBlobGlobalAccess
@@ -137,17 +134,14 @@ def generate_raw_sbom_for_artefact(
             stream=True,
         )
 
-        with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
-            local_blob_path = os.path.join(tmp_dir, 'local_blob')
+        with open(file_path, 'wb') as file:
+            for chunk in blob.iter_content(chunk_size=4096):
+                file.write(chunk)
 
-            with open(local_blob_path, 'wb') as file:
-                for chunk in blob.iter_content(chunk_size=4096):
-                    file.write(chunk)
-
-            return run_syft(
-                source=local_blob_path,
-                output_format=sbom_output_format,
-            )
+        return run_syft(
+            source=file_path,
+            output_format=sbom_output_format,
+        )
 
     else:
         raise ValueError(f'dont know how to handle {access.type=}')
