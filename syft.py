@@ -60,6 +60,16 @@ def generate_raw_sbom_for_artefact(
     aws_secret_name: str | None = None,
     sbom_output_format: SyftSbomFormat = SyftSbomFormat.CYCLONEDX,
 ) -> str:
+    if (
+        access.type
+        in (
+            ocm.AccessType.LOCAL_BLOB,
+            ocm.AccessType.S3,
+        )
+        and not file_path
+    ):
+        raise ValueError(f'file_path must not be empty for {access.type=}')
+
     if access.type is ocm.AccessType.OCI_REGISTRY:
         access: ocm.OciAccess
 
