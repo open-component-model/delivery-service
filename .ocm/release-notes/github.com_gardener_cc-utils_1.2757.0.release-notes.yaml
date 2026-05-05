@@ -1,0 +1,87 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2757.0
+release_notes:
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: feature
+  contents: |-
+    CTT/ocm-replicate: new `DescriptorRefRewriteUploader` allows writing a different image-reference
+    into replicated component-descriptors than the one artifacts are pushed to (e.g. push to a primary
+    regional registry, but record a global geo-routing endpoint in descriptors).
+
+    New `--pruning-mode force-overwrite-descriptors` traverses the full component tree and overwrites
+    existing component-descriptors in the target without re-pushing OCI artefacts.
+  mimetype: text/markdown
+  reference: '[#1570](https://github.com/gardener/cc-utils/pull/1570)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: vpnachev
+  category: breaking
+  contents: 'The `needs-trusted-label` input has been removed from `pullrequest-trust-helper`
+    action, `trusted-checkout` action and `pullrequest-trust-helper` workflow. '
+  mimetype: text/markdown
+  reference: '[#1579](https://github.com/gardener/cc-utils/pull/1579)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: bugfix
+  contents: fix crash when iterating releases whose author is a deleted account
+  mimetype: text/markdown
+  reference: '[#1576](https://github.com/gardener/cc-utils/pull/1576)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: actions and workflows and used code now feature some first tests (more
+    to come)
+  mimetype: text/markdown
+  reference: '[#1580](https://github.com/gardener/cc-utils/pull/1580)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: ccwienk
+  category: other
+  contents: capture-commit and import-commit now guard against runner running on Darwin
+    (which is not supported)
+  mimetype: text/markdown
+  reference: '[#1569](https://github.com/gardener/cc-utils/pull/1569)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: klocke-io
+  category: bugfix
+  contents: 'Fix send-mail action, ensuring the proper python version is installed. '
+  mimetype: text/markdown
+  reference: '[#1573](https://github.com/gardener/cc-utils/pull/1573)'
+  type: standard
+- audience: operator
+  author:
+    hostname: github.com
+    type: githubUser
+    username: wpross
+  category: other
+  contents: |-
+    Add directives for update-images.py: `freeze` (prevent updates), `max-supported-k8s` (limit k8s
+      version entries), `version-mapping` (GCP CCM version format). Custom comments above image entries
+      are now preserved. Images with manual k8s constraints (e.g., `>= 1.34` unrelated to image version)
+       are updated while preserving targetVersion.
+  mimetype: text/markdown
+  reference: '[#1572](https://github.com/gardener/cc-utils/pull/1572)'
+  type: standard
