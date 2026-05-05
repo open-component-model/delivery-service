@@ -24,6 +24,7 @@ test_resources_gardener_org_members = os.path.join(
 )
 
 _features_path = os.path.join(_own_dir, 'features')
+licenses_path = os.path.join(_features_path, 'licenses.yaml')
 
 swagger_path = os.path.join(_own_dir, 'swagger', 'swagger.yaml')
 
