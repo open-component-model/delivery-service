@@ -55,9 +55,10 @@ def run_syft(
 def generate_raw_sbom_for_artefact(
     component: ocm.Component,
     access: ocm.Access,
-    secret_factory,
+    secret_factory: secret_mgmt.SecretFactory,
     oci_client: oci.client.Client,
     aws_secret_name: str | None = None,
+    sbom_output_format: SyftSbomFormat = SyftSbomFormat.CYCLONEDX,
 ) -> str:
     if access.type is ocm.AccessType.OCI_REGISTRY:
         access: ocm.OciAccess
@@ -74,7 +75,10 @@ def generate_raw_sbom_for_artefact(
                 password=oci_secret.password,
             )
 
-        return run_syft(source=access.imageReference)
+        return run_syft(
+            source=access.imageReference,
+            output_format=sbom_output_format,
+        )
 
     elif access.type is ocm.AccessType.S3:
         access: ocm.S3Access
@@ -109,7 +113,10 @@ def generate_raw_sbom_for_artefact(
                     filter=tar_filter,
                 )
 
-            return run_syft(source=s3_path)
+            return run_syft(
+                source=s3_path,
+                output_format=sbom_output_format,
+            )
 
     elif access.type is ocm.AccessType.LOCAL_BLOB:
         access: ocm.LocalBlobAccess | ocm.LocalBlobGlobalAccess
@@ -137,7 +144,10 @@ def generate_raw_sbom_for_artefact(
                 for chunk in blob.iter_content(chunk_size=4096):
                     file.write(chunk)
 
-            return run_syft(source=local_blob_path)
+            return run_syft(
+                source=local_blob_path,
+                output_format=sbom_output_format,
+            )
 
     else:
         raise ValueError(f'dont know how to handle {access.type=}')

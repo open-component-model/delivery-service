@@ -72,7 +72,7 @@ def find_cbom_or_create(
         filename_for_access_type = {
             ocm.AccessType.LOCAL_BLOB: 'local_blob',
             ocm.AccessType.S3: 's3',
-            ocm.AccessType.OCI_REGISTRY: 'oci_registry',
+            ocm.AccessType.OCI_REGISTRY: None, # unused
         }
         sbom_path = os.path.join(tmp_dir, 'sbom')
         file_path = os.path.join(tmp_dir, filename_for_access_type[access.type])
