@@ -20,55 +20,6 @@ class ModelValidationError(ValueError):
     pass
 
 
-class RescoringSpecificity(enum.Enum):
-    GLOBAL = 'global'
-    COMPONENT = 'component'
-    ARTEFACT = 'artefact'
-    SINGLE = 'single'
-
-    def _asint(self, rescoring_scopes):
-        if rescoring_scopes is self.GLOBAL:
-            return 0
-        elif rescoring_scopes is self.COMPONENT:
-            return 1
-        elif rescoring_scopes is self.ARTEFACT:
-            return 2
-        elif rescoring_scopes is self.SINGLE:
-            return 3
-        else:
-            raise ValueError(f'unknown {rescoring_scopes=}')
-
-    def __lt__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self._asint(self) < self._asint(other)
-
-    def __le__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self._asint(self) <= self._asint(other)
-
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self._asint(self) == self._asint(other)
-
-    def __ne__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self._asint(self) != self._asint(other)
-
-    def __gt__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self._asint(self) > self._asint(other)
-
-    def __ge__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self._asint(self) >= self._asint(other)
-
-
 @dataclasses.dataclass
 class MinMaxRange:
     min: float
@@ -471,7 +422,7 @@ class Finding:
         after instantiation of this class.
     :param FindingIssues issues:
         Configuration whether and if yes, how, GitHub tracking issues should be created/updated.
-    :param RescoringScope default_scope:
+    :param ArtefactMetadataSpecificity default_scope:
         Default scope selection to be used for rescoring via the Delivery-Dashboard.
     :param ReuseDiscoveryDate reuse_discovery_date:
         Specifies the behaviour of reusing discovery dates of existing findings.
@@ -487,8 +438,8 @@ class Finding:
     filter: list[odg.filter.ComponentArtefactFilter] | None
     rescoring_ruleset: SharedCfgReference | dict | None
     issues: FindingIssues = dataclasses.field(default_factory=FindingIssues)
-    default_scope: RescoringSpecificity = dataclasses.field(
-        default_factory=lambda: RescoringSpecificity.ARTEFACT,
+    default_scope: odg.model.ArtefactMetadataSpecificity = dataclasses.field(
+        default_factory=lambda: odg.model.ArtefactMetadataSpecificity.ARTEFACT,
     )
     reuse_discovery_date: ReuseDiscoveryDate = dataclasses.field(default_factory=ReuseDiscoveryDate)
     sprint_assignment_offset: int = 0
