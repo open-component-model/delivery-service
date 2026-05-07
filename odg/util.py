@@ -406,13 +406,30 @@ def iter_scanner_writebacks(
     artefact_id: odg.model.ComponentArtefactId,
     delivery_service_client: odg_client.DeliveryServiceClient,
 ) -> collections.abc.Iterable[odg.model.ScannerWriteback]:
+    """
+    Returns all scanner writebacks of the specified `scanner_writeback_type` which match the given
+    `artefact_id`. If multiple scanner writebacks match, they are ordered based on their specificity
+    (greatest specificity first and if the specificity is the same, the latest writeback wins).
+    """
     scanner_writebacks_raw = delivery_service_client.query_metadata(
         artefacts=(artefact_id,),
         type=odg.model.Datatype.SCANNER_WRITEBACK,
     )
 
+    scanner_writebacks: list[odg.model.ArtefactMetadata] = []
+
     for scanner_writeback_raw in scanner_writebacks_raw:
         if scanner_writeback_raw['data'].get('sub_type') != scanner_writeback_type:
             continue
 
-        yield odg.model.ArtefactMetadata.from_dict(scanner_writeback_raw).data
+        scanner_writebacks.append(odg.model.ArtefactMetadata.from_dict(scanner_writeback_raw))
+
+    for scanner_writeback in sorted(
+        scanner_writebacks,
+        key=lambda scanner_writeback: (
+            scanner_writeback.specificity,
+            scanner_writeback.meta.creation_date,
+        ),
+        reverse=True,
+    ):
+        yield scanner_writeback.data
