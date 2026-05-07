@@ -5,7 +5,7 @@ cachetools
 dacite
 gardener-cicd-libs==1.2756.0
 github3.py
-kubernetes
+kubernetes<=35 # there is a circular import in v36 (rc)
 requests
 urllib3
 watchdog
