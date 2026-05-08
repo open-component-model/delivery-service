@@ -12,10 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Update Python Package
     permissions:
-      contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: gardener/cc-utils/.github/actions/setup-git-identity@v1
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
+        with:
+          token-server: ${{ vars.FEDERATED_GITHUB_ACCESS_TOKEN_SERVER }}
+          github-auth-token-permissions: |
+            contents: write
+          init-git-identity: true
       - name: Install setuptools and semver
         shell: bash
         run: |
