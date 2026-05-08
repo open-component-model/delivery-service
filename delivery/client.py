@@ -6,6 +6,7 @@ import time
 import typing
 
 import dacite
+import requests.adapters
 import requests.exceptions
 import requests.sessions
 
@@ -137,6 +138,7 @@ class DeliveryServiceClient:
         auth_token_lookup: AuthTokenLookup | None = None,
         auth_token: str | None = None,
         api_url: str | None = None,
+        max_retries: int | None = 5,
     ):
         """
         Initialises a client which can be used to interact with the delivery-service.
@@ -150,6 +152,10 @@ class DeliveryServiceClient:
             the auth-token to use for authentication
         :param str api_url (optional)
             the (GitHub) API URL to use for authentication. Only considered if `auth_token` is set
+        :param int max_retries (optional)
+            the maximum number of retries each connection should attempt. Note, this applies only to
+            failed DNS lookups, socket connections and connection timeouts, never to requests where
+            data has made it to the server
         """
 
         if auth_token_lookup and auth_token:
@@ -163,6 +169,10 @@ class DeliveryServiceClient:
 
         self._bearer_token = None
         self._session = requests.sessions.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            max_retries=max_retries,
+        )
+        self._session.mount('https://', adapter)
 
     def _openid_configuration(self):
         """
