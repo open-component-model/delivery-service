@@ -14,7 +14,7 @@ on:
 
 jobs:
   prepare:
-    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@v1
     permissions:
       id-token: write
     with:
@@ -51,8 +51,8 @@ jobs:
         run: |
           pip3 install --root-user-action ignore \
             setuptools
-      - uses: actions/checkout@v6
-      - uses: gardener/cc-utils/.github/actions/install-gardener-gha-libs@master
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
+      - uses: gardener/cc-utils/.github/actions/install-gardener-gha-libs@v1
       - name: create distribution packages
         run: |
           set -eu
@@ -135,7 +135,7 @@ jobs:
           cp "${resources_file}" dist/ocm_resources.yaml
           tar czf distribution-packages.tar.gz dist
       - name: export-ocm-fragments
-        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
         with:
           ocm-resources-file: dist/ocm_resources.yaml
           blobs-directory: dist/blobs.d
@@ -152,7 +152,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
       - name: Export odg-extension-definitions
         run: |
           export version=${{ needs.prepare.outputs.version }}
@@ -168,7 +168,7 @@ jobs:
 
           tar czf ${blobs_dir}/extension_definitions.tar.gz ${extension_definitions}
 
-      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
         with:
           ocm-resources: |
             name: odg-extension-definitions
@@ -186,7 +186,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
       - name: Retrieve Distribution Packages
         uses: actions/download-artifact@v4
         with:
@@ -225,7 +225,7 @@ jobs:
 
           echo "running format checker"
           .ci/check-format
-      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
         with:
           ocm-resources: |
             name: sast-linting-evidence
@@ -252,7 +252,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
       - name: Retrieve Distribution Packages
         uses: actions/download-artifact@v4
         with:
@@ -278,7 +278,7 @@ jobs:
 
   oci-images:
     name: Build OCI-Images
-    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@master
+    uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@v1
     needs:
       - packages # needed indirectly (python-packages artefact)
       - prepare
@@ -363,7 +363,7 @@ jobs:
 
   helmcharts:
     name: Build Helmcharts
-    uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@master
+    uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@v1
     needs:
       - prepare
       - oci-images
@@ -467,7 +467,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
       - name: Setup Docker-Buildx
         uses: docker/setup-buildx-action@v3
       - name: Generate Documentation
@@ -493,7 +493,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
         with:
           ref: refs/heads/gh-pages
       - name: Retrieve Documentation
@@ -501,7 +501,7 @@ jobs:
         with:
           name: documentation
           path: /tmp/documentation-out.d
-      - uses: gardener/cc-utils/.github/actions/setup-git-identity@master
+      - uses: gardener/cc-utils/.github/actions/setup-git-identity@v1
       - name: Publish Documentation
         run: |
           tar c -C /tmp/documentation-out.d . | tar x -C.

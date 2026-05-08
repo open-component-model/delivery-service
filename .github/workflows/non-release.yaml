@@ -1,5 +1,6 @@
 name: CI (non-release)
 on:
+  pull_request_target:
   push:
   workflow_dispatch:
 
@@ -14,7 +15,7 @@ jobs:
       mode: snapshot
 
   component-descriptor:
-    uses: gardener/cc-utils/.github/workflows/post-build.yaml@master
+    uses: gardener/cc-utils/.github/workflows/post-build.yaml@v1
     needs:
       - build
     permissions:

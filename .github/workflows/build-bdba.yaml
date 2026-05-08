@@ -14,7 +14,7 @@ on:
 
 jobs:
   prepare:
-    uses: gardener/cc-utils/.github/workflows/prepare.yaml@master
+    uses: gardener/cc-utils/.github/workflows/prepare.yaml@v1
     permissions:
       id-token: write
     with:
@@ -53,8 +53,8 @@ jobs:
         run: |
           pip3 install --root-user-action ignore \
             setuptools
-      - uses: actions/checkout@v6
-      - uses: gardener/cc-utils/.github/actions/install-gardener-gha-libs@master
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
+      - uses: gardener/cc-utils/.github/actions/install-gardener-gha-libs@v1
       - name: create distribution packages
         run: |
           set -eu
@@ -100,7 +100,7 @@ jobs:
           cp "${resources_file}" dist/ocm_resources.yaml
           tar czf distribution-packages.tar.gz dist
       - name: export-ocm-fragments
-        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+        uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
         with:
           ocm-resources-file: dist/ocm_resources.yaml
           blobs-directory: dist/blobs.d
@@ -117,7 +117,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
       - name: Retrieve Distribution Packages
         uses: actions/download-artifact@v4
         with:
@@ -152,7 +152,7 @@ jobs:
 
           echo "running format checker"
           .ci/check-format
-      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
         with:
           ocm-resources: |
             name: sast-linting-evidence
