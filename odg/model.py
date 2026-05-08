@@ -857,6 +857,7 @@ class GitHubUser(User):
 class MetaRescoringRules(enum.StrEnum):
     BDBA_TRIAGE = 'bdba-triage'
     CUSTOM_RESCORING = 'custom-rescoring'
+    FINDING_UPDATE = 'finding-update'
     ORIGINAL_SEVERITY = 'original-severity'
 
 
