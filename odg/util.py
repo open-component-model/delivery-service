@@ -278,10 +278,50 @@ def process_backlog_items(
             logger.info(f'processed and deleted backlog item {name}')
 
 
+def _convert_none_to_empty_string_for_component_artefact_id(
+    artefact_id: odg.model.ComponentArtefactId,
+) -> odg.model.ComponentArtefactId:
+    """
+    Convert None values to empty strings for string-typed fields in ComponentArtefactId.
+    This is useful as None values have a special semantic in terms of query-metadata, see:
+    https://github.com/open-component-model/delivery-service/blob/d97df8740c26ebd0a696289cc29b93ae4695f75b/deliverydb/util.py#L229
+    """
+    artefact = None
+    if artefact_id.artefact is not None:
+        artefact = odg.model.LocalArtefactId(
+            artefact_name=artefact_id.artefact.artefact_name
+            if artefact_id.artefact.artefact_name is not None
+            else '',
+            artefact_version=artefact_id.artefact.artefact_version
+            if artefact_id.artefact.artefact_version is not None
+            else '',
+            artefact_type=artefact_id.artefact.artefact_type
+            if artefact_id.artefact.artefact_type is not None
+            else '',
+            artefact_extra_id=artefact_id.artefact.artefact_extra_id,
+        )
+
+    references = [
+        _convert_none_to_empty_string_for_component_artefact_id(ref)
+        for ref in artefact_id.references
+    ]
+
+    return odg.model.ComponentArtefactId(
+        component_name=artefact_id.component_name if artefact_id.component_name is not None else '',
+        component_version=artefact_id.component_version
+        if artefact_id.component_version is not None
+        else '',
+        artefact=artefact,
+        artefact_kind=artefact_id.artefact_kind,  # Keep None or enum value as-is
+        references=references,
+    )
+
+
 def uuid_for_artefact_id(
     artefact_id: odg.model.ComponentArtefactId,
     delivery_service_client: odg_client.DeliveryServiceClient,
     skip_verify: bool = False,
+    convert_none_to_empty_string: bool = False,
 ) -> uuid.UUID:
     """
     Retrieve or create a UUID for an artefact.
@@ -297,6 +337,8 @@ def uuid_for_artefact_id(
       delivery_service_client: The DeliveryServiceClient used to query and update
         metadata in the delivery service.
       skip_verify: Whether to check if newly created UUID is fetchable from ODG
+      convert_none_to_empty_string: If True, recursively convert None values
+        in artefact_id (including nested dataclasses) to empty strings
 
     Returns:
       uuid.UUID: The UUID associated with the artefact. Either an existing UUID
@@ -307,6 +349,9 @@ def uuid_for_artefact_id(
       - if the UUID upload verification fails
       - if more than one UUID is found for an artefact
     """
+    if convert_none_to_empty_string:
+        artefact_id = _convert_none_to_empty_string_for_component_artefact_id(artefact_id)
+
     result = delivery_service_client.query_metadata(
         artefacts=[
             artefact_id,
