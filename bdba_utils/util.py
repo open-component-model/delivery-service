@@ -7,6 +7,7 @@ import collections.abc
 import dataclasses
 import datetime
 import logging
+import textwrap
 
 import dacite
 
@@ -81,6 +82,18 @@ def iter_artefact_metadata(
             artefact_version=None,
         ),
     )
+
+    existing_findings_by_key = {
+        existing_finding.key: existing_finding
+        for existing_finding in iter_existing_findings(
+            delivery_service_client=delivery_service_client,
+            resource_node=scanned_element,
+            finding_type=(
+                odg.model.Datatype.VULNERABILITY_FINDING,
+                odg.model.Datatype.LICENSE_FINDING,
+            ),
+        )
+    }
 
     yield odg.model.artefact_scan_info(
         artefact_node=scanned_element,
@@ -240,20 +253,63 @@ def iter_artefact_metadata(
                 findings.append(artefact_metadata)
                 yield artefact_metadata
 
+                if (
+                    (existing_finding := existing_findings_by_key.get(artefact_metadata.key))
+                    and existing_finding.data.cvss_v3_score != artefact_metadata.data.cvss_v3_score
+                    and existing_finding.data.severity != artefact_metadata.data.severity
+                    and existing_finding.allowed_processing_time
+                    != artefact_metadata.allowed_processing_time
+                ):
+                    # The finding has already been reported previously but in the meantime the CVSS
+                    # v3 score has changed and with that, also a new categorisation (aka. severity)
+                    # was applied with a new allowed processing time. To reflect the updated time,
+                    # a rescoring must be created.
+
+                    previous_score = existing_finding.data.cvss_v3_score
+                    previous_severity = existing_finding.data.severity
+                    previous_time = existing_finding.allowed_processing_time
+
+                    new_score = artefact_metadata.data.cvss_v3_score
+                    new_severity = artefact_metadata.data.severity
+                    new_time = artefact_metadata.allowed_processing_time
+
+                    comment = textwrap.dedent(f"""\
+                        Adjusting the allowed processing time to reflect a change in the CVE rating:
+                        - Score: {previous_score} -> {new_score}
+                        - Severity: {previous_severity} -> {new_severity}
+                        - Allowed Processing Time: {previous_time} -> {new_time}\
+                    """)
+                    logger.info(comment)
+
+                    yield odg.model.ArtefactMetadata(
+                        artefact=finding_artefact_ref,
+                        meta=odg.model.Metadata(
+                            datasource=datasource,
+                            type=odg.model.Datatype.RESCORING,
+                        ),
+                        data=odg.model.CustomRescoring(
+                            finding=odg.model.RescoringVulnerabilityFinding(
+                                package_name=package_name,
+                                cve=vulnerability.cve,
+                            ),
+                            referenced_type=odg.model.Datatype.VULNERABILITY_FINDING,
+                            severity=artefact_metadata.data.severity,
+                            user=odg.model.User(
+                                username='bdba-extension-auto-rescoring',
+                                type='bdba-extension-user',
+                            ),
+                            matching_rules=[odg.model.MetaRescoringRules.FINDING_UPDATE],
+                            comment=comment,
+                            allowed_processing_time=new_time,
+                        ),
+                    )
+
     # delete those BDBA findings which were found before for this scan but which are not part
     # of the current scan anymore -> those are either solved license findings or (now)
     # historical vulnerability findings (e.g. because a custom version was entered)
-    existing_findings = iter_existing_findings(
-        delivery_service_client=delivery_service_client,
-        resource_node=scanned_element,
-        finding_type=(
-            odg.model.Datatype.VULNERABILITY_FINDING,
-            odg.model.Datatype.LICENSE_FINDING,
-        ),
-    )
 
     stale_findings = []
-    for existing_finding in existing_findings:
+    for existing_finding in existing_findings_by_key.values():
         for finding in findings:
             if (
                 existing_finding.meta.type == finding.meta.type
