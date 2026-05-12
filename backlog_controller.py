@@ -93,6 +93,9 @@ def on_backlog_change(
     if service == odg.extensions_cfg.Services.ISSUE_REPLICATOR:
         # only allow up-scaling to 1 for issue replicator because of github's secondary rate limits
         max_replicas = 1
+    elif service == odg.extensions_cfg.Services.BLACKDUCK:
+        # limit parallel BlackDuck API load
+        max_replicas = 2
     else:
         max_replicas = backlog_controller_cfg.max_replicas
 
