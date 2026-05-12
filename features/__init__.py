@@ -11,7 +11,6 @@ import watchdog.observers.polling
 
 import aiohttp.web
 import dacite
-import dateutil.parser
 import github3.repos
 import yaml
 
@@ -28,6 +27,7 @@ import secret_mgmt
 import secret_mgmt.delivery_db
 import secret_mgmt.oauth_cfg
 import secret_mgmt.signing_cfg
+import sprints.model as sm
 import util
 import yp
 
@@ -450,7 +450,7 @@ class SprintsConfiguration:
     days_per_sprint: int = 14
     cycles: int = 2
     offset: int = -2
-    meta: yp.SprintMetadata = dataclasses.field(default_factory=yp.SprintMetadata)
+    meta: sm.SprintMetadata = dataclasses.field(default_factory=sm.SprintMetadata)
 
 
 def iter_sprint_dates(
@@ -518,7 +518,7 @@ def sprint_name(
 
 def iter_sprints(
     sprints_cfg: SprintsConfiguration,
-) -> collections.abc.Iterable[yp.Sprint]:
+) -> collections.abc.Iterable[dict]:
     end_date = datetime.date.today() + datetime.timedelta(days=sprints_cfg.future_threshold_days)
 
     sprint_dates = list(
@@ -560,10 +560,10 @@ def iter_sprints(
             cycle=current_cycle,
         )
 
-        yield yp.Sprint(
-            name=current_sprint_name,
-            end_date=sprint_date,
-        )
+        yield {
+            'name': current_sprint_name,
+            'end_date': sprint_date.isoformat(),
+        }
 
 
 @dataclasses.dataclass(frozen=True)
@@ -585,41 +585,35 @@ class FeatureSprints(FeatureBase):
 
         return yaml.safe_load(content)
 
-    def get_sprints_metadata(self) -> yp.SprintMetadata:
+    def _get_sprints_metadata(self) -> sm.SprintMetadata | None:
         if self.sprints_cfg:
             return self.sprints_cfg.meta
 
-        meta_raw = self._get_content(
-            relpath=self.sprints_relpath,
-        ).get('meta', {})
+        if not (
+            meta_raw := self._get_content(
+                relpath=self.sprints_relpath,
+            ).get('meta')
+        ):
+            return None
 
         return dacite.from_dict(
-            data_class=yp.SprintMetadata,
+            data_class=sm.SprintMetadata,
             data=meta_raw,
         )
 
-    def get_sprints(self) -> list[yp.Sprint]:
+    def _get_sprints(self) -> list[dict]:
         if self.sprints_cfg:
             return list(reversed(list(iter_sprints(self.sprints_cfg))))
 
-        sprints_raw = self._get_content(
+        return self._get_content(
             relpath=self.sprints_relpath,
         )['sprints']
 
-        return [
-            dacite.from_dict(
-                data_class=yp.Sprint,
-                data=sprint_raw,
-                config=dacite.Config(
-                    type_hooks={
-                        datetime.datetime: lambda date: (
-                            dateutil.parser.isoparse(date) if isinstance(date, str) else date
-                        ),  # noqa: E501
-                    },
-                ),
-            )
-            for sprint_raw in sprints_raw
-        ]
+    def get_sprints_configuration(self) -> sm.SprintsConfiguration:
+        return sm.SprintsConfiguration(
+            meta=self._get_sprints_metadata(),
+            sprints=self._get_sprints(),
+        )
 
     def serialize(self, profile: Profile | None = None) -> dict[str, any]:
         return {

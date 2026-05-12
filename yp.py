@@ -1,9 +1,7 @@
 import collections.abc
-import datetime
 import dataclasses
 
 import odg.model
-import odg_client.model
 import util
 
 
@@ -11,55 +9,6 @@ import util
 utils for reading user-data from Gardener's Yellow-Pages
 pragmatically hardcoding a lot.
 """
-
-
-@dataclasses.dataclass
-class SprintOffsets:
-    name: str
-    display_name: str | None
-    offset_days: int
-
-
-@dataclasses.dataclass
-class SprintMetadata:
-    offsets: list[SprintOffsets] = dataclasses.field(default_factory=list)
-
-
-@dataclasses.dataclass
-class Sprint:
-    name: str
-    end_date: datetime.datetime | datetime.date
-
-    def iter_sprint_dates(
-        self,
-        meta: SprintMetadata | None = None,
-    ) -> collections.abc.Generator[odg_client.model.SprintDate, None, None]:
-        yield odg_client.model.SprintDate(
-            value=self.end_date.isoformat(),
-            name='end_date',
-            display_name='End Date',
-        )
-
-        if not meta:
-            return
-
-        for offset in meta.offsets:
-            date = self.end_date + datetime.timedelta(days=offset.offset_days)
-
-            yield odg_client.model.SprintDate(
-                value=date.isoformat(),
-                name=offset.name,
-                display_name=offset.display_name,
-            )
-
-    def asdict(
-        self,
-        meta: SprintMetadata = None,
-    ) -> dict:
-        return {
-            'name': self.name,
-            'dates': list(self.iter_sprint_dates(meta=meta)),
-        }
 
 
 def _github_url(

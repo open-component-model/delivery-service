@@ -21,8 +21,7 @@ APP_OCI_CLIENT = 'oci_client'
 APP_PROFILES_CALLBACK = 'profiles_callback'
 APP_SECRET_FACTORY = 'secret_factory'
 APP_SPECIAL_COMPONENT_CALLBACK = 'special_component_callback'
-APP_SPRINTS = 'sprints'
-APP_SPRINTS_METADATA = 'sprints_metadata'
+APP_SPRINTS_CONFIGURATION = 'sprints_configuration'
 
 # `db_session` is intended to be used for tasks which have to be finished in a timely manner
 REQUEST_DB_SESSION = 'db_session'
