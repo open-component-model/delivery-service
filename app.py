@@ -11,6 +11,7 @@ import aiohttp_swagger3
 import ci.log
 
 import artefacts
+import blobstore.blob
 import compliance_tests
 import components
 import consts
@@ -33,8 +34,7 @@ import rescore.artefacts
 import secret_mgmt
 import service_extensions
 import special_component
-import sprint
-import blobstore.blob
+import sprints
 
 ci.log.configure_default_logging(print_thread_id=True)
 logger = logging.getLogger(__name__)
@@ -262,11 +262,11 @@ def add_routes(
 
     swagger.add_view(
         path='/delivery/sprint-infos',
-        handler=sprint.SprintInfos,
+        handler=sprints.SprintInfos,
     )
     swagger.add_view(
         path='/delivery/sprint-infos/current',
-        handler=sprint.SprintInfosCurrent,
+        handler=sprints.SprintInfosCurrent,
     )
 
     swagger.add_view(
