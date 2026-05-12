@@ -12,7 +12,6 @@ import dacite
 import github3.repos
 import yaml
 
-import github.compliance.milestone as gcmi
 import ocm
 
 import bdba.model
@@ -23,6 +22,7 @@ import odg.model
 import odg.shared_cfg
 import responsibles_extension.filters as ref
 import responsibles_extension.strategies as res
+import sprints.model as sm
 
 logger = logging.getLogger(__name__)
 
@@ -938,9 +938,9 @@ class IssueReplicatorMapping(Mapping):
     github_repository: str
     github_issue_labels_to_preserve: list[str] = dataclasses.field(default_factory=list)
     number_included_closed_issues: int = 100
-    milestones: gcmi.MilestoneConfiguration | dict = dataclasses.field(
-        default_factory=gcmi.MilestoneConfiguration,
-    )  # noqa: E501
+    milestones: sm.MilestoneConfiguration | dict = dataclasses.field(
+        default_factory=sm.MilestoneConfiguration,
+    )
 
     def __post_init__(self):
         if isinstance(self.milestones, dict):
@@ -949,8 +949,8 @@ class IssueReplicatorMapping(Mapping):
                 title_suffix = milestone_title_cfg.get('suffix')
                 title_sprint_cfg = milestone_title_cfg.get('sprint')
             else:
-                title_prefix = gcmi.MilestoneConfiguration.title_prefix
-                title_suffix = gcmi.MilestoneConfiguration.title_suffix
+                title_prefix = sm.MilestoneConfiguration.title_prefix
+                title_suffix = sm.MilestoneConfiguration.title_suffix
                 title_sprint_cfg = None
 
             if title_sprint_cfg:
@@ -969,15 +969,15 @@ class IssueReplicatorMapping(Mapping):
                     raise ValueError(f'invalid milestone sprint value type {sprint_value_type}')
 
             else:
-                title_callback = gcmi.MilestoneConfiguration.title_callback
+                title_callback = sm.MilestoneConfiguration.title_callback
 
             if milestone_due_date_cfg := self.milestones.get('due_date'):
                 name = milestone_due_date_cfg['date_name']
                 due_date_callback = lambda sprint: sprint.find_sprint_date(name).value  # noqa: E731
             else:
-                due_date_callback = gcmi.MilestoneConfiguration.due_date_callback
+                due_date_callback = sm.MilestoneConfiguration.due_date_callback
 
-            self.milestones = gcmi.MilestoneConfiguration(
+            self.milestones = sm.MilestoneConfiguration(
                 title_callback=title_callback,
                 title_prefix=title_prefix,
                 title_suffix=title_suffix,

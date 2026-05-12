@@ -29,6 +29,7 @@ import odg.findings
 import odg.model
 import odg_client.model
 import rescore.utility
+import sprints.model as sm
 import util
 
 
@@ -55,8 +56,8 @@ class ScanStatus(enum.StrEnum):
 class AggregatedFinding:
     finding: odg.model.ArtefactMetadata
     rescorings: list[odg.model.ArtefactMetadata] = dataclasses.field(default_factory=list)
-    due_date: datetime.date | None = None
-    historical_due_dates: list[datetime.date | None] = dataclasses.field(default_factory=list)
+    sprint: sm.Sprint | None = None
+    historical_sprints: list[sm.Sprint | None] = dataclasses.field(default_factory=list)
 
     @property
     def severity(self) -> str:
@@ -64,6 +65,10 @@ class AggregatedFinding:
             return self.rescorings[0].data.severity
 
         return self.finding.data.severity
+
+    @property
+    def due_date(self) -> datetime.date | None:
+        return self.sprint.due_date if self.sprint else None
 
 
 @dataclasses.dataclass
@@ -77,7 +82,7 @@ class FindingGroup:
         component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
         finding_cfg: odg.findings.Finding,
         delivery_dashboard_url: str | None = None,
-        sprint_name: str | None = None,
+        sprint: sm.Sprint | None = None,
     ) -> tuple[str, str, str]:
         ocm_node = k8s.util.get_ocm_node(
             component_descriptor_lookup=component_descriptor_lookup,
@@ -99,7 +104,7 @@ class FindingGroup:
                 base_url=delivery_dashboard_url,
                 component_artefact_id=self.artefact,
                 finding_type=finding_cfg.type,
-                sprint_name=sprint_name,
+                sprint=sprint,
             )
             url_md = f'[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'
             summary_long += url_md
@@ -163,20 +168,33 @@ def _rescoring_comment(
 
 
 def _issue_ref(
-    due_date: datetime.date | None,
+    sprint: sm.Sprint | None,
     artefact: odg.model.ComponentArtefactId,
     finding_cfg: odg.findings.Finding,
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     additional_labels: collections.abc.Iterable[str] | None = None,
 ) -> str:
-    if not due_date:
+    if not sprint:
         return ''  # finding is already resolved -> no open issue left
 
-    issue_id = finding_cfg.issues.issue_id(
-        artefact=artefact,
-        due_date=due_date,
-    )
+    if release_decision_date := sprint.find_sprint_date(
+        name='release_decision',
+        absent_ok=True,
+    ):
+        # XXX be backwards compatible for now and use the `release_decision` date (if available)
+        # for the issue-id. This must change anyways as a change in the sprints-configuration
+        # should not cause old issues to be lost and new ones to be created.
+        # -> see https://github.com/open-component-model/open-delivery-gear/issues/61
+        issue_id = finding_cfg.issues.issue_id(
+            artefact=artefact,
+            due_date=release_decision_date.value,
+        )
+    else:
+        issue_id = finding_cfg.issues.issue_id(
+            artefact=artefact,
+            due_date=sprint.due_date,
+        )
 
     labels = [issue_id, finding_cfg.type]
     if additional_labels:
@@ -233,7 +251,7 @@ def findings_summary(
     historical_findings_table_callback: TableCallback | None = None,
     report_urls_callback: collections.abc.Callable[[FindingGroup], list[str]] | None = None,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     """
     Creates summaries (long, normal, short) for the specified finding type and finding groups with
@@ -256,7 +274,7 @@ def findings_summary(
             component_descriptor_lookup=component_descriptor_lookup,
             finding_cfg=finding_cfg,
             delivery_dashboard_url=delivery_dashboard_url if show_delivery_dashboard_url else None,
-            sprint_name=sprint_name,
+            sprint=sprint,
         )
 
         if report_urls_callback:
@@ -301,7 +319,7 @@ def fallback_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     def default_callback(
         aggregated_finding: AggregatedFinding,
@@ -340,7 +358,7 @@ def fallback_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -364,7 +382,7 @@ def fallback_summary(
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -375,7 +393,7 @@ def crypto_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     def names_str(
         aggregated_finding: AggregatedFinding,
@@ -408,7 +426,7 @@ def crypto_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -423,7 +441,7 @@ def crypto_summary(
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -434,7 +452,7 @@ def diki_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     def _targets_table(
         targets: list[dict],
@@ -518,9 +536,9 @@ def diki_summary(
             ).hexdigest(int(github.limits.label / 2))
 
             issue_refs = []
-            for historical_due_date in aggregated_finding.historical_due_dates:
+            for historical_sprint in aggregated_finding.historical_sprints:
                 if issue_ref := _issue_ref(
-                    due_date=historical_due_date,
+                    sprint=historical_sprint,
                     artefact=finding_group.artefact,
                     finding_cfg=finding_cfg,
                     known_issues=known_issues,
@@ -536,7 +554,7 @@ def diki_summary(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
-                    sprint_name=sprint_name,
+                    sprint=sprint,
                 )
                 finding_str += (
                     f'\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'  # noqa: E501
@@ -589,7 +607,7 @@ def falco_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     summary_long = summary = summary_short = '# Summary of found falco findings\n'
 
@@ -629,9 +647,9 @@ def falco_summary(
             ).hexdigest(int(github.limits.label / 2))
 
             issue_refs = []
-            for historical_due_date in aggregated_finding.historical_due_dates:
+            for historical_sprint in aggregated_finding.historical_sprints:
                 if issue_ref := _issue_ref(
-                    due_date=historical_due_date,
+                    sprint=historical_sprint,
                     artefact=finding_group.artefact,
                     finding_cfg=finding_cfg,
                     known_issues=known_issues,
@@ -647,7 +665,7 @@ def falco_summary(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
-                    sprint_name=sprint_name,
+                    sprint=sprint,
                 )
                 finding_str += (
                     f'\n\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'  # noqa: E501
@@ -693,7 +711,7 @@ def ghas_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'Secret Type': lambda f, _: f'`{f.finding.data.secret_type}`',
@@ -720,7 +738,7 @@ def ghas_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -734,7 +752,7 @@ def ghas_summary(
         component_descriptor_lookup=component_descriptor_lookup,
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -745,7 +763,7 @@ def inventory_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     summary_long = summary = summary_short = '# Summary of found inventory findings\n'
 
@@ -782,9 +800,9 @@ def inventory_summary(
             ).hexdigest(int(github.limits.label / 2))
 
             issue_refs = []
-            for historical_due_date in aggregated_finding.historical_due_dates:
+            for historical_sprint in aggregated_finding.historical_sprints:
                 if issue_ref := _issue_ref(
-                    due_date=historical_due_date,
+                    sprint=historical_sprint,
                     artefact=finding_group.artefact,
                     finding_cfg=finding_cfg,
                     known_issues=known_issues,
@@ -809,7 +827,7 @@ def ip_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     def package_versions_str(
         aggregated_finding: AggregatedFinding,
@@ -857,7 +875,7 @@ def ip_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -926,7 +944,7 @@ def ip_summary(
         historical_findings_table_callback=historical_table_callback,
         report_urls_callback=report_urls_callback,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -937,7 +955,7 @@ def kyverno_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     summary_long = summary = summary_short = '# Summary of found kyverno findings\n'
 
@@ -977,9 +995,9 @@ def kyverno_summary(
             ).hexdigest(int(github.limits.label / 2))
 
             issue_refs = []
-            for historical_due_date in aggregated_finding.historical_due_dates:
+            for historical_sprint in aggregated_finding.historical_sprints:
                 if issue_ref := _issue_ref(
-                    due_date=historical_due_date,
+                    sprint=historical_sprint,
                     artefact=finding_group.artefact,
                     finding_cfg=finding_cfg,
                     known_issues=known_issues,
@@ -995,7 +1013,7 @@ def kyverno_summary(
                     base_url=delivery_dashboard_url,
                     component_artefact_id=finding_group.artefact,
                     finding_type=finding_cfg.type,
-                    sprint_name=sprint_name,
+                    sprint=sprint,
                 )
                 finding_str += (
                     f'\n\n[Delivery-Dashboard]({delivery_dashboard_url}) (use for assessments)\n'  # noqa: E501
@@ -1017,7 +1035,7 @@ def license_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
@@ -1042,7 +1060,7 @@ def license_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -1065,7 +1083,7 @@ def license_summary(
         historical_findings_table_callback=historical_table_callback,
         report_urls_callback=report_urls_callback,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -1076,7 +1094,7 @@ def malware_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'Malware': lambda f, _: f'`{f.finding.data.finding.malware}`',
@@ -1099,7 +1117,7 @@ def malware_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -1114,7 +1132,7 @@ def malware_summary(
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -1125,7 +1143,7 @@ def osid_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     finding_table_callback = {
         'OS Name': lambda f, _: f'`{f.finding.data.osid.NAME}`',
@@ -1150,7 +1168,7 @@ def osid_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -1165,7 +1183,7 @@ def osid_summary(
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -1176,7 +1194,7 @@ def sast_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     def sub_type_to_description(
         sub_type: odg.model.SastSubType,
@@ -1209,7 +1227,7 @@ def sast_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -1224,7 +1242,7 @@ def sast_summary(
         findings_table_callback=finding_table_callback,
         historical_findings_table_callback=historical_table_callback,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -1235,7 +1253,7 @@ def vulnerability_summary(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str | None = None,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
     def rescoring_suggestion(
         aggregated_finding: AggregatedFinding,
@@ -1316,7 +1334,7 @@ def vulnerability_summary(
         'Due Date': lambda f, _: f'`{f.due_date.isoformat()}`' if f.due_date else '',
         'Reason': _rescoring_comment,
         'Ref': lambda f, g: _issue_ref(
-            due_date=f.due_date,
+            sprint=f.sprint,
             artefact=g.artefact,
             finding_cfg=finding_cfg,
             known_issues=known_issues,
@@ -1382,7 +1400,7 @@ def vulnerability_summary(
         historical_findings_table_callback=historical_table_callback,
         report_urls_callback=report_urls_callback,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
 
@@ -1394,10 +1412,9 @@ def template_issue_body(
     known_issues: collections.abc.Sequence[github3.issues.issue.ShortIssue],
     findings: collections.abc.Sequence[AggregatedFinding],
     historical_findings: collections.abc.Sequence[AggregatedFinding],
-    due_date: datetime.date,
+    sprint: sm.Sprint,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
     delivery_dashboard_url: str,
-    sprint_name: str | None = None,
 ) -> str:
     """
     Returns a formatted GitHub issue body based on the template specified in the `finding_cfg`.
@@ -1427,7 +1444,7 @@ def template_issue_body(
         base_url=delivery_dashboard_url,
         component_artefact_id=artefact,
         finding_type=finding_cfg.type,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
     artefact_summary = textwrap.dedent("""\
@@ -1459,7 +1476,7 @@ def template_issue_body(
         id_str = '<br>'.join(sorted(f'{k}: {v}' for k, v in artefact_extra_id.items()))
         artefact_summary += f'| Artefact-Extra-Id | <pre>{id_str}</pre> |\n'
 
-    artefact_summary += f'| Due Date | {due_date} |\n'
+    artefact_summary += f'| Due Date | {sprint.due_date} |\n'
 
     # assign the findings to the artefact of the group they belong to
     finding_groups: list[FindingGroup] = []
@@ -1601,7 +1618,7 @@ def template_issue_body(
         known_issues=known_issues,
         component_descriptor_lookup=component_descriptor_lookup,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
+        sprint=sprint,
     )
 
     # order is important -> prefer long version
@@ -1726,11 +1743,10 @@ def _create_or_update_issue(
     historical_findings: tuple[AggregatedFinding],
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone | None,
-    due_date: datetime.date,
+    sprint: sm.Sprint,
     scan_status: ScanStatus,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
-    sprint_name: str,
     assignees: set[str],
     assignees_statuses: collections.abc.Iterable[odg_client.model.Status] | None,
     assignee_mode: odg.model.ResponsibleAssigneeModes,
@@ -1769,7 +1785,7 @@ def _create_or_update_issue(
         # updated
         title = None
 
-    is_overdue = due_date < datetime.date.today()
+    is_overdue = sprint.due_date < datetime.date.today()
 
     body = template_issue_body(
         mapping=mapping,
@@ -1780,9 +1796,8 @@ def _create_or_update_issue(
         findings=findings,
         historical_findings=historical_findings,
         artefacts_without_scan=artefacts_without_scan,
-        due_date=due_date,
+        sprint=sprint,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name='Overdue' if is_overdue else sprint_name,
     )
 
     if is_overdue:
@@ -1830,11 +1845,10 @@ def _create_or_update_or_close_issue_per_finding(
     issue_id: str,
     issues: tuple[github3.issues.issue.ShortIssue],
     milestone: github3.issues.milestone.Milestone,
-    due_date: datetime.date,
+    sprint: sm.Sprint,
     scan_status: ScanStatus,
     artefacts_without_scan: set[odg.model.ComponentArtefactId],
     delivery_dashboard_url: str,
-    sprint_name: str,
     assignees: set[str],
     assignees_statuses: collections.abc.Sequence[odg_client.model.Status] | None,
     assignee_mode: odg.model.ResponsibleAssigneeModes,
@@ -1871,11 +1885,10 @@ def _create_or_update_or_close_issue_per_finding(
             historical_findings=historical_findings,
             issues=finding_issues,
             milestone=milestone,
-            due_date=due_date,
+            sprint=sprint,
             scan_status=scan_status,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
             assignees=assignees,
             assignees_statuses=assignees_statuses,
             assignee_mode=assignee_mode,
@@ -1904,7 +1917,7 @@ def create_or_update_or_close_issue(
     findings: tuple[AggregatedFinding],
     historical_findings: tuple[AggregatedFinding],
     issue_id: str,
-    due_date: datetime.date,
+    sprint: sm.Sprint,
     milestone: github3.repos.repo.milestone.Milestone | None,
     is_in_bom: bool,
     artefacts_with_scan: set[odg.model.ComponentArtefactId],
@@ -1962,7 +1975,7 @@ def create_or_update_or_close_issue(
                     known_issues=known_issues,
                     findings=findings,
                     historical_findings=historical_findings,
-                    due_date=due_date,
+                    sprint=sprint,
                     component_descriptor_lookup=component_descriptor_lookup,
                     delivery_dashboard_url=delivery_dashboard_url,
                 )
@@ -1996,11 +2009,6 @@ def create_or_update_or_close_issue(
             # only partially scanned and no findings yet -> nothing to do
             return
 
-    if milestone:
-        sprint_name = milestone.title.lstrip('sprint-')
-    else:
-        sprint_name = None
-
     if finding_cfg.issues.enable_per_finding:
         return _create_or_update_or_close_issue_per_finding(
             mapping=mapping,
@@ -2013,11 +2021,10 @@ def create_or_update_or_close_issue(
             issue_id=issue_id,
             issues=issues,
             milestone=milestone,
-            due_date=due_date,
+            sprint=sprint,
             scan_status=scan_status,
             artefacts_without_scan=artefacts_without_scan,
             delivery_dashboard_url=delivery_dashboard_url,
-            sprint_name=sprint_name,
             assignees=assignees,
             assignees_statuses=assignees_statuses,
             assignee_mode=assignee_mode,
@@ -2034,11 +2041,10 @@ def create_or_update_or_close_issue(
         historical_findings=historical_findings,
         issues=issues,
         milestone=milestone,
-        due_date=due_date,
+        sprint=sprint,
         scan_status=scan_status,
         artefacts_without_scan=artefacts_without_scan,
         delivery_dashboard_url=delivery_dashboard_url,
-        sprint_name=sprint_name,
         assignees=assignees,
         assignees_statuses=assignees_statuses,
         assignee_mode=assignee_mode,
