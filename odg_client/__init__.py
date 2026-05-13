@@ -6,7 +6,7 @@ import time
 import typing
 
 import dacite
-import jwt
+import jwt as pyjwt
 import requests.adapters
 import requests.exceptions
 import requests.sessions
@@ -838,7 +838,7 @@ def _create_github_jwt(
         'iss': str(github_app_id),
     }
 
-    return jwt.encode(
+    return pyjwt.encode(
         payload=payload,
         key=github_app_private_key,
         algorithm=algorithm,
