@@ -6,6 +6,7 @@ import http
 import io
 import logging
 import tarfile
+import zlib
 
 import aiohttp.web
 import dacite.exceptions
@@ -1392,10 +1393,17 @@ class DownloadSBOM(aiohttp.web.View):
         response = aiohttp.web.StreamResponse(
             headers={
                 'Content-Type': 'application/x-tar',
+                'Content-Encoding': 'gzip',
                 'Content-Disposition': f'attachment; filename="{filename}"',
             },
         )
         await response.prepare(self.request)
+
+        compressor = zlib.compressobj(zlib.Z_BEST_COMPRESSION, wbits=31)
+
+        async def write_compressed(data: bytes) -> None:
+            if chunk := compressor.compress(data):
+                await response.write(chunk)
 
         async for partition in db_stream.partitions(size=50):
             for row in partition:
@@ -1420,7 +1428,7 @@ class DownloadSBOM(aiohttp.web.View):
                 tarinfo.size = blob_metadata.size
 
                 tarinfo_bytes = tarinfo.tobuf()
-                await response.write(tarinfo_bytes)
+                await write_compressed(tarinfo_bytes)
                 written_bytes = len(tarinfo_bytes)
 
                 conn = None
@@ -1445,13 +1453,13 @@ class DownloadSBOM(aiohttp.web.View):
                         if not (buffer := result.scalar()):
                             break
 
-                        await response.write(data=buffer)
+                        await write_compressed(buffer)
                         written_bytes += len(buffer)
 
                     # pad to full blocks
                     if remainder := written_bytes % tarfile.BLOCKSIZE:
                         missing = tarfile.BLOCKSIZE - remainder
-                        await response.write(tarfile.NUL * missing)
+                        await write_compressed(tarfile.NUL * missing)
                 finally:
                     if conn is not None and lo_fd is not None:
                         await conn.exec_driver_sql(
@@ -1460,7 +1468,10 @@ class DownloadSBOM(aiohttp.web.View):
                         )
 
         # terminate tarchive w/ two empty blocks
-        await response.write(tarfile.NUL * tarfile.BLOCKSIZE * 2)
+        await write_compressed(tarfile.NUL * tarfile.BLOCKSIZE * 2)
+
+        if final_chunk := compressor.flush(zlib.Z_FINISH):
+            await response.write(final_chunk)
 
         await response.write_eof()
         return response
