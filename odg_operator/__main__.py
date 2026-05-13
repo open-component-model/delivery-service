@@ -45,7 +45,6 @@ logger = logging.getLogger(__name__)
 
 ODG_CLEAN_UP_FINALISER = 'open-delivery-gear.ocm.software/odg-clean-up'
 ODG_RECONCILE_ANNOTATION = 'open-delivery-gear.ocm.software/reconcile'
-ODG_COMPONENT_NAME = 'ocm.software/ocm-gear'
 HELM_CHART_MEDIA_TYPE = 'application/vnd.cncf.helm.chart.content.v1.tar+gzip'
 ODG_EXTENSION_ARTEFACT_TYPE = 'odg-extension'
 DEFAULT_K8S_SECRET_MAX_BYTES = 1150000
