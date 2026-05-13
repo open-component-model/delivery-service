@@ -7,6 +7,10 @@ import kubernetes.client
 DOMAIN = 'delivery-gear.gardener.cloud'
 LABEL_SERVICE = f'{DOMAIN}/service'
 
+ODG_CLUSTER_REF_LABEL = 'open-delivery-gear.ocm.software/odg-cluster-ref'
+ODG_NAMESPACE_LABEL = 'open-delivery-gear.ocm.software/odg-namespace'
+ODG_NAME_LABEL = 'open-delivery-gear.ocm.software/odg-name'
+
 
 @dataclasses.dataclass(frozen=True)
 class Crd:

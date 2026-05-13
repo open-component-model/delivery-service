@@ -95,6 +95,23 @@ def generate_kubernetes_name(
     return name
 
 
+def validated_label_value(value: str) -> str:
+    regex = '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?'
+
+    if len(value) > 63:
+        raise ValueError(f'Invalid label {value=}: Must be no more than 63 bytes')
+
+    if not re.fullmatch(regex, value):
+        raise ValueError(
+            f'Invalid label {value=}: A valid label must be an empty string or consist of '
+            'alphanumeric characters, "-", "_" or ".", and must start and end with an alphanumeric '
+            'character (e.g. "MyValue", or "my_value", or "12345", regex used for validation is '
+            f'"{regex}"',
+        )
+
+    return value
+
+
 def normalise_pod_label(pod_label: str) -> str:
     pod_label = pod_label.title().replace('-', '').replace('_', '')
     return pod_label[:1].lower() + pod_label[1:]
