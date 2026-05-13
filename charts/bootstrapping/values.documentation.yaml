@@ -706,6 +706,57 @@ extensions_cfg:
     # - warning: skip processing and log a warning message (default)
     on_unsupported: warning
 
+  # @param extensions_cfg.sbom_generator worker which generates SBoM documents for OCM artefacts and
+  # stores them in ODG database. Downloadable via API or ODG-UI
+  sbom_generator:
+    # @param extensions_cfg.sbom_generator.enabled allows disabling of extension without removing its
+    # configuration
+    enabled: true
+    # @param extensions_cfg.sbom_generator.delivery_service_url url to access the delivery-service
+    # (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
+    # @param extensions_cfg.sbom_generator.interval time (in seconds) after which a component should
+    # be re-processed the latest
+    interval: 86400 # 24h
+    # @param extensions_cfg.sbom_generator.on_unsupported behaviour in case the detected artefact
+    # kind/type/access is not supported
+    # options:
+    # - fail: raise an exception
+    # - ignore: skip processing
+    # - warning: skip processing and log a warning message (default)
+    on_unsupported: warning
+    # @param extensions_cfg.sbom_generator.generation_mode control which tool is used to generate
+    # SBoM documents, following options are supported:
+    # - syft (default)
+    # - bdba
+    generation_mode: syft
+    # @param extensions_cfg.sbom_generator.output_format define desired SBoM format, following
+    # options are supported:
+    # cyclonedx (default)
+    # spdx
+    # bdio (will only work with generation mode "bdba")
+    output_format: cyclonedx
+    # @param extensions_cfg.sbom_generator.mappings only considered for generation_mode "bdba",
+    # control what bdba groups and aws-secrets are used to scan the artefacts
+    mappings:
+    # @param extensions_cfg.sbom_generator.mappings[].group_id the BDBA group id used for scanning
+    - group_id: -1
+      # @param extensions_cfg.sbom_generator.mappings[].aws_secret_name in case the resources are
+      # stored in AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws
+      # secret to use must be specified
+      aws_secret_name: ""
+    # @param extensions_cfg.sbom_generator.create_new_scan_if_missing is only considered with
+    # generation mode "bdba". controls how to behave in case no bdba sbom scan was found for desired
+    # artefact.
+    create_new_scan_if_missing: false
+    # @param extensions_cfg.sbom_generator.processing_mode the behaviour in case the BDBA scan
+    # already exists
+    # options:
+    # - rescan: re-use already uploaded binary and retrieve updated scan results
+    # - force_upload: always re-upload binary and retrieve updated scan results
+    processing_mode: force_upload
 
 # @section ocm_repo_mappings mapping between OCM components and their respective OCM repository.
 # Allows to define repository-specific version filtering rules as well as "virtual" repositories

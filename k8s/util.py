@@ -125,10 +125,17 @@ def scale_replicas(
         name_parts=(service,),
         generate_num_suffix=False,
     )
-    deployment = kubernetes_api.apps_kubernetes_api.read_namespaced_deployment(
-        namespace=namespace,
-        name=name,
-    )
+
+    try:
+        deployment = kubernetes_api.apps_kubernetes_api.read_namespaced_deployment(
+            namespace=namespace,
+            name=name,
+        )
+    except kubernetes.client.rest.ApiException as e:
+        # do not let API exceptions block the general scaling (e.g. due to missing deployment)
+        logger.error(e)
+        return
+
     deployment: kubernetes.client.models.v1_deployment.V1Deployment
 
     current_replicas = deployment.spec.replicas
