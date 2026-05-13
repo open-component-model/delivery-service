@@ -26,7 +26,7 @@ import ocm.oci
 
 import compliance_summary as cs
 import consts
-import deliverydb.cache
+import deliverydb.cache_async
 import deliverydb.model as dm
 import deliverydb.util as du
 import features
@@ -359,7 +359,7 @@ class ComponentDependencies(aiohttp.web.View):
 
 
 class ComponentResponsibles(aiohttp.web.View):
-    @deliverydb.cache.dbcached_route(skip_http_status=(http.HTTPStatus.ACCEPTED,))
+    @deliverydb.cache_async.dbcached_route(skip_http_status=(http.HTTPStatus.ACCEPTED,))
     async def get(self):
         """
         ---
@@ -545,7 +545,7 @@ class ComponentResponsibles(aiohttp.web.View):
 # Note: The cache manager expects this function to use the persistent db-cache annotator. If this
 # would be removed in a future change, the cache manager also had to be adjusted to prevent
 # unnecessary load.
-@deliverydb.cache.dbcached_function(
+@deliverydb.cache_async.dbcached_function(
     ttl_seconds=60,
     exclude_kwargs=('oci_client',),
 )
@@ -935,7 +935,7 @@ class UpgradePRs(aiohttp.web.View):
                 },
             }
 
-        @deliverydb.cache.dbcached_function(
+        @deliverydb.cache_async.dbcached_function(
             ttl_seconds=60 * 60,  # 1 hour
         )
         async def retrieve_upgrade_prs(
@@ -992,7 +992,7 @@ class ComponentDescriptorDiff(aiohttp.web.View):
     async def options(self):
         return aiohttp.web.Response()
 
-    @deliverydb.cache.dbcached_route()
+    @deliverydb.cache_async.dbcached_route()
     async def post(self):
         """
         ---
@@ -1236,7 +1236,7 @@ class ComplianceSummary(aiohttp.web.View):
         if profile := profiles_callback(util.param(params, 'profile')):
             finding_cfgs = profile.filter_finding_cfgs(finding_cfgs)
 
-        shortcut_cache = deliverydb.cache.parse_shortcut_cache(self.request)
+        shortcut_cache = deliverydb.cache_async.parse_shortcut_cache(self.request)
 
         compliance_summary = [
             await cs.component_compliance_summary(

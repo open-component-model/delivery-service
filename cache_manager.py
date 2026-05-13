@@ -292,7 +292,7 @@ async def main():
         oci_client=oci_client,
     )
 
-    db_session = await deliverydb.sqlalchemy_session(db_url)
+    db_session = await deliverydb.sqlalchemy_session_async(db_url)
     try:
         cache_size_bytes = await db_size(db_session=db_session)
 

@@ -488,7 +488,7 @@ def db_cache_component_descriptor_lookup_async(
         persistet in the database cache
     """
     # late import to not require it in extensions which don't use async lookup
-    import deliverydb.cache
+    import deliverydb.cache_async
     import deliverydb.model
 
     if ttl_seconds and ttl_seconds < keep_at_least_seconds:
@@ -529,9 +529,9 @@ def db_cache_component_descriptor_lookup_async(
             value=value,
         )
 
-        db_session = await deliverydb.sqlalchemy_session(db_url)
+        db_session = await deliverydb.sqlalchemy_session_async(db_url)
         try:
-            await deliverydb.cache.add_or_update_cache_entry(
+            await deliverydb.cache_async.add_or_update_cache_entry(
                 db_session=db_session,
                 cache_entry=cache_entry,
             )
@@ -551,7 +551,7 @@ def db_cache_component_descriptor_lookup_async(
             ocm_repository_lookup,
         )
 
-        db_session = await deliverydb.sqlalchemy_session(db_url)
+        db_session = await deliverydb.sqlalchemy_session_async(db_url)
         try:
             for ocm_repo in ocm_repos:
                 if isinstance(ocm_repo, str):
@@ -569,7 +569,7 @@ def db_cache_component_descriptor_lookup_async(
                     ocm_repository=ocm_repo,
                 )
 
-                if value := await deliverydb.cache.find_cached_value(
+                if value := await deliverydb.cache_async.find_cached_value(
                     db_session=db_session,
                     id=descriptor.id,
                 ):

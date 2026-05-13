@@ -15,7 +15,7 @@ import compliance_tests
 import components
 import consts
 import ctx_util
-import deliverydb.cache
+import deliverydb.cache_async
 import dora
 import eol
 import features
@@ -365,7 +365,7 @@ def add_routes(
     )
     swagger.add_view(
         path='/cache',
-        handler=deliverydb.cache.DeliveryDBCache,
+        handler=deliverydb.cache_async.DeliveryDBCache,
     )
     swagger.add_view(
         path='/artefacts/metadata/query-attributes',
