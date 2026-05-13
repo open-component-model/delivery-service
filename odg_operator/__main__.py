@@ -27,6 +27,7 @@ import ocm
 import ocm.iter
 
 import ctx_util
+import k8s.model
 import k8s.util
 import lookups
 import ocm_util
@@ -44,8 +45,6 @@ logger = logging.getLogger(__name__)
 
 ODG_CLEAN_UP_FINALISER = 'open-delivery-gear.ocm.software/odg-clean-up'
 ODG_RECONCILE_ANNOTATION = 'open-delivery-gear.ocm.software/reconcile'
-ODG_NAME_LABEL = 'open-delivery-gear.ocm.software/odg-name'
-ODG_COMPONENT_NAME = 'ocm.software/ocm-gear'
 HELM_CHART_MEDIA_TYPE = 'application/vnd.cncf.helm.chart.content.v1.tar+gzip'
 ODG_EXTENSION_ARTEFACT_TYPE = 'odg-extension'
 DEFAULT_K8S_SECRET_MAX_BYTES = 1150000
@@ -252,7 +251,8 @@ def encode_and_split_manifests(
 def create_or_update_odg(
     odg: odgm.ODG,
     extension_definitions: list[odgm.ExtensionDefinition],
-    component_descriptor_lookup,
+    cluster_identity: str,
+    component_descriptor_lookup: ocm.ComponentDescriptorLookup,
     oci_client: oci.client.Client,
     kubernetes_api: k8s.util.KubernetesApi,
 ) -> tuple[
@@ -416,6 +416,13 @@ def create_or_update_odg(
                     f'{extension_artefact_name}-{idx}' for idx in range(len(encoded_manifests))
                 ]
 
+            labels_to_inject = {
+                # split into multiple labels to prevent value length limit of 63 chars
+                k8s.model.ODG_CLUSTER_REF_LABEL: k8s.util.validated_label_value(cluster_identity),
+                k8s.model.ODG_NAMESPACE_LABEL: k8s.util.validated_label_value(odg.namespace),
+                k8s.model.ODG_NAME_LABEL: k8s.util.validated_label_value(odg.name),
+            }
+
             data = {
                 'apiVersion': odgm.ManagedResourceMeta.apiVersion,
                 'kind': odgm.ManagedResourceMeta.kind,
@@ -423,12 +430,13 @@ def create_or_update_odg(
                     'name': extension_artefact_name,
                     'namespace': odg.namespace,
                     'labels': {
-                        ODG_NAME_LABEL: odg.name,  # we need to find them again
+                        k8s.model.ODG_NAME_LABEL: odg.name,  # we need to find them again
                     },
                 },
                 'spec': {
                     'class': odgm.ManagedResourceClasses.EXTERNAL,
                     'keepObjects': False,
+                    'injectLabels': labels_to_inject,
                     'secretRefs': [
                         {
                             'name': secret_name,
@@ -458,7 +466,7 @@ def create_or_update_odg(
                         name=secret_name,
                         namespace=odg.namespace,
                         labels={
-                            ODG_NAME_LABEL: odg.name,  # we need to find them again
+                            k8s.model.ODG_NAME_LABEL: odg.name,  # we need to find them again
                         },
                     ),
                     data={
@@ -563,7 +571,8 @@ def set_odg_state(
 def reconcile(
     extension_definitions: collections.abc.Iterable[odgm.ExtensionDefinition],
     required_extensions: list[str],
-    component_descriptor_lookup,
+    cluster_identity: str,
+    component_descriptor_lookup: ocm.ComponentDescriptorLookup,
     kubernetes_api: k8s.util.KubernetesApi,
     oci_client: oci.client.Client,
     group: str = odgm.ODGMeta.group,
@@ -650,7 +659,7 @@ def reconcile(
                     version=odgm.ManagedResourceMeta.version,
                     plural=odgm.ManagedResourceMeta.plural,
                     namespace=odg.namespace,
-                    label_selector=f'{ODG_NAME_LABEL}={odg.name}',
+                    label_selector=f'{k8s.model.ODG_NAME_LABEL}={odg.name}',
                 ).get('items', []):
                     delete_managed_resource(
                         kubernetes_api=kubernetes_api,
@@ -727,6 +736,7 @@ def reconcile(
                     status_for_extension, has_error = create_or_update_odg(
                         odg=odg,
                         extension_definitions=requested_extension_definitions,
+                        cluster_identity=cluster_identity,
                         component_descriptor_lookup=component_descriptor_lookup,
                         oci_client=oci_client,
                         kubernetes_api=kubernetes_api,
@@ -749,7 +759,7 @@ def reconcile(
                         version=odgm.ManagedResourceMeta.version,
                         plural=odgm.ManagedResourceMeta.plural,
                         namespace=odg.namespace,
-                        label_selector=f'{ODG_NAME_LABEL}={odg.name}',
+                        label_selector=f'{k8s.model.ODG_NAME_LABEL}={odg.name}',
                     ).get('items', []):
                         name = managed_resource['metadata']['name']
                         if name in desired_managed_resource_names:
@@ -982,6 +992,7 @@ if __name__ == '__main__':
         reconcile(
             extension_definitions=extension_definitions,
             required_extensions=odg_operator_cfg.required_extension_names,
+            cluster_identity=odg_operator_cfg.cluster_identity,
             component_descriptor_lookup=component_descriptor_lookup,
             oci_client=oci_client,
             kubernetes_api=kubernetes_api,
