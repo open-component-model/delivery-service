@@ -96,7 +96,10 @@ def _sqlalchemy_sessionmaker(
 
     dm.Base.metadata.create_all(engine)
 
-    return sqlalchemy.orm.sessionmaker(bind=engine)
+    sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
+    sessionmakers[(pool_size, max_overflow, pool_timeout)] = sessionmaker
+
+    return sessionmaker
 
 
 def sqlalchemy_session(
@@ -105,9 +108,9 @@ def sqlalchemy_session(
     max_overflow: int = 10,
     pool_timeout: int = 30,
 ) -> sqlalchemy.orm.session.Session:
-    '''
+    """
     Caller must close database-session.
-    '''
+    """
     sessionmaker = _sqlalchemy_sessionmaker(
         db_url=db_url,
         pool_size=pool_size,
