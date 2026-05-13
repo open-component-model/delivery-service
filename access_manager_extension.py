@@ -323,7 +323,7 @@ async def main():
 
     github_api_lookup = lookups.github_api_lookup()
 
-    db_session = await deliverydb.sqlalchemy_session(db_url)
+    db_session = await deliverydb.sqlalchemy_session_async(db_url)
     try:
         await update_user_role_bindings(
             oauth_cfgs=oauth_cfgs,

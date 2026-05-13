@@ -11,7 +11,7 @@ import sqlalchemy.ext.asyncio as sqlasync
 import ocm
 
 import consts
-import deliverydb.cache as dc
+import deliverydb.cache_async as dc
 import deliverydb.model as dm
 import deliverydb.search_model as sm
 import deliverydb.util as du
