@@ -1165,7 +1165,7 @@ class SBOMGeneratorMapping(Mapping):
 class SBOMGeneratorConfig(BacklogItemMixins):
     service: Services = Services.SBOM_GENERATOR
     delivery_service_url: str
-    mappings: list[SBOMGeneratorMapping]
+    mappings: list[SBOMGeneratorMapping] = dataclasses.field(default_factory=list)
     on_unsupported: WarningVerbosities = WarningVerbosities.WARNING
     create_new_scan_if_missing: bool = False
     output_format: SbomFormat = SbomFormat.CYCLONEDX
