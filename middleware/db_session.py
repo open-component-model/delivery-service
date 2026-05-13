@@ -28,11 +28,11 @@ async def db_session_middleware(
         request: aiohttp.web.Request,
         handler: aiohttp.typedefs.Handler,
     ) -> aiohttp.web.StreamResponse:
-        request[consts.REQUEST_DB_SESSION] = await deliverydb.sqlalchemy_session(
+        request[consts.REQUEST_DB_SESSION] = await deliverydb.sqlalchemy_session_async(
             db_url=db_url,
             pool_timeout=5,
         )
-        request[consts.REQUEST_DB_SESSION_LOW_PRIO] = await deliverydb.sqlalchemy_session(
+        request[consts.REQUEST_DB_SESSION_LOW_PRIO] = await deliverydb.sqlalchemy_session_async(
             db_url=db_url,
             pool_size=2,
             max_overflow=1,
@@ -55,7 +55,7 @@ async def db_session_middleware(
         return response
 
     async def test_db_session():
-        session = await deliverydb.sqlalchemy_session(db_url)
+        session = await deliverydb.sqlalchemy_session_async(db_url)
         # execute query to validate monkey-patched attributes
         await session.execute(sqlalchemy.select(dm.ArtefactMetaData).limit(1))
         await session.close()
