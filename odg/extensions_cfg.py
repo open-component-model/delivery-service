@@ -407,6 +407,7 @@ class BlackDuckConfig(BacklogItemMixins):
         self,
         artefact_kind: odg.model.ArtefactKind | None = None,
         access_type: ocm.AccessType | None = None,
+        artefact_type: str | None = None,
     ) -> bool:
         supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
         supported_access_types = (
@@ -414,6 +415,10 @@ class BlackDuckConfig(BacklogItemMixins):
             ocm.AccessType.LOCAL_BLOB,
             ocm.AccessType.S3,
         )
+        supported_artefact_types_by_access_type = {
+            ocm.AccessType.OCI_REGISTRY: ('ociImage', 'ociArtifact'),
+            ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
+        }
 
         is_supported = True
 
@@ -430,6 +435,22 @@ class BlackDuckConfig(BacklogItemMixins):
                 logger.warning(
                     f'{access_type=} is not supported for BD scans, {supported_access_types=}',
                 )
+
+        if (
+            artefact_type
+            and access_type
+            and (artefact_types := supported_artefact_types_by_access_type.get(access_type))
+        ):
+            if not any(
+                artefact_type.startswith(supported_artefact_type)
+                for supported_artefact_type in artefact_types
+            ):
+                is_supported = False
+                if self.on_unsupported is WarningVerbosities.WARNING:
+                    logger.warning(
+                        f'{artefact_type=} is not supported for BD scans with {access_type=}, '
+                        f'{supported_artefact_types_by_access_type=}',
+                    )
 
         return is_supported
 
