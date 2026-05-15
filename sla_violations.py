@@ -12,7 +12,11 @@ import rescore.utility
 import util
 
 
-def filter_rescorings_for_finding(finding, rescorings, release_date):
+def filter_rescorings_for_finding(
+    finding: odg.model.ArtefactMetadata,
+    rescorings: list[odg.model.ArtefactMetadata],
+    release_date: datetime.datetime,
+) -> list[odg.model.ArtefactMetadata]:
     filtered_rescorings = []
     for r in rescore.utility.rescorings_for_finding_by_specificity(
         finding=finding,
@@ -27,7 +31,11 @@ def filter_rescorings_for_finding(finding, rescorings, release_date):
     )
 
 
-def determine_deadline_violations(finding, sorted_rescorings, release_date):
+def determine_deadline_violations(
+    finding: odg.model.ArtefactMetadata,
+    sorted_rescorings: list[odg.model.ArtefactMetadata],
+    release_date: datetime.datetime,
+) -> list[odg.model.SlaViolation]:
     violations = []
     allowed_time = util.convert_to_timedelta(finding.allowed_processing_time)
     deadline = finding.discovery_date + allowed_time
@@ -67,7 +75,11 @@ def determine_deadline_violations(finding, sorted_rescorings, release_date):
     return violations
 
 
-def determine_version_sla_violations(findings, rescorings, release_date):
+def determine_version_sla_violations(
+    findings: list[odg.model.ArtefactMetadata],
+    rescorings: list[odg.model.ArtefactMetadata],
+    release_date: datetime.datetime,
+) -> list[odg.model.SlaViolation]:
     version_sla_violations = []
 
     for finding in findings:
