@@ -11,7 +11,7 @@ import sqlalchemy.ext.asyncio as sqlasync
 import cnudie.retrieve_async
 import ocm
 
-import deliverydb.cache
+import deliverydb.cache_async
 import deliverydb.util
 import lookups
 import odg.findings
@@ -243,7 +243,7 @@ async def artefact_datatype_summary(
 # Note: The cache manager expects this function to use the persistent db-cache annotator. If this
 # would be removed in a future change, the cache manager also had to be adjusted to prevent
 # unnecessary load.
-@deliverydb.cache.dbcached_function(
+@deliverydb.cache_async.dbcached_function(
     ttl_seconds=60 * 60 * 24,  # 1 day
     exclude_kwargs=(
         'finding_cfg',
