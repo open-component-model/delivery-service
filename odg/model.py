@@ -35,6 +35,7 @@ class Datatype(enum.StrEnum):
     RESPONSIBLES = 'meta/responsibles'
     SCANNER_WRITEBACK = 'meta/scanner_writeback'
     UUID = 'meta/uuid'
+    SLA_VIOLATION = 'sla_violation'
 
     # finding types
     CRYPTO_FINDING = 'finding/crypto'
@@ -91,6 +92,7 @@ class Datasource(enum.StrEnum):
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
     SBOM_GENERATOR = 'sbom-generator'
+    SLA_CHECKER = 'sla-checker'
     ODG = 'odg'
 
     def datatypes(self) -> tuple[Datatype, ...]:
@@ -909,6 +911,30 @@ class CustomRescoring:
         )
 
 
+@dataclasses.dataclass
+class SlaViolation:
+    finding: (
+        RescoringVulnerabilityFinding
+        | RescoringLicenseFinding
+        | MalwareFindingDetails
+        | RescoreSastFinding
+        | RescoringCryptoFinding
+        | RescoringDikiFinding
+        | RescoreOsIdFinding
+        | RescoringFalcoFinding
+        | RescoringKyvernoFinding
+        | RescoreGitHubSecretFinding
+        | RescoringIPFinding
+    )
+    referenced_type: str
+    artefact: ComponentArtefactId
+
+
+@dataclasses.dataclass
+class SlaViolations:
+    sla_violations: list[SlaViolation]
+
+
 class ComplianceSnapshotStatuses(enum.StrEnum):
     ACTIVE = 'active'
     INACTIVE = 'inactive'
@@ -1536,6 +1562,7 @@ MetaModels = (
     | CustomRescoring
     | ComplianceSnapshot
     | ArtefactUUID
+    | SlaViolations
     | dict
 )
 
@@ -1585,6 +1612,8 @@ class ArtefactMetadata:
     def key(self) -> str:
         if dataclasses.is_dataclass(self.data):
             data_key = self.data.key if hasattr(self.data, 'key') else None
+        elif isinstance(self.data, list):
+            data_key = None  # Not supported at the moment
         else:
             data_key = self.data.get('key')
 
