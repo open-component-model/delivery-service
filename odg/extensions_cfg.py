@@ -382,9 +382,7 @@ class BlackDuckTarget:
 @dataclasses.dataclass
 class BlackDuckExtensionMapping(Mapping):
     targets: list[BlackDuckTarget]
-    group_id_bdba: int
     aws_secret_name: str | None
-    processing_mode: str = 'rescan'
 
 
 @dataclasses.dataclass(kw_only=True)
