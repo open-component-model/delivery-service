@@ -15,7 +15,6 @@ import bdba.client
 import bdba.model
 import bdba_utils.scan
 import bdba_utils.util
-import dockerutil
 import k8s.util
 import k8s.logging
 import ocm
@@ -27,11 +26,11 @@ import odg_client
 import syft
 import secret_mgmt
 import secret_mgmt.bdba
-import secret_mgmt.oci_registry
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
+own_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 @dataclasses.dataclass
@@ -43,29 +42,34 @@ class SBOM:
 def generate_sbom_with_syft(
     resource_node: ocm.iter.ResourceNode,
     output_format: syft.SyftSbomFormat,
+    aws_secret_name: str | None,
+    oci_client: oci.client.Client,
     secret_factory: secret_mgmt.SecretFactory,
 ) -> SBOM:
     logger.info(f'Creating SBOM for resource node {resource_node} using syft')
 
     access = resource_node.resource.access
 
-    if access.type is ocm.AccessType.OCI_REGISTRY:
-        oci_secret = secret_mgmt.oci_registry.find_cfg(
+    with tempfile.TemporaryDirectory(dir=own_dir) as tmp_dir:
+        filename_for_access_type = {
+            ocm.AccessType.LOCAL_BLOB: 'local_blob',
+            ocm.AccessType.OCI_REGISTRY: None,
+            ocm.AccessType.S3: 's3',
+        }
+
+        file_path = None
+        if filename := filename_for_access_type.get(access.type):
+            file_path = os.path.join(tmp_dir, filename)
+
+        sbom_raw = syft.generate_raw_sbom_for_artefact(
+            component=resource_node.component,
+            access=resource_node.resource.access,
             secret_factory=secret_factory,
-            image_reference=access.imageReference,
+            oci_client=oci_client,
+            file_path=file_path,
+            aws_secret_name=aws_secret_name,
+            sbom_output_format=output_format,
         )
-
-        if oci_secret:
-            dockerutil.prepare_docker_cfg(
-                image_reference=access.imageReference,
-                username=oci_secret.username,
-                password=oci_secret.password,
-            )
-
-    sbom_raw = syft.run_syft(
-        source=access.imageReference,
-        output_format=output_format,
-    )
 
     return SBOM(sbom_raw=json.loads(sbom_raw), sbom_format=output_format)
 
@@ -226,6 +230,7 @@ def generate_sbom_for_artefact(
 
     match extension_cfg.generation_mode:
         case odg.model.SbomGenerationMode.SYFT:
+            mapping = extension_cfg.mapping(artefact.component_name, absent_ok=True)
             syft_output_format = {
                 odg.extensions_cfg.SbomFormat.CYCLONEDX: syft.SyftSbomFormat.CYCLONEDX,
                 odg.extensions_cfg.SbomFormat.SPDX: syft.SyftSbomFormat.SPDX,
@@ -241,6 +246,8 @@ def generate_sbom_for_artefact(
             sbom_result = generate_sbom_with_syft(
                 resource_node=resource_node,
                 output_format=syft_output_format,
+                aws_secret_name=mapping.aws_secret_name if mapping else None,
+                oci_client=oci_client,
                 secret_factory=secret_factory,
             )
 

@@ -1179,7 +1179,7 @@ class SBOMGeneratorMapping(Mapping):
         Name of the AWS secret element to use to retrieve artefacts from S3.
     """
 
-    group_id: int
+    group_id: int | None
     aws_secret_name: str | None
 
 
@@ -1199,24 +1199,18 @@ class SBOMGeneratorConfig(BacklogItemMixins):
         self,
         artefact_kind: odg.model.ArtefactKind | None = None,
         access_type: ocm.AccessType | None = None,
-        artefact_type: ocm.ArtefactType | None = None,
+        artefact_type: str | None = None,
     ) -> bool:
         supported_artefact_kinds = (odg.model.ArtefactKind.RESOURCE,)
-
-        supported_access_types_by_mode = {
-            odg.model.SbomGenerationMode.SYFT: (ocm.AccessType.OCI_REGISTRY,),
-            odg.model.SbomGenerationMode.BDBA: (
-                ocm.AccessType.OCI_REGISTRY,
-                ocm.AccessType.LOCAL_BLOB,
-                ocm.AccessType.S3,
-            ),
-        }
-
-        supported_artefact_types_by_mode = {
-            odg.model.SbomGenerationMode.SYFT: (
-                ocm.ArtefactType.OCI_IMAGE,
-                ocm.ArtefactType.DIRECTORY_TREE,
-            ),
+        supported_access_types = (
+            ocm.AccessType.OCI_REGISTRY,
+            ocm.AccessType.LOCAL_BLOB,
+            ocm.AccessType.S3,
+        )
+        supported_artefact_types_by_access_type = {
+            ocm.AccessType.OCI_REGISTRY: ('ociImage', 'ociArtifact'),
+            ocm.AccessType.LOCAL_BLOB: ('directoryTree', 'executable'),
+            ocm.AccessType.S3: ('application/tar', 'application/x-tar'),
         }
 
         is_supported = True
@@ -1229,32 +1223,44 @@ class SBOMGeneratorConfig(BacklogItemMixins):
                     f'{supported_artefact_kinds=}',
                 )
 
-        if access_type:
-            supported_access_types = supported_access_types_by_mode.get(self.generation_mode, ())
-            if access_type not in supported_access_types:
-                is_supported = False
-                if self.on_unsupported is WarningVerbosities.WARNING:
-                    logger.warning(
-                        f'{access_type=} is not supported for SBOM Generation '
-                        f'with {self.generation_mode=}, {supported_access_types=}',
-                    )
+        if access_type and access_type not in supported_access_types:
+            is_supported = False
+            if self.on_unsupported is WarningVerbosities.WARNING:
+                logger.warning(
+                    f'{access_type=} is not supported for SBOM Generation, '
+                    f'{supported_access_types=}',
+                )
 
-        if artefact_type:
-            supported_artefact_types = supported_artefact_types_by_mode.get(self.generation_mode, ())
-            if supported_artefact_types and artefact_type not in supported_artefact_types:
+        if (
+            artefact_type
+            and access_type
+            and (artefact_types := supported_artefact_types_by_access_type.get(access_type))
+        ):
+            if not any(
+                artefact_type.startswith(supported_artefact_type)
+                for supported_artefact_type in artefact_types
+            ):
                 is_supported = False
                 if self.on_unsupported is WarningVerbosities.WARNING:
                     logger.warning(
-                        f'{artefact_type=} is not supported for SBOM Generation '
-                        f'with {self.generation_mode=}, {supported_artefact_types=}',
+                        f'{artefact_type=} is not supported for SBOM Generation with '
+                        f'{access_type=}, {supported_artefact_types_by_access_type=}',
                     )
 
         return is_supported
 
-    def mapping(self, name: str, /) -> SBOMGeneratorMapping:
+    def mapping(
+        self,
+        name: str,
+        /,
+        absent_ok: bool = False,
+    ) -> SBOMGeneratorMapping | None:
         for mapping in self.mappings:
             if name.startswith(mapping.prefix):
                 return mapping
+
+        if absent_ok:
+            return None
 
         raise ValueError(f'No matching mapping entry found for {name=}')
 
