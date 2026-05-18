@@ -24,7 +24,6 @@ blackduck:
   enabled: False
   mappings:
     - prefix: ''
-      group_id_bdba: 0 # <int> must be set
       targets:
         - group_id: '' # <str> must be set
           host: '' # <str> must be set
