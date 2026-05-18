@@ -1,3 +1,4 @@
+import collections.abc
 import datetime
 import os
 
@@ -12,18 +13,18 @@ import rescore.utility
 import util
 
 
-def filter_rescorings_for_finding(
+def filter_rescorings_before_release_date(
     finding: odg.model.ArtefactMetadata,
     rescorings: list[odg.model.ArtefactMetadata],
     release_date: datetime.datetime,
 ) -> list[odg.model.ArtefactMetadata]:
     filtered_rescorings = []
-    for r in rescore.utility.rescorings_for_finding_by_specificity(
+    for rescoring in rescore.utility.rescorings_for_finding_by_specificity(
         finding=finding,
         rescorings=rescorings,
     ):
-        if r.meta.creation_date < release_date:
-            filtered_rescorings.append(r)
+        if rescoring.meta.creation_date < release_date:
+            filtered_rescorings.append(rescoring)
 
     return sorted(
         filtered_rescorings,
@@ -31,26 +32,23 @@ def filter_rescorings_for_finding(
     )
 
 
-def determine_deadline_violations(
+def iter_policy_violations(
     finding: odg.model.ArtefactMetadata,
     sorted_rescorings: list[odg.model.ArtefactMetadata],
     release_date: datetime.datetime,
-) -> list[odg.model.SlaViolation]:
-    violations = []
+) -> collections.abc.Generator[odg.model.SlaViolation, None, None]:
     allowed_time = util.convert_to_timedelta(finding.allowed_processing_time)
     deadline = finding.discovery_date + allowed_time
 
     for rescoring in sorted_rescorings:
         if deadline and rescoring.meta.creation_date.date() > deadline:
-            violations.append(
-                odg.model.SlaViolation(
-                    finding=odg.model.RescoringVulnerabilityFinding(
-                        package_name=finding.data.package_name,
-                        cve=finding.data.cve,
-                    ),
-                    referenced_type=odg.model.Datatype.VULNERABILITY_FINDING,
-                    artefact=finding.artefact,
+            yield odg.model.SlaViolation(
+                finding=odg.model.RescoringVulnerabilityFinding(
+                    package_name=finding.data.package_name,
+                    cve=finding.data.cve,
                 ),
+                referenced_type=odg.model.Datatype.VULNERABILITY_FINDING,
+                artefact=finding.artefact,
             )
         if rescoring.data.due_date:
             deadline = rescoring.data.due_date
@@ -61,27 +59,21 @@ def determine_deadline_violations(
             deadline = finding.discovery_date + allowed_time
 
     if deadline and deadline < release_date.date():
-        violations.append(
-            odg.model.SlaViolation(
-                finding=odg.model.RescoringVulnerabilityFinding(
-                    package_name=finding.data.package_name,
-                    cve=finding.data.cve,
-                ),
-                referenced_type=odg.model.Datatype.VULNERABILITY_FINDING,
-                artefact=finding.artefact,
+        yield odg.model.SlaViolation(
+            finding=odg.model.RescoringVulnerabilityFinding(
+                package_name=finding.data.package_name,
+                cve=finding.data.cve,
             ),
+            referenced_type=odg.model.Datatype.VULNERABILITY_FINDING,
+            artefact=finding.artefact,
         )
-
-    return violations
 
 
 def determine_version_sla_violations(
     findings: list[odg.model.ArtefactMetadata],
     rescorings: list[odg.model.ArtefactMetadata],
     release_date: datetime.datetime,
-) -> list[odg.model.SlaViolation]:
-    version_sla_violations = []
-
+) -> collections.abc.Generator[odg.model.SlaViolation, None, None]:
     for finding in findings:
         if finding.meta.creation_date > release_date:
             continue
@@ -92,11 +84,9 @@ def determine_version_sla_violations(
         if not finding.allowed_processing_time:
             continue
 
-        sorted_rescorings = filter_rescorings_for_finding(finding, rescorings, release_date)
-        violations = determine_deadline_violations(finding, sorted_rescorings, release_date)
-        version_sla_violations.extend(violations)
-
-    return version_sla_violations
+        sorted_rescorings = filter_rescorings_before_release_date(finding, rescorings, release_date)
+        violations = iter_policy_violations(finding, sorted_rescorings, release_date)
+        yield from violations
 
 
 if __name__ == '__main__':
@@ -125,16 +115,8 @@ if __name__ == '__main__':
 
     versions = delivery_service_client.greatest_component_versions(
         component_name=os.environ['COMPONENT_NAME'],
-        start_date=datetime.date(
-            year=2025,
-            month=2,
-            day=4,
-        ),
-        end_date=datetime.date(
-            year=2026,
-            month=5,
-            day=4,
-        ),
+        start_date=datetime.date.fromisoformat(os.environ['START_DATE']),
+        end_date=datetime.date.fromisoformat(os.environ['END_DATE']),
     )
 
     sla_violations = []
