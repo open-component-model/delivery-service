@@ -173,6 +173,10 @@ extensions_cfg:
             # - OPENSOURCE
             # - SAAS
             distribution_mode_overwrite: null
+        # @param extensions_cfg.blackduck.mappings[].deduplicate_across_component_versions if true,
+        # the BlackDuck scans of the same artefact version (+ extra-id) will be deduplicated across
+        # existing component versions
+        deduplicate_across_component_versions: true
         # @param extensions_cfg.blackduck.mappings[].aws_secret_name in case the resources are stored
         # in AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws
         # secret to use must be specified

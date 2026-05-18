@@ -383,6 +383,7 @@ class BlackDuckTarget:
 class BlackDuckExtensionMapping(Mapping):
     targets: list[BlackDuckTarget]
     aws_secret_name: str | None
+    deduplicate_across_component_versions: bool = True
 
 
 @dataclasses.dataclass(kw_only=True)
