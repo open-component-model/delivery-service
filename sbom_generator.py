@@ -42,7 +42,7 @@ class SBOM:
 
 def generate_sbom_with_syft(
     resource_node: ocm.iter.ResourceNode,
-    output_format: odg.extensions_cfg.SbomFormat,
+    output_format: syft.SyftSbomFormat,
     secret_factory: secret_mgmt.SecretFactory,
 ) -> SBOM:
     logger.info(f'Creating SBOM for resource node {resource_node} using syft')
