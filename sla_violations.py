@@ -69,7 +69,7 @@ def iter_policy_violations(
         )
 
 
-def determine_version_sla_violations(
+def iter_version_sla_violations(
     findings: list[odg.model.ArtefactMetadata],
     rescorings: list[odg.model.ArtefactMetadata],
     release_date: datetime.datetime,
@@ -150,7 +150,7 @@ if __name__ == '__main__':
         rescorings = [odg.model.ArtefactMetadata.from_dict(raw) for raw in rescorings_raw]
         release_date = util.get_creation_date(root_descriptor.component)
 
-        version_sla_violations = determine_version_sla_violations(
+        version_sla_violations = iter_version_sla_violations(
             findings,
             rescorings,
             release_date,
@@ -169,7 +169,7 @@ if __name__ == '__main__':
                     creation_date=datetime.datetime.now(),
                 ),
                 data=odg.model.SlaViolations(
-                    sla_violations=version_sla_violations,
+                    sla_violations=list(version_sla_violations),
                 ),
             ),
         )
