@@ -1,0 +1,445 @@
+{
+  "finding_90d": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "finding/vulnerability",
+      "creation_date": "2025-01-01T00:00:00+00:00"
+    },
+    "data": {
+      "package_name": "openssl",
+      "package_version": "3.0.0",
+      "base_url": "https://scanner.example.com",
+      "report_url": "https://scanner.example.com/products/1/",
+      "product_id": 1,
+      "group_id": 1,
+      "severity": "HIGH",
+      "cve": "CVE-2025-0001",
+      "cvss_v3_score": 7.5,
+      "cvss": {
+        "access_vector": "N",
+        "attack_complexity": "L",
+        "user_interaction": "N",
+        "privileges_required": "N",
+        "scope": "U",
+        "confidentiality": "H",
+        "integrity": "N",
+        "availability": "N"
+      },
+      "summary": "Test vulnerability - no violation expected"
+    },
+    "discovery_date": "2025-01-01",
+    "allowed_processing_time": "90d"
+  },
+
+
+  "finding_30d": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "finding/vulnerability",
+      "creation_date": "2025-01-01T00:00:00+00:00"
+    },
+    "data": {
+      "package_name": "openssl",
+      "package_version": "3.0.0",
+      "base_url": "https://scanner.example.com",
+      "report_url": "https://scanner.example.com/products/1/",
+      "product_id": 1,
+      "group_id": 1,
+      "severity": "HIGH",
+      "cve": "CVE-2025-0002",
+      "cvss_v3_score": 7.5,
+      "cvss": {
+        "access_vector": "N",
+        "attack_complexity": "L",
+        "user_interaction": "N",
+        "privileges_required": "N",
+        "scope": "U",
+        "confidentiality": "H",
+        "integrity": "N",
+        "availability": "N"
+      },
+      "summary": "Test vulnerability that violates SLA"
+    },
+    "discovery_date": "2025-01-01",
+    "allowed_processing_time": "30d"
+  },
+
+
+  "finding_no_discovery_date": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "finding/vulnerability",
+      "creation_date": "2025-01-01T00:00:00+00:00"
+    },
+    "data": {
+      "package_name": "openssl",
+      "package_version": "3.0.0",
+      "base_url": "https://scanner.example.com",
+      "report_url": "https://scanner.example.com/products/1/",
+      "product_id": 1,
+      "group_id": 1,
+      "severity": "HIGH",
+      "cve": "CVE-2025-0003",
+      "cvss_v3_score": 7.5,
+      "cvss": {
+        "access_vector": "N",
+        "attack_complexity": "L",
+        "user_interaction": "N",
+        "privileges_required": "N",
+        "scope": "U",
+        "confidentiality": "H",
+        "integrity": "N",
+        "availability": "N"
+      },
+      "summary": "Finding without discovery_date - should raise ValueError"
+    },
+    "discovery_date": null,
+    "allowed_processing_time": "30d"
+  },
+
+
+  "finding_no_allowed_processing_time": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "finding/vulnerability",
+      "creation_date": "2025-01-01T00:00:00+00:00"
+    },
+    "data": {
+      "package_name": "openssl",
+      "package_version": "3.0.0",
+      "base_url": "https://scanner.example.com",
+      "report_url": "https://scanner.example.com/products/1/",
+      "product_id": 1,
+      "group_id": 1,
+      "severity": "HIGH",
+      "cve": "CVE-2025-0004",
+      "cvss_v3_score": 7.5,
+      "cvss": {
+        "access_vector": "N",
+        "attack_complexity": "L",
+        "user_interaction": "N",
+        "privileges_required": "N",
+        "scope": "U",
+        "confidentiality": "H",
+        "integrity": "N",
+        "availability": "N"
+      },
+      "summary": "Finding without allowed_processing_time - should be skipped"
+    },
+    "discovery_date": "2025-01-01",
+    "allowed_processing_time": null
+  },
+
+
+  "rescoring_basic": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "rescorings",
+      "creation_date": "2025-02-01T00:00:00+00:00"
+    },
+    "data": {
+      "finding": {
+        "package_name": "openssl",
+        "cve": "CVE-2025-0001"
+      },
+      "referenced_type": "finding/vulnerability",
+      "severity": "NONE",
+      "user": {
+        "username": "test@test.com",
+        "type": "bdba-user",
+        "email": "test@test.com",
+        "firstname": "",
+        "lastname": ""
+      },
+      "comment": "assessed as irrelevant",
+      "allowed_processing_time": null,
+      "due_date": null
+    },
+    "discovery_date": null,
+    "allowed_processing_time": null
+  },
+
+
+  "rescoring_removes_deadline": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "rescorings",
+      "creation_date": "2025-01-18T00:00:00+00:00"
+    },
+    "data": {
+      "finding": {
+        "package_name": "openssl",
+        "cve": "CVE-2025-0002"
+      },
+      "referenced_type": "finding/vulnerability",
+      "severity": "NONE",
+      "user": {
+        "username": "test@test.com",
+        "type": "bdba-user",
+        "email": "test@test.com",
+        "firstname": "",
+        "lastname": ""
+      },
+      "comment": "assessed as irrelevant - no deadline needed",
+      "allowed_processing_time": null,
+      "due_date": null
+    },
+    "discovery_date": null,
+    "allowed_processing_time": null
+  },
+
+
+  "rescoring_extends_deadline": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "rescorings",
+      "creation_date": "2025-01-15T00:00:00+00:00"
+    },
+    "data": {
+      "finding": {
+        "package_name": "openssl",
+        "cve": "CVE-2025-0002"
+      },
+      "referenced_type": "finding/vulnerability",
+      "severity": "MEDIUM",
+      "user": {
+        "username": "test@test.com",
+        "type": "bdba-user",
+        "email": "test@test.com",
+        "firstname": "",
+        "lastname": ""
+      },
+      "comment": "rescored to medium - more time allowed",
+      "allowed_processing_time": "180d",
+      "due_date": null
+    },
+    "discovery_date": null,
+    "allowed_processing_time": null
+  },
+
+
+  "rescoring_sets_due_date": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "rescorings",
+      "creation_date": "2025-01-15T00:00:00+00:00"
+    },
+    "data": {
+      "finding": {
+        "package_name": "openssl",
+        "cve": "CVE-2025-0002"
+      },
+      "referenced_type": "finding/vulnerability",
+      "severity": "MEDIUM",
+      "user": {
+        "username": "test@test.com",
+        "type": "bdba-user",
+        "email": "test@test.com",
+        "firstname": "",
+        "lastname": ""
+      },
+      "comment": "explicit due date set",
+      "allowed_processing_time": null,
+      "due_date": "2025-06-01"
+    },
+    "discovery_date": null,
+    "allowed_processing_time": null
+  },
+
+
+  "rescoring_after_deadline": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "rescorings",
+      "creation_date": "2025-03-01T00:00:00+00:00"
+    },
+    "data": {
+      "finding": {
+        "package_name": "openssl",
+        "cve": "CVE-2025-0002"
+      },
+      "referenced_type": "finding/vulnerability",
+      "severity": "NONE",
+      "user": {
+        "username": "test@test.com",
+        "type": "bdba-user",
+        "email": "test@test.com",
+        "firstname": "",
+        "lastname": ""
+      },
+      "comment": "rescored after deadline passed",
+      "allowed_processing_time": null,
+      "due_date": null
+    },
+    "discovery_date": null,
+    "allowed_processing_time": null
+  },
+
+
+  "rescoring_restores_deadline_30d": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "rescorings",
+      "creation_date": "2025-01-20T00:00:00+00:00"
+    },
+    "data": {
+      "finding": {
+        "package_name": "openssl",
+        "cve": "CVE-2025-0002"
+      },
+      "referenced_type": "finding/vulnerability",
+      "severity": "HIGH",
+      "user": {
+        "username": "test@test.com",
+        "type": "bdba-user",
+        "email": "test@test.com",
+        "firstname": "",
+        "lastname": ""
+      },
+      "comment": "rescored back to high - deadline restored",
+      "allowed_processing_time": "30d",
+      "due_date": null
+    },
+    "discovery_date": null,
+    "allowed_processing_time": null
+  },
+
+
+  "rescoring_due_date_and_allowed_time": {
+    "artefact": {
+      "component_name": "example.org/my-component",
+      "component_version": null,
+      "artefact": {
+        "artefact_name": "my-image",
+        "artefact_type": "ociImage",
+        "artefact_version": "1.0.0"
+      },
+      "artefact_kind": "resource"
+    },
+    "meta": {
+      "datasource": "bdba",
+      "type": "rescorings",
+      "creation_date": "2025-01-15T00:00:00+00:00"
+    },
+    "data": {
+      "finding": {
+        "package_name": "openssl",
+        "cve": "CVE-2025-0002"
+      },
+      "referenced_type": "finding/vulnerability",
+      "severity": "MEDIUM",
+      "user": {
+        "username": "test@test.com",
+        "type": "bdba-user",
+        "email": "test@test.com",
+        "firstname": "",
+        "lastname": ""
+      },
+      "comment": "both due_date and allowed_processing_time set",
+      "allowed_processing_time": "10d",
+      "due_date": "2025-06-01"
+    },
+    "discovery_date": null,
+    "allowed_processing_time": null
+  }
+}
