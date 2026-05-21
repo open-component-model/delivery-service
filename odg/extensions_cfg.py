@@ -46,6 +46,7 @@ class Services(enum.StrEnum):
     SAST = 'sast'
     ODG_OPERATOR = 'odg-operator'
     SBOM_GENERATOR = 'sbomGenerator'
+    SLA_VIOLATIONS = 'slaViolations'
 
 
 class VersionAliases(enum.StrEnum):
@@ -817,6 +818,14 @@ class CryptoConfig(BacklogItemMixins):
 
 
 @dataclasses.dataclass(kw_only=True)
+class SlaViolationsConfig(ExtensionCfgMixins):
+    service: Services = Services.SLA_VIOLATIONS
+    delivery_service_url: str
+    component_name: str
+    time_range: TimeRange
+
+
+@dataclasses.dataclass(kw_only=True)
 class DeliveryDBBackup(ExtensionCfgMixins):
     """
     :param str delivery_service_url
@@ -1284,6 +1293,7 @@ class ExtensionsConfiguration:
     responsibles: ResponsiblesConfig | None
     sast: SASTConfig | None
     sbom_generator: SBOMGeneratorConfig | None
+    sla_violations: SlaViolationsConfig | None
     backlog_controller: BacklogControllerConfig = dataclasses.field(
         default_factory=BacklogControllerConfig,
     )  # noqa: E501

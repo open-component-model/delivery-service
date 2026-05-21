@@ -104,3 +104,12 @@ sbom_generator:
   mappings:
    - prefix: ''
      group_id: 0 # <int> must be set
+
+sla_violations:
+  delivery_service_url: 'https://delivery-service.dev.ci.gardener.cloud.sap'
+  enabled: False
+  component_name: ocm.software/ocm-gear
+  time_range:
+    days_from: -365
+    days_to: 0
+

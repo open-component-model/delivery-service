@@ -1,14 +1,16 @@
 import collections.abc
 import datetime
-import os
 
 import cnudie.retrieve
 import ocm
 import ocm.iter
 
 import lookups
+import odg.extensions_cfg
 import odg.model
+import odg.util
 import odg_client
+import paths
 import rescore.utility
 import util
 
@@ -89,13 +91,30 @@ def iter_version_sla_violations(
         yield from violations
 
 
-if __name__ == '__main__':
+def main():
+    parsed_arguments = odg.util.parse_args(
+        arguments=(
+            odg.util.Arguments.EXTENSIONS_CFG_PATH,
+            odg.util.Arguments.DELIVERY_SERVICE_URL,
+        ),
+    )
+
+    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
+        extensions_cfg_path = paths.extensions_cfg_path()
+
+    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    cfg = extensions_cfg.sla_violations
+
+    if not (delivery_service_url := parsed_arguments.delivery_service_url):
+        delivery_service_url = cfg.delivery_service_url
+
+    component_name = cfg.component_name
+
     delivery_service_client = odg_client.DeliveryServiceClient(
         routes=odg_client.DeliveryServiceRoutes(
-            base_url=os.environ['BASE_URL'],
+            base_url=delivery_service_url,
         ),
-        auth_token=os.environ['GITHUB_AUTH_TOKEN'],
-        api_url=os.environ['API_URL'],
+        auth_token_lookup=lookups.github_auth_token_lookup,
     )
 
     ocm_repository_lookup = lookups.init_ocm_repository_lookup()
@@ -114,16 +133,31 @@ if __name__ == '__main__':
     )
 
     versions = delivery_service_client.greatest_component_versions(
-        component_name=os.environ['COMPONENT_NAME'],
-        start_date=datetime.date.fromisoformat(os.environ['START_DATE']),
-        end_date=datetime.date.fromisoformat(os.environ['END_DATE']),
+        component_name=component_name,
+        start_date=cfg.time_range.start_date,
+        end_date=cfg.time_range.end_date,
     )
+
+    root_component_identities = [
+        ocm.ComponentIdentity(component_name, version) for version in versions
+    ]
+    existing_sla_raw = delivery_service_client.query_metadata(
+        components=root_component_identities,
+        type=odg.model.Datatype.SLA_VIOLATION,
+    )
+    already_processed = {
+        (md['artefact']['component_name'], md['artefact']['component_version'])
+        for md in existing_sla_raw
+    }
 
     sla_violations = []
 
     for version in versions:
+        if (component_name, version) in already_processed:
+            continue
+
         root_descriptor = ocm_lookup(
-            f'{os.environ["COMPONENT_NAME"]}:{version}',
+            f'{component_name}:{version}',
         )
 
         all_component_identities = []
@@ -174,3 +208,7 @@ if __name__ == '__main__':
             ),
         )
     delivery_service_client.update_metadata(data=sla_violations)
+
+
+if __name__ == '__main__':
+    main()
