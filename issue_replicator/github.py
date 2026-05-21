@@ -1409,12 +1409,12 @@ def template_issue_body(
     Also, artefacts which were not scanned yet are reported (if there are any).
     """
     artefact_sorting_key = lambda artefact: (  # noqa: E731
-        artefact.component_name,
-        artefact.component_version,
-        artefact.artefact_kind,
-        artefact.artefact.artefact_type,
-        artefact.artefact.artefact_name,
-        artefact.artefact.artefact_version,
+        artefact.component_name or '',
+        artefact.component_version or '',
+        artefact.artefact_kind or '',
+        artefact.artefact.artefact_type or '',
+        artefact.artefact.artefact_name or '',
+        artefact.artefact.artefact_version or '',
         artefact.artefact.normalised_artefact_extra_id,
     )
 
