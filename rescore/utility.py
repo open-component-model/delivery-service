@@ -90,31 +90,6 @@ def _iter_rescorings_for_finding(
         yield rescoring
 
 
-def _specificity_of_rescoring(
-    rescoring: odg.model.ArtefactMetadata,
-) -> odg.findings.RescoringSpecificity:
-    """
-    There are four possible scopes for a rescoring. If multiple rescorings match
-    one finding, the rescoring with the greatest specificity based on its scope
-    should be used.
-
-    Thereby, the "Global" scope has neither component name or version nor artefact
-    name or version set. The "Component" scope only refers to the component name,
-    the "Artefact" scope only to the component name as well as the artefact name.
-    Last, the "Single" scope requires all four parameters to be set.
-    """
-    if not rescoring.artefact.component_name:
-        return odg.findings.RescoringSpecificity.GLOBAL
-
-    if not rescoring.artefact.artefact.artefact_name:
-        return odg.findings.RescoringSpecificity.COMPONENT
-
-    if not rescoring.artefact.artefact.artefact_version:
-        return odg.findings.RescoringSpecificity.ARTEFACT
-
-    return odg.findings.RescoringSpecificity.SINGLE
-
-
 def rescorings_for_finding_by_specificity(
     finding: odg.model.ArtefactMetadata,
     rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
@@ -133,7 +108,7 @@ def rescorings_for_finding_by_specificity(
         sorted(
             rescorings_for_finding,
             key=lambda rescoring: (
-                _specificity_of_rescoring(rescoring=rescoring),
+                rescoring.specificity,
                 rescoring.meta.creation_date,
             ),
             reverse=True,

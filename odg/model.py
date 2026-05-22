@@ -1541,6 +1541,55 @@ class PackageVersionScannerWriteback(ScannerWriteback):
         return self.package_name == package_name
 
 
+class ArtefactMetadataSpecificity(enum.Enum):
+    GLOBAL = 'global'
+    COMPONENT = 'component'
+    ARTEFACT = 'artefact'
+    SINGLE = 'single'
+
+    def _asint(self, rescoring_scopes):
+        if rescoring_scopes is self.GLOBAL:
+            return 0
+        elif rescoring_scopes is self.COMPONENT:
+            return 1
+        elif rescoring_scopes is self.ARTEFACT:
+            return 2
+        elif rescoring_scopes is self.SINGLE:
+            return 3
+        else:
+            raise ValueError(f'unknown {rescoring_scopes=}')
+
+    def __lt__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._asint(self) < self._asint(other)
+
+    def __le__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._asint(self) <= self._asint(other)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._asint(self) == self._asint(other)
+
+    def __ne__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._asint(self) != self._asint(other)
+
+    def __gt__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._asint(self) > self._asint(other)
+
+    def __ge__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self._asint(self) >= self._asint(other)
+
+
 FindingModels = (
     ClamAVMalwareFinding
     | CryptoFinding
@@ -1626,6 +1675,25 @@ class ArtefactMetadata:
             digest_size=16,
             usedforsecurity=False,
         ).hexdigest()
+
+    @property
+    def specificity(self) -> ArtefactMetadataSpecificity:
+        """
+        There are four possible scopes for an artefact metadatum. Thereby, the "global" scope has
+        neither component name or version nor artefact name or version set. The "component" scope
+        only refers to the component name, the "artefact" scope only to the component name as well
+        as the artefact name. Last, the "single" scope requires all four parameters to be set.
+        """
+        if not self.artefact.component_name:
+            return ArtefactMetadataSpecificity.GLOBAL
+
+        if not self.artefact.artefact or not self.artefact.artefact.artefact_name:
+            return ArtefactMetadataSpecificity.COMPONENT
+
+        if not self.artefact.artefact.artefact_version:
+            return ArtefactMetadataSpecificity.ARTEFACT
+
+        return ArtefactMetadataSpecificity.SINGLE
 
     def __hash__(self) -> int:
         return hash(self.key)

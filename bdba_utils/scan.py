@@ -6,7 +6,6 @@ import requests
 
 import ci.log
 import oci.client
-import ocm
 import ocm.iter
 
 import bdba.client
@@ -16,7 +15,6 @@ import bdba_utils.rescore
 import bdba_utils.util
 import bdba_utils.model
 import odg.findings
-import odg.labels
 import odg.model
 import odg_client
 import ocm_util
@@ -219,16 +217,13 @@ class ResourceGroupProcessor:
 
         logger.info(f'scan of {scan_result.display_name} succeeded, going to post-process results')
 
-        if version_hints := _package_version_hints(
+        scan_result = bdba_utils.assessments.upload_version_hints(
+            scan_result=scan_result,
             component=resource_node.component,
             resource=resource_node.resource,
-        ):
-            logger.info(f'uploading package-version-hints for {scan_result.display_name}')
-            scan_result = bdba_utils.assessments.upload_version_hints(
-                scan_result=scan_result,
-                hints=version_hints,
-                bdba_client=self.bdba_client,
-            )
+            bdba_client=self.bdba_client,
+            delivery_service_client=delivery_service_client,
+        )
 
         if scan_request.skip_vulnerability_scan:
             logger.info('skipping vulnerabilities due to skip-scan label')
@@ -257,27 +252,6 @@ class ResourceGroupProcessor:
             vulnerability_cfg=vulnerability_cfg,
             license_cfg=license_cfg,
         )
-
-
-def _package_version_hints(
-    component: ocm.Component,
-    resource: ocm.Resource,
-) -> list[odg.labels.PackageVersionHint] | None:
-    package_hints_label = resource.find_label(name=odg.labels.PackageVersionHintLabel.name)
-
-    if not package_hints_label:
-        package_hints_label = component.find_label(name=odg.labels.PackageVersionHintLabel.name)
-
-        if not package_hints_label:
-            return None
-
-    return [
-        odg.labels.PackageVersionHint(
-            name=hint.get('name'),
-            version=hint.get('version'),
-        )
-        for hint in package_hints_label.value
-    ]
 
 
 def retrieve_existing_scan_results(
