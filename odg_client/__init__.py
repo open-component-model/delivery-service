@@ -311,8 +311,8 @@ class DeliveryServiceClient:
 
         if self._bearer_token:
             headers = {
-                'Authorization': f'Bearer {self._bearer_token}',
                 **headers,
+                'Authorization': f'Bearer {self._bearer_token}',
             }
 
         try:
