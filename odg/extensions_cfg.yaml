@@ -106,10 +106,14 @@ sbom_generator:
      group_id: 0 # <int> must be set
 
 sla_violations:
-  delivery_service_url: 'https://delivery-service.dev.ci.gardener.cloud.sap'
+  delivery_service_url: 'https://delivery-service.dev.ci.gardener.cloud.sap' # TODO: remove before merging
   enabled: False
-  component_name: ocm.software/ocm-gear
-  time_range:
-    days_from: -365
-    days_to: 0
+  components:
+    - component_name: ocm.software/ocm-gear
+      ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
+      version: GREATEST
+      max_versions_limit: 1
+      time_range:
+        days_from: -365
+        days_to: 0
 

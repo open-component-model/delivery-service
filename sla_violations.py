@@ -105,10 +105,13 @@ def main():
     extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
     cfg = extensions_cfg.sla_violations
 
+    # Guard: skip when the extension is missing or disabled in extensions_cfg.yaml.
+    # Commented out for now since the deployment story for toggling enabled=True is not finalised.
+    # if not cfg or not cfg.enabled:
+    #     return
+
     if not (delivery_service_url := parsed_arguments.delivery_service_url):
         delivery_service_url = cfg.delivery_service_url
-
-    component_name = cfg.component_name
 
     delivery_service_client = odg_client.DeliveryServiceClient(
         routes=odg_client.DeliveryServiceRoutes(
@@ -132,14 +135,24 @@ def main():
         ocm_repository_lookup=ocm_repository_lookup,
     )
 
-    versions = delivery_service_client.greatest_component_versions(
-        component_name=component_name,
-        start_date=cfg.time_range.start_date,
-        end_date=cfg.time_range.end_date,
-    )
+    versions_by_component: list[tuple[str, str, ocm.OcmRepository | None]] = []
+    for component in cfg.components:
+        if resolved_version := component.resolved_version:
+            versions = [resolved_version]
+        else:
+            time_range = component.time_range
+            versions = delivery_service_client.greatest_component_versions(
+                component_name=component.component_name,
+                max_versions=component.max_versions_limit,
+                ocm_repo=component.ocm_repo,
+                start_date=time_range.start_date if time_range else None,
+                end_date=time_range.end_date if time_range else None,
+            )
+        for version in versions:
+            versions_by_component.append((component.component_name, version, component.ocm_repo))
 
     root_component_identities = [
-        ocm.ComponentIdentity(component_name, version) for version in versions
+        ocm.ComponentIdentity(name, version) for name, version, _ in versions_by_component
     ]
     existing_sla_raw = delivery_service_client.query_metadata(
         components=root_component_identities,
@@ -152,13 +165,18 @@ def main():
 
     sla_violations = []
 
-    for version in versions:
+    for component_name, version, ocm_repo in versions_by_component:
         if (component_name, version) in already_processed:
             continue
 
+        component_ocm_repository_lookup = lookups.extended_ocm_repository_lookup(ocm_repo)
+
         root_descriptor = ocm_lookup(
             f'{component_name}:{version}',
+            ocm_repository_lookup=component_ocm_repository_lookup,
         )
+        if not root_descriptor:
+            continue
 
         all_component_identities = []
         for ocm_node in ocm.iter.iter(

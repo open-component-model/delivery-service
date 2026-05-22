@@ -821,8 +821,7 @@ class CryptoConfig(BacklogItemMixins):
 class SlaViolationsConfig(ExtensionCfgMixins):
     service: Services = Services.SLA_VIOLATIONS
     delivery_service_url: str
-    component_name: str
-    time_range: TimeRange
+    components: list[Component]
 
 
 @dataclasses.dataclass(kw_only=True)
