@@ -154,9 +154,7 @@ class DeliveryServiceClient:
         :param str api_url (optional)
             the (GitHub) API URL to use for authentication. Only considered if `auth_token` is set
         :param int max_retries (optional)
-            the maximum number of retries each connection should attempt. Note, this applies only to
-            failed DNS lookups, socket connections and connection timeouts, never to requests where
-            data has made it to the server
+            the maximum number of retries each request should attempt
         """
 
         if auth_token_lookup and auth_token:
@@ -170,6 +168,7 @@ class DeliveryServiceClient:
 
         self._bearer_token = None
         self._session = requests.sessions.Session()
+        self._max_retries = max_retries
         adapter = requests.adapters.HTTPAdapter(
             max_retries=max_retries,
         )
@@ -280,10 +279,27 @@ class DeliveryServiceClient:
         url: str,
         method: str = 'GET',
         headers: dict = None,
+        remaining_retries: int | None = None,
         **kwargs,
     ):
+        if remaining_retries is None:
+            remaining_retries = self._max_retries or 0
+
         try:
             self._authenticate()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if remaining_retries == 0:
+                raise
+
+            logger.warning(f'caught ConnectionError, going to retry... ({remaining_retries=}); {e}')
+
+            return self.request(
+                url=url,
+                method=method,
+                headers=headers,
+                remaining_retries=remaining_retries - 1,
+                **kwargs,
+            )
         except requests.exceptions.HTTPError as e:
             if e.response.status_code != 400:
                 raise
@@ -304,13 +320,28 @@ class DeliveryServiceClient:
         except KeyError:
             timeout = (4, 31)
 
-        res = self._session.request(
-            method=method,
-            url=url,
-            headers=headers,
-            timeout=timeout,
-            **kwargs,
-        )
+        try:
+            res = self._session.request(
+                method=method,
+                url=url,
+                headers=headers,
+                timeout=timeout,
+                **kwargs,
+            )
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if remaining_retries == 0:
+                raise
+
+            logger.warning(f'caught ConnectionError, going to retry... ({remaining_retries=}); {e}')
+
+            return self.request(
+                url=url,
+                method=method,
+                headers=headers,
+                remaining_retries=remaining_retries - 1,
+                timeout=timeout,
+                **kwargs,
+            )
 
         return res
 
@@ -727,6 +758,7 @@ class DeliveryServiceClient:
             url=self._routes.blob(),
             method='POST',
             headers=headers,
+            remaining_retries=0,
             data=data,
         )
 
