@@ -111,7 +111,7 @@ sla_violations:
   components:
     - component_name: ocm.software/ocm-gear
       ocm_repo_url: europe-docker.pkg.dev/gardener-project/releases
-      version: GREATEST
+      version: greatest
       max_versions_limit: 1
       time_range:
         days_from: -365
