@@ -491,17 +491,20 @@ jobs:
     needs:
       - documentation
     permissions:
-      contents: write
+      id-token: write
     steps:
       - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
         with:
+          token-server: ${{ vars.FEDERATED_GITHUB_ACCESS_TOKEN_SERVER }}
+          github-auth-token-permissions: |
+            contents: write
+          init-git-identity: true
           ref: refs/heads/gh-pages
       - name: Retrieve Documentation
         uses: actions/download-artifact@v4
         with:
           name: documentation
           path: /tmp/documentation-out.d
-      - uses: gardener/cc-utils/.github/actions/setup-git-identity@v1
       - name: Publish Documentation
         run: |
           tar c -C /tmp/documentation-out.d . | tar x -C.
