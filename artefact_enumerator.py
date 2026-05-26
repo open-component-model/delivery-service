@@ -69,45 +69,64 @@ def create_compliance_snapshot(
     )
 
 
+def _iter_ocm_artefacts_for_single_component(
+    component: odg.extensions_cfg.Component,
+    delivery_service_client: odg_client.DeliveryServiceClient,
+    component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+) -> collections.abc.Generator[odg.model.ComponentArtefactId, None, None]:
+    if resolved_version := component.resolved_version:
+        # if an explicit version is specified, use it without any further implict lookup
+        versions = [resolved_version]
+    else:
+        versions = delivery_service_client.greatest_component_versions(
+            component_name=component.component_name,
+            max_versions=component.max_versions_limit,
+            ocm_repo=component.ocm_repo,
+        )
+
+    ocm_repository_lookup = lookups.extended_ocm_repository_lookup(component.ocm_repo)
+
+    for version in versions:
+        component_id = ocm.ComponentIdentity(
+            name=component.component_name,
+            version=version,
+        )
+
+        component_descriptor = component_descriptor_lookup(
+            component_id,
+            ocm_repository_lookup=ocm_repository_lookup,
+        )
+
+        for artefact_node in ocm.iter.iter(
+            component=component_descriptor,
+            lookup=component_descriptor_lookup,
+            node_filter=ocm.iter.Filter.artefacts,
+            ocm_repo=ocm_repository_lookup,
+        ):
+            yield odg.model.component_artefact_id_from_ocm(
+                component=artefact_node.component,
+                artefact=artefact_node.artefact,
+            )
+
+
 def _iter_ocm_artefacts(
     components: collections.abc.Iterable[odg.extensions_cfg.Component],
     delivery_service_client: odg_client.DeliveryServiceClient,
     component_descriptor_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
 ) -> collections.abc.Generator[odg.model.ComponentArtefactId, None, None]:
     for component in components:
-        if resolved_version := component.resolved_version:
-            # if an explicit version is specified, use it without any further implict lookup
-            versions = [resolved_version]
-        else:
-            versions = delivery_service_client.greatest_component_versions(
-                component_name=component.component_name,
-                max_versions=component.max_versions_limit,
-                ocm_repo=component.ocm_repo,
+        try:
+            yield from _iter_ocm_artefacts_for_single_component(
+                component=component,
+                delivery_service_client=delivery_service_client,
+                component_descriptor_lookup=component_descriptor_lookup,
             )
+        except Exception as e:
+            import traceback
 
-        ocm_repository_lookup = lookups.extended_ocm_repository_lookup(component.ocm_repo)
-
-        for version in versions:
-            component_id = ocm.ComponentIdentity(
-                name=component.component_name,
-                version=version,
-            )
-
-            component_descriptor = component_descriptor_lookup(
-                component_id,
-                ocm_repository_lookup=ocm_repository_lookup,
-            )
-
-            for artefact_node in ocm.iter.iter(
-                component=component_descriptor,
-                lookup=component_descriptor_lookup,
-                node_filter=ocm.iter.Filter.artefacts,
-                ocm_repo=ocm_repository_lookup,
-            ):
-                yield odg.model.component_artefact_id_from_ocm(
-                    component=artefact_node.component,
-                    artefact=artefact_node.artefact,
-                )
+            e.add_note(f'{component=}')
+            stacktrace = traceback.format_exc()
+            logger.error(stacktrace)
 
 
 def _create_or_update_compliance_snapshot_of_artefact(
