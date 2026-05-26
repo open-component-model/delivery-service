@@ -106,7 +106,6 @@ sbom_generator:
      group_id: 0 # <int> must be set
 
 sla_violations:
-  delivery_service_url: 'https://delivery-service.dev.ci.gardener.cloud.sap' # TODO: remove before merging
   enabled: False
   components:
     - component_name: ocm.software/ocm-gear

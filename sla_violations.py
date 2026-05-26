@@ -180,10 +180,8 @@ def main():
     extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
     cfg = extensions_cfg.sla_violations
 
-    # Guard: skip when the extension is missing or disabled in extensions_cfg.yaml.
-    # Commented out for now since the deployment story for toggling enabled=True is not finalised.
-    # if not cfg or not cfg.enabled:
-    #     return
+    if not cfg or not cfg.enabled:
+        return
 
     if not (delivery_service_url := parsed_arguments.delivery_service_url):
         delivery_service_url = cfg.delivery_service_url
