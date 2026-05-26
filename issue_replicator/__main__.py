@@ -1,6 +1,5 @@
 import collections.abc
 import dataclasses
-import datetime
 import functools
 import logging
 
@@ -9,7 +8,6 @@ import github3.repos
 
 import ci.log
 import cnudie.retrieve
-import github.compliance.milestone as gcmi
 import github.user
 
 import github_util
@@ -23,25 +21,15 @@ import odg_client
 import odg_client.model
 import paths
 import rescore.utility
+import sprints.github as sg
+import sprints.model as sm
+import sprints.util as su
 import util
 
 
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
-
-
-@functools.cache
-def sprint_dates(
-    sprints: collections.abc.Iterable[odg_client.model.Sprint],
-    date_name: str = 'release_decision',
-) -> tuple[datetime.date]:
-    sprint_dates = tuple(sprint.find_sprint_date(name=date_name).value.date() for sprint in sprints)
-
-    if not sprint_dates:
-        raise ValueError('no sprints found')
-
-    return sprint_dates
 
 
 def _iter_findings_for_artefact(
@@ -97,79 +85,71 @@ def _iter_findings_for_artefact(
         )
 
 
-def _iter_findings_with_due_dates(
+def _iter_findings_with_sprints(
     findings: collections.abc.Iterable[issue_replicator.github.AggregatedFinding],
     finding_cfg: odg.findings.Finding,
-    due_dates: collections.abc.Iterable[datetime.date],
+    sprints: collections.abc.Sequence[sm.Sprint],
 ) -> collections.abc.Generator[issue_replicator.github.AggregatedFinding, None, None]:
-    sprint_due_dates = sorted(due_dates)
-
     for finding in findings:
         if finding.finding.meta.type == odg.model.Datatype.ARTEFACT_SCAN_INFO:
             yield finding
             continue
 
-        # due dates are sorted by timeline, the first one being the current due date
-        finding_due_dates: list[datetime.date | None] = []
+        # sprints are sorted by timeline, the first one being the current sprint
+        finding_sprints: list[sm.Sprint | None] = []
 
         for rescoring in finding.rescorings:
             categorisation = finding_cfg.categorisation_by_id(rescoring.data.severity)
 
-            if not (
-                due_date := categorisation.effective_due_date(
-                    finding=finding.finding,
-                    rescoring=rescoring,
-                )
-            ):
-                finding_due_dates.append(None)  # finding does not have to be processed anymore
-                continue
+            due_date = categorisation.effective_due_date(
+                finding=finding.finding,
+                rescoring=rescoring,
+            )
 
-            for sprint_due_date in sprint_due_dates:
-                if sprint_due_date >= due_date:
-                    finding_due_dates.append(sprint_due_date)
-                    break
-            else:
-                logger.warning(f'could not determine target sprint for {due_date=})')
+            finding_sprints.append(
+                su.find_sprint_for_ref_date(
+                    ref_date=due_date,
+                    sprints=sprints,
+                    sprint_assignment_offset=finding_cfg.sprint_assignment_offset,
+                ),
+            )
 
         # consider the original categorisation (without rescorings) as well
         categorisation = finding_cfg.categorisation_by_id(finding.finding.data.severity)
-        if not (due_date := categorisation.effective_due_date(finding.finding)):
-            finding_due_dates.append(None)  # finding does not have to be processed anymore
-        else:
-            for sprint_due_date in sprint_due_dates:
-                if sprint_due_date >= due_date:
-                    finding_due_dates.append(sprint_due_date)
-                    break
-            else:
-                logger.warning(f'could not determine target sprint for {due_date=})')
+        due_date = categorisation.effective_due_date(finding.finding)
 
-        if not finding_due_dates:
-            continue  # only the case if no target sprint could be determined at all
+        finding_sprints.append(
+            su.find_sprint_for_ref_date(
+                ref_date=due_date,
+                sprints=sprints,
+                sprint_assignment_offset=finding_cfg.sprint_assignment_offset,
+            ),
+        )
 
-        # the first due date is the current one, the remainder (if any) is historical only
-        finding.due_date = finding_due_dates[0]
-        finding.historical_due_dates = finding_due_dates[1:]
+        # the first sprint is the current one, the remainder (if any) is historical only
+        finding.sprint = finding_sprints[0]
+        finding.historical_sprints = finding_sprints[1:]
 
         yield finding
 
 
-def _group_findings_by_due_date(
+def _group_findings_by_sprint(
     findings: collections.abc.Sequence[issue_replicator.github.AggregatedFinding],
-    due_dates: collections.abc.Iterable[datetime.date],
+    sprints: collections.abc.Iterable[sm.Sprint],
 ) -> collections.abc.Iterable[
     tuple[
-        datetime.date,  # due date
+        sm.Sprint,
         tuple[issue_replicator.github.AggregatedFinding],  # findings
         tuple[issue_replicator.github.AggregatedFinding],  # historical findings
     ]
 ]:
-    for due_date in due_dates:
-        filtered_findings = tuple(finding for finding in findings if finding.due_date == due_date)
+    for sprint in sprints:
+        filtered_findings = tuple(finding for finding in findings if finding.sprint == sprint)
         historical_findings = tuple(
-            finding for finding in findings if due_date in finding.historical_due_dates
+            finding for finding in findings if sprint in finding.historical_sprints
         )
 
-        yield due_date, filtered_findings, historical_findings
+        yield sprint, filtered_findings, historical_findings
 
 
 def _responsibles_from_responsible_infos(
@@ -331,7 +311,7 @@ def replicate_issue_for_finding_type(
     delivery_service_client: odg_client.DeliveryServiceClient,
     mapping: odg.extensions_cfg.IssueReplicatorMapping,
     delivery_dashboard_url: str,
-    due_dates: collections.abc.Iterable[datetime.date],
+    sprints: collections.abc.Sequence[sm.Sprint],
     milestones: collections.abc.Sequence[github3.repos.repo.milestone.Milestone],
 ):
     finding_type = finding_cfg.type
@@ -369,10 +349,10 @@ def replicate_issue_for_finding_type(
         )
 
         findings = tuple(
-            _iter_findings_with_due_dates(
+            _iter_findings_with_sprints(
                 findings=findings,
                 finding_cfg=finding_cfg,
-                due_dates=due_dates,
+                sprints=sprints,
             ),
         )
         logger.info(f'{len(findings)=}')
@@ -381,9 +361,9 @@ def replicate_issue_for_finding_type(
         logger.info('artefact is not in the BoM anymore, will not query any findings')
         findings = tuple()
 
-    findings_by_due_date = _group_findings_by_due_date(
+    findings_by_sprint = _group_findings_by_sprint(
         findings=findings,
-        due_dates=due_dates,
+        sprints=sprints,
     )
 
     artefact_scan_infos = [
@@ -439,27 +419,29 @@ def replicate_issue_for_finding_type(
         assignee_mode = finding_cfg.issues.default_assignee_mode
         statuses = None
 
-    for due_date, findings, historical_findings in findings_by_due_date:
-        issue_id = finding_cfg.issues.issue_id(
-            artefact=artefact,
-            due_date=due_date,
-        )
-
-        milestone = gcmi.find_milestone_for_due_date(
-            milestones=milestones,
-            due_date=due_date,
-            offset=finding_cfg.sprint_assignment_offset,
-        )
-
-        if milestone and milestone.due_on.date() < due_date:
-            # if the assigned milestone is stricter than the usual due date (offset=0), use the
-            # stricter milestone due date instead
-            due_date = milestone.due_on.date()
+    for sprint, findings, historical_findings in findings_by_sprint:
+        if release_decision_date := sprint.find_sprint_date(
+            name='release_decision',
+            absent_ok=True,
+        ):
+            # XXX be backwards compatible for now and use the `release_decision` date (if available)
+            # for the issue-id. This must change anyways as a change in the sprints-configuration
+            # should not cause old issues to be lost and new ones to be created.
+            # -> see https://github.com/open-component-model/open-delivery-gear/issues/61
+            issue_id = finding_cfg.issues.issue_id(
+                artefact=artefact,
+                due_date=release_decision_date.value,
+            )
         else:
-            # if the due date is stricter than the assigned milestone, we must not use the milestone
-            # due date as it will always be in the future (we ignore closed milestones) and hence
-            # findings would be never marked as "overdue"
-            pass
+            issue_id = finding_cfg.issues.issue_id(
+                artefact=artefact,
+                due_date=sprint.due_date,
+            )
+
+        milestone = su.find_sprint_for_ref_date(
+            ref_date=sprint.due_date,
+            milestones=milestones,
+        )
 
         issue_replicator.github.create_or_update_or_close_issue(
             mapping=mapping,
@@ -469,7 +451,7 @@ def replicate_issue_for_finding_type(
             findings=findings,
             historical_findings=historical_findings,
             issue_id=issue_id,
-            due_date=due_date,
+            sprint=sprint,
             milestone=milestone,
             is_in_bom=is_in_bom,
             artefacts_with_scan=artefacts_with_scan,
@@ -491,13 +473,13 @@ def replicate_issue(
 ):
     logger.info(f'starting issue replication of {artefact}')
 
-    sprints = tuple(
-        gcmi.sprints_cached(
-            delivery_svc_client=delivery_service_client,
-        ),
-    )
-
-    if not (due_dates := sprint_dates(sprints=sprints)):
+    if not (
+        sprints := tuple(
+            sg.sprints_cached(
+                delivery_service_client=delivery_service_client,
+            ),
+        )
+    ):
         logger.warning('did not find any sprints, exiting...')
         return
 
@@ -511,7 +493,7 @@ def replicate_issue(
 
     logger.debug(f'creating missing GitHub milestones (if any) for {len(sprints)} sprints')
     milestones = list(
-        gcmi.iter_and_create_github_milestones(
+        sg.iter_and_create_github_milestones(
             sprints=sprints,
             repo=repo,
             milestone_cfg=mapping.milestones,
@@ -526,7 +508,7 @@ def replicate_issue(
             delivery_service_client=delivery_service_client,
             mapping=mapping,
             delivery_dashboard_url=extension_cfg.delivery_dashboard_url,
-            due_dates=due_dates,
+            sprints=sprints,
             milestones=milestones,
         )
 

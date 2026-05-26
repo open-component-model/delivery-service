@@ -1,7 +1,6 @@
 import asyncio
 import collections.abc
 import dataclasses
-import datetime
 import functools
 import http
 import json
@@ -24,10 +23,11 @@ import odg.cvss
 import odg.extensions_cfg
 import odg.findings
 import odg.model
-import secret_mgmt.oauth_cfg
 import rescore.utility
+import secret_mgmt.oauth_cfg
+import sprints.model as sm
+import sprints.util as su
 import util
-import yp
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class RescoringProposal:
     applicable_rescorings: tuple[dict, ...]  # "..." for dacite.from_dict
     discovery_date: str
     due_date: str | None
-    sprint: yp.Sprint | None
+    sprint: dict[str, str] | None
 
 
 async def _find_artefact_metadata(
@@ -202,40 +202,6 @@ def filesystem_paths_for_finding(
     ]
 
 
-def sprint_for_finding(
-    due_date: datetime.date | None,
-    sprints: list[yp.Sprint],
-    sprint_assignment_offset: int = 0,
-) -> yp.Sprint | None:
-    """
-    Returns the sprint with the closest future end date compared to the provided `due_date`,
-    acknowledging the configured `sprint_assignment_offset`. In case the `due_date` is `None` (this
-    might be the case if a finding already belongs to a category which is to be interpreted as
-    "assessed") or no such sprint can be found, `None` is returned instead.
-    """
-    if not due_date or not sprints:
-        return None
-
-    sorted_sprints = sorted(sprints, key=lambda sprint: sprint.end_date)
-
-    for idx, sprint in enumerate(sorted_sprints):
-        end_date = sprint.end_date
-
-        if isinstance(end_date, datetime.datetime):
-            end_date = end_date.date()
-
-        if end_date > due_date:
-            tgt_idx = idx + sprint_assignment_offset
-
-            if tgt_idx >= 0 and tgt_idx < len(sorted_sprints):
-                return sorted_sprints[tgt_idx]
-
-    logger.warning(
-        f'could not determine target sprint for {due_date=} and {sprint_assignment_offset=}',
-    )
-    return None
-
-
 def _package_versions_and_filesystem_paths(
     artefact_metadata_across_package_version: tuple[odg.model.ArtefactMetadata],
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
@@ -261,7 +227,7 @@ async def _iter_rescoring_proposals(
     rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     cve_categorisation: odg.cvss.CveCategorisation | None,
-    sprints: list[yp.Sprint] = [],
+    sprints_configuration: sm.SprintsConfiguration | None,
 ) -> collections.abc.AsyncGenerator[RescoringProposal, None, None]:
     """
     yield rescorings for supported finding types
@@ -307,11 +273,17 @@ async def _iter_rescoring_proposals(
             rescoring=rescoring,
         )
 
-        sprint = sprint_for_finding(
-            due_date=due_date,
-            sprints=sprints,
+        sprint = su.find_sprint_for_ref_date(
+            ref_date=due_date,
+            sprints=sprints_configuration.sprints if sprints_configuration else None,
             sprint_assignment_offset=finding_cfg.sprint_assignment_offset,
         )
+
+        if sprint:
+            sprint = {
+                'name': sprint.name,
+                'end_date': sprint.due_date.isoformat(),
+            }
 
         if due_date:
             due_date = due_date.isoformat()
@@ -823,7 +795,7 @@ class Rescore(aiohttp.web.View):
                 rescorings=rescorings,
                 finding_cfgs=finding_cfgs,
                 cve_categorisation=cve_categorisation,
-                sprints=self.request.app[consts.APP_SPRINTS],
+                sprints_configuration=self.request.app[consts.APP_SPRINTS_CONFIGURATION],
             )
         ]
 

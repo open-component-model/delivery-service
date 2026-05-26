@@ -49,12 +49,13 @@ def modules():
 
 def packages():
     return [
+        'bdba_utils',
         'deliverydb_cache',
         'k8s',
         'odg',
-        'secret_mgmt',
         'osinfo',
-        'bdba_utils',
+        'secret_mgmt',
+        'sprints',
     ]
 
 

@@ -11,6 +11,7 @@ import aiohttp_swagger3
 import ci.log
 
 import artefacts
+import blobstore.blob
 import compliance_tests
 import components
 import consts
@@ -33,8 +34,7 @@ import rescore.artefacts
 import secret_mgmt
 import service_extensions
 import special_component
-import sprint
-import blobstore.blob
+import sprints
 
 ci.log.configure_default_logging(print_thread_id=True)
 logger = logging.getLogger(__name__)
@@ -149,13 +149,9 @@ def add_app_context_vars(
 
     sprints_feature = features.get_feature(features.FeatureSprints)
     if sprints_feature.state is features.FeatureStates.AVAILABLE:
-        sprints_feature: features.FeatureSprints
-
-        sprints = sprints_feature.get_sprints()
-        sprints_metadata = sprints_feature.get_sprints_metadata()
+        sprints_configuration = sprints_feature.get_sprints_configuration()
     else:
-        sprints = []
-        sprints_metadata = None
+        sprints_configuration = None
 
     base_url = get_base_url(
         is_productive=parsed_arguments.productive,
@@ -181,8 +177,7 @@ def add_app_context_vars(
     app[consts.APP_PROFILES_CALLBACK] = profiles_callback
     app[consts.APP_SECRET_FACTORY] = secret_factory
     app[consts.APP_SPECIAL_COMPONENT_CALLBACK] = special_component_callback
-    app[consts.APP_SPRINTS] = sprints
-    app[consts.APP_SPRINTS_METADATA] = sprints_metadata
+    app[consts.APP_SPRINTS_CONFIGURATION] = sprints_configuration
 
     return app
 
@@ -267,11 +262,11 @@ def add_routes(
 
     swagger.add_view(
         path='/delivery/sprint-infos',
-        handler=sprint.SprintInfos,
+        handler=sprints.SprintInfos,
     )
     swagger.add_view(
         path='/delivery/sprint-infos/current',
-        handler=sprint.SprintInfosCurrent,
+        handler=sprints.SprintInfosCurrent,
     )
 
     swagger.add_view(

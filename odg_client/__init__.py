@@ -584,33 +584,38 @@ class DeliveryServiceClient:
 
         return responsibles, statuses
 
-    def sprints(self) -> list[om.Sprint]:
+    def sprints(self) -> list[dict]:
         resp = self.request(
             url=self._routes.sprint_infos(),
         )
 
         resp.raise_for_status()
 
-        sprints_raw = resp.json()['sprints']
+        return resp.json()['sprints']
 
-        return [om.Sprint.from_dict(sprint_info) for sprint_info in sprints_raw]
+    def sprint_current(
+        self,
+        offset: int = 0,
+        before: datetime.date = None,
+    ) -> dict:
+        params = {
+            'offset': offset,
+        }
 
-    def sprint_current(self, offset: int = 0, before: datetime.date = None) -> om.Sprint:
-        extra_args = {}
         if before:
-            if isinstance(before, datetime.date) or isinstance(before, datetime.date):
-                extra_args['before'] = before.isoformat()
+            if isinstance(before, datetime.datetime) or isinstance(before, datetime.date):
+                params['before'] = before.isoformat()
             else:
-                extra_args['before'] = before
+                params['before'] = before
 
         resp = self.request(
             url=self._routes.sprint_current(),
-            params={'offset': offset, **extra_args},
+            params=params,
         )
 
         resp.raise_for_status()
 
-        return om.Sprint.from_dict(resp.json())
+        return resp.json()
 
     def query_metadata(
         self,

@@ -12,6 +12,7 @@ import odg.findings
 import odg.labels
 import odg.model
 import rescore.model
+import sprints.model as sm
 import util
 
 
@@ -264,7 +265,7 @@ def delivery_dashboard_rescoring_url(
     base_url: str,
     component_artefact_id: odg.model.ComponentArtefactId,
     finding_type: odg.model.Datatype,
-    sprint_name: str | None = None,
+    sprint: sm.Sprint | None = None,
 ) -> str:
     url = util.urljoin(base_url, '#/component')
 
@@ -278,8 +279,9 @@ def delivery_dashboard_rescoring_url(
     if component_artefact_id.component_version:
         query_params['version'] = component_artefact_id.component_version
 
-    if sprint_name:
-        query_params['sprints'] = sprint_name
+    if sprint:
+        is_overdue = sprint.due_date < datetime.date.today()
+        query_params['sprints'] = 'Overdue' if is_overdue else sprint.name
 
     if artefact_id := component_artefact_id.artefact:
         rescore_artefacts = (

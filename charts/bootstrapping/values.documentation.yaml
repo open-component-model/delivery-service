@@ -571,9 +571,7 @@ extensions_cfg:
           due_date:
             # @param extensions_cfg.issue_replicator.mappings[].milestones.due_date.date_name the
             # name of the date as specified in the sprints configuration
-            # e.g.
-            # date_name: end_date
-            date_name: release_decision
+            date_name: end_date
 
   # @param extensions_cfg.osid workers which identify base image OS versions for OCI images
   osid:

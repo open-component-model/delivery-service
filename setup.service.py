@@ -35,7 +35,6 @@ def modules():
         'service_extensions',
         'smoke_test',
         'special_component',
-        'sprint',
         'yp',
     ]
 
