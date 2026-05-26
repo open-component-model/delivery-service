@@ -116,4 +116,3 @@ sla_violations:
       time_range:
         days_from: -365
         days_to: 0
-

@@ -86,8 +86,16 @@ def iter_version_sla_violations(
         if not finding.allowed_processing_time:
             continue
 
-        sorted_rescorings = filter_rescorings_before_release_date(finding, rescorings, release_date)
-        violations = iter_policy_violations(finding, sorted_rescorings, release_date)
+        sorted_rescorings = filter_rescorings_before_release_date(
+            finding=finding,
+            rescorings=rescorings,
+            release_date=release_date,
+        )
+        violations = iter_policy_violations(
+            finding=finding,
+            sorted_rescorings=sorted_rescorings,
+            release_date=release_date,
+        )
         yield from violations
 
 
@@ -119,9 +127,7 @@ def create_sla_violation(
         lookup=ocm_lookup,
         node_filter=ocm.iter.Filter.components,
     ):
-        all_component_identities.append(
-            ocm.ComponentIdentity(ocm_node.component.name, ocm_node.component.version),
-        )
+        all_component_identities.append(ocm_node.component.component_id)
 
     findings_raw = delivery_service_client.query_metadata(
         components=all_component_identities,
@@ -138,9 +144,9 @@ def create_sla_violation(
     release_date = util.get_creation_date(root_descriptor.component)
 
     version_sla_violations = iter_version_sla_violations(
-        findings,
-        rescorings,
-        release_date,
+        findings=findings,
+        rescorings=rescorings,
+        release_date=release_date,
     )
 
     return odg.model.ArtefactMetadata(
