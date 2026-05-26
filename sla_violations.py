@@ -1,14 +1,16 @@
 import collections.abc
 import datetime
-import os
 
 import cnudie.retrieve
 import ocm
 import ocm.iter
 
 import lookups
+import odg.extensions_cfg
 import odg.model
+import odg.util
 import odg_client
+import paths
 import rescore.utility
 import util
 
@@ -84,18 +86,111 @@ def iter_version_sla_violations(
         if not finding.allowed_processing_time:
             continue
 
-        sorted_rescorings = filter_rescorings_before_release_date(finding, rescorings, release_date)
-        violations = iter_policy_violations(finding, sorted_rescorings, release_date)
+        sorted_rescorings = filter_rescorings_before_release_date(
+            finding=finding,
+            rescorings=rescorings,
+            release_date=release_date,
+        )
+        violations = iter_policy_violations(
+            finding=finding,
+            sorted_rescorings=sorted_rescorings,
+            release_date=release_date,
+        )
         yield from violations
 
 
-if __name__ == '__main__':
+def iter_versions_for_component(
+    component: odg.extensions_cfg.Component,
+    delivery_service_client: odg_client.DeliveryServiceClient,
+) -> collections.abc.Iterable[str]:
+    if resolved_version := component.resolved_version:
+        return [resolved_version]
+
+    time_range = component.time_range
+    return delivery_service_client.greatest_component_versions(
+        component_name=component.component_name,
+        max_versions=component.max_versions_limit,
+        ocm_repo=component.ocm_repo,
+        start_date=time_range.start_date if time_range else None,
+        end_date=time_range.end_date if time_range else None,
+    )
+
+
+def create_sla_violation(
+    root_descriptor: ocm.ComponentDescriptor,
+    ocm_lookup: cnudie.retrieve.ComponentDescriptorLookupById,
+    delivery_service_client: odg_client.DeliveryServiceClient,
+) -> odg.model.ArtefactMetadata:
+    all_component_identities = []
+    for ocm_node in ocm.iter.iter(
+        component=root_descriptor,
+        lookup=ocm_lookup,
+        node_filter=ocm.iter.Filter.components,
+    ):
+        all_component_identities.append(ocm_node.component.component_id)
+
+    findings_raw = delivery_service_client.query_metadata(
+        components=all_component_identities,
+        type=odg.model.Datatype.VULNERABILITY_FINDING,
+    )
+    rescorings_raw = delivery_service_client.query_metadata(
+        components=all_component_identities,
+        type=odg.model.Datatype.RESCORING,
+        referenced_type=odg.model.Datatype.VULNERABILITY_FINDING,
+    )
+
+    findings = [odg.model.ArtefactMetadata.from_dict(raw) for raw in findings_raw]
+    rescorings = [odg.model.ArtefactMetadata.from_dict(raw) for raw in rescorings_raw]
+    release_date = util.get_creation_date(root_descriptor.component)
+
+    version_sla_violations = iter_version_sla_violations(
+        findings=findings,
+        rescorings=rescorings,
+        release_date=release_date,
+    )
+
+    return odg.model.ArtefactMetadata(
+        artefact=odg.model.ComponentArtefactId(
+            component_name=root_descriptor.component.name,
+            component_version=root_descriptor.component.version,
+            artefact=odg.model.LocalArtefactId(),
+        ),
+        meta=odg.model.Metadata(
+            datasource=odg.model.Datasource.SLA_CHECKER,
+            type=odg.model.Datatype.SLA_VIOLATION,
+            creation_date=datetime.datetime.now(),
+        ),
+        data=odg.model.SlaViolations(
+            sla_violations=list(version_sla_violations),
+        ),
+    )
+
+
+def main():
+    parsed_arguments = odg.util.parse_args(
+        arguments=(
+            odg.util.Arguments.EXTENSIONS_CFG_PATH,
+            odg.util.Arguments.DELIVERY_SERVICE_URL,
+        ),
+    )
+
+    if not (extensions_cfg_path := parsed_arguments.extensions_cfg_path):
+        extensions_cfg_path = paths.extensions_cfg_path()
+
+    extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
+    cfg = extensions_cfg.sla_violations
+
+    if not cfg or not cfg.enabled:
+        return
+
+    if not (delivery_service_url := parsed_arguments.delivery_service_url):
+        delivery_service_url = cfg.delivery_service_url
+
     delivery_service_client = odg_client.DeliveryServiceClient(
         routes=odg_client.DeliveryServiceRoutes(
-            base_url=os.environ['BASE_URL'],
+            base_url=delivery_service_url,
         ),
-        auth_token=os.environ['GITHUB_AUTH_TOKEN'],
-        api_url=os.environ['API_URL'],
+        auth_token_lookup=lookups.github_auth_token_lookup,
     )
 
     ocm_repository_lookup = lookups.init_ocm_repository_lookup()
@@ -113,64 +208,47 @@ if __name__ == '__main__':
         ocm_repository_lookup=ocm_repository_lookup,
     )
 
-    versions = delivery_service_client.greatest_component_versions(
-        component_name=os.environ['COMPONENT_NAME'],
-        start_date=datetime.date.fromisoformat(os.environ['START_DATE']),
-        end_date=datetime.date.fromisoformat(os.environ['END_DATE']),
-    )
-
     sla_violations = []
 
-    for version in versions:
-        root_descriptor = ocm_lookup(
-            f'{os.environ["COMPONENT_NAME"]}:{version}',
-        )
-
-        all_component_identities = []
-        for ocm_node in ocm.iter.iter(
-            component=root_descriptor,
-            lookup=ocm_lookup,
-            node_filter=ocm.iter.Filter.components,
-        ):
-            all_component_identities.append(
-                ocm.ComponentIdentity(ocm_node.component.name, ocm_node.component.version),
-            )
-
-        findings_raw = delivery_service_client.query_metadata(
-            components=all_component_identities,
-            type=odg.model.Datatype.VULNERABILITY_FINDING,
-        )
-        rescorings_raw = delivery_service_client.query_metadata(
-            components=all_component_identities,
-            type=odg.model.Datatype.RESCORING,
-            referenced_type=odg.model.Datatype.VULNERABILITY_FINDING,
-        )
-
-        findings = [odg.model.ArtefactMetadata.from_dict(raw) for raw in findings_raw]
-        rescorings = [odg.model.ArtefactMetadata.from_dict(raw) for raw in rescorings_raw]
-        release_date = util.get_creation_date(root_descriptor.component)
-
-        version_sla_violations = iter_version_sla_violations(
-            findings,
-            rescorings,
-            release_date,
-        )
-
-        sla_violations.append(
-            odg.model.ArtefactMetadata(
-                artefact=odg.model.ComponentArtefactId(
-                    component_name=root_descriptor.component.name,
-                    component_version=root_descriptor.component.version,
-                    artefact=odg.model.LocalArtefactId(),
-                ),
-                meta=odg.model.Metadata(
-                    datasource=odg.model.Datasource.SLA_CHECKER,
-                    type=odg.model.Datatype.SLA_VIOLATION,
-                    creation_date=datetime.datetime.now(),
-                ),
-                data=odg.model.SlaViolations(
-                    sla_violations=list(version_sla_violations),
-                ),
+    for component in cfg.components:
+        versions = list(
+            iter_versions_for_component(
+                component=component,
+                delivery_service_client=delivery_service_client,
             ),
         )
+
+        root_component_identities = [
+            ocm.ComponentIdentity(component.component_name, version) for version in versions
+        ]
+        existing_sla_raw = delivery_service_client.query_metadata(
+            components=root_component_identities,
+            type=odg.model.Datatype.SLA_VIOLATION,
+        )
+        already_processed = {
+            (md['artefact']['component_name'], md['artefact']['component_version'])
+            for md in existing_sla_raw
+        }
+
+        component_ocm_repository_lookup = lookups.extended_ocm_repository_lookup(component.ocm_repo)
+
+        for version in versions:
+            if (component.component_name, version) in already_processed:
+                continue
+
+            root_descriptor = ocm_lookup(
+                f'{component.component_name}:{version}',
+                ocm_repository_lookup=component_ocm_repository_lookup,
+            )
+            sla_violation = create_sla_violation(
+                root_descriptor=root_descriptor,
+                ocm_lookup=ocm_lookup,
+                delivery_service_client=delivery_service_client,
+            )
+            sla_violations.append(sla_violation)
+
     delivery_service_client.update_metadata(data=sla_violations)
+
+
+if __name__ == '__main__':
+    main()

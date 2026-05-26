@@ -29,6 +29,7 @@ def modules():
         'ghas',
         'sast',
         'sbom_generator',
+        'sla_violations',
     ]
 
 

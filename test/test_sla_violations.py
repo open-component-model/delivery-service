@@ -1,11 +1,16 @@
 import datetime
 import json
 import os
+import unittest.mock
 
 import pytest
 
+import odg.extensions_cfg
 import odg.model
-from sla_violations import iter_version_sla_violations
+from sla_violations import (
+    iter_version_sla_violations,
+    iter_versions_for_component,
+)
 
 
 @pytest.fixture
@@ -304,3 +309,78 @@ def test_due_date_takes_priority_over_allowed_processing_time(test_data):
     )
 
     assert len(violations) == 0
+
+
+def test_iter_versions_returns_resolved_version_when_set():
+    component = odg.extensions_cfg.Component(
+        component_name='example.org/foo',
+        version='1.2.3',
+        ocm_repo_url=None,
+    )
+    delivery_service_client = unittest.mock.MagicMock()
+
+    versions = list(
+        iter_versions_for_component(
+            component=component,
+            delivery_service_client=delivery_service_client,
+        ),
+    )
+
+    assert versions == ['1.2.3']
+    delivery_service_client.greatest_component_versions.assert_not_called()
+
+
+def test_iter_versions_queries_greatest_versions_when_no_resolved_version():
+    component = odg.extensions_cfg.Component(
+        component_name='example.org/foo',
+        version=None,
+        ocm_repo_url='ocm.example.org/repo',
+        max_versions_limit=3,
+    )
+    delivery_service_client = unittest.mock.MagicMock()
+    delivery_service_client.greatest_component_versions.return_value = ['1.0.0', '1.1.0', '1.2.0']
+
+    versions = list(
+        iter_versions_for_component(
+            component=component,
+            delivery_service_client=delivery_service_client,
+        ),
+    )
+
+    assert versions == ['1.0.0', '1.1.0', '1.2.0']
+    delivery_service_client.greatest_component_versions.assert_called_once_with(
+        component_name='example.org/foo',
+        max_versions=3,
+        ocm_repo=component.ocm_repo,
+        start_date=None,
+        end_date=None,
+    )
+
+
+def test_iter_versions_passes_time_range_dates():
+    time_range = odg.extensions_cfg.TimeRange(days_from=-30, days_to=0)
+    component = odg.extensions_cfg.Component(
+        component_name='example.org/foo',
+        version=None,
+        ocm_repo_url='ocm.example.org/repo',
+        max_versions_limit=5,
+        time_range=time_range,
+    )
+    delivery_service_client = unittest.mock.MagicMock()
+    delivery_service_client.greatest_component_versions.return_value = ['2.0.0']
+
+    versions = list(
+        iter_versions_for_component(
+            component=component,
+            delivery_service_client=delivery_service_client,
+        ),
+    )
+
+    assert versions == ['2.0.0']
+    delivery_service_client.greatest_component_versions.assert_called_once_with(
+        component_name='example.org/foo',
+        max_versions=5,
+        ocm_repo=component.ocm_repo,
+        start_date=time_range.start_date,
+        end_date=time_range.end_date,
+    )
