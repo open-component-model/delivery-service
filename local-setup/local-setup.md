@@ -42,6 +42,34 @@ create `<REPO_ROOT>/local-setup/kind/kubeconfig` which can be used to interact
 with the OCM-Gear cluster. Also, it will forward the delivery-service to
 `http://localhost:5000`.
 
+### Using Podman as container engine
+By default, `kind` uses Docker. To use [Podman](https://podman.io/) instead,
+set the `KIND_EXPERIMENTAL_PROVIDER` environment variable before running
+`make kind-up`:
+
+```bash
+export KIND_EXPERIMENTAL_PROVIDER=podman
+make kind-up
+```
+
+**Linux:** rootless Podman requires the kind process to run inside a systemd
+scope with cgroup delegation enabled. `kind-up.sh` handles this automatically
+by wrapping the cluster creation with
+`systemd-run --scope --user -p "Delegate=yes"` — no manual steps needed.
+
+**macOS:** Podman Desktop defaults to rootless mode inside its Linux VM, which
+can trigger the `Delegate=yes` error. The simplest fix is to switch the Podman
+machine to rootful mode:
+
+```bash
+podman machine stop
+podman machine set --rootful
+podman machine start
+```
+
+After that, `make kind-up` will complete successfully without any further
+configuration.
+
 ## Configuration Update
 To update the OCM-Gear deployment in case your local configuration has changed,
 just run the `make kind-update` command. This will upgrade the existing helm
@@ -53,6 +81,30 @@ If you wish to stop the OCM-Gear and delete the kind cluster, you have to run
 `make kind-down`. However, this will _not_ delete the delivery-db storage since
 it is permanently stored on the host machine. To also clear the delivery-db
 storage, you have to delete the `/var/delivery-db` directory.
+
+## Known Limitations (macOS / Darwin)
+
+The following quirks are known when running `make kind-up` on macOS:
+
+- **`bitnami/os-shell` image unavailable**: The Bitnami PostgreSQL chart's built-in
+  `volumePermissions` init container pulls `docker.io/bitnami/os-shell` from Docker
+  Hub, which is not reliably available. The local setup replaces it with a custom
+  init container using the already-mirrored Gardener postgres image instead.
+
+- **Ingress required for chart version `0.1212.0`**: The `delivery-service` and
+  `delivery-dashboard` charts at this version use Kubernetes `Ingress` resources.
+  The local values files provide the required `ingress.hosts` so the templates render
+  correctly. Newer chart versions (≥ `0.1331.0`) use Gateway API `HTTPRoute` instead.
+
+- **`crypto.mappings` must be empty when disabled**: The installed `odg` package
+  version uses dacite union resolution that fails to deserialize `SharedCfgLocalReference`
+  refs in crypto mappings. Since crypto is disabled by default, `mappings: []` avoids
+  constructing any mapping objects at all.
+
+- **`ocm_repo_mappings` uses simple format**: The installed `lookups.py` uses
+  `cnudie.retrieve.OcmRepositoryMappingEntry` which only supports `repository` and
+  `prefix` (singular). The virtual `type: virtual` entry and `prefixes` (plural) from
+  the newer codebase are not supported.
 
 ## Extensions
 OCM-Gear extensions can be dynamically added to your installation. However, some

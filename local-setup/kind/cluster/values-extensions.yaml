@@ -1,13 +1,13 @@
 access-manager:
-  enabled: True
+  enabled: False
 artefact-enumerator:
-  enabled: True
+  enabled: False
 backlog-controller:
   enabled: True
 bdba:
   enabled: False
 cache-manager:
-  enabled: True
+  enabled: False
 clamav:
   enabled: False
 crypto:

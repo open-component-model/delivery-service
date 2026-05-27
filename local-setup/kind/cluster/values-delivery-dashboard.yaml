@@ -1,4 +1,10 @@
 host: localhost
 
+ingress:
+  annotations: {}
+  hosts:
+    - localhost
+  disableTls: true
+
 envVars:
   REACT_APP_DELIVERY_SERVICE_API_URL: http://localhost:5000

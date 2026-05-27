@@ -6,3 +6,4 @@ logs*
 .venv
 kubeconfig
 secrets/
+local-setup/kind/cluster/secrets-bootstrapping.yaml

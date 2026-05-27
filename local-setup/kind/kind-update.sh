@@ -41,7 +41,8 @@ echo ">>> Installing bootstrapping chart from ${BOOTSTRAPPING_CHART}"
 helm upgrade -i bootstrapping oci://${BOOTSTRAPPING_CHART%:*} \
   --namespace ${NAMESPACE} \
   --version ${BOOTSTRAPPING_CHART#*:} \
-  --values ${CHART}/values-bootstrapping.yaml
+  --values ${CHART}/values-bootstrapping.yaml \
+  --values ${CHART}/secrets-bootstrapping.yaml
 
 echo ">>> Installing delivery-database from ${DELIVERY_DATABASE_CHART}"
 # First, install custom pv and pvc to allow re-usage of host's filesystem mount
@@ -75,5 +76,5 @@ helm upgrade -i extensions oci://${EXTENSIONS_CHART%:*} \
     --values ${CHART}/values-extensions.yaml
 
 # port-forward to the new delivery-service pods
-lsof -i tcp:5000 | grep kubectl | awk 'NR!=1 {print $2}' | xargs kill
+lsof -i tcp:5000 | grep kubectl | awk 'NR!=1 {print $2}' | xargs kill || true
 kubectl port-forward service/delivery-service 5000:8080 > /dev/null &
