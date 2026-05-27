@@ -81,7 +81,7 @@ spec:
               memory: 250Mi
               cpu: 250m
             limits:
-              memory: 500Mi
+              memory: 1200Mi
               cpu: 500m
       volumes:
         - name: aws
