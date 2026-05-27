@@ -27,7 +27,14 @@ def release_infos_from_cfg(
     returns `None` if requested os is not supported
     """
 
-    path = osinfo.paths.for_os(os_id)
+    try:
+        path = osinfo.paths.for_os(os_id)
+    except ValueError as e:
+        # os_id not in filesystem allowlist
+        if not absent_ok:
+            raise e
+
+        return None
 
     try:
         with open(path) as f:
