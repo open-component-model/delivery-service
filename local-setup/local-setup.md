@@ -42,6 +42,34 @@ create `<REPO_ROOT>/local-setup/kind/kubeconfig` which can be used to interact
 with the OCM-Gear cluster. Also, it will forward the delivery-service to
 `http://localhost:5000`.
 
+### Using Podman as container engine
+By default, `kind` uses Docker. To use [Podman](https://podman.io/) instead,
+set the `KIND_EXPERIMENTAL_PROVIDER` environment variable before running
+`make kind-up`:
+
+```bash
+export KIND_EXPERIMENTAL_PROVIDER=podman
+make kind-up
+```
+
+**Linux:** rootless Podman requires the kind process to run inside a systemd
+scope with cgroup delegation enabled. `kind-up.sh` handles this automatically
+by wrapping the cluster creation with
+`systemd-run --scope --user -p "Delegate=yes"` — no manual steps needed.
+
+**macOS:** Podman Desktop defaults to rootless mode inside its Linux VM, which
+can trigger the `Delegate=yes` error. The simplest fix is to switch the Podman
+machine to rootful mode:
+
+```bash
+podman machine stop
+podman machine set --rootful
+podman machine start
+```
+
+After that, `make kind-up` will complete successfully without any further
+configuration.
+
 ## Configuration Update
 To update the OCM-Gear deployment in case your local configuration has changed,
 just run the `make kind-update` command. This will upgrade the existing helm
