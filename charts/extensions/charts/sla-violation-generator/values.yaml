@@ -1,0 +1,6 @@
+schedule: null                       # default: "0 0 * * 0"  (weekly, Sunday 00:00)
+target_namespace: null               # default: .Release.Namespace
+ttl_seconds_after_finished: null     # default: 43200  (12h)
+successful_jobs_history_limit: null  # default: 1
+failed_jobs_history_limit: null      # default: 1
+backoff_limit: null                  # default: 0
