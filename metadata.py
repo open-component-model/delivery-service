@@ -929,6 +929,14 @@ class ArtefactMetadataQuery(aiohttp.web.View):
             `rescorings`). Can be given multiple times. If no referenced type is given, all relevant
             metadata will be returned. Check odg/model.py `Datatype` model class for a list of
             possible values.
+        - in: query
+          name: datasource
+          required: false
+          schema:
+            $ref: '#/components/schemas/Datasource'
+          description:
+            The datasource of the metadata to retrieve. Can be given multiple times. If no datasource
+            is given, all relevant metadata will be returned.
         requestBody:
           required: true
           content:
@@ -958,6 +966,7 @@ class ArtefactMetadataQuery(aiohttp.web.View):
 
         type_filter = params.getall('type', [])
         referenced_type_filter = params.getall('referenced_type', [])
+        datasource_filter = params.getall('datasource', [])
 
         artefact_refs = [
             dacite.from_dict(
@@ -1050,6 +1059,11 @@ class ArtefactMetadataQuery(aiohttp.web.View):
         if referenced_type_filter:
             db_statement = db_statement.where(
                 dm.ArtefactMetaData.referenced_type.in_(referenced_type_filter),
+            )
+
+        if datasource_filter:
+            db_statement = db_statement.where(
+                dm.ArtefactMetaData.datasource.in_(datasource_filter),
             )
 
         if artefact_refs:
