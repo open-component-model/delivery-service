@@ -39,13 +39,10 @@ def iter_existing_findings(
     findings_raw = delivery_service_client.query_metadata(
         artefacts=(artefact,),
         type=finding_type,
+        datasource=datasource,
     )
 
-    return (
-        odg.model.ArtefactMetadata.from_dict(finding_raw)
-        for finding_raw in findings_raw
-        if finding_raw['meta']['datasource'] == datasource
-    )
+    return (odg.model.ArtefactMetadata.from_dict(finding_raw) for finding_raw in findings_raw)
 
 
 def iter_artefact_metadata(
