@@ -92,7 +92,7 @@ class Datasource(enum.StrEnum):
     RESPONSIBLES = 'responsibles'
     SAST = 'sast'
     SBOM_GENERATOR = 'sbom-generator'
-    SLA_CHECKER = 'sla-checker'
+    SLA_VIOLATION_PROFILER = 'sla-violation-profiler'
     ODG = 'odg'
 
     def datatypes(self) -> tuple[Datatype, ...]:

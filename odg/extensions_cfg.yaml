@@ -105,7 +105,7 @@ sbom_generator:
    - prefix: ''
      group_id: 0 # <int> must be set
 
-sla_violations:
+sla_violation_profiler:
   enabled: False
   components:
     - component_name: ocm.software/ocm-gear
