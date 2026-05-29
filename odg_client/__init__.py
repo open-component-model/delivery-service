@@ -623,6 +623,7 @@ class DeliveryServiceClient:
         artefacts: collections.abc.Iterable[typing.Union[dict, 'ComponentArtefactId']] = (),
         type: str | collections.abc.Sequence[str] = None,
         referenced_type: str | collections.abc.Sequence[str] = None,
+        datasource: str | collections.abc.Sequence[str] = None,
     ) -> tuple[dict]:
         """
         Query artefact metadata from the delivery-db.
@@ -634,6 +635,8 @@ class DeliveryServiceClient:
         @param referenced_type: referenced datatype(s) used for filtering (only applies to artefact
                                 metadata of type `rescorings`); if no datatype(s) is (are)
                                 specified, no referenced datatype filtering is done
+        @param datasource:      datasource(s) used for filtering; if no datasource(s) is (are)
+                                specified, no datasource filtering is done
         """
         if components and artefacts:
             raise ValueError('at most one of `artefacts` or `components` must be specified')
@@ -645,6 +648,9 @@ class DeliveryServiceClient:
 
         if referenced_type:
             params['referenced_type'] = referenced_type
+
+        if datasource:
+            params['datasource'] = datasource
 
         headers = {
             'Content-Type': 'application/json',
