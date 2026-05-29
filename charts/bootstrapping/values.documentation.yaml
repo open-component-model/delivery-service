@@ -177,6 +177,10 @@ extensions_cfg:
         # the BlackDuck scans of the same artefact version (+ extra-id) will be deduplicated across
         # existing component versions
         deduplicate_across_component_versions: true
+        # @param extensions_cfg.blackduck.mappings[].cleanup_deprecated_project_versions if true,
+        # BlackDuck project versions of artefacts which are not referenced by versions considered by
+        # the artefact-enumerator anymore, will be deleted regularly
+        cleanup_deprecated_project_versions: false
         # @param extensions_cfg.blackduck.mappings[].aws_secret_name in case the resources are stored
         # in AWS S3 and multiple AWS secrets are specified via secrets.aws, the name of the aws
         # secret to use must be specified
