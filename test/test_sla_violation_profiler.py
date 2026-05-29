@@ -7,7 +7,7 @@ import pytest
 
 import odg.extensions_cfg
 import odg.model
-from sla_violations import (
+from sla_violation_profiler import (
     iter_version_sla_violations,
     iter_versions_for_component,
 )

@@ -454,7 +454,7 @@ outputs: []
 dependencies:
   - delivery-service
 ---
-name: sla-violations
+name: sla-violation-profiler
 installation:
   ocm_references:
     - helm_chart_name: extensions
@@ -469,11 +469,11 @@ installation:
           artefact_type: helmchart-imagemap
   value_templates:
     - helm_chart_name: extensions
-      helm_attribute: sla-violations.target_namespace
+      helm_attribute: sla-violation-profiler.target_namespace
       value: ${target_namespace}
       value_type: python-string-template
     - helm_chart_name: extensions
-      helm_attribute: sla-violations.enabled
+      helm_attribute: sla-violation-profiler.enabled
       value: True
       value_type: literal
 outputs: []

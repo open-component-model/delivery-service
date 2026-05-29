@@ -444,6 +444,10 @@ jobs:
                 attribute: odg-operator.image.repository
               - ref: ocm-resource:extensions.tag
                 attribute: odg-operator.image.tag
+              - ref: ocm-resource:extensions.repository                                                                                                                                                                                                                                                                                                                                                            
+                attribute: sla-violation-profiler.image.repository                                                                                                                                                                                                                                                                                                                                                         
+              - ref: ocm-resource:extensions.tag                                                                                                                                                                                                                                                                                                                                                                   
+                attribute: sla-violation-profiler.image.tag 
               - ref: ocm-resource:extensions.repository
                 attribute: sbom-generator.image.repository
               - ref: ocm-resource:extensions.tag

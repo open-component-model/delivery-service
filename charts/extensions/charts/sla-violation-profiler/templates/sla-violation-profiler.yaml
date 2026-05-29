@@ -1,4 +1,4 @@
-{{- $podName := "sla-violations" }}
+{{- $podName := "sla-violation-profiler" }}
 
 apiVersion: batch/v1
 kind: CronJob
@@ -26,7 +26,7 @@ spec:
             command:
             - python3
             - -m
-            - sla_violations
+            - sla_violation_profiler
             securityContext:
               allowPrivilegeEscalation: false
             env:

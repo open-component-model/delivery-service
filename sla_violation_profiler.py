@@ -156,7 +156,7 @@ def create_sla_violation(
             artefact=odg.model.LocalArtefactId(),
         ),
         meta=odg.model.Metadata(
-            datasource=odg.model.Datasource.SLA_CHECKER,
+            datasource=odg.model.Datasource.SLA_VIOLATION_PROFILER,
             type=odg.model.Datatype.SLA_VIOLATION,
             creation_date=datetime.datetime.now(),
         ),
@@ -178,7 +178,7 @@ def main():
         extensions_cfg_path = paths.extensions_cfg_path()
 
     extensions_cfg = odg.extensions_cfg.ExtensionsConfiguration.from_file(extensions_cfg_path)
-    cfg = extensions_cfg.sla_violations
+    cfg = extensions_cfg.sla_violation_profiler
 
     if not cfg or not cfg.enabled:
         return
