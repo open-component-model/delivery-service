@@ -1,13 +1,13 @@
 access-manager:
-  enabled: False
+  enabled: True
 artefact-enumerator:
-  enabled: False
+  enabled: True
 backlog-controller:
   enabled: True
 bdba:
   enabled: False
 cache-manager:
-  enabled: False
+  enabled: True
 clamav:
   enabled: False
 crypto:
@@ -17,7 +17,7 @@ delivery-db-backup:
 ghas:
   enabled: False
 issue-replicator:
-  enabled: False
+  enabled: True
 odg-operator:
   enabled: False
 osid:
