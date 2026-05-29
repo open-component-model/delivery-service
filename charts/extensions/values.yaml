@@ -88,6 +88,17 @@ sast:
   image:
     repository: null
     tag: null
+sla-violations:
+  enabled: false
+  image:
+    repository: null
+    tag: null
+  schedule: null                       
+  target_namespace: null               
+  ttl_seconds_after_finished: null     
+  successful_jobs_history_limit: null  
+  failed_jobs_history_limit: null      
+  backoff_limit: null
 sbom-generator:
   deployment:
     annotations: []
