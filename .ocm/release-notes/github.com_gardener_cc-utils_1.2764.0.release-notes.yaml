@@ -1,0 +1,15 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2764.0
+release_notes:
+- audience: developer
+  author:
+    hostname: github.com
+    type: githubUser
+    username: 8R0WNI3
+  category: bugfix
+  contents: Correctly determine author association in params action to determine "can-push"
+    status later
+  mimetype: text/markdown
+  reference: '[#1595](https://github.com/gardener/cc-utils/pull/1595)'
+  type: standard

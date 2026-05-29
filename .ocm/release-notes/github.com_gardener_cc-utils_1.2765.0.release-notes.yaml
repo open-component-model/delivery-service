@@ -1,0 +1,14 @@
+ocm:
+  component_name: github.com/gardener/cc-utils
+  component_version: 1.2765.0
+release_notes:
+- audience: user
+  author:
+    hostname: github.com
+    type: githubUser
+    username: fabianburth
+  category: bugfix
+  contents: Support replication of nested index manifests
+  mimetype: text/markdown
+  reference: '[#1598](https://github.com/gardener/cc-utils/pull/1598)'
+  type: standard
