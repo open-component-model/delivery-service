@@ -105,12 +105,17 @@ def rescorings_for_finding_by_specificity(
         rescorings=rescorings,
     )
 
+    def normalise_date(date: datetime.datetime | str) -> datetime.datetime:
+        if isinstance(date, str):
+            date = datetime.datetime.fromisoformat(date)
+        return date.astimezone(tz=datetime.UTC)
+
     return tuple(
         sorted(
             rescorings_for_finding,
             key=lambda rescoring: (
                 rescoring.specificity,
-                rescoring.meta.creation_date,
+                normalise_date(rescoring.meta.creation_date),
             ),
             reverse=True,
         ),
