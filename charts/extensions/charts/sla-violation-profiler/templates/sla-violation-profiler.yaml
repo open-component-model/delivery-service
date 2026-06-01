@@ -80,7 +80,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-egress-from-cache-manager
+  name: allow-egress-from-sla-violation-profiler
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 spec:
   podSelector:
