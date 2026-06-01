@@ -26,20 +26,7 @@ extensions_cfg:
       - prefix: ''
   crypto:
     enabled: False # disable in default because of high memory
-    mappings:
-      - prefix: ''
-        standards:
-          - name: FIPS
-            version: 140-3
-            ref:
-              path: odg/crypto_defaults.yaml
-          - name: NCS
-            version: '1.0'
-            ref:
-              path: odg/crypto_defaults.yaml
-        libraries:
-          - ref:
-              path: odg/crypto_defaults.yaml
+    mappings: []
   delivery_db_backup:
     enabled: False # disable in default because of missing `component_name` and `ocm_repo_url`
     component_name: ''
@@ -94,12 +81,8 @@ findings:
     default_scope: single
 
 ocm_repo_mappings:
-  - type: virtual
-    name: <auto>
-    selectors:
-      - version_filter_overwrite: semver_releases
   - repository: ghcr.io/open-component-model/ocm
-    prefixes: ocm.software/ocmcli
+    prefix: ocm.software/ocmcli
   - repository: europe-docker.pkg.dev/gardener-project/releases
   - repository: europe-docker.pkg.dev/gardener-project/snapshots
 

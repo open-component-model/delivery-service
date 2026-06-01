@@ -29,12 +29,27 @@ primary:
     requests:
       cpu: 250m
       memory: 256Mi
+  # Use the same postgres image (already mirrored in Gardener registry) to fix volume permissions,
+  # instead of the default bitnami/os-shell which is not reliably pullable from Docker Hub.
+  initContainers:
+    - name: volume-permissions
+      image: europe-docker.pkg.dev/gardener-project/releases/odg/postgres:16.8.0
+      command:
+        - sh
+        - -c
+        - chown -R 1001:1001 /data
+      securityContext:
+        runAsUser: 0
+      volumeMounts:
+        - name: data
+          mountPath: /data
 
 # configuration of custom persistent volume claim (pvc) required to ensure a stable pvc name across
 # cluster re-creations (-> this allows using a stable host file mount on the host)
 persistence:
   existingClaim: pvc-delivery-db-0
 
-# required for the delivery-db pod to have write access to the custom pvc
+# volumePermissions uses docker.io/bitnami/os-shell which is not reliably pullable from Docker Hub;
+# volume permissions are handled by the custom initContainer above instead.
 volumePermissions:
-  enabled: true
+  enabled: false

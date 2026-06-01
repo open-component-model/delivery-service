@@ -1,1 +1,7 @@
 host: delivery-service
+
+ingress:
+  annotations: {}
+  hosts:
+    - localhost
+  disableTls: true

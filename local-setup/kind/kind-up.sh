@@ -50,7 +50,8 @@ echo ">>> Installing bootstrapping chart from ${BOOTSTRAPPING_CHART}"
 helm upgrade -i bootstrapping oci://${BOOTSTRAPPING_CHART%:*} \
   --namespace ${NAMESPACE} \
   --version ${BOOTSTRAPPING_CHART#*:} \
-  --values ${CHART}/values-bootstrapping.yaml
+  --values ${CHART}/values-bootstrapping.yaml \
+  --values ${CHART}/secrets-bootstrapping.yaml
 
 echo ">>> Installing delivery-database from ${DELIVERY_DATABASE_CHART}"
 # First, install custom pv and pvc to allow re-usage of host's filesystem mount

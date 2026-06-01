@@ -17,7 +17,7 @@ delivery-db-backup:
 ghas:
   enabled: False
 issue-replicator:
-  enabled: False
+  enabled: True
 odg-operator:
   enabled: False
 osid:
