@@ -1,10 +1,13 @@
 import collections.abc
 import datetime
+import logging
 
+import ci.log
 import cnudie.retrieve
 import ocm
 import ocm.iter
 
+import k8s.logging
 import lookups
 import odg.extensions_cfg
 import odg.model
@@ -13,6 +16,8 @@ import odg_client
 import paths
 import rescore.utility
 import util
+
+logger = logging.getLogger(__name__)
 
 
 def filter_rescorings_before_release_date(
@@ -143,10 +148,16 @@ def create_sla_violation(
     rescorings = [odg.model.ArtefactMetadata.from_dict(raw) for raw in rescorings_raw]
     release_date = util.get_creation_date(root_descriptor.component)
 
-    version_sla_violations = iter_version_sla_violations(
-        findings=findings,
-        rescorings=rescorings,
-        release_date=release_date,
+    version_sla_violations = list(
+        iter_version_sla_violations(
+            findings=findings,
+            rescorings=rescorings,
+            release_date=release_date,
+        ),
+    )
+    logger.info(
+        f'Found {len(version_sla_violations)} SLA violation(s) for '
+        f'{root_descriptor.component.name}:{root_descriptor.component.version}',
     )
 
     return odg.model.ArtefactMetadata(
@@ -161,12 +172,14 @@ def create_sla_violation(
             creation_date=datetime.datetime.now(),
         ),
         data=odg.model.SlaViolations(
-            sla_violations=list(version_sla_violations),
+            sla_violations=version_sla_violations,
         ),
     )
 
 
 def main():
+    ci.log.configure_default_logging()
+    k8s.logging.configure_kubernetes_logging()
     parsed_arguments = odg.util.parse_args(
         arguments=(
             odg.util.Arguments.EXTENSIONS_CFG_PATH,
@@ -209,6 +222,7 @@ def main():
     )
 
     sla_violations = []
+    total_skipped = 0
 
     for component in cfg.components:
         versions = list(
@@ -216,6 +230,10 @@ def main():
                 component=component,
                 delivery_service_client=delivery_service_client,
             ),
+        )
+        logger.info(
+            f'Processing component {component.component_name}: '
+            f'{len(versions)} version(s) to evaluate',
         )
 
         root_component_identities = [
@@ -234,8 +252,12 @@ def main():
 
         for version in versions:
             if (component.component_name, version) in already_processed:
+                total_skipped += 1
                 continue
 
+            logger.info(
+                f'Scanning {component.component_name}:{version} - no existing SLA record',
+            )
             root_descriptor = ocm_lookup(
                 f'{component.component_name}:{version}',
                 ocm_repository_lookup=component_ocm_repository_lookup,
@@ -247,6 +269,10 @@ def main():
             )
             sla_violations.append(sla_violation)
 
+    logger.info(
+        f'Persisting {len(sla_violations)} new SLA record(s) to delivery service '
+        f'({total_skipped} version(s) skipped - already in database)',
+    )
     delivery_service_client.update_metadata(data=sla_violations)
 
 
