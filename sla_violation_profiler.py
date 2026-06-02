@@ -16,7 +16,6 @@ import paths
 import rescore.utility
 import util
 
-ci.log.configure_default_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -177,6 +176,7 @@ def create_sla_violation(
 
 
 def main():
+    ci.log.configure_default_logging()
     parsed_arguments = odg.util.parse_args(
         arguments=(
             odg.util.Arguments.EXTENSIONS_CFG_PATH,
