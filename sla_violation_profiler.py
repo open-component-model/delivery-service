@@ -4,10 +4,10 @@ import logging
 
 import ci.log
 import cnudie.retrieve
-import k8s.logging
 import ocm
 import ocm.iter
 
+import k8s.logging
 import lookups
 import odg.extensions_cfg
 import odg.model
