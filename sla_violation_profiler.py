@@ -127,7 +127,7 @@ def create_sla_violation(
         lookup=ocm_lookup,
         node_filter=ocm.iter.Filter.components,
     ):
-        all_component_identities.append(ocm_node.component.component_id)
+        all_component_identities.append(ocm_node.component.identity())
 
     findings_raw = delivery_service_client.query_metadata(
         components=all_component_identities,
