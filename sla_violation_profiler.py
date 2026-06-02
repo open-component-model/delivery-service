@@ -4,6 +4,7 @@ import logging
 
 import ci.log
 import cnudie.retrieve
+import k8s.logging
 import ocm
 import ocm.iter
 
@@ -147,14 +148,15 @@ def create_sla_violation(
     rescorings = [odg.model.ArtefactMetadata.from_dict(raw) for raw in rescorings_raw]
     release_date = util.get_creation_date(root_descriptor.component)
 
-    version_sla_violations = iter_version_sla_violations(
-        findings=findings,
-        rescorings=rescorings,
-        release_date=release_date,
+    version_sla_violations = list(
+        iter_version_sla_violations(
+            findings=findings,
+            rescorings=rescorings,
+            release_date=release_date,
+        ),
     )
-    violations_list = list(version_sla_violations)
     logger.info(
-        f'Found {len(violations_list)} SLA violation(s) for '
+        f'Found {len(version_sla_violations)} SLA violation(s) for '
         f'{root_descriptor.component.name}:{root_descriptor.component.version}',
     )
 
@@ -170,13 +172,14 @@ def create_sla_violation(
             creation_date=datetime.datetime.now(),
         ),
         data=odg.model.SlaViolations(
-            sla_violations=violations_list,
+            sla_violations=version_sla_violations,
         ),
     )
 
 
 def main():
     ci.log.configure_default_logging()
+    k8s.logging.configure_kubernetes_logging()
     parsed_arguments = odg.util.parse_args(
         arguments=(
             odg.util.Arguments.EXTENSIONS_CFG_PATH,
@@ -229,7 +232,7 @@ def main():
             ),
         )
         logger.info(
-            f'Processing component {component.component_name}:'
+            f'Processing component {component.component_name}: '
             f'{len(versions)} version(s) to evaluate',
         )
 
