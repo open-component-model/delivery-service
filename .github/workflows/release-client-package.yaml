@@ -6,6 +6,7 @@ on:
         type: choice
         options:
           - bdba
+          - odg
 
 jobs:
   build:
