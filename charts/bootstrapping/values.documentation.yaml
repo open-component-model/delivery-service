@@ -192,6 +192,11 @@ extensions_cfg:
     # @param extensions_cfg.cache_manager.enabled allows disabling of extension without removing its
     # configuration
     enabled: true
+    # @param extensions_cfg.cache_manager.delivery_service_url url to access the delivery-service
+    # (cluster internal url is sufficient)
+    # e.g.
+    # delivery_service_url: http://delivery-service.<namespace>.svc.cluster.local:8080
+    delivery_service_url: ""
     # @param extensions_cfg.cache_manager.max_cache_size_bytes the maximum allowed size of the cache
     max_cache_size_bytes: 1000000000 # 1Gb
     # @param extensions_cfg.cache_manager.min_pruning_bytes if max_cache_size_bytes is reached,
@@ -282,6 +287,10 @@ extensions_cfg:
           # @param extensions_cfg.cache_manager.prefill_function_caches.components[].max_versions_limit
           # number of versions that should be tracked
           max_versions_limit: 1
+    # @param extensions_cfg.cache_manager.sbom_retention_period_seconds SBOMs which are not referenced
+    # by the artefact-enumerator anymore and are older than the configured retention period, will be
+    # deleted automatically. Set to `null` to disable automatic cleanup.
+    sbom_retention_period_seconds: 604800 # 7 days
 
   # @param extensions_cfg.clamav workers which use ClamAV to create malware findings
   clamav:

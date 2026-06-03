@@ -528,6 +528,7 @@ class PrefillFunctionCaches:
 @dataclasses.dataclass(kw_only=True)
 class CacheManagerConfig(ExtensionCfgMixins):
     """
+    :param str delivery_service_url
     :param int max_cache_size_bytes
     :param int min_pruning_bytes:
         If `max_cache_size_bytes` is reached, existing cache entries will be removed according to
@@ -536,12 +537,17 @@ class CacheManagerConfig(ExtensionCfgMixins):
     :param PrefillFunctionCaches prefill_function_caches:
         Configures components for which to pre-calculate and cache the desired functions. If no
         specific functions are set, all available functions will be considered.
+    :param int sbom_retention_period_seconds:
+        SBOMs which are not referenced by the artefact-enumerator anymore and are older than the
+        configured retention period, will be deleted automatically. Set to `None` to disable
+        automatic cleanup.
     :param str schedule
     :param int successful_jobs_history_limit
     :param int failed_jobs_history_limit
     """
 
     service: Services = Services.CACHE_MANAGER
+    delivery_service_url: str
     max_cache_size_bytes: int = 1000000000  # 1Gb
     min_pruning_bytes: int = 100000000  # 100Mb
     cache_pruning_weights: CachePruningWeights = dataclasses.field(
@@ -550,6 +556,7 @@ class CacheManagerConfig(ExtensionCfgMixins):
     prefill_function_caches: PrefillFunctionCaches = dataclasses.field(
         default_factory=PrefillFunctionCaches,
     )  # noqa: E501
+    sbom_retention_period_seconds: int | None = 60 * 60 * 24 * 7
     schedule: str = '*/10 * * * *'  # every 10 minutes
     successful_jobs_history_limit: int = 1
     failed_jobs_history_limit: int = 1

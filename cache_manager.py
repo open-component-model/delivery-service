@@ -12,6 +12,7 @@ import collections.abc
 import datetime
 import logging
 
+import requests
 import sqlalchemy
 import sqlalchemy.ext.asyncio as sqlasync
 import sqlalchemy.sql.elements
@@ -28,11 +29,14 @@ import components as components_module
 import ctx_util
 import deliverydb
 import deliverydb.model as dm
+import deliverydb.util as du
 import k8s.logging
 import lookups
 import odg.extensions_cfg
 import odg.findings
+import odg.model
 import odg.util
+import odg_client
 import paths
 
 
@@ -236,17 +240,132 @@ async def prefill_function_caches(
                 )
 
 
-async def main():
-    parsed_arguments = odg.util.parse_args(
-        arguments=(
-            odg.util.Arguments.K8S_CFG_NAME,
-            odg.util.Arguments.KUBECONFIG,
-            odg.util.Arguments.K8S_NAMESPACE,
-            odg.util.Arguments.EXTENSIONS_CFG_PATH,
-            odg.util.Arguments.FINDINGS_CFG_PATH,
-            odg.util.Arguments.CACHE_DIR,
-        ),
+async def iter_sbom_artefacts(
+    artefact_enumerator_cfg: odg.extensions_cfg.ArtefactEnumeratorConfig,
+    sbom_generator_cfg: odg.extensions_cfg.SBOMGeneratorConfig,
+    delivery_service_client: odg_client.DeliveryServiceClient,
+    component_descriptor_lookup: ocm.ComponentDescriptorLookup,
+) -> collections.abc.AsyncGenerator[odg.model.ComponentArtefactId, None]:
+    for component in artefact_enumerator_cfg.components:
+        if resolved_version := component.resolved_version:
+            # if an explicit version is specified, use it without any further implict lookup
+            versions = [resolved_version]
+        else:
+            versions = delivery_service_client.greatest_component_versions(
+                component_name=component.component_name,
+                max_versions=component.max_versions_limit,
+                ocm_repo=component.ocm_repo,
+            )
+
+        ocm_repository_lookup = lookups.extended_ocm_repository_lookup(component.ocm_repo)
+
+        for version in versions:
+            component_id = ocm.ComponentIdentity(
+                name=component.component_name,
+                version=version,
+            )
+
+            component_descriptor = await component_descriptor_lookup(
+                component_id,
+                ocm_repository_lookup=ocm_repository_lookup,
+            )
+
+            async for artefact_node in ocm.iter_async.iter(
+                component=component_descriptor,
+                lookup=component_descriptor_lookup,
+                node_filter=ocm.iter.Filter.artefacts,
+                ocm_repo=ocm_repository_lookup,
+            ):
+                component_artefact_id = odg.model.component_artefact_id_from_ocm(
+                    component=artefact_node.component,
+                    artefact=artefact_node.artefact,
+                )
+
+                if sbom_generator_cfg.is_supported(
+                    artefact_kind=component_artefact_id.artefact_kind,
+                    access_type=artefact_node.artefact.access.type,
+                    artefact_type=component_artefact_id.artefact.artefact_type,
+                ):
+                    yield component_artefact_id
+
+
+async def cleanup_sboms(
+    artefact_enumerator_cfg: odg.extensions_cfg.ArtefactEnumeratorConfig,
+    sbom_generator_cfg: odg.extensions_cfg.SBOMGeneratorConfig,
+    delivery_service_client: odg_client.DeliveryServiceClient,
+    component_descriptor_lookup: ocm.ComponentDescriptorLookup,
+    db_session: sqlasync.session.AsyncSession,
+    retention_period_seconds: int,
+):
+    artefact_keys = set()
+
+    async for artefact in iter_sbom_artefacts(
+        artefact_enumerator_cfg=artefact_enumerator_cfg,
+        sbom_generator_cfg=sbom_generator_cfg,
+        delivery_service_client=delivery_service_client,
+        component_descriptor_lookup=component_descriptor_lookup,
+    ):
+        artefact_keys.add(artefact.key)
+
+    db_statement = sqlalchemy.select(dm.ArtefactMetaData).where(
+        dm.ArtefactMetaData.type == odg.model.Datatype.ARTEFACT_SCAN_INFO,
+        dm.ArtefactMetaData.datasource == odg.model.Datasource.SBOM_GENERATOR,
     )
+
+    db_stream = await db_session.stream(db_statement)
+
+    now = datetime.datetime.now(tz=datetime.UTC)
+    retention_period = datetime.timedelta(seconds=float(retention_period_seconds))
+
+    active_count = 0
+    deletion_count = 0
+
+    try:
+        async for partition in db_stream.partitions(size=50):
+            for row in partition:
+                artefact_metadatum = du.db_artefact_metadata_row_to_dso(row)
+
+                if artefact_metadatum.meta.creation_date > now - retention_period:
+                    logger.debug(f'Keeping {artefact_metadatum.meta.creation_date=}')
+                    active_count += 1
+                    continue  # artefact is newer than the configured retention period
+
+                if artefact_metadatum.artefact.key in artefact_keys:
+                    logger.debug(f'Keeping {artefact_metadatum.artefact.key=}')
+                    active_count += 1
+                    continue  # artefact is still active -> no cleanup required
+
+                if digest := artefact_metadatum.data.get('digest'):
+                    try:
+                        logger.debug(f'Deleting blob with {digest=}')
+                        delivery_service_client.delete_blob(digest=digest)
+                    except requests.exceptions.HTTPError as e:
+                        if e.response.status_code != 404:
+                            raise
+
+                        # blob has already been deleted, so no need to follow-up
+                        logger.info(f'Blob with {digest=} has already been deleted, skipping...')
+
+                logger.debug(f'Deleting artefact metadatum with {artefact_metadatum.id=}')
+                await db_session.execute(
+                    sqlalchemy.delete(dm.ArtefactMetaData).where(
+                        dm.ArtefactMetaData.id == artefact_metadatum.id,
+                    ),
+                )
+                deletion_count += 1
+
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+        raise
+
+    logger.info(f'Deleted {deletion_count} SBOM(s)')
+    logger.info(f'Kept {active_count} SBOM(s)')
+
+
+async def main():
+    parsed_arguments = odg.util.parse_args()
+
     namespace = parsed_arguments.k8s_namespace
 
     secret_factory = ctx_util.secret_factory()
@@ -286,6 +405,20 @@ async def main():
 
     oci_client = lookups.semver_sanitising_oci_client_async(secret_factory)
 
+    if not (delivery_service_url := parsed_arguments.delivery_service_url):
+        delivery_service_url = cache_manager_cfg.delivery_service_url
+
+    if delivery_service_url:
+        delivery_service_client = odg_client.DeliveryServiceClient(
+            routes=odg_client.DeliveryServiceRoutes(
+                base_url=delivery_service_url,
+            ),
+            auth_token_lookup=lookups.github_auth_token_lookup,
+        )
+    else:
+        logger.warning('No delivery-service URL provided, will not be able cleanup SBOMs')
+        delivery_service_client = None
+
     component_descriptor_lookup = lookups.init_component_descriptor_lookup_async(
         cache_dir=parsed_arguments.cache_dir,
         db_url=db_url,
@@ -314,6 +447,21 @@ async def main():
             finding_cfgs=finding_cfgs,
             db_session=db_session,
         )
+
+        if (
+            extensions_cfg.artefact_enumerator
+            and extensions_cfg.sbom_generator
+            and cache_manager_cfg.sbom_retention_period_seconds is not None
+            and delivery_service_client
+        ):
+            await cleanup_sboms(
+                artefact_enumerator_cfg=extensions_cfg.artefact_enumerator,
+                sbom_generator_cfg=extensions_cfg.sbom_generator,
+                delivery_service_client=delivery_service_client,
+                component_descriptor_lookup=component_descriptor_lookup,
+                db_session=db_session,
+                retention_period_seconds=cache_manager_cfg.sbom_retention_period_seconds,
+            )
     finally:
         await db_session.close()
         await oci_client.session.close()
