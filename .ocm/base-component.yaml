@@ -1,7 +1,4 @@
 componentReferences:
-- componentName: ocm.software/ocm-gear/bdba-client
-  name: bdba
-  version: 0.12.0
 - componentName: ocm.software/ocm-gear/freshclam
   name: freshclam
   version: 1.14.0

@@ -1,5 +1,5 @@
 awesomeversion
-bdba==0.12.0
+bdba
 brotli
 cyclonedx-python-lib
 jsonpath-ng

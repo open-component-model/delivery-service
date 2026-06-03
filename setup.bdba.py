@@ -17,17 +17,14 @@ def requirements():
             yield line
 
 
-def finalize_version():
+def bump_version():
     with open(os.path.join(own_dir, 'BDBA_VERSION')) as f:
-        return semver.finalize_version(f.read().strip())
+        return semver.Version.parse(f.read().strip()).bump_minor()
 
 
 setuptools.setup(
     name='bdba',
-    version=os.environ.get(
-        'BDBA_PACKAGE_VERSION',
-        finalize_version(),
-    ),
+    version=bump_version(),
     py_modules=[],
     packages=['bdba'],
     install_requires=list(requirements()),

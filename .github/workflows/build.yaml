@@ -69,15 +69,6 @@ jobs:
           mkdir -p ${pkg_dir}
           pkg_dir="$(readlink -f dist)"
 
-          ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
-          bdba_version=$(cat .ocm/base-component.yaml | yq eval '.componentReferences[] | select (.name == "bdba") | .version')
-
-          python -m ocm download resource \
-            --ocm-repository "${ocm_repo}" \
-            --component "ocm.software/ocm-gear/bdba-client:${bdba_version}" \
-            --name bdba \
-            | tar xJ -C "${pkg_dir}"
-
           for path in \
             setup.utils.py \
             setup.service.py \
