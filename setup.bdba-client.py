@@ -8,7 +8,7 @@ own_dir = os.path.abspath(os.path.dirname(__file__))
 
 
 def requirements():
-    with open(os.path.join(own_dir, 'requirements.bdba.txt')) as f:
+    with open(os.path.join(own_dir, 'requirements.bdba-client.txt')) as f:
         for line in f.readlines():
             line = line.strip()
             if not line or line.startswith('#'):
@@ -18,12 +18,12 @@ def requirements():
 
 
 def bump_version():
-    with open(os.path.join(own_dir, 'BDBA_VERSION')) as f:
+    with open(os.path.join(own_dir, 'BDBA_CLIENT_VERSION')) as f:
         return semver.Version.parse(f.read().strip()).bump_minor()
 
 
 setuptools.setup(
-    name='bdba',
+    name='bdba-client',
     version=bump_version(),
     py_modules=[],
     packages=['bdba'],
