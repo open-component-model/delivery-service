@@ -1,13 +1,23 @@
+aiohttp
 aiohttp-swagger3
 awesomeversion
+boto3
+brotli
+cachetools
+cyclonedx-python-lib
+dacite
 dataclasses-json
+gardener-cicd-libs
+github3.py
 htmllistparse
 jsonpath-ng
 jsonschema
+kubernetes
 prometheus_client
 psycopg[binary]
 pyjwt
+requests
 sqlalchemy>1.4.0
-# numpy and scipy installed via alpine packages
-# numpy
-# scipy
+urllib3
+watchdog
+python-dateutil

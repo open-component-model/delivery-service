@@ -13,7 +13,7 @@ RUN --mount=type=bind,source=/dist,target=/dist \
     py3-numpy \
     py3-scipy \
 && CFLAGS='-Wno-int-conversion' \
-        pip3 install --upgrade --no-cache-dir --find-links ./dist ocm-gear-service \
+        pip3 install --upgrade --no-cache-dir --find-links ./dist odg-core-libs \
 && apk del --no-cache \
     libc-dev \
     libffi-dev \

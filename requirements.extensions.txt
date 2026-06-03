@@ -1,5 +1,0 @@
-awesomeversion
-bdba
-brotli
-cyclonedx-python-lib
-jsonpath-ng
