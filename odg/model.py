@@ -398,11 +398,27 @@ class PolicyViolationRef:
     id: str | None
     url: str | None
 
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+    def __eq__(self, other: typing.Self) -> bool:
+        if not isinstance(other, type(self)):
+            return False
+        return self.name == other.name
+
 
 @dataclasses.dataclass
 class License:
     name: str
     id: str | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+    def __eq__(self, other: typing.Self) -> bool:
+        if not isinstance(other, type(self)):
+            return False
+        return self.name == other.name
 
 
 @dataclasses.dataclass
@@ -483,13 +499,17 @@ class VulnerabilityFinding(Finding, BDBAMixin):
 @dataclasses.dataclass
 class RescoringIPFinding:
     package_name: str
-    license: License
+    license: License | None
     labels: list[str]
 
     @property
     def key(self) -> str:
         labels_key = ','.join(sorted(self.labels))
-        return _as_key(self.package_name, self.license.name, labels_key)
+
+        # new rescorings won't have the license set anymore -> keep for backwards compatibility
+        if self.license:
+            return _as_key(self.package_name, self.license.name, labels_key)
+        return _as_key(self.package_name, labels_key)
 
 
 @dataclasses.dataclass

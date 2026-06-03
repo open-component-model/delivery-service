@@ -317,6 +317,12 @@ class FeatureFindingConfigurations(FeatureBase):
 
 
 @dataclasses.dataclass(frozen=True)
+class FeatureLicenses(FeatureBase):
+    name: str = 'licenses'
+    licenses: list[str] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass(frozen=True)
 class FeatureProfiles(FeatureBase):
     name: str = 'profiles'
     profiles: list[Profile] = dataclasses.field(default_factory=list)
@@ -874,6 +880,15 @@ def apply_raw_cfg():
 
     feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureProfiles)]
     feature_cfgs.append(profiles_feature)
+
+    licenses = util.parse_yaml_file(paths.licenses_path)['licenses']
+    licenses_feature = FeatureLicenses(
+        state=FeatureStates.AVAILABLE,
+        licenses=licenses,
+    )
+
+    feature_cfgs = [f for f in feature_cfgs if not isinstance(f, FeatureLicenses)]
+    feature_cfgs.append(licenses_feature)
 
 
 class CfgFileChangeEventHandler(watchdog.events.FileSystemEventHandler):

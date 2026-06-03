@@ -1,6 +1,7 @@
 import asyncio
 import collections.abc
 import dataclasses
+import datetime
 import functools
 import http
 import json
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass
 class LicenseFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
+    package_versions: set[str]
     license: odg.model.License
     filesystem_paths: list[odg.model.FilesystemPath]
 
@@ -44,16 +45,16 @@ class LicenseFinding(odg.model.Finding):
 @dataclasses.dataclass
 class IPFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
-    license: odg.model.License
-    policy_violations: tuple[odg.model.PolicyViolationRef, ...]
+    package_versions: set[str]
+    licenses: set[odg.model.License]
+    policy_violations: set[odg.model.PolicyViolationRef]
     labels: list[str]
 
 
 @dataclasses.dataclass
 class VulnerabilityFinding(odg.model.Finding):
     package_name: str
-    package_versions: tuple[str, ...]  # "..." for dacite.from_dict
+    package_versions: set[str]
     cve: str
     cvss_v3_score: float
     cvss: str
@@ -72,6 +73,7 @@ class RescoringProposal:
     discovery_date: str
     due_date: str | None
     sprint: dict[str, str] | None
+    pending_scanner_writebacks: tuple[odg.model.ArtefactMetadata, ...] | None
 
 
 async def _find_artefact_metadata(
@@ -163,6 +165,52 @@ async def _find_rescorings(
     ]
 
 
+async def _find_scanner_writebacks(
+    db_session: sqlasync.session.AsyncSession,
+    artefact: odg.model.ComponentArtefactId,
+) -> list[odg.model.ArtefactMetadata]:
+    db_statement = sa.select(dm.ArtefactMetaData).where(
+        sa.and_(
+            dm.ArtefactMetaData.type == odg.model.Datatype.SCANNER_WRITEBACK,
+            sa.or_(
+                dm.ArtefactMetaData.component_name == sa.null(),
+                dm.ArtefactMetaData.component_name == '',
+                dm.ArtefactMetaData.component_name == artefact.component_name,
+            ),
+            sa.or_(
+                dm.ArtefactMetaData.component_version == sa.null(),
+                dm.ArtefactMetaData.component_version == '',
+                dm.ArtefactMetaData.component_version == artefact.component_version,
+            ),
+            sa.or_(
+                dm.ArtefactMetaData.artefact_name == sa.null(),
+                dm.ArtefactMetaData.artefact_name == '',
+                dm.ArtefactMetaData.artefact_name == artefact.artefact.artefact_name,
+            ),
+            sa.or_(
+                dm.ArtefactMetaData.artefact_version == sa.null(),
+                dm.ArtefactMetaData.artefact_version == '',
+                dm.ArtefactMetaData.artefact_version == artefact.artefact.artefact_version,
+            ),
+            sa.or_(
+                dm.ArtefactMetaData.artefact_extra_id_normalised == '',
+                dm.ArtefactMetaData.artefact_extra_id_normalised
+                == artefact.artefact.normalised_artefact_extra_id,
+            ),
+            dm.ArtefactMetaData.artefact_kind == artefact.artefact_kind,
+            dm.ArtefactMetaData.artefact_type == artefact.artefact.artefact_type,
+        ),
+    )
+
+    db_stream = await db_session.stream(db_statement)
+
+    return [
+        du.db_artefact_metadata_row_to_dso(row)
+        async for partition in db_stream.partitions(size=50)
+        for row in partition
+    ]
+
+
 def filesystem_paths_for_finding(
     artefact_metadata: tuple[odg.model.ArtefactMetadata],
     finding: odg.model.ArtefactMetadata,
@@ -206,12 +254,12 @@ def _package_versions_and_filesystem_paths(
     artefact_metadata_across_package_version: tuple[odg.model.ArtefactMetadata],
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
     finding: odg.model.ArtefactMetadata,
-) -> tuple[tuple[str], list[odg.model.FilesystemPath]]:
-    package_versions = tuple(
+) -> tuple[set[str], list[odg.model.FilesystemPath]]:
+    package_versions = {
         matching_am.data.package_version
         for matching_am in artefact_metadata_across_package_version
         if matching_am.data.package_version
-    )
+    }
 
     filesystem_paths = filesystem_paths_for_finding(
         artefact_metadata=artefact_metadata,
@@ -222,9 +270,44 @@ def _package_versions_and_filesystem_paths(
     return package_versions, filesystem_paths
 
 
+def filter_scanner_writebacks(
+    scanner_writebacks: collections.abc.Iterable[odg.model.ArtefactMetadata],
+    scanner_writeback_types: collections.abc.Sequence[odg.model.ScannerWritebackType],
+    package_name: str,
+    package_versions: collections.abc.Iterable[str],
+    start_date: datetime.datetime | None = None,
+    end_date: datetime.datetime | None = None,
+) -> collections.abc.Iterable[odg.model.ArtefactMetadata]:
+    # add `None` to also include those writebacks which are not restricted to a specific version
+    package_versions = set([*package_versions, None])
+
+    for scanner_writeback in scanner_writebacks:
+        if scanner_writeback.data.sub_type not in scanner_writeback_types:
+            continue
+
+        if not any(
+            scanner_writeback.data.matches(
+                package_name=package_name,
+                package_version=package_version,
+            )
+            for package_version in package_versions
+        ):
+            continue
+
+        creation_date = scanner_writeback.meta.creation_date
+
+        if start_date and creation_date < start_date:
+            continue
+        if end_date and creation_date > end_date:
+            continue
+
+        yield scanner_writeback
+
+
 async def _iter_rescoring_proposals(
     artefact_metadata: collections.abc.Iterable[odg.model.ArtefactMetadata],
     rescorings: collections.abc.Iterable[odg.model.ArtefactMetadata],
+    scanner_writebacks: collections.abc.Iterable[odg.model.ArtefactMetadata],
     finding_cfgs: collections.abc.Sequence[odg.findings.Finding],
     cve_categorisation: odg.cvss.CveCategorisation | None,
     sprints_configuration: sm.SprintsConfiguration | None,
@@ -344,6 +427,19 @@ async def _iter_rescoring_proposals(
                     finding=am,
                 )
 
+                pending_scanner_writebacks = tuple(
+                    filter_scanner_writebacks(
+                        scanner_writebacks=scanner_writebacks,
+                        scanner_writeback_types=(
+                            odg.model.ScannerWritebackType.LICENSE,
+                            odg.model.ScannerWritebackType.PACKAGE_VERSION,
+                        ),
+                        package_name=package_name,
+                        package_versions=package_versions,
+                        start_date=am.meta.last_update,
+                    ),
+                )
+
                 # only propose rescoring if finding is not rescored yet
                 if not current_rescorings and finding_cfg.rescoring_ruleset and cve_categorisation:
                     rescoring_rules = list(
@@ -384,6 +480,7 @@ async def _iter_rescoring_proposals(
                         'discovery_date': am.discovery_date.isoformat(),
                         'due_date': due_date,
                         'sprint': sprint,
+                        'pending_scanner_writebacks': pending_scanner_writebacks,
                     },
                 )
 
@@ -406,6 +503,19 @@ async def _iter_rescoring_proposals(
                     finding=am,
                 )
 
+                pending_scanner_writebacks = tuple(
+                    filter_scanner_writebacks(
+                        scanner_writebacks=scanner_writebacks,
+                        scanner_writeback_types=(
+                            odg.model.ScannerWritebackType.LICENSE,
+                            odg.model.ScannerWritebackType.PACKAGE_VERSION,
+                        ),
+                        package_name=package_name,
+                        package_versions=package_versions,
+                        start_date=am.meta.last_update,
+                    ),
+                )
+
                 yield dacite.from_dict(
                     data_class=RescoringProposal,
                     data={
@@ -423,6 +533,7 @@ async def _iter_rescoring_proposals(
                         'discovery_date': am.discovery_date.isoformat(),
                         'due_date': due_date,
                         'sprint': sprint,
+                        'pending_scanner_writebacks': pending_scanner_writebacks,
                     },
                 )
             elif finding_cfg.type is odg.model.Datatype.IP_FINDING:
@@ -432,8 +543,7 @@ async def _iter_rescoring_proposals(
                     matching_am
                     for matching_am in artefact_metadata_with_same_ocm
                     if (
-                        matching_am.data.license.name == license.name
-                        and matching_am.data.package_name == package_name
+                        matching_am.data.package_name == package_name
                         and sorted(matching_am.data.labels) == sorted(am.data.labels)
                     )
                 )
@@ -445,8 +555,24 @@ async def _iter_rescoring_proposals(
                     finding=am,
                 )
 
-                policy_violations = tuple(
+                licenses = set(
+                    matching_am.data.license for matching_am in am_across_package_versions
+                )
+                policy_violations = set(
                     matching_am.data.policy_violation for matching_am in am_across_package_versions
+                )
+
+                pending_scanner_writebacks = tuple(
+                    filter_scanner_writebacks(
+                        scanner_writebacks=scanner_writebacks,
+                        scanner_writeback_types=(
+                            odg.model.ScannerWritebackType.LICENSE,
+                            odg.model.ScannerWritebackType.PACKAGE_VERSION,
+                        ),
+                        package_name=package_name,
+                        package_versions=package_versions,
+                        start_date=am.meta.last_update,
+                    ),
                 )
 
                 yield dacite.from_dict(
@@ -456,7 +582,7 @@ async def _iter_rescoring_proposals(
                             'package_name': package_name,
                             'package_versions': package_versions,
                             'severity': severity,
-                            'license': license,
+                            'licenses': licenses,
                             'policy_violations': policy_violations,
                             'labels': am.data.labels,
                         },
@@ -467,6 +593,7 @@ async def _iter_rescoring_proposals(
                         'discovery_date': am.discovery_date.isoformat(),
                         'due_date': due_date,
                         'sprint': sprint,
+                        'pending_scanner_writebacks': pending_scanner_writebacks,
                     },
                 )
 
@@ -482,6 +609,7 @@ async def _iter_rescoring_proposals(
                     'discovery_date': am.discovery_date.isoformat(),
                     'due_date': due_date,
                     'sprint': sprint,
+                    'pending_scanner_writebacks': None,
                 },
                 config=dacite.Config(
                     strict=True,
@@ -788,11 +916,17 @@ class Rescore(aiohttp.web.View):
             type_filter=type_filter,
         )
 
+        scanner_writebacks = await _find_scanner_writebacks(
+            db_session=db_session,
+            artefact=artefact,
+        )
+
         rescoring_proposals = [
             rescoring_proposal
             async for rescoring_proposal in _iter_rescoring_proposals(
                 artefact_metadata=artefact_metadata,
                 rescorings=rescorings,
+                scanner_writebacks=scanner_writebacks,
                 finding_cfgs=finding_cfgs,
                 cve_categorisation=cve_categorisation,
                 sprints_configuration=self.request.app[consts.APP_SPRINTS_CONFIGURATION],

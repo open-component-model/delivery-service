@@ -841,19 +841,34 @@ def ip_summary(
             )
         )
 
+    def licenses_str(
+        aggregated_finding: AggregatedFinding,
+        finding_group: FindingGroup,
+    ) -> str:
+        return ', <br/>'.join(
+            f'`{license.name}`'
+            for license in sorted(
+                aggregated_finding.finding.data.license,
+                key=lambda license: license.name,
+            )
+        )
+
     def policy_violations_str(
         aggregated_finding: AggregatedFinding,
         finding_group: FindingGroup,
     ) -> str:
         return ', <br/>'.join(
             f'[{policy_violation.name}]({policy_violation.url})'
-            for policy_violation in aggregated_finding.finding.data.policy_violation
+            for policy_violation in sorted(
+                aggregated_finding.finding.data.policy_violation,
+                key=lambda policy_violation: policy_violation.name,
+            )
         )
 
     finding_table_callback = {
         'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
         'Package Version(s)': package_versions_str,
-        'License': lambda f, _: f'`{f.finding.data.license.name}`',
+        'License(s)': licenses_str,
         'Policy Violation(s)': policy_violations_str,
         'Severity': lambda f, g: _severity_str(
             aggregated_finding=f,
@@ -865,7 +880,7 @@ def ip_summary(
     historical_table_callback = {
         'Affected Package': lambda f, _: f'`{f.finding.data.package_name}`',
         'Package Version(s)': package_versions_str,
-        'License': lambda f, _: f'`{f.finding.data.license.name}`',
+        'License(s)': licenses_str,
         'Policy Violation(s)': policy_violations_str,
         'Severity': lambda f, g: _severity_str(
             aggregated_finding=f,
@@ -895,36 +910,32 @@ def ip_summary(
         aggregated_findings: tuple[AggregatedFinding],
     ) -> tuple[AggregatedFinding]:
         """
-        returns `findings` grouped by the affected package of the finding and the license violation
+        returns `findings` grouped by the affected package
         """
-        findings_by_package_and_license = collections.defaultdict(dict)
+        findings_by_package = {}
 
         for aggregated_finding in aggregated_findings:
             package_name = aggregated_finding.finding.data.package_name
             package_version = aggregated_finding.finding.data.package_version
-            license = aggregated_finding.finding.data.license.name
+            license = aggregated_finding.finding.data.license
             policy_violation = aggregated_finding.finding.data.policy_violation
 
-            if finding := findings_by_package_and_license[package_name].get(license):
-                finding.finding.data.package_version.append(package_version)
-                finding.finding.data.policy_violation.append(policy_violation)
+            if finding := findings_by_package.get(package_name):
+                finding.finding.data.package_version.add(package_version)
+                finding.finding.data.license.add(license)
+                finding.finding.data.policy_violation.add(policy_violation)
             else:
                 finding = copy.deepcopy(aggregated_finding)
-                finding.finding.data.package_version = [package_version]
-                finding.finding.data.policy_violation = [policy_violation]
-                findings_by_package_and_license[package_name][license] = finding
+                finding.finding.data.package_version = set([package_version])
+                finding.finding.data.license = set([license])
+                finding.finding.data.policy_violation = set([policy_violation])
+                findings_by_package[package_name] = finding
 
         return tuple(
-            findings_for_package_and_license
-            for _, findings_for_package_by_license in sorted(
-                findings_by_package_and_license.items(),
-                key=lambda finding_by_package_and_license: finding_by_package_and_license[0],
-            )
-            for findings_for_package_and_license in sorted(
-                findings_for_package_by_license.values(),
-                key=lambda finding_for_package_and_license: (
-                    finding_for_package_and_license.finding.data.license.name,
-                ),
+            findings_for_package
+            for _, findings_for_package in sorted(
+                findings_by_package.items(),
+                key=lambda finding_by_package: finding_by_package[0],
             )
         )
 
