@@ -70,17 +70,7 @@ jobs:
           pkg_dir="$(readlink -f dist)"
 
           ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
-          cc_utils_version=$(cat .ocm/base-component.yaml | yq eval '.componentReferences[] | select (.name == "cc-utils") | .version')
           bdba_version=$(cat .ocm/base-component.yaml | yq eval '.componentReferences[] | select (.name == "bdba") | .version')
-
-          for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
-            echo "downloading ${resource}:${cc_utils_version}"
-            python -m ocm download resource \
-              --ocm-repository "${ocm_repo}" \
-              --component "github.com/gardener/cc-utils:${cc_utils_version}" \
-              --name "${resource}" \
-              | tar xJ -C "${pkg_dir}"
-          done
 
           python -m ocm download resource \
             --ocm-repository "${ocm_repo}" \

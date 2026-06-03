@@ -5,7 +5,6 @@ import os
 
 repo_dir = os.path.abspath(os.environ['REPO_DIR'])
 REQUIREMENTS_EXTENSIONS_FILE = os.path.join(repo_dir, 'requirements.extensions.txt')
-REQUIREMENTS_UTILS_FILE = os.path.join(repo_dir, 'requirements.utils.txt')
 
 dependency_name = os.environ['DEPENDENCY_NAME']
 dependency_version = os.environ['DEPENDENCY_VERSION']
@@ -37,12 +36,7 @@ def write_package_version_to_requirements_file(package_name: str, file_path: str
 
 
 def main():
-    if dependency_name == 'github.com/gardener/cc-utils':
-        package_name = 'gardener-cicd-libs'
-
-        write_package_version_to_requirements_file(package_name, REQUIREMENTS_UTILS_FILE)
-
-    elif dependency_name == 'ocm.software/ocm-gear/bdba-client':
+    if dependency_name == 'ocm.software/ocm-gear/bdba-client':
         python_distribution_package_name = 'bdba'
 
         write_package_version_to_requirements_file(
