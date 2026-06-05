@@ -44,10 +44,13 @@ spec:
         - name: {{ $podName }}
           image: {{ include "image" .Values.image }}
           imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - app
+            - --productive
           securityContext:
             allowPrivilegeEscalation: false
-          args:
-            - --productive
           readinessProbe:
             httpGet:
               path: /ready

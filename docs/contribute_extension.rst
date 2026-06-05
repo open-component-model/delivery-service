@@ -222,12 +222,7 @@ can be mounted as well by referencing the Secrets
 OCI Image
 =========
 
-In case the extension does not require any additional installations, the
-general purpose extensions OCI image can be re-used (`ref
-<https://github.com/open-component-model/delivery-service/blob/master/Dockerfile.extensions>`_).
-Otherwise, a new Dockerfile `Dockerfile.extensions.<EXTENSION_NAME>` must be
-created and added to the `build
-<https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml>`_.
-In both cases, a Helm chart mapping must be added to the `build
-<https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml>`_
-as well.
+For a new extension, the general purpose OCI image can be re-used (`ref
+<https://github.com/open-component-model/delivery-service/blob/master/Dockerfile>`_).
+In case it requires any additional installations, those must be added to the
+Dockerfile.

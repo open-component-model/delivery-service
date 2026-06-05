@@ -251,8 +251,8 @@ jobs:
           .ci/smoke-test
           .ci/test
 
-  oci-images:
-    name: Build OCI-Images
+  oci-image:
+    name: Build OCI-Image
     uses: gardener/cc-utils/.github/workflows/oci-ocm.yaml@v1
     needs:
       - packages # needed indirectly (python-packages artefact)
@@ -261,87 +261,32 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    strategy:
-      matrix:
-        args:
-          - name: delivery-service
-            dockerfile: Dockerfile.service
-            oci-repository: odg/delivery-service
-            ocm-labels:
-              name: gardener.cloud/cve-categorisation
-              value:
-                network_exposure: public
-                authentication_enforced: true
-                user_interaction: end-user
-                confidentiality_requirement: high
-                integrity_requirement: high
-                availability_requirement: high
-          - name: extensions
-            dockerfile: Dockerfile.extensions
-            oci-repository: odg/extensions
-            ocm-labels:
-              name: gardener.cloud/cve-categorisation
-              value:
-                network_exposure: protected
-                authentication_enforced: true
-                user_interaction: gardener-operator
-                confidentiality_requirement: high
-                integrity_requirement: high
-                availability_requirement: low
-          - name: extension-db-manager
-            dockerfile: Dockerfile.extensions.db-manager
-            oci-repository: odg/extension-db-manager
-            ocm-labels:
-              name: gardener.cloud/cve-categorisation
-              value:
-                network_exposure: protected
-                authentication_enforced: true
-                user_interaction: gardener-operator
-                confidentiality_requirement: high
-                integrity_requirement: high
-                availability_requirement: low
-          - name: extension-clamav
-            dockerfile: Dockerfile.extensions.clamav
-            oci-repository: odg/extension-clamav
-            ocm-labels:
-              name: gardener.cloud/cve-categorisation
-              value:
-                network_exposure: protected
-                authentication_enforced: true
-                user_interaction: gardener-operator
-                confidentiality_requirement: high
-                integrity_requirement: high
-                availability_requirement: low
-          - name: extension-crypto
-            dockerfile: Dockerfile.extensions.crypto
-            oci-repository: odg/extension-crypto
-            ocm-labels:
-              name: gardener.cloud/cve-categorisation
-              value:
-                network_exposure: protected
-                authentication_enforced: true
-                user_interaction: gardener-operator
-                confidentiality_requirement: high
-                integrity_requirement: high
-                availability_requirement: low
     with:
-      name: ${{ matrix.args.name }}
+      name: delivery-service
       version: ${{ needs.prepare.outputs.version }}
       oci-registry: ${{ needs.prepare.outputs.oci-registry }}
-      oci-repository: ${{ matrix.args.oci-repository }}
-      oci-platforms: 'linux/arm64,linux/amd64'
-      dockerfile: ${{ matrix.args.dockerfile }}
+      oci-repository: odg/delivery-service
+      dockerfile: Dockerfile
+      ctx: oci-image
+      oci-platforms: linux/arm64,linux/amd64
       build-ctx-artefact: distribution-packages
       untar-build-ctx-artefact: distribution-packages.tar.gz
-      ctx: oci-images
-      ocm-labels: ${{ toJSON(matrix.args.ocm-labels) }}
+      ocm-labels: |
+        name: gardener.cloud/cve-categorisation
+        value:
+          network_exposure: public
+          authentication_enforced: true
+          user_interaction: end-user
+          confidentiality_requirement: high
+          integrity_requirement: high
+          availability_requirement: high
 
   helmcharts:
     name: Build Helmcharts
     uses: gardener/cc-utils/.github/workflows/helmchart-ocm.yaml@v1
     needs:
       - prepare
-      - oci-images
+      - oci-image
     permissions:
       contents: read
       packages: write
@@ -359,74 +304,14 @@ jobs:
           - name: extensions
             dir: charts/extensions
             mappings:
-              - ref: ocm-resource:extension-db-manager.repository
-                attribute: access-manager.image.repository
-              - ref: ocm-resource:extension-db-manager.tag
-                attribute: access-manager.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: artefact-enumerator.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: artefact-enumerator.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: backlog-controller.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: backlog-controller.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: bdba.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: bdba.image.tag
-              - ref: ocm-resource:extension-clamav.repository
-                attribute: clamav.image.repository
-              - ref: ocm-resource:extension-clamav.tag
-                attribute: clamav.image.tag
+              - ref: ocm-resource:delivery-service.repository
+                attribute: global.image.repository
+              - ref: ocm-resource:delivery-service.tag
+                attribute: global.image.tag
               - ref: ocm-component-resource:ocm.software/ocm-gear/freshclam.freshclam.repository
                 attribute: clamav.freshclam.image.repository
               - ref: ocm-component-resource:ocm.software/ocm-gear/freshclam.freshclam.tag
                 attribute: clamav.freshclam.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: issue-replicator.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: issue-replicator.image.tag
-              - ref: ocm-resource:extension-db-manager.repository
-                attribute: cache-manager.image.repository
-              - ref: ocm-resource:extension-db-manager.tag
-                attribute: cache-manager.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: delivery-db-backup.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: delivery-db-backup.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: sast.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: sast.image.tag
-              - ref: ocm-resource:extension-crypto.repository
-                attribute: crypto.image.repository
-              - ref: ocm-resource:extension-crypto.tag
-                attribute: crypto.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: osid.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: osid.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: responsibles.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: responsibles.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: ghas.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: ghas.image.tag
-              - ref: ocm-resource:extensions.repository
-                attribute: odg-operator.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: odg-operator.image.tag
-              - ref: ocm-resource:extensions.repository                                                                                                                                                                                                                                                                                                                                                            
-                attribute: sla-violation-profiler.image.repository                                                                                                                                                                                                                                                                                                                                                         
-              - ref: ocm-resource:extensions.tag                                                                                                                                                                                                                                                                                                                                                                   
-                attribute: sla-violation-profiler.image.tag 
-              - ref: ocm-resource:extensions.repository
-                attribute: sbom-generator.image.repository
-              - ref: ocm-resource:extensions.tag
-                attribute: sbom-generator.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             mappings: []
@@ -442,7 +327,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Generate Documentation
     needs:
-      - oci-images
+      - oci-image
     permissions:
       contents: read
     steps:
@@ -451,7 +336,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
       - name: Generate Documentation
         run: |
-          image_ref=${{ needs.oci-images.outputs.oci-reference }}
+          image_ref=${{ needs.oci-image.outputs.oci-reference }}
           mkdir documentation-out.d
           docker run -v $PWD:/src \
             -e GH_PAGES_PATH=/src/documentation-out.d \

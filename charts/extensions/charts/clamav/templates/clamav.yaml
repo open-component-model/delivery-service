@@ -33,8 +33,11 @@ spec:
       terminationGracePeriodSeconds: 1800 # 30 min
       containers:
         - name: {{ $podName }}
-          image: {{ include "image" .Values.image }}
+          image: {{ include "image" .Values.global.image }}
           imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - /clamav_entrypoint.sh
           securityContext:
             allowPrivilegeEscalation: false
           env:

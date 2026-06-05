@@ -16,7 +16,7 @@ cluster.
 
 Delivery-Service and Extensions require a Python runtime environment (see `setup.py` for details) to
 run. Typically, the Python3 version from greatest released version of
-[Alpine](https://endoflife.date/alpine) Linux is used/tested (see `Dockerfile.*`). Greater or smaller
+[Alpine](https://endoflife.date/alpine) Linux is used/tested (see `Dockerfile`). Greater or smaller
 versions _may_ work, but are typically untested.
 
 For Delivery-Service, use `app.py` as entry point. Check online-help (`app.py --help`) for further
