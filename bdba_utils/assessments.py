@@ -81,7 +81,6 @@ def upload_version_hints(
                     package_name=name,
                     package_version=version,
                 )
-                and package_version_overwrite.package_version_to != version
             )
         ):
             continue
@@ -90,6 +89,10 @@ def upload_version_hints(
         package_version_overwrite = filtered_package_version_overwrites[0]
 
         logger.info(f'Found {package_version_overwrite=} for {name}:{version}')
+
+        if package_version_overwrite.package_version_to == version:
+            logger.info('No change in package version -> skipping update')
+            continue
 
         digests = [eo.sha1 for eo in bdba_component.extended_objects]
 
