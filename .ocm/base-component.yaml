@@ -5,7 +5,7 @@ labels:
   - github_hostname: github.com
     teamname: open-component-model/odg-maintainers
     type: githubTeam
-name: ocm.software/ocm-gear/delivery-service
+name: ocm.software/open-delivery-gear/core
 resources:
   - name: postgresql
     version: 16.6.1

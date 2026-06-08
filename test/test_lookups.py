@@ -29,20 +29,20 @@ def ocm_repository_cfgs() -> list[lookups.VirtualOcmRepositoryCfg | lookups.OciO
         {
             'repository': 'europe-docker.pkg.dev/gardener-project/releases',
             'prefixes': [
-                'ocm.software/ocm-gear',
+                'ocm.software/open-delivery-gear',
                 'github.com/gardener',
             ],
             'labels': 'releases',
         },
         {
             'repository': 'europe-docker.pkg.dev/gardener-project/releases/odg',
-            'prefix': 'ocm.software/ocm-gear',
+            'prefix': 'ocm.software/open-delivery-gear',
             'labels': 'releases',
         },
         {
             'repository': 'europe-docker.pkg.dev/gardener-project/snapshots',
             'prefixes': [
-                'ocm.software/ocm-gear',
+                'ocm.software/open-delivery-gear',
                 'github.com/gardener',
             ],
             'labels': 'snapshots',
@@ -50,7 +50,7 @@ def ocm_repository_cfgs() -> list[lookups.VirtualOcmRepositoryCfg | lookups.OciO
         {
             'repository': 'europe-docker.pkg.dev/gardener-project/snapshots/odg',
             'prefixes': [
-                'ocm.software/ocm-gear',
+                'ocm.software/open-delivery-gear',
             ],
             'labels': [
                 'snapshots',
@@ -76,7 +76,7 @@ def test_ocm_repository_cfgs(
         ocm_repository_cfgs=ocm_repository_cfgs,
     )
 
-    assert len(list(ocm_repository_lookup('ocm.software/ocm-gear/delivery-service'))) == 2
+    assert len(list(ocm_repository_lookup('ocm.software/open-delivery-gear/core'))) == 2
     assert len(list(ocm_repository_lookup('github.com/gardener/gardener'))) == 1
 
     # test `<auto-all>` virtual repository
@@ -85,7 +85,7 @@ def test_ocm_repository_cfgs(
         ocm_repository_cfgs=ocm_repository_cfgs,
     )
 
-    assert len(list(ocm_repository_lookup('ocm.software/ocm-gear/delivery-service'))) == 5
+    assert len(list(ocm_repository_lookup('ocm.software/open-delivery-gear/core'))) == 5
     assert len(list(ocm_repository_lookup('github.com/gardener/gardener'))) == 3
 
     # test existing standard repository
@@ -94,7 +94,7 @@ def test_ocm_repository_cfgs(
         ocm_repository_cfgs=ocm_repository_cfgs,
     )
 
-    assert len(list(ocm_repository_lookup('ocm.software/ocm-gear/delivery-service'))) == 1
+    assert len(list(ocm_repository_lookup('ocm.software/open-delivery-gear/core'))) == 1
     assert len(list(ocm_repository_lookup('github.com/gardener/gardener'))) == 0
 
     # test not existing repository
@@ -103,7 +103,7 @@ def test_ocm_repository_cfgs(
         ocm_repository_cfgs=ocm_repository_cfgs,
     )
 
-    assert len(list(ocm_repository_lookup('ocm.software/ocm-gear/delivery-service'))) == 1
+    assert len(list(ocm_repository_lookup('ocm.software/open-delivery-gear/core'))) == 1
     assert len(list(ocm_repository_lookup('github.com/gardener/gardener'))) == 1
 
     # test explicitly _added_ repository
@@ -114,7 +114,7 @@ def test_ocm_repository_cfgs(
         ),
     )
 
-    assert list(ocm_repository_lookup('ocm.software/ocm-gear/delivery-service')) == [
+    assert list(ocm_repository_lookup('ocm.software/open-delivery-gear/core')) == [
         'foo',
         'europe-docker.pkg.dev/gardener-project/releases',
         'europe-docker.pkg.dev/gardener-project/releases/odg',

@@ -2,7 +2,7 @@ name: delivery-service
 installation:
   ocm_references:
   - helm_chart_name: delivery-service
-    name: ocm.software/ocm-gear/delivery-service
+    name: ocm.software/open-delivery-gear/core
     version: 0.1142.0
     artefact:
       name: delivery-service
@@ -36,7 +36,7 @@ name: delivery-dashboard
 installation:
   ocm_references:
   - helm_chart_name: delivery-dashboard
-    name: ocm.software/ocm-gear/delivery-dashboard
+    name: ocm.software/open-delivery-gear/ui
     version: 0.386.0
     artefact:
       name: delivery-dashboard
@@ -67,8 +67,8 @@ name: delivery-db
 installation:
   ocm_references:
   - helm_chart_name: postgresql
-    name: ocm.software/ocm-gear/delivery-database
-    version: 0.7.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1142.0
     artefact:
       name: postgresql
       version: 16.6.1
@@ -88,7 +88,7 @@ installation:
     value_type: literal
   - helm_chart_name: postgresql
     helm_attribute: image.repository
-    value: 'ocm-gear/postgres' # TODO: replace once delivery-database ocm also publishes helm mappings
+    value: 'odg/postgres' # TODO: replace once delivery-database ocm also publishes helm mappings
     value_type: literal
   - helm_chart_name: postgresql
     helm_attribute: image.tag
@@ -135,7 +135,7 @@ name: sbom-generator
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1273.0-dev"
       artefact:
         name: extensions

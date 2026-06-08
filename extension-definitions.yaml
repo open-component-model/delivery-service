@@ -2,7 +2,7 @@ name: delivery-service
 installation:
   ocm_references:
     - helm_chart_name: delivery-service
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: delivery-service
@@ -49,7 +49,7 @@ name: delivery-db
 installation:
   ocm_references:
     - helm_chart_name: postgresql
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: postgresql
@@ -112,7 +112,7 @@ name: malware-scanner
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -144,7 +144,7 @@ name: backlog-controller
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -169,7 +169,7 @@ name: artefact-enumerator
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -195,7 +195,7 @@ name: cache-manager
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -221,7 +221,7 @@ name: access-manager
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -247,7 +247,7 @@ name: bdba
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -279,7 +279,7 @@ name: crypto
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -311,7 +311,7 @@ name: issue-replicator
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -342,7 +342,7 @@ name: osid
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -374,7 +374,7 @@ name: responsibles
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -406,7 +406,7 @@ name: sast
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -438,7 +438,7 @@ name: delivery-db-backup
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -464,7 +464,7 @@ name: ghas
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -490,7 +490,7 @@ name: sbom-generator
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
@@ -521,7 +521,7 @@ name: sla-violation-profiler
 installation:
   ocm_references:
     - helm_chart_name: extensions
-      name: ocm.software/ocm-gear/delivery-service
+      name: ocm.software/open-delivery-gear/core
       version: "0.1340.0-dev"
       artefact:
         name: extensions
