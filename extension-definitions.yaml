@@ -45,6 +45,69 @@ dependencies:
   - cache-manager
   - delivery-db
 ---
+name: delivery-db
+installation:
+  ocm_references:
+    - helm_chart_name: postgresql
+      name: ocm.software/ocm-gear/delivery-service
+      version: "0.1340.0-dev"
+      artefact:
+        name: postgresql
+        version: 16.6.1
+      mappings:
+        - name: postgresql
+          version: "0.1340.0-dev"
+          artefact_type: helmchart-imagemap
+  value_templates:
+    - helm_chart_name: postgresql
+      helm_attribute: fullnameOverride
+      value: delivery-db
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: namespaceOverride
+      value: ${target_namespace}
+      value_type: python-string-template
+    - helm_chart_name: postgresql
+      helm_attribute: image.registry
+      value: '' # required to use repository + tag from image-mapping only
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: global.security.allowInsecureImages
+      value: True
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: postgresqlDataDir
+      value: '/data/pgdata'
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: primary.persistence.mountPath
+      value: '/data/'
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: primary.containerSecurityContext.readOnlyRootFilesystem
+      value: False
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: primary.extraEnvVars
+      value:
+        - name: POSTGRESQL_MAX_CONNECTIONS
+          value: '200'
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: primary.resources.requests.cpu
+      value: '250m'
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: primary.resources.requests.memory
+      value: '256Mi'
+      value_type: literal
+    - helm_chart_name: postgresql
+      helm_attribute: auth.existingSecret
+      value: delivery-db-password
+      value_type: literal
+outputs: []
+dependencies: []
+---
 name: malware-scanner
 installation:
   ocm_references:

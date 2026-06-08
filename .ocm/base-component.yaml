@@ -9,5 +9,28 @@ labels:
     teamname: open-component-model/odg-maintainers
     type: githubTeam
 name: ocm.software/ocm-gear/delivery-service
-resources: []
+resources:
+  - name: postgresql
+    version: 16.6.1
+    type: helmChart/v1
+    access:
+      type: ociRegistry
+      imageReference: europe-docker.pkg.dev/gardener-project/releases/charts/ocm-gear/postgresql:16.6.1
+    relation: external
+  - name: postgresql
+    version: 16.8.0
+    type: ociImage
+    access:
+      type: ociRegistry
+      imageReference: europe-docker.pkg.dev/gardener-project/releases/ocm-gear/postgres:16.8.0
+    relation: external
+    labels:
+      - name: gardener.cloud/cve-categorisation
+        value:
+          authentication_enforced: True
+          availability_requirement: high
+          confidentiality_requirement: high
+          integrity_requirement: high
+          network_exposure: protected
+          user_interaction: gardener-operator
 sources: []

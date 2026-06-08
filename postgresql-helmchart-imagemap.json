@@ -1,0 +1,14 @@
+{
+  "helmchartResource": {
+    "name": "postgresql"
+  },
+  "imageMapping": [
+    {
+      "resource": {
+        "name": "postgresql"
+      },
+      "repository": "image.repository",
+      "tag": "image.tag"
+    }
+  ]
+}

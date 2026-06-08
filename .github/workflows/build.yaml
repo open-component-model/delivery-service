@@ -154,6 +154,33 @@ jobs:
               localReference: extension_definitions.tar.gz
           blobs-directory: blobs.d
 
+  helmchart-imagemap:
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+    permissions:
+      contents: read
+    steps:
+      - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
+      - name: Export Helmchart-Imagemap
+        run: |
+          set -eu
+
+          mkdir blobs.d
+          mv postgresql-helmchart-imagemap.json blobs.d
+      - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
+        with:
+          ocm-resources: |
+            name: postgresql
+            type: helmchart-imagemap
+            extraIdentity:
+              type: helmchart-imagemap
+            relation: local
+            access:
+              type: localBlob
+              localReference: postgresql-helmchart-imagemap.json
+          blobs-directory: blobs.d
+
   lint:
     runs-on: ubuntu-latest
     needs:
