@@ -2,7 +2,7 @@
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: ocm-gear
+  name: open-delivery-gear
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 rules:
   - apiGroups:
@@ -34,7 +34,7 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: ocm-gear
+  name: open-delivery-gear
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 subjects:
 - kind: ServiceAccount
@@ -42,6 +42,6 @@ subjects:
   namespace: {{ .Values.target_namespace | default .Release.Namespace }}
 roleRef:
   kind: Role
-  name: ocm-gear
+  name: open-delivery-gear
   apiGroup: rbac.authorization.k8s.io
 {{- end }}

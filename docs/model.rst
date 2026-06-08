@@ -17,7 +17,7 @@ used for further processing and reporting. In the most basic form, it consists
 of an :ref:`artefact`, some :ref:`metadata` and an extension specific
 :ref:`payload` (see Fig. 1). The model is defined in the `odg.model` module of
 the delivery-service (`ref
-<https://github.com/open-component-model/delivery-service/blob/master/odg/model.py>`_).
+<https://github.com/open-component-model/odg-core/blob/master/odg/model.py>`_).
 
 .. figure:: /res/artefact-metadata.svg
    :figwidth: 50%
@@ -252,8 +252,8 @@ vulnerability findings, the `discovery_date` must be re-used in case the CVE
 and the package is the same, even if the package-version (which is part of the
 `data` key) changes. Therefore, the behaviour must be defined in the
 `PUT /artefacts/metadata` route
-(see `open-component-model/delivery-service@6697e50
-<https://github.com/open-component-model/delivery-service/commit/6697e5045d080d72c70b2ccaa214ffcaa8d0e244>`_
+(see `open-component-model/odg-core@6697e50
+<https://github.com/open-component-model/odg-core/commit/6697e5045d080d72c70b2ccaa214ffcaa8d0e244>`_
 as an example how to define this behaviour). In case it is not defined, the
 `discovery_date` will be always consumed as it is defined in the new
 `ArtefactMetadata` entry.

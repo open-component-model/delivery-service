@@ -284,7 +284,7 @@ def _convert_none_to_empty_string_for_component_artefact_id(
     """
     Convert None values to empty strings for string-typed fields in ComponentArtefactId.
     This is useful as None values have a special semantic in terms of query-metadata, see:
-    https://github.com/open-component-model/delivery-service/blob/d97df8740c26ebd0a696289cc29b93ae4695f75b/deliverydb/util.py#L229
+    https://github.com/open-component-model/odg-core/blob/d97df8740c26ebd0a696289cc29b93ae4695f75b/deliverydb/util.py#L229
     """
     artefact = None
     if artefact_id.artefact is not None:
