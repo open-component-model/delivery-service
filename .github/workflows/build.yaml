@@ -335,10 +335,6 @@ jobs:
                 attribute: global.image.repository
               - ref: ocm-resource:delivery-service.tag
                 attribute: global.image.tag
-              - ref: ocm-component-resource:ocm.software/ocm-gear/freshclam.freshclam.repository
-                attribute: clamav.freshclam.image.repository
-              - ref: ocm-component-resource:ocm.software/ocm-gear/freshclam.freshclam.tag
-                attribute: clamav.freshclam.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
             mappings: []

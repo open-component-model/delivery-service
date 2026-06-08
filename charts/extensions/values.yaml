@@ -21,10 +21,6 @@ clamav:
   deployment:
     annotations: []
   enabled: false
-  freshclam:
-    image:
-      repository: null
-      tag: null
 crypto:
   deployment:
     annotations: []

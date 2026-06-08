@@ -21,8 +21,12 @@ spec:
     spec:
       containers:
         - name: {{ $podName }}
-          image: {{ include "image" .Values.freshclam.image }}
+          image: {{ include "image" .Values.global.image }}
           imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - -m
+            - freshclam
           securityContext:
             allowPrivilegeEscalation: false
           startupProbe:

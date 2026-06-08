@@ -1,7 +1,4 @@
-componentReferences:
-- componentName: ocm.software/ocm-gear/freshclam
-  name: freshclam
-  version: 1.14.0
+componentReferences: []
 labels:
 - name: cloud.gardener.cnudie/responsibles
   value:
