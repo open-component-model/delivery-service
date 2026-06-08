@@ -144,11 +144,11 @@ specifying the level of integration are supported:</p>
 <blockquote>
 <div><p>If an extension is fully integrated into the ODG, it is part of the ODG
 deployment and running within the same Kubernetes cluster. In this case,
-the steps in <a class="reference internal" href="#helm-chart"><span class="std std-ref">Helm Chart</span></a>, <a class="reference internal" href="#oci-image"><span class="std std-ref">OCI Image</span></a> and <a class="reference internal" href="#python-package"><span class="std std-ref">Python Package</span></a>
-can be followed and then the new extension will be automatically part of the
-ODG deployment (in case it is enabled via configuration). When running fully
-integrated, it also has to be considered <em>when</em> the extension should run
-(e.g. regularly as a cronjob, triggered by artefact updates or both) (see
+the steps in <a class="reference internal" href="#helm-chart"><span class="std std-ref">Helm Chart</span></a> and <a class="reference internal" href="#oci-image"><span class="std std-ref">OCI Image</span></a> can be followed and
+then the new extension will be automatically part of the ODG deployment (in
+case it is enabled via configuration). When running fully integrated, it
+also has to be considered <em>when</em> the extension should run (e.g. regularly as
+a cronjob, triggered by artefact updates or both) (see
 <a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>).</p>
 </div></blockquote>
 </li>
@@ -158,8 +158,8 @@ integrated, it also has to be considered <em>when</em> the extension should run
 only uploads <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> via the delivery-service API to make use of
 the reporting capabilities of the ODG. In that case, the extension must take
 care of deployment and triggering on its own, hence the chapters
-<a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>, <a class="reference internal" href="#helm-chart"><span class="std std-ref">Helm Chart</span></a>, <a class="reference internal" href="#oci-image"><span class="std std-ref">OCI Image</span></a> and
-<a class="reference internal" href="#python-package"><span class="std std-ref">Python Package</span></a> can be skipped.</p>
+<a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>, <a class="reference internal" href="#helm-chart"><span class="std std-ref">Helm Chart</span></a> and <a class="reference internal" href="#oci-image"><span class="std std-ref">OCI Image</span></a> can be
+skipped.</p>
 </div></blockquote>
 </li>
 </ul>
@@ -207,10 +207,10 @@ artefact-enumerator might look like.</p>
 <a class="reference internal" href="model.html"><span class="doc">Data Model</span></a> via the delivery-service API is usually very similar. In case of
 findings, there is a well-defined overview of the supported states of a finding
 (see Fig. 1).</p>
-<figure class="align-center" id="id15" style="width: 50%">
+<figure class="align-center" id="id13" style="width: 50%">
 <img alt="_images/finding-states.svg" src="_images/finding-states.svg" />
 <figcaption>
-<p><span class="caption-text">Fig. 1: Finding State Machine</span><a class="headerlink" href="#id15" title="Link to this image"></a></p>
+<p><span class="caption-text">Fig. 1: Finding State Machine</span><a class="headerlink" href="#id13" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 <p>If the extension is written in Python, the <a class="reference external" href="https://github.com/gardener/cc-utils/blob/master/delivery/client.py">delivery-service-client</a> should
@@ -289,13 +289,6 @@ Otherwise, a new Dockerfile <code class="code docutils literal notranslate"><spa
 created and added to the <a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml">build</a>.
 In both cases, a Helm chart mapping must be added to the <a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml">build</a>
 as well.</p>
-</section>
-<section id="python-package">
-<span id="id13"></span><h2>Python Package<a class="headerlink" href="#python-package" title="Link to this heading"></a></h2>
-<p>The default extensions image built from <code class="code docutils literal notranslate"><span class="pre">Dockerfile.extensions</span></code> installs the
-Python package <code class="code docutils literal notranslate"><span class="pre">ocm-gear-extensions</span></code> which contains the sources of all Python
-extensions. In case this image is re-used, the module(s) of the new extension
-must be included in the Python package (<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/setup.extensions.py">ref</a>).</p>
 </section>
 </section>
 
