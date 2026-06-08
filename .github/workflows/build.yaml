@@ -60,38 +60,15 @@ jobs:
           version=${{ needs.setuptools-version.outputs.setuptools-version }}
           echo "version: ${version}"
 
-          # pass finalised version to setups
-          export ODG_SERVICE_PACKAGE_VERSION=${version}
-          export ODG_EXTENSIONS_PACKAGE_VERSION=${version}
-          export ODG_UTILS_PACKAGE_VERSION=${version}
+          # pass finalised version to setup
+          export ODG_CORE_LIBS_VERSION=${version}
 
           pkg_dir=dist
           mkdir -p ${pkg_dir}
           pkg_dir="$(readlink -f dist)"
 
-          ocm_repo='europe-docker.pkg.dev/gardener-project/releases'
-          cc_utils_version=$(cat .ocm/base-component.yaml | yq eval '.componentReferences[] | select (.name == "cc-utils") | .version')
-          bdba_version=$(cat .ocm/base-component.yaml | yq eval '.componentReferences[] | select (.name == "bdba") | .version')
-
-          for resource in gardener-cicd-libs gardener-oci gardener-ocm; do
-            echo "downloading ${resource}:${cc_utils_version}"
-            python -m ocm download resource \
-              --ocm-repository "${ocm_repo}" \
-              --component "github.com/gardener/cc-utils:${cc_utils_version}" \
-              --name "${resource}" \
-              | tar xJ -C "${pkg_dir}"
-          done
-
-          python -m ocm download resource \
-            --ocm-repository "${ocm_repo}" \
-            --component "ocm.software/ocm-gear/bdba-client:${bdba_version}" \
-            --name bdba \
-            | tar xJ -C "${pkg_dir}"
-
           for path in \
-            setup.utils.py \
-            setup.service.py \
-            setup.extensions.py \
+            setup.py \
           ; do
           echo "building distribution package from ${path}"
           python3 ${path} \
@@ -108,9 +85,7 @@ jobs:
           resources_file=resources.yaml
 
           for package in \
-            delivery-gear-utils \
-            ocm-gear-extensions \
-            ocm-gear-service \
+            odg-core-libs \
             ; do
             path="$(echo $package | tr - _)-*"
             outf="${pkg_dir}/${package}.tar.gz"
@@ -198,9 +173,9 @@ jobs:
           echo "installing linters"
           if ! pip3 install --pre --upgrade --break-system-packages \
             --find-links /tmp/dist \
-            -r requirements.extensions.txt \
-            -r requirements.service.txt \
-            -r requirements.utils.txt \
+            -r requirements.bdba-client.txt \
+            -r requirements.odg-client.txt \
+            -r requirements.txt \
             numpy \
             scipy \
             bandit \

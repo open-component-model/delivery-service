@@ -1,11 +1,12 @@
-name: Publish ODG Client
+name: Release Client Package
 on:
   workflow_dispatch:
     inputs:
-      release-to-pypi:
-        required: false
-        type: boolean
-        default: true
+      client:
+        type: choice
+        options:
+          - bdba
+          - odg
 
 jobs:
   build:
@@ -35,7 +36,7 @@ jobs:
           mkdir -p ${pkg_dir}
           pkg_dir="$(readlink -f ${pkg_dir})"
 
-          path="setup.odg-client.py"
+          path="setup.${{ inputs.client }}-client.py"
 
           echo "Building distribution package from ${path} to ${pkg_dir}"
           python3 ${path} \
@@ -56,7 +57,9 @@ jobs:
           import os
           import semver
 
-          with open('ODG_CLIENT_VERSION') as f:
+          version_file = '${{ inputs.client }}_CLIENT_VERSION'.upper()
+
+          with open(version_file) as f:
             from_version = f.read().strip()
 
           to_version = semver.Version.parse(from_version).bump_minor()
@@ -64,21 +67,21 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
             f.write(f'from-version={from_version}\n')
             f.write(f'to-version={to_version}\n')
+            f.write(f'version-file={version_file}\n')
       - name: Update Version
         shell: bash
-        if: ${{ inputs.release-to-pypi }}
         run: |
           from_version=${{ steps.version.outputs.from-version }}
           to_version=${{ steps.version.outputs.to-version }}
+          version_file=${{ steps.version.outputs.version-file }}
 
-          echo "$to_version" > ODG_CLIENT_VERSION
+          echo "$to_version" > "$version_file"
 
-          git add ODG_CLIENT_VERSION
-          git commit -m "Upgrade ODG Client" -m "from ${from_version} to ${to_version}"
+          git add "$version_file"
+          git commit -m "Upgrade ${{ inputs.client }} client" -m "from ${from_version} to ${to_version}"
           git push
 
   pypi:
-    if: ${{ inputs.release-to-pypi }}
     runs-on: ubuntu-latest
     name: Publish to PyPI
     needs:

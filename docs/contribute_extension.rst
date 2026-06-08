@@ -68,11 +68,11 @@ specifying the level of integration are supported:
 
    If an extension is fully integrated into the ODG, it is part of the ODG
    deployment and running within the same Kubernetes cluster. In this case,
-   the steps in :ref:`helm-chart`, :ref:`oci-image` and :ref:`python-package`
-   can be followed and then the new extension will be automatically part of the
-   ODG deployment (in case it is enabled via configuration). When running fully
-   integrated, it also has to be considered *when* the extension should run
-   (e.g. regularly as a cronjob, triggered by artefact updates or both) (see
+   the steps in :ref:`helm-chart` and :ref:`oci-image` can be followed and
+   then the new extension will be automatically part of the ODG deployment (in
+   case it is enabled via configuration). When running fully integrated, it
+   also has to be considered *when* the extension should run (e.g. regularly as
+   a cronjob, triggered by artefact updates or both) (see
    :ref:`extension-triggers`).
 
 * **Lightly Integrated / Running Out-Of-Cluster**
@@ -81,8 +81,8 @@ specifying the level of integration are supported:
    only uploads `ArtefactMetadata` via the delivery-service API to make use of
    the reporting capabilities of the ODG. In that case, the extension must take
    care of deployment and triggering on its own, hence the chapters
-   :ref:`extension-triggers`, :ref:`helm-chart`, :ref:`oci-image` and
-   :ref:`python-package` can be skipped.
+   :ref:`extension-triggers`, :ref:`helm-chart` and :ref:`oci-image` can be
+   skipped.
 
 .. _extension-triggers:
 
@@ -231,14 +231,3 @@ created and added to the `build
 In both cases, a Helm chart mapping must be added to the `build
 <https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml>`_
 as well.
-
-.. _python-package:
-
-Python Package
-==============
-
-The default extensions image built from `Dockerfile.extensions` installs the
-Python package `ocm-gear-extensions` which contains the sources of all Python
-extensions. In case this image is re-used, the module(s) of the new extension
-must be included in the Python package (`ref
-<https://github.com/open-component-model/delivery-service/blob/master/setup.extensions.py>`_).
