@@ -87,7 +87,7 @@
              
   <section id="setup-local-development-environment">
 <h1>Setup Local Development Environment<a class="headerlink" href="#setup-local-development-environment" title="Link to this heading"></a></h1>
-<p>In order to start with the set-up first clone the <a class="reference external" href="https://github.com/open-component-model/delivery-service">delivery-service repository</a>.</p>
+<p>In order to start with the set-up first clone the <a class="reference external" href="https://github.com/open-component-model/odg-core">ODG core repository</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>This guide focuses on running the delivery-service (+ database) and one
@@ -95,7 +95,7 @@ extension locally, possibly with interacting with a remote Kubernetes
 cluster. This might be used during the process of developing a new or
 updating an existing extension. To run a full Open Delivery Gear locally,
 i.e. containing multiple extensions and a local Kubernetes cluster, please
-refer to the <a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/local-setup/local-setup.md">Local Setup</a>
+refer to the <a class="reference external" href="https://github.com/open-component-model/odg-core/blob/master/local-setup/local-setup.md">Local Setup</a>
 guide instead.</p>
 </div>
 <section id="prerequisites">
@@ -147,7 +147,7 @@ usage of PostgreSQL is recommended (the Helm charts do not support SQLite3).</p>
 </div>
 </li>
 <li><p>Install development dependencies</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip3<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>-r<span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;/requirements-dev.txt
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip3<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>-r<span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/requirements-dev.txt
 </pre></div>
 </div>
 </li>
@@ -192,19 +192,19 @@ trust store.</p>
 <section id="start-up">
 <h3>Start-Up<a class="headerlink" href="#start-up" title="Link to this heading"></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Running with PostgreSQL</span>
-python3<span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+python3<span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
 <span class="c1"># Running with SQLite3</span>
-python3<span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
+python3<span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
 </pre></div>
 </div>
 <p>Start-up with useful development tooling (e.g. hot-reloading or enhanced
 request information upon errors):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Running with PostgreSQL</span>
-adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
 <span class="c1"># Running with SQLite3</span>
-adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-delivery-service-repo&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
+adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
 </pre></div>
 </div>
 </section>

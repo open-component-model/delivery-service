@@ -101,7 +101,7 @@ refer to <a class="reference internal" href="model.html"><span class="doc">Data 
 <span id="id1"></span><h2>Extensions Configuration<a class="headerlink" href="#extensions-configuration" title="Link to this heading"></a></h2>
 <p>Configuration for each extension should be provided via the interface defined
 in the <code class="code docutils literal notranslate"><span class="pre">odg.extensions_cfg</span></code> module
-(<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/odg/extensions.py">ref</a>).
+(<a class="reference external" href="https://github.com/open-component-model/odg-core/blob/master/odg/extensions.py">ref</a>).
 A minimal set of configuration parameters is defined by the required base class
 <code class="code docutils literal notranslate"><span class="pre">ExtensionCfgMixins</span></code>. In case the extension is expected to be working with
 backlog items (more on that topic in <a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a> and
@@ -115,7 +115,7 @@ be defined to be able to access the delivery-service and an <code class="code do
 a mounted ConfigMap (more on that topic in <a class="reference internal" href="#helm-chart"><span class="std std-ref">Helm Chart</span></a>).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>See <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/b6354706c7545eacd571271472807c95aa2525da">open-component-model/delivery-service&#64;b635470</a>
+<p>See <a class="reference external" href="https://github.com/open-component-model/odg-core/commit/b6354706c7545eacd571271472807c95aa2525da">open-component-model/odg-core&#64;b635470</a>
 as an example for this chapter.</p>
 </div>
 </section>
@@ -132,7 +132,7 @@ issues, the <code class="code docutils literal notranslate"><span class="pre">is
 <a class="reference internal" href="#issue-replicator"><span class="std std-ref">Issue-Replicator</span></a> as well).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>See <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/15dabcf1b9f439b0d4eff6b60aa7f7310819bd09">open-component-model/delivery-service&#64;15dabcf</a>
+<p>See <a class="reference external" href="https://github.com/open-component-model/odg-core/commit/15dabcf1b9f439b0d4eff6b60aa7f7310819bd09">open-component-model/odg-core&#64;15dabcf</a>
 as an example for this chapter.</p>
 </div>
 </section>
@@ -190,13 +190,13 @@ the affected extension accordingly. This means, if the new extension uses
 this trigger, it should be designed to always process the <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> defined
 by one <code class="code docutils literal notranslate"><span class="pre">BacklogItem</span></code> at a time. For that, the <code class="code docutils literal notranslate"><span class="pre">process_backlog_items</span></code>
 utility function, defined in the <code class="code docutils literal notranslate"><span class="pre">odg.util</span></code> module
-(<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/odg/util.py">ref</a>),
+(<a class="reference external" href="https://github.com/open-component-model/odg-core/blob/master/odg/util.py">ref</a>),
 should be used.</p>
 </li>
 </ol>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <a class="reference external" href="https://github.com/open-component-model/delivery-service/tree/master/charts/extensions/charts">already existing extensions</a>
+<p>The <a class="reference external" href="https://github.com/open-component-model/odg-core/tree/master/charts/extensions/charts">already existing extensions</a>
 and their respective implementations can be always used as a reference how
 either a Kubernetes Cronjob or a <code class="code docutils literal notranslate"><span class="pre">BacklogItem</span></code> based approach via the
 artefact-enumerator might look like.</p>
@@ -208,10 +208,10 @@ artefact-enumerator might look like.</p>
 <a class="reference internal" href="model.html"><span class="doc">Data Model</span></a> via the delivery-service API is usually very similar. In case of
 findings, there is a well-defined overview of the supported states of a finding
 (see Fig. 1).</p>
-<figure class="align-center" id="id13" style="width: 50%">
+<figure class="align-center" id="id12" style="width: 50%">
 <img alt="_images/finding-states.svg" src="_images/finding-states.svg" />
 <figcaption>
-<p><span class="caption-text">Fig. 1: Finding State Machine</span><a class="headerlink" href="#id13" title="Link to this image"></a></p>
+<p><span class="caption-text">Fig. 1: Finding State Machine</span><a class="headerlink" href="#id12" title="Link to this image"></a></p>
 </figcaption>
 </figure>
 <p>If the extension is written in Python, the <a class="reference external" href="https://github.com/gardener/cc-utils/blob/master/delivery/client.py">delivery-service-client</a> should
@@ -246,7 +246,7 @@ are not reported anymore.</p>
 <p>If the artefact-enumerator was chosen as trigger in <a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>,
 it is necessary to inform the artefact-enumerator about this extension and that
 it should create <code class="code docutils literal notranslate"><span class="pre">BacklogItems</span></code> for it. Therefore, a minor change must be added
-to the artefact-enumerator (see <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/68d6f5bd322bd018a67e54784804d65dde3f2a38">open-component-model/delivery-service&#64;68d6f5b</a>).</p>
+to the artefact-enumerator (see <a class="reference external" href="https://github.com/open-component-model/odg-core/commit/68d6f5bd322bd018a67e54784804d65dde3f2a38">open-component-model/odg-core&#64;68d6f5b</a>).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>In the future, it is planned that this must not be explicitly defined
@@ -260,7 +260,7 @@ which extensions require <code class="code docutils literal notranslate"><span c
 <a class="reference internal" href="extensions/issue_replicator.html"><span class="doc">issue-replicator extension</span></a> to also report
 findings for the new extension, it must be defined how the findings should be
 templated into a GitHub issue. Therefore, a minor change must be added to the
-issue-replicator (see <a class="reference external" href="https://github.com/open-component-model/delivery-service/commit/adb723957c2f6ec115ac702463f94802b35ed6df">open-component-model/delivery-service&#64;adb7239</a>).
+issue-replicator (see <a class="reference external" href="https://github.com/open-component-model/odg-core/commit/adb723957c2f6ec115ac702463f94802b35ed6df">open-component-model/odg-core&#64;adb7239</a>).
 Also, the <code class="code docutils literal notranslate"><span class="pre">issues</span></code> property of the <a class="reference internal" href="#findings-configuration"><span class="std std-ref">Findings Configuration</span></a> must be
 configured accordingly.</p>
 </section>
@@ -268,7 +268,7 @@ configured accordingly.</p>
 <span id="id7"></span><h2>Helm Chart<a class="headerlink" href="#helm-chart" title="Link to this heading"></a></h2>
 <p>If the extension should be deployed as part of the Open Delivery Gear
 deployment, it must be added as subchart to the <code class="code docutils literal notranslate"><span class="pre">extensions</span></code> Helm chart
-(<a class="reference external" href="https://github.com/open-component-model/delivery-service/tree/master/charts/extensions/charts">ref</a>).
+(<a class="reference external" href="https://github.com/open-component-model/odg-core/tree/master/charts/extensions/charts">ref</a>).
 Based on the trigger (see <a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a>), either a Kubernetes
 Deployment or Cronjob should be used. In all cases, it can be assumed that
 an <code class="code docutils literal notranslate"><span class="pre">extensions-cfg</span></code> and a <code class="code docutils literal notranslate"><span class="pre">findings-cfg</span></code> ConfigMap exists which may be mounted
@@ -278,18 +278,15 @@ can be mounted as well by referencing the Secrets
 <code class="code docutils literal notranslate"><span class="pre">secret-factory-&lt;SECRET_TYPE&gt;</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>It might be very helpful to use the <a class="reference external" href="https://github.com/open-component-model/delivery-service/tree/master/charts/extensions/charts">already existing extensions</a>
+<p>It might be very helpful to use the <a class="reference external" href="https://github.com/open-component-model/odg-core/tree/master/charts/extensions/charts">already existing extensions</a>
 as reference and adjust them accordingly.</p>
 </div>
 </section>
 <section id="oci-image">
 <span id="id10"></span><h2>OCI Image<a class="headerlink" href="#oci-image" title="Link to this heading"></a></h2>
-<p>In case the extension does not require any additional installations, the
-general purpose extensions OCI image can be re-used (<a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/Dockerfile.extensions">ref</a>).
-Otherwise, a new Dockerfile <code class="code docutils literal notranslate"><span class="pre">Dockerfile.extensions.&lt;EXTENSION_NAME&gt;</span></code> must be
-created and added to the <a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml">build</a>.
-In both cases, a Helm chart mapping must be added to the <a class="reference external" href="https://github.com/open-component-model/delivery-service/blob/master/.github/workflows/build.yaml">build</a>
-as well.</p>
+<p>For a new extension, the general purpose OCI image can be re-used (<a class="reference external" href="https://github.com/open-component-model/odg-core/blob/master/Dockerfile">ref</a>).
+In case it requires any additional installations, those must be added to the
+Dockerfile.</p>
 </section>
 </section>
 

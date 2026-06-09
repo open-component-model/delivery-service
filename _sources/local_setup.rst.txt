@@ -1,7 +1,7 @@
 ===================================
 Setup Local Development Environment
 ===================================
-In order to start with the set-up first clone the `delivery-service repository <https://github.com/open-component-model/delivery-service>`_.
+In order to start with the set-up first clone the `ODG core repository <https://github.com/open-component-model/odg-core>`_.
 
 .. note::
    This guide focuses on running the delivery-service (+ database) and one
@@ -10,7 +10,7 @@ In order to start with the set-up first clone the `delivery-service repository <
    updating an existing extension. To run a full Open Delivery Gear locally,
    i.e. containing multiple extensions and a local Kubernetes cluster, please
    refer to the `Local Setup
-   <https://github.com/open-component-model/delivery-service/blob/master/local-setup/local-setup.md>`_
+   <https://github.com/open-component-model/odg-core/blob/master/local-setup/local-setup.md>`_
    guide instead.
 
 Prerequisites
@@ -72,7 +72,7 @@ Requirements
 
    .. code-block:: bash
 
-      pip3 install --upgrade -r <path-to-local-delivery-service-repo>/requirements-dev.txt
+      pip3 install --upgrade -r <path-to-local-odg-core-repo>/requirements-dev.txt
 
 Secrets
 ^^^^^^^
@@ -120,10 +120,10 @@ Start-Up
 .. code-block:: bash
 
     # Running with PostgreSQL
-    python3 <path-to-local-delivery-service-repo>/app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+    python3 <path-to-local-odg-core-repo>/app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
     # Running with SQLite3
-    python3 <path-to-local-delivery-service-repo>/app.py --delivery-db-url sqlite+aiosqlite:///filename.db
+    python3 <path-to-local-odg-core-repo>/app.py --delivery-db-url sqlite+aiosqlite:///filename.db
 
 Start-up with useful development tooling (e.g. hot-reloading or enhanced
 request information upon errors):
@@ -131,10 +131,10 @@ request information upon errors):
 .. code-block:: bash
 
     # Running with PostgreSQL
-    adev runserver --port 5000 <path-to-local-delivery-service-repo> -- --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+    adev runserver --port 5000 <path-to-local-odg-core-repo> -- --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
     # Running with SQLite3
-    adev runserver --port 5000 <path-to-local-delivery-service-repo> -- --delivery-db-url sqlite+aiosqlite:///filename.db
+    adev runserver --port 5000 <path-to-local-odg-core-repo> -- --delivery-db-url sqlite+aiosqlite:///filename.db
 
 Running the Extension
 =====================
