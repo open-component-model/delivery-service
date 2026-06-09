@@ -35,8 +35,6 @@ def requirements():
 
 def package_data():
     return {
-        'compliance_summary': ['*.yaml'],
-        'crypto_extension': ['*.yaml'],
         'features': ['*.yaml'],
         'freshclam': ['freshclam.conf'],
         'odg': ['*.yaml'],
