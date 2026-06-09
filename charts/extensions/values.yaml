@@ -1,109 +1,63 @@
+global:
+  # image property will be set during release
+  image:
+    ref: null
+    repository: null
+    tag: null
+
 access-manager:
   enabled: false
-  image:
-    repository: null
-    tag: null
 artefact-enumerator:
   enabled: false
-  image:
-    repository: null
-    tag: null
 backlog-controller:
   enabled: false
-  image:
-    repository: null
-    tag: null
 bdba:
   deployment:
     annotations: []
   enabled: false
-  image:
-    repository: null
-    tag: null
 cache-manager:
   enabled: false
-  image:
-    repository: null
-    tag: null
 clamav:
   deployment:
     annotations: []
   enabled: false
-  freshclam:
-    image:
-      repository: null
-      tag: null
-  image:
-    repository: null
-    tag: null
 crypto:
   deployment:
     annotations: []
   enabled: false
-  image:
-    repository: null
-    tag: null
 delivery-db-backup:
   enabled: false
-  image:
-    repository: null
-    tag: null
 ghas:
   enabled: false
-  image:
-    repository: null
-    tag: null
 issue-replicator:
   deployment:
     annotations: []
   enabled: false
-  image:
-    repository: null
-    tag: null
 odg-operator:
   enabled: false
   extensionDefinitions: null
-  image:
-    repository: null
-    tag: null
   namespaceOverride: null
 osid:
   deployment:
     annotations: []
   enabled: false
-  image:
-    repository: null
-    tag: null
 responsibles:
   deployment:
     annotations: []
   enabled: false
-  image:
-    repository: null
-    tag: null
 sast:
   deployment:
     annotations: []
   enabled: false
-  image:
-    repository: null
-    tag: null
 sla-violation-profiler:
   enabled: false
-  image:
-    repository: null
-    tag: null
-  schedule: null                       
-  target_namespace: null               
-  ttl_seconds_after_finished: null     
-  successful_jobs_history_limit: null  
-  failed_jobs_history_limit: null      
+  schedule: null
+  target_namespace: null
+  ttl_seconds_after_finished: null
+  successful_jobs_history_limit: null
+  failed_jobs_history_limit: null
   backoff_limit: null
 sbom-generator:
   deployment:
     annotations: []
   enabled: false
-  image:
-    registry: null
-    repository: null
-    tag: null

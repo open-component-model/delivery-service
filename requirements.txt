@@ -18,6 +18,8 @@ psycopg[binary]
 pyjwt
 requests
 sqlalchemy>1.4.0
+starlette
 urllib3
+uvicorn
 watchdog
 python-dateutil

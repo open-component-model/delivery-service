@@ -1,14 +1,40 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 
-read -r next_version
+import os
+import sys
 
-echo "$next_version" > "$(dirname "$0")/../VERSION"
+import yaml
 
-extension_definitions="$(dirname "$0")/../extension-definitions.yaml"
 
-# pass env-var inline to make it available in yq subprocess
-NEXT_VERSION="$next_version" yq -i '
-    .installation.ocm_references[].version = strenv(NEXT_VERSION) |
-    .installation.ocm_references[].artefact.version = strenv(NEXT_VERSION) |
-    .installation.ocm_references[].mappings[].version = strenv(NEXT_VERSION)
-' "${extension_definitions}"
+own_dir = os.path.dirname(__file__)
+repo_dir = os.path.abspath(os.path.join(own_dir, os.path.pardir))
+EXTENSION_DEFINITIONS_FILE = os.path.join(repo_dir, 'extension-definitions.yaml')
+VERSION_FILE = os.path.join(repo_dir, 'VERSION')
+LOCAL_ARTEFACTS = ('delivery-service', 'extensions')
+
+
+def main():
+    next_version = sys.stdin.read().strip()
+
+    with open(VERSION_FILE, 'w') as f:
+        f.write(f'{next_version}\n')
+
+    with open(EXTENSION_DEFINITIONS_FILE) as f:
+        extension_definitions = list(yaml.safe_load_all(f.read()))
+
+    for extension_defintion in extension_definitions:
+        for ocm_reference in extension_defintion['installation']['ocm_references']:
+            ocm_reference['version'] = next_version
+
+            for mapping in ocm_reference['mappings']:
+                mapping['version'] = next_version
+
+            if ocm_reference['artefact']['name'] in LOCAL_ARTEFACTS:
+                ocm_reference['artefact']['version'] = next_version
+
+    with open(EXTENSION_DEFINITIONS_FILE, 'w') as f:
+        yaml.safe_dump_all(extension_definitions, f)
+
+
+if __name__ == '__main__':
+    main()

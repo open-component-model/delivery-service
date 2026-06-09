@@ -26,7 +26,7 @@ spec:
       terminationGracePeriodSeconds: 300 # 5 min
       containers:
         - name: {{ $podName }}
-          image: {{ include "image" .Values.image }}
+          image: {{ include "image" .Values.global.image }}
           imagePullPolicy: IfNotPresent
           command:
             - python3

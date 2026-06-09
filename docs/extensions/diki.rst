@@ -8,7 +8,7 @@ to be created as GitHub issues via delivery-service.
 .. note::
    The endpoints listed in this document were extracted from the
    `REST-API-documentation
-   <https://github.com/open-component-model/delivery-service?tab=readme-ov-file#rest-api-documentation>`_.
+   <https://github.com/open-component-model/odg-core?tab=readme-ov-file#rest-api-documentation>`_.
 
 Creating Diki compliance issues
 ===============================

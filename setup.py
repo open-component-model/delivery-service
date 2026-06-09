@@ -38,6 +38,7 @@ def package_data():
         'compliance_summary': ['*.yaml'],
         'crypto_extension': ['*.yaml'],
         'features': ['*.yaml'],
+        'freshclam': ['freshclam.conf'],
         'odg': ['*.yaml'],
         'osinfo': ['*.yaml'],
         'responsibles': ['*.yaml'],

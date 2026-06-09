@@ -357,9 +357,9 @@ extensions_cfg:
         # names, might be a list of library names directly or a reference to a file containing them
         libraries:
             # @param extensions_cfg.crypto.mappings[].libraries[].ref reference to a local file in
-            # the delivery-service repository (this example), or to a file in another GitHub
-            # repository or an OCM resource. The file (YAML) must contain a property "libraries" that
-            # lists the known cryptographic libraries by their name
+            # the odg-core repository (this example), or to a file in another GitHub repository or
+            # an OCM resource. The file (YAML) must contain a property "libraries" that lists the
+            # known cryptographic libraries by their name
           - ref:
               # @param extensions_cfg.crypto.mappings[].libraries[].ref.path relative path to the
               # file containing the cryptographic libraries, see the example file for details
@@ -374,10 +374,10 @@ extensions_cfg:
             # used to regulate cryptographic usage within software
             version: 140-3
             # @param extensions_cfg.crypto.mappings[].standards[].ref reference to a local file in
-            # the delivery-service repository (this example), or to a file in another GitHub
-            # repository or an OCM resource. The file (YAML) must contain a property "standards" that
-            # lists known cryptographic standards, which is used to find the standard described by
-            # "name" and "version"
+            # the odg-core repository (this example), or to a file in another GitHub repository or
+            # an OCM resource. The file (YAML) must contain a property "standards" that lists known
+            # cryptographic standards, which is used to find the standard described by "name" and
+            # "version"
             ref:
               # @param extensions_cfg.crypto.mappings[].standards[].ref.path relative path to the
               # file containing the cryptographic standards, see the example file for details
@@ -1014,12 +1014,12 @@ features_cfg:
         # @param features_cfg.specialComponents[].dependencies[].name OCM component name of the
         # dependent component
         # e.g.
-        # name: ocm.software/open-delivery-gear/delivery-service
+        # name: ocm.software/open-delivery-gear/core
         - name: ""
         # @param features_cfg.specialComponents[].dependencies[].displayName name of the dependent
         # component shown in the delivery-dashboard
         # e.g.
-        # displayName: Delivery-Service
+        # displayName: ODG-Core
           displayName: ""
           # @param features_cfg.specialComponents[].dependencies[].currentVersion specifies where to
           # find the current (not yet published) version of the dependent component
@@ -1179,7 +1179,7 @@ findings:
     # note: instead of the list of categorisations, also a reference to a default set of
     # categorisations may be specified
     # e.g.
-    # # reference to a local file in the delivery-service repository
+    # # reference to a local file in the odg-core repository
     # categorisations:
     #   cfg_name: gardener
     #   ref:
@@ -1362,7 +1362,7 @@ findings:
     # note: instead of the specifying the ruleset directly, also a reference to a default ruleset
     # may be specified
     # e.g.
-    # # reference to a local file in the delivery-service repository
+    # # reference to a local file in the odg-core repository
     # rescoring_ruleset:
     #   cfg_name: gardener
     #   ref:
