@@ -20,29 +20,9 @@ jobs:
     with:
       mode: ${{ inputs.mode }}
 
-  setuptools-version:
-    runs-on: ubuntu-latest
-    needs:
-      - prepare
-    permissions: {}
-    outputs:
-      setuptools-version: ${{ steps.version-setuptools.outputs.setuptools-version }}
-    steps:
-      - name: version-setuptools
-        id: version-setuptools
-        run: |
-          set -eu
-          version=${{ needs.prepare.outputs.version }}
-          if [[ "${version}" == *-* ]]; then
-            # version was non-final - add suffix compliant w/ pep-440
-            version="${version%%-*}-dev0"
-          fi
-          echo "setuptools-version=${version}" >> ${GITHUB_OUTPUT}
-
   packages:
     runs-on: ubuntu-latest
     needs:
-      - setuptools-version
       - prepare
     permissions:
       contents: read
@@ -57,7 +37,12 @@ jobs:
         run: |
           set -eu
 
-          version=${{ needs.setuptools-version.outputs.setuptools-version }}
+          version=${{ needs.prepare.outputs.version }}
+          if [[ "${version}" == *-* ]]; then
+            # version was non-final - add suffix compliant w/ pep-440
+            version="${version%%-*}-dev0"
+          fi
+
           echo "version: ${version}"
 
           # pass finalised version to setup
