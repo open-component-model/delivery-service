@@ -44,4 +44,6 @@ RUN --mount=type=bind,source=/dist,target=/dist \
 && apk del --no-cache \
     libc-dev \
     libffi-dev \
-    python3-dev
+    python3-dev \
+&& mkdir /freshclam \
+&& chown clamav /freshclam

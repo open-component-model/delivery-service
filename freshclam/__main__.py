@@ -44,8 +44,6 @@ def start_server(path, directory, port, debug=False):
 
 
 def main():
-    os.mkdir('/freshclam')
-
     subprocess.run(
         args=[
             'freshclam',
