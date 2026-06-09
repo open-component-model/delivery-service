@@ -1,544 +1,535 @@
+dependencies:
+- access-manager
+- artefact-enumerator
+- backlog-controller
+- cache-manager
+- delivery-db
+installation:
+  ocm_references:
+  - artefact:
+      name: delivery-service
+      version: 0.1340.0
+    helm_chart_name: delivery-service
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: delivery-service
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
+  value_templates:
+  - helm_attribute: host
+    helm_chart_name: delivery-service
+    value: delivery-service.${base_url}
+    value_type: python-string-template
+  - helm_attribute: target_namespace
+    helm_chart_name: delivery-service
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: delivery-service
+    value: '"true"'
+    value_type: literal
+  - default: '2'
+    helm_attribute: autoscaler.minReplicas
+    helm_chart_name: delivery-service
+    value: ${deliveryServiceMinReplicas}
+    value_type: python-string-template
+  - default: '10'
+    helm_attribute: autoscaler.maxReplicas
+    helm_chart_name: delivery-service
+    value: ${deliveryServiceMaxReplicas}
+    value_type: python-string-template
 name: delivery-service
-installation:
-  ocm_references:
-    - helm_chart_name: delivery-service
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: delivery-service
-        version: "0.1340.0-dev"
-      mappings:
-        - name: delivery-service
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
-  value_templates:
-    - helm_chart_name: delivery-service
-      helm_attribute: host
-      value: delivery-service.${base_url}
-      value_type: python-string-template
-    - helm_chart_name: delivery-service
-      helm_attribute: target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: delivery-service
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
-    - helm_chart_name: delivery-service
-      helm_attribute: autoscaler.minReplicas
-      value: '${deliveryServiceMinReplicas}'
-      value_type: python-string-template
-      default: '2'
-    - helm_chart_name: delivery-service
-      helm_attribute: autoscaler.maxReplicas
-      value: '${deliveryServiceMaxReplicas}'
-      value_type: python-string-template
-      default: '10'
 outputs:
-  - name: delivery-service-url
-    value: https://delivery-service.${base_url}
-dependencies:
-  - access-manager
-  - artefact-enumerator
-  - backlog-controller
-  - cache-manager
-  - delivery-db
+- name: delivery-service-url
+  value: https://delivery-service.${base_url}
 ---
+dependencies: []
+installation:
+  ocm_references:
+  - artefact:
+      name: postgresql
+      version: 16.6.1
+    helm_chart_name: postgresql
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: postgresql
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
+  value_templates:
+  - helm_attribute: fullnameOverride
+    helm_chart_name: postgresql
+    value: delivery-db
+    value_type: literal
+  - helm_attribute: namespaceOverride
+    helm_chart_name: postgresql
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: image.registry
+    helm_chart_name: postgresql
+    value: ''
+    value_type: literal
+  - helm_attribute: global.security.allowInsecureImages
+    helm_chart_name: postgresql
+    value: true
+    value_type: literal
+  - helm_attribute: postgresqlDataDir
+    helm_chart_name: postgresql
+    value: /data/pgdata
+    value_type: literal
+  - helm_attribute: primary.persistence.mountPath
+    helm_chart_name: postgresql
+    value: /data/
+    value_type: literal
+  - helm_attribute: primary.containerSecurityContext.readOnlyRootFilesystem
+    helm_chart_name: postgresql
+    value: false
+    value_type: literal
+  - helm_attribute: primary.extraEnvVars
+    helm_chart_name: postgresql
+    value:
+    - name: POSTGRESQL_MAX_CONNECTIONS
+      value: '200'
+    value_type: literal
+  - helm_attribute: primary.resources.requests.cpu
+    helm_chart_name: postgresql
+    value: 250m
+    value_type: literal
+  - helm_attribute: primary.resources.requests.memory
+    helm_chart_name: postgresql
+    value: 256Mi
+    value_type: literal
+  - helm_attribute: auth.existingSecret
+    helm_chart_name: postgresql
+    value: delivery-db-password
+    value_type: literal
 name: delivery-db
+outputs: []
+---
+dependencies:
+- delivery-service
+- backlog-controller
 installation:
   ocm_references:
-    - helm_chart_name: postgresql
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: postgresql
-        version: 16.6.1
-      mappings:
-        - name: postgresql
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: postgresql
-      helm_attribute: fullnameOverride
-      value: delivery-db
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: namespaceOverride
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: postgresql
-      helm_attribute: image.registry
-      value: '' # required to use repository + tag from image-mapping only
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: global.security.allowInsecureImages
-      value: True
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: postgresqlDataDir
-      value: '/data/pgdata'
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: primary.persistence.mountPath
-      value: '/data/'
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: primary.containerSecurityContext.readOnlyRootFilesystem
-      value: False
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: primary.extraEnvVars
-      value:
-        - name: POSTGRESQL_MAX_CONNECTIONS
-          value: '200'
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: primary.resources.requests.cpu
-      value: '250m'
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: primary.resources.requests.memory
-      value: '256Mi'
-      value_type: literal
-    - helm_chart_name: postgresql
-      helm_attribute: auth.existingSecret
-      value: delivery-db-password
-      value_type: literal
-outputs: []
-dependencies: []
----
+  - helm_attribute: clamav.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+  - helm_attribute: clamav.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: clamav.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: extensions
+    value: '"true"'
+    value_type: literal
 name: malware-scanner
-installation:
-  ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
-  value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: clamav.enabled
-      value: True
-      value_type: literal
-    - helm_chart_name: extensions
-      helm_attribute: clamav.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: clamav.deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
 outputs: []
-dependencies:
-  - delivery-service
-  - backlog-controller
 ---
-name: backlog-controller
-installation:
-  ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
-  value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: backlog-controller.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: backlog-controller.enabled
-      value: True
-      value_type: literal
-outputs: []
 dependencies: []
+installation:
+  ocm_references:
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
+  value_templates:
+  - helm_attribute: backlog-controller.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: backlog-controller.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+name: backlog-controller
+outputs: []
 ---
+dependencies:
+- delivery-db
+installation:
+  ocm_references:
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
+  value_templates:
+  - helm_attribute: artefact-enumerator.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: artefact-enumerator.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
 name: artefact-enumerator
+outputs: []
+---
+dependencies:
+- delivery-db
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: artefact-enumerator.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: artefact-enumerator.enabled
-      value: True
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-db
----
+  - helm_attribute: cache-manager.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: cache-manager.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
 name: cache-manager
+outputs: []
+---
+dependencies:
+- delivery-db
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: cache-manager.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: cache-manager.enabled
-      value: True
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-db
----
+  - helm_attribute: access-manager.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: access-manager.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
 name: access-manager
+outputs: []
+---
+dependencies:
+- delivery-service
+- delivery-db
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: access-manager.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: access-manager.enabled
-      value: True
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-db
----
+  - helm_attribute: bdba.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: bdba.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+  - helm_attribute: bdba.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: extensions
+    value: '"true"'
+    value_type: literal
 name: bdba
+outputs: []
+---
+dependencies:
+- delivery-service
+- delivery-db
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: bdba.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: bdba.enabled
-      value: True
-      value_type: literal
-    - helm_chart_name: extensions
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: bdba.deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-service
-  - delivery-db
----
+  - helm_attribute: crypto.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: crypto.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+  - helm_attribute: crypto.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: extensions
+    value: '"true"'
+    value_type: literal
 name: crypto
+outputs: []
+---
+dependencies:
+- artefact-enumerator
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: crypto.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: crypto.enabled
-      value: True
-      value_type: literal
-    - helm_chart_name: extensions
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: crypto.deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-service
-  - delivery-db
----
+  - helm_attribute: issue-replicator.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: issue-replicator.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+  - helm_attribute: issue-replicator.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: extensions
+    value: '"true"'
+    value_type: literal
 name: issue-replicator
+outputs: []
+---
+dependencies:
+- delivery-service
+- delivery-db
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: issue-replicator.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: issue-replicator.enabled
-      value: True
-      value_type: literal
-    - helm_chart_name: extensions
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: issue-replicator.deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
-outputs: []
-dependencies:
-  - artefact-enumerator
----
+  - helm_attribute: osid.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: osid.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+  - helm_attribute: osid.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: extensions
+    value: '"true"'
+    value_type: literal
 name: osid
+outputs: []
+---
+dependencies:
+- delivery-service
+- delivery-db
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: osid.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: osid.enabled
-      value: True
-      value_type: literal
-    - helm_chart_name: extensions
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: osid.deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-service
-  - delivery-db
----
+  - helm_attribute: responsibles.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: responsibles.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+  - helm_attribute: responsibles.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: extensions
+    value: '"true"'
+    value_type: literal
 name: responsibles
+outputs: []
+---
+dependencies:
+- delivery-service
+- delivery-db
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: responsibles.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: responsibles.enabled
-      value: True
-      value_type: literal
-    - helm_chart_name: extensions
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: responsibles.deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-service
-  - delivery-db
----
+  - helm_attribute: sast.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: sast.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+  - helm_attribute: sast.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: extensions
+    value: '"true"'
+    value_type: literal
 name: sast
+outputs: []
+---
+dependencies:
+- delivery-db
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: sast.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: sast.enabled
-      value: True
-      value_type: literal
-    - helm_chart_name: extensions
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: sast.deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-service
-  - delivery-db
----
+  - helm_attribute: delivery-db-backup.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: delivery-db-backup.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
 name: delivery-db-backup
+outputs: []
+---
+dependencies:
+- delivery-service
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: delivery-db-backup.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: delivery-db-backup.enabled
-      value: True
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-db
----
+  - helm_attribute: ghas.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: ghas.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
 name: ghas
+outputs: []
+---
+dependencies:
+- delivery-service
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: ghas.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: ghas.enabled
-      value: True
-      value_type: literal
-outputs: []
-dependencies:
-  - delivery-service
----
+  - helm_attribute: sbom-generator.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: sbom-generator.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+  - helm_attribute: sbom-generator.deployment.annotations."resources.gardener.cloud/preserve-replicas"
+    helm_chart_name: extensions
+    value: '"true"'
+    value_type: literal
 name: sbom-generator
-installation:
-  ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
-  value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: sbom-generator.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: sbom-generator.enabled
-      value: True
-      value_type: literal
-    - helm_chart_name: extensions
-      # prevents resource-manager from rolling back scaling changes
-      helm_attribute: sbom-generator.deployment.annotations."resources.gardener.cloud/preserve-replicas"
-      value: '"true"'
-      value_type: literal
 outputs: []
-dependencies:
-  - delivery-service
 ---
-name: sla-violation-profiler
+dependencies:
+- delivery-service
 installation:
   ocm_references:
-    - helm_chart_name: extensions
-      name: ocm.software/open-delivery-gear/core
-      version: "0.1340.0-dev"
-      artefact:
-        name: extensions
-        version: "0.1340.0-dev"
-      mappings:
-        - name: extensions
-          version: "0.1340.0-dev"
-          artefact_type: helmchart-imagemap
+  - artefact:
+      name: extensions
+      version: 0.1340.0
+    helm_chart_name: extensions
+    mappings:
+    - artefact_type: helmchart-imagemap
+      name: extensions
+      version: 0.1340.0
+    name: ocm.software/open-delivery-gear/core
+    version: 0.1340.0
   value_templates:
-    - helm_chart_name: extensions
-      helm_attribute: sla-violation-profiler.target_namespace
-      value: ${target_namespace}
-      value_type: python-string-template
-    - helm_chart_name: extensions
-      helm_attribute: sla-violation-profiler.enabled
-      value: True
-      value_type: literal
+  - helm_attribute: sla-violation-profiler.target_namespace
+    helm_chart_name: extensions
+    value: ${target_namespace}
+    value_type: python-string-template
+  - helm_attribute: sla-violation-profiler.enabled
+    helm_chart_name: extensions
+    value: true
+    value_type: literal
+name: sla-violation-profiler
 outputs: []
-dependencies:
-  - delivery-service
