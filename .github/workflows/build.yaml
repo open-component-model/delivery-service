@@ -274,10 +274,10 @@ jobs:
       packages: write
       id-token: write
     with:
-      name: delivery-service
+      name: core
       version: ${{ needs.prepare.outputs.version }}
       oci-registry: ${{ needs.prepare.outputs.oci-registry }}
-      oci-repository: odg/delivery-service
+      oci-repository: odg/core
       dockerfile: Dockerfile
       ctx: oci-image
       oci-platforms: linux/arm64,linux/amd64
@@ -309,16 +309,16 @@ jobs:
           - name: delivery-service
             dir: charts/delivery-service
             mappings:
-              - ref: ocm-resource:delivery-service.repository
+              - ref: ocm-resource:core.repository
                 attribute: image.repository
-              - ref: ocm-resource:delivery-service.tag
+              - ref: ocm-resource:core.tag
                 attribute: image.tag
           - name: extensions
             dir: charts/extensions
             mappings:
-              - ref: ocm-resource:delivery-service.repository
+              - ref: ocm-resource:core.repository
                 attribute: global.image.repository
-              - ref: ocm-resource:delivery-service.tag
+              - ref: ocm-resource:core.tag
                 attribute: global.image.tag
           - name: bootstrapping
             dir: charts/bootstrapping
