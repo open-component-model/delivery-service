@@ -115,19 +115,12 @@ jobs:
       - uses: gardener/cc-utils/.github/actions/trusted-checkout@v1
       - name: Export odg-extension-definitions
         run: |
-          export version=${{ needs.prepare.outputs.version }}
-          blobs_dir=blobs.d
-          mkdir $blobs_dir
-          extension_definitions="extension-definitions.yaml"
+          set -euo pipefail
 
-          yq -i '
-            .installation.ocm_references[].version = strenv(version) |
-            .installation.ocm_references[].artefact.version = strenv(version) |
-            .installation.ocm_references[].mappings[].version = strenv(version)
-          ' ${extension_definitions}
+          echo "${{ needs.prepare.outputs.version }}" | .ci/write-version
 
-          tar czf ${blobs_dir}/extension_definitions.tar.gz ${extension_definitions}
-
+          mkdir blobs.d
+          tar czf blobs.d/extension_definitions.tar.gz extension-definitions.yaml
       - uses: gardener/cc-utils/.github/actions/export-ocm-fragments@v1
         with:
           ocm-resources: |
