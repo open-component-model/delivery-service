@@ -1,0 +1,276 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SBOM-Generator &mdash; Open Delivery Gear  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Responsibles" href="responsibles.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Open Delivery Gear
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../local_setup.html">Setup Local Development Environment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contribute_extension.html">Contribute a new Extension</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../delivery_service.html">Using the delivery-service HTTP API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../artefact_metadata_query.html">Artefact Metadata Search</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../model.html">Data Model</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="artefact_enumerator.html">Artefact-Enumerator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diki.html">Diki</a></li>
+<li class="toctree-l1"><a class="reference internal" href="issue_replicator.html">Issue-Replicator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="responsibles.html">Responsibles</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">SBOM-Generator</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Open Delivery Gear</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">SBOM-Generator</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/extensions/sbom_generator.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="sbom-generator">
+<h1>SBOM-Generator<a class="headerlink" href="#sbom-generator" title="Link to this heading"></a></h1>
+<p>The SBOM-Generator extension generates Software Bill of Materials (SBoM)
+documents for the OCM resources of your components. It uses
+<a class="reference external" href="https://github.com/anchore/syft">Syft</a> to scan artefacts directly,
+and stores the generated SBoMs in the ODG blob storage. SBoMs can
+be downloaded from the ODG Dashboard or via API.</p>
+<section id="how-to-guides">
+<h2>How-to Guides<a class="headerlink" href="#how-to-guides" title="Link to this heading"></a></h2>
+<section id="users">
+<h3>Users<a class="headerlink" href="#users" title="Link to this heading"></a></h3>
+<section id="how-do-i-download-sbom-documents-for-my-product-or-its-sub-components">
+<h4>How do I download SBoM documents for my product or its sub-components?<a class="headerlink" href="#how-do-i-download-sbom-documents-for-my-product-or-its-sub-components" title="Link to this heading"></a></h4>
+<ol class="arabic">
+<li><p>Add your product to the ODG Dashboard.</p></li>
+<li><p>Open your product page.</p></li>
+<li><p>To download the SBoM for your <strong>product</strong>, click the <code class="docutils literal notranslate"><span class="pre">DOWNLOAD</span> <span class="pre">SBOM</span></code> button.</p>
+<img alt="Download SBOM button" src="../_images/download-sbom-button.svg" />
+<p>This opens the SBoM popover, where all sub-components are grouped into two
+sections: <strong>Ready</strong> and <strong>Not ready</strong>.</p>
+<img alt="Download SBOM Popover" src="../_images/download-sbom-popover.svg" />
+<p>The popover also shows the configured output format, and displays the access
+type and artefact type for each sub-component.</p>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>The popover updates in real time. No manual refresh is needed.</p>
+</div>
+</li>
+<li><p>To download the SBoM for a specific <strong>sub-component</strong>, open the sub-component
+first, then click the <code class="docutils literal notranslate"><span class="pre">DOWNLOAD</span> <span class="pre">SBOM</span></code> button.</p></li>
+</ol>
+</section>
+<section id="how-can-i-manually-trigger-sbom-generation-for-a-component">
+<h4>How can I manually trigger SBoM generation for a component?<a class="headerlink" href="#how-can-i-manually-trigger-sbom-generation-for-a-component" title="Link to this heading"></a></h4>
+<p>Open the <code class="docutils literal notranslate"><span class="pre">DOWNLOAD</span> <span class="pre">SBOM</span></code> popover for your component. Any sub-components whose
+SBoM has not been generated yet appear in the <strong>Not ready</strong> section. When there
+are pending sub-components, a <code class="docutils literal notranslate"><span class="pre">Trigger</span> <span class="pre">SBOM</span> <span class="pre">generation</span></code> button is shown.
+Clicking it schedules SBoM generation for all of them immediately. The popover
+updates in real time, and completed SBoMs move from <strong>Not ready</strong> to <strong>Ready</strong>
+as they finish.</p>
+</section>
+</section>
+<section id="operators">
+<h3>Operators<a class="headerlink" href="#operators" title="Link to this heading"></a></h3>
+<section id="how-do-i-diagnose-a-failed-sbom-generation">
+<h4>How do I diagnose a failed SBoM generation?<a class="headerlink" href="#how-do-i-diagnose-a-failed-sbom-generation" title="Link to this heading"></a></h4>
+<p>Open the <strong>SBOM-Generator</strong> section in the ODG Dashboard sidebar. The logs show
+the status of each run, including errors, warnings, and timestamps, making it
+straightforward to identify and diagnose issues.</p>
+</section>
+</section>
+</section>
+<section id="reference">
+<h2>Reference<a class="headerlink" href="#reference" title="Link to this heading"></a></h2>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
+<p>The extension is configured under the <code class="docutils literal notranslate"><span class="pre">sbom_generator</span></code> key.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sbom_generator</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">True</span>
+<span class="w">  </span><span class="nt">delivery_service_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://delivery-service:5000</span>
+<span class="w">  </span><span class="nt">output_format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cyclonedx</span><span class="w">       </span><span class="c1"># or &#39;spdx&#39;</span>
+<span class="w">  </span><span class="nt">interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">86400</span><span class="w">                </span><span class="c1"># re-scan every 24 hours</span>
+<span class="w">  </span><span class="nt">mappings</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;&#39;</span><span class="w">                 </span><span class="c1"># matches all components</span>
+<span class="w">      </span><span class="nt">aws_secret_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">~</span><span class="w">         </span><span class="c1"># AWS secret name (required for S3 artefacts)</span>
+</pre></div>
+</div>
+<p><strong>Top-level options</strong></p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">enabled</span></code></p></td>
+<td><p>bool</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Enable or disable the extension.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">delivery_service_url</span></code></p></td>
+<td><p>string</p></td>
+<td><p>—</p></td>
+<td><p>URL of the delivery service instance.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">output_format</span></code></p></td>
+<td><p>string</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cyclonedx</span></code></p></td>
+<td><p>Output format: <code class="docutils literal notranslate"><span class="pre">cyclonedx</span></code> or <code class="docutils literal notranslate"><span class="pre">spdx</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">interval</span></code></p></td>
+<td><p>int (seconds)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">86400</span></code></p></td>
+<td><p>Maximum time before an artefact is re-scanned.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mappings</span></code></p></td>
+<td><p>list</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
+<td><p>Per-prefix component mappings. See mapping fields below.</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Mapping fields</strong> (each entry in <code class="docutils literal notranslate"><span class="pre">mappings</span></code>)</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">prefix</span></code></p></td>
+<td><p>string</p></td>
+<td><p>yes</p></td>
+<td><p>Component name prefix. Use <code class="docutils literal notranslate"><span class="pre">''</span></code> to match all components.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">aws_secret_name</span></code></p></td>
+<td><p>string</p></td>
+<td><p>no</p></td>
+<td><p>Name of the AWS secret used to access S3 artefacts. Required when multiple AWS secrets are configured.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="how-it-works">
+<h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading"></a></h2>
+<p>When a component is picked up for scanning, the SBOM-Generator resolves its
+component descriptor from the configured OCM repositories, retrieves each
+<code class="docutils literal notranslate"><span class="pre">Resource</span></code>, and scans it using the Syft CLI binary via subprocess.
+For <code class="docutils literal notranslate"><span class="pre">ociRegistry</span></code> resources, the image reference is passed directly to the
+CLI. For <code class="docutils literal notranslate"><span class="pre">localBlob/v1</span></code>, the blob is downloaded to a temporary file first.
+For <code class="docutils literal notranslate"><span class="pre">s3</span></code>, the tar archive is downloaded and extracted to a temporary directory
+before scanning.</p>
+<p>Once the SBoM is produced, it is serialised to JSON, hashed (SHA-256), and
+uploaded to the delivery-service blob storage. The digest, file size, and
+output format are recorded as <code class="docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> of type
+<code class="docutils literal notranslate"><span class="pre">artefact_scan_info</span></code> for that resource, which is what the dashboard queries
+to determine whether an SBoM is ready for download.</p>
+<p>The diagram below shows the end-to-end generation flow:</p>
+<img alt="SBOM Generation Overview" src="../_images/sbom-generator-overview.svg" />
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="responsibles.html" class="btn btn-neutral float-left" title="Responsibles" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SAP SE or an SAP affiliate company.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
