@@ -45,5 +45,6 @@ RUN --mount=type=bind,source=/dist,target=/dist \
     libc-dev \
     libffi-dev \
     python3-dev \
+&& ln -sf /etc/ssl/certs/ca-certificates.crt "$(python3 -m certifi)" \
 && mkdir /freshclam \
 && chown clamav /freshclam
