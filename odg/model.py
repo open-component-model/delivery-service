@@ -633,6 +633,19 @@ class RescoreOsIdFinding:
         return _as_key(self.osid.ID)
 
 
+class GitHubSecretLocationType(enum.StrEnum):
+    COMMIT = 'commit'
+    WIKI_COMMIT = 'wiki_commit'
+    UNKNOWN = 'unknown'
+
+
+@dataclasses.dataclass
+class GitHubSecretFindingLocation:
+    location_type: GitHubSecretLocationType
+    path: str | None = None
+    line: int | None = None
+
+
 @dataclasses.dataclass
 class GitHubSecretFinding(Finding):
     html_url: str

@@ -4,7 +4,6 @@ import atexit
 import collections.abc
 import dataclasses
 import datetime
-import enum
 import functools
 import logging
 
@@ -35,33 +34,6 @@ import util
 logger = logging.getLogger(__name__)
 ci.log.configure_default_logging()
 k8s.logging.configure_kubernetes_logging()
-
-
-class GitHubSecretLocationType(enum.StrEnum):
-    COMMIT = 'commit'
-    WIKI_COMMIT = 'wiki_commit'
-    UNKNOWN = 'unknown'
-
-
-@dataclasses.dataclass
-class SecretLocation:
-    location_type: GitHubSecretLocationType
-    path: str | None = None
-    line: int | None = None
-
-    @classmethod
-    def from_dict(cls, location: dict) -> 'SecretLocation':
-        try:
-            location_type = GitHubSecretLocationType(location.get('type'))
-        except ValueError:
-            location_type = GitHubSecretLocationType.UNKNOWN
-
-        details = location.get('details', {})
-        return cls(
-            location_type=location_type,
-            path=details.get('path'),
-            line=details.get('start_line'),
-        )
 
 
 @dataclasses.dataclass
@@ -212,23 +184,31 @@ def get_secret_alerts(
 def get_secret_location(
     location_url: str,
     secret_factory: secret_mgmt.SecretFactory,
-) -> SecretLocation:
+) -> odg.model.GitHubSecretFindingLocation:
+    GitHubSecretLocationType = odg.model.GitHubSecretLocationType
+
     result, _ = github_api_request(
         url=location_url,
         secret_factory=secret_factory,
     )
+
     if not result or not isinstance(result, list):
-        return SecretLocation(
+        return odg.model.GitHubSecretFindingLocation(
             location_type=GitHubSecretLocationType.UNKNOWN,
         )
 
-    for loc in result:
-        secret_location = SecretLocation.from_dict(loc)
-        if secret_location.location_type in (
-            GitHubSecretLocationType.COMMIT,
-            GitHubSecretLocationType.WIKI_COMMIT,
-        ):
-            return secret_location
+    for location in result:
+        try:
+            location_type = GitHubSecretLocationType(location.get('type'))
+        except ValueError:
+            location_type = GitHubSecretLocationType.UNKNOWN
+
+        details = location.get('details', {})
+        return odg.model.GitHubSecretFindingLocation(
+            location_type=location_type,
+            path=details.get('path'),
+            line=details.get('start_line'),
+        )
 
     return SecretLocation(
         location_type=GitHubSecretLocationType.UNKNOWN,
