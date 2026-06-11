@@ -579,12 +579,6 @@ extensions_cfg:
               date_string_format: "%Y-%m-%d"
             # @param extensions_cfg.issue_replicator.mappings[].milestones.title.suffix
             suffix: null
-          # @param extensions_cfg.issue_replicator.mappings[].milestones.due_date contains
-          # configuration options to specify how the GitHub milestone due-date is determined
-          due_date:
-            # @param extensions_cfg.issue_replicator.mappings[].milestones.due_date.date_name the
-            # name of the date as specified in the sprints configuration
-            date_name: end_date
 
   # @param extensions_cfg.osid workers which identify base image OS versions for OCI images
   osid:

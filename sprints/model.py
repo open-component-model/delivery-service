@@ -128,6 +128,3 @@ class MilestoneConfiguration:
     title_callback: collections.abc.Callable[[Sprint], str] = lambda sprint: sprint.name
     title_prefix: str | None = 'sprint-'
     title_suffix: str | None = None
-    due_date_callback: collections.abc.Callable[[Sprint], datetime.date] = lambda sprint: (
-        sprint.due_date
-    )
