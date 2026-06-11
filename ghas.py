@@ -181,11 +181,17 @@ def get_secret_alerts(
     logger.info(f'found {count} secret alerts for {github_hostname}/{org}')
 
 
-def get_secret_location(
-    location_url: str,
+def iter_secret_locations(
+    location_url: str | None,
     secret_factory: secret_mgmt.SecretFactory,
-) -> odg.model.GitHubSecretFindingLocation:
+) -> collections.abc.Iterable[odg.model.GitHubSecretFindingLocation]:
     GitHubSecretLocationType = odg.model.GitHubSecretLocationType
+
+    if not location_url:
+        yield odg.model.GitHubSecretFindingLocation(
+            location_type=GitHubSecretLocationType.UNKNOWN,
+        )
+        return
 
     result, _ = github_api_request(
         url=location_url,
@@ -193,9 +199,10 @@ def get_secret_location(
     )
 
     if not result or not isinstance(result, list):
-        return odg.model.GitHubSecretFindingLocation(
+        yield odg.model.GitHubSecretFindingLocation(
             location_type=GitHubSecretLocationType.UNKNOWN,
         )
+        return
 
     for location in result:
         try:
@@ -204,15 +211,11 @@ def get_secret_location(
             location_type = GitHubSecretLocationType.UNKNOWN
 
         details = location.get('details', {})
-        return odg.model.GitHubSecretFindingLocation(
+        yield odg.model.GitHubSecretFindingLocation(
             location_type=location_type,
             path=details.get('path'),
             line=details.get('start_line'),
         )
-
-    return SecretLocation(
-        location_type=GitHubSecretLocationType.UNKNOWN,
-    )
 
 
 def as_artefact_metadata(
@@ -271,7 +274,7 @@ def create_ghas_findings(
                 )
 
                 for alert in alerts:
-                    location = get_secret_location(
+                    locations = iter_secret_locations(
                         location_url=alert.locations_url,
                         secret_factory=secret_factory,
                     )
@@ -290,9 +293,7 @@ def create_ghas_findings(
                         secret=alert.secret,
                         secret_type_display_name=alert.secret_type_display_name,
                         resolution=alert.resolution,
-                        path=location.path,
-                        line=location.line,
-                        location_type=location.location_type.value,
+                        locations=list(locations),
                         url=alert.url,
                     )
             except Exception as e:

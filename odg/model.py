@@ -636,6 +636,17 @@ class RescoreOsIdFinding:
 class GitHubSecretLocationType(enum.StrEnum):
     COMMIT = 'commit'
     WIKI_COMMIT = 'wiki_commit'
+    ISSUE_TITLE = 'issue_title'
+    ISSUE_BODY = 'issue_body'
+    ISSUE_COMMENT = 'issue_comment'
+    DISCUSSION_TITLE = 'discussion_title'
+    DISCUSSION_BODY = 'discussion_body'
+    DISCUSSION_COMMENT = 'discussion_comment'
+    PULL_REQUEST_TITLE = 'pull_request_title'
+    PULL_REQUEST_BODY = 'pull_request_body'
+    PULL_REQUEST_COMMENT = 'pull_request_comment'
+    PULL_REQUEST_REVIEW = 'pull_request_review'
+    PULL_REQUEST_REVIEW_COMMENT = 'pull_request_review_comment'
     UNKNOWN = 'unknown'
 
 
@@ -653,10 +664,11 @@ class GitHubSecretFinding(Finding):
     secret_type: str
     secret_type_display_name: str
     resolution: str | None
-    path: str | None
-    line: int | None
-    location_type: str
     url: str
+    locations: list[GitHubSecretFindingLocation] | None
+    path: str | None = None  # has been replaced by `locations` -> keep for backwards compatibility
+    line: int | None = None  # has been replaced by `locations`
+    location_type: str | None = None  # has been replaced by `locations`
 
     @property
     def key(self) -> str:
