@@ -653,6 +653,7 @@ class GitHubSecretLocationType(enum.StrEnum):
 @dataclasses.dataclass
 class GitHubSecretFindingLocation:
     location_type: GitHubSecretLocationType
+    url: str | None = None
     path: str | None = None
     line: int | None = None
 

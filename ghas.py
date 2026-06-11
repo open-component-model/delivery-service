@@ -211,8 +211,26 @@ def iter_secret_locations(
             location_type = GitHubSecretLocationType.UNKNOWN
 
         details = location.get('details', {})
+
+        url = {
+            GitHubSecretLocationType.COMMIT: details.get('html_url'),
+            GitHubSecretLocationType.WIKI_COMMIT: details.get('commit_url'),
+            GitHubSecretLocationType.ISSUE_TITLE: details.get('html_url'),
+            GitHubSecretLocationType.ISSUE_BODY: details.get('html_url'),
+            GitHubSecretLocationType.ISSUE_COMMENT: details.get('html_url'),
+            GitHubSecretLocationType.DISCUSSION_TITLE: details.get('discussion_title_url'),
+            GitHubSecretLocationType.DISCUSSION_BODY: details.get('discussion_body_url'),
+            GitHubSecretLocationType.DISCUSSION_COMMENT: details.get('discussion_comment_url'),
+            GitHubSecretLocationType.PULL_REQUEST_TITLE: details.get('html_url'),
+            GitHubSecretLocationType.PULL_REQUEST_BODY: details.get('html_url'),
+            GitHubSecretLocationType.PULL_REQUEST_COMMENT: details.get('html_url'),
+            GitHubSecretLocationType.PULL_REQUEST_REVIEW: details.get('html_url'),
+            GitHubSecretLocationType.PULL_REQUEST_REVIEW_COMMENT: details.get('html_url'),
+        }.get(location_type)
+
         yield odg.model.GitHubSecretFindingLocation(
             location_type=location_type,
+            url=url,
             path=details.get('path'),
             line=details.get('start_line'),
         )
