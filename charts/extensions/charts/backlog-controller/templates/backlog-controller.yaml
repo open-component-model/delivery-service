@@ -37,6 +37,10 @@ spec:
               mountPath: /secrets/kubernetes
             - name: extensions-cfg
               mountPath: /extensions_cfg
+            - name: github
+              mountPath: /secrets/github
+            - name: github-app
+              mountPath: /secrets/github-app
           resources:
             requests:
               memory: 100Mi
@@ -52,6 +56,14 @@ spec:
         - name: extensions-cfg
           configMap:
             name: extensions-cfg
+        - name: github
+          secret:
+            secretName: secret-factory-github
+            optional: true
+        - name: github-app
+          secret:
+            secretName: secret-factory-github-app
+            optional: true
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
