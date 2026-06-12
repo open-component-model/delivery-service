@@ -17,7 +17,7 @@ used for further processing and reporting. In the most basic form, it consists
 of an :ref:`artefact`, some :ref:`metadata` and an extension specific
 :ref:`payload` (see Fig. 1). The model is defined in the `odg.model` module of
 the delivery-service (`ref
-<https://github.com/open-component-model/odg-core/blob/master/odg/model.py>`_).
+<https://github.com/open-component-model/odg-core/blob/master/src/odg/model.py>`_).
 
 .. figure:: /res/artefact-metadata.svg
    :figwidth: 50%

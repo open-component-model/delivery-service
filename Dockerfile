@@ -10,8 +10,8 @@ RUN apk add --no-cache git \
 
 FROM alpine:3
 
-COPY clamav_entrypoint.sh /
-COPY clamd.conf /etc/clamav/clamd.conf
+COPY src/malware/clamav_entrypoint.sh /
+COPY src/malware/clamd.conf /etc/clamav/clamd.conf
 COPY --from=cbomkit-theia-builder /cbomkit-theia/cbomkit-theia /usr/bin/cbomkit-theia
 
 RUN --mount=type=bind,source=/dist,target=/dist \

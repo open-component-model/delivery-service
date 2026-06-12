@@ -49,8 +49,9 @@ def package_data():
 setuptools.setup(
     name='odg-core-libs',
     version=os.environ.get('ODG_CORE_LIBS_VERSION', finalize_version()),
-    py_modules=setuptools.discovery.ModuleFinder.find(),
-    packages=setuptools.discovery.PackageFinder.find(),
+    package_dir={'': 'src'},
+    py_modules=setuptools.discovery.ModuleFinder.find('src'),
+    packages=setuptools.discovery.PackageFinder.find('src'),
     package_data=package_data(),
     install_requires=list(requirements()),
     description='Mandatory system internals for the Open Delivery Gear',
