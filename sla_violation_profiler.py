@@ -87,8 +87,7 @@ def iter_version_sla_violations(
 ) -> collections.abc.Generator[odg.model.SlaViolation, None, None]:
     release_date = rescore.utility.normalise_date(release_date)
     for finding in findings:
-        finding_creation_date = rescore.utility.normalise_date(finding.meta.creation_date)
-        if finding_creation_date > release_date:
+        if rescore.utility.normalise_date(finding.meta.creation_date) > release_date:
             continue
 
         if not finding.discovery_date:
@@ -102,12 +101,6 @@ def iter_version_sla_violations(
             rescorings=rescorings,
             release_date=release_date,
         )
-        if any(
-            rescore.utility.normalise_date(rescoring.meta.creation_date).date()
-            == finding_creation_date.date()
-            for rescoring in sorted_rescorings
-        ):
-            continue
         violations = iter_policy_violations(
             finding=finding,
             sorted_rescorings=sorted_rescorings,
