@@ -51,6 +51,7 @@ def iter_artefact_metadata(
     delivery_service_client: odg_client.DeliveryServiceClient,
     vulnerability_cfg: odg.findings.Finding | None = None,
     license_cfg: odg.findings.Finding | None = None,
+    create_rescorings_for_upstream_re_ratings: bool = False,
 ) -> collections.abc.Generator[odg.model.ArtefactMetadata, None, None]:
     now = datetime.datetime.now(tz=datetime.timezone.utc)
     discovery_date = datetime.date.today()
@@ -251,7 +252,8 @@ def iter_artefact_metadata(
                 yield artefact_metadata
 
                 if (
-                    (existing_finding := existing_findings_by_key.get(artefact_metadata.key))
+                    create_rescorings_for_upstream_re_ratings
+                    and (existing_finding := existing_findings_by_key.get(artefact_metadata.key))
                     and existing_finding.data.cvss_v3_score != artefact_metadata.data.cvss_v3_score
                     and existing_finding.data.severity != artefact_metadata.data.severity
                     and existing_finding.allowed_processing_time
