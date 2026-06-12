@@ -987,17 +987,10 @@ class IssueReplicatorMapping(Mapping):
             else:
                 title_callback = sm.MilestoneConfiguration.title_callback
 
-            if milestone_due_date_cfg := self.milestones.get('due_date'):
-                name = milestone_due_date_cfg['date_name']
-                due_date_callback = lambda sprint: sprint.find_sprint_date(name).value  # noqa: E731
-            else:
-                due_date_callback = sm.MilestoneConfiguration.due_date_callback
-
             self.milestones = sm.MilestoneConfiguration(
                 title_callback=title_callback,
                 title_prefix=title_prefix,
                 title_suffix=title_suffix,
-                due_date_callback=due_date_callback,
             )
 
 

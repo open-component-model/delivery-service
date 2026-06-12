@@ -100,7 +100,7 @@ def iter_and_create_github_milestones(
             logger.debug(f'GitHub milestone {title} is already existing - skipping creation')
 
         else:
-            due_date = milestone_cfg.due_date_callback(sprint)
+            due_date = sprint.due_date
             due_on = datetime.datetime(
                 year=due_date.year,
                 month=due_date.month,
