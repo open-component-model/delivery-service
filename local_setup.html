@@ -156,7 +156,7 @@ usage of PostgreSQL is recommended (the Helm charts do not support SQLite3).</p>
 <section id="secrets">
 <h3>Secrets<a class="headerlink" href="#secrets" title="Link to this heading"></a></h3>
 <p>In case any credentials are required as part of the local setup, they may be
-added to the respective files in the <code class="code docutils literal notranslate"><span class="pre">secrets</span></code> directory. Each sub-directory
+added to the respective files in the <code class="code docutils literal notranslate"><span class="pre">src/secrets</span></code> directory. Each sub-directory
 reflects a certain secret _type_, whereas each file within a sub-directory
 corresponds to a secret _element_ of that type. If using one of the provided
 template files as a starting point, make sure to rename them as all templates
@@ -192,19 +192,19 @@ trust store.</p>
 <section id="start-up">
 <h3>Start-Up<a class="headerlink" href="#start-up" title="Link to this heading"></a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Running with PostgreSQL</span>
-python3<span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+python3<span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/src/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
 <span class="c1"># Running with SQLite3</span>
-python3<span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
+python3<span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/src/app.py<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
 </pre></div>
 </div>
 <p>Start-up with useful development tooling (e.g. hot-reloading or enhanced
 request information upon errors):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Running with PostgreSQL</span>
-adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+<span class="nv">PYTHONPATH</span><span class="o">=</span>&lt;path-to-local-odg-core-repo&gt;/src:<span class="nv">$PYTHONPATH</span><span class="w"> </span>adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/src<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
 <span class="c1"># Running with SQLite3</span>
-adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
+<span class="nv">PYTHONPATH</span><span class="o">=</span>&lt;path-to-local-odg-core-repo&gt;/src:<span class="nv">$PYTHONPATH</span><span class="w"> </span>adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="w"> </span><span class="m">5000</span><span class="w"> </span>&lt;path-to-local-odg-core-repo&gt;/src<span class="w"> </span>--<span class="w"> </span>--delivery-db-url<span class="w"> </span>sqlite+aiosqlite:///filename.db
 </pre></div>
 </div>
 </section>
@@ -214,8 +214,8 @@ adev<span class="w"> </span>runserver<span class="w"> </span>--port<span class="
 <section id="configuration">
 <h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
 <p>The configuration required for the extension can be added locally to the
-<code class="code docutils literal notranslate"><span class="pre">odg/extensions_cfg.yaml</span></code> file as well as to the <code class="code docutils literal notranslate"><span class="pre">odg/findings_cfg.yaml</span></code> file
-respectively. Those will be picked-up automatically if using the
+<code class="code docutils literal notranslate"><span class="pre">src/odg/extensions_cfg.yaml</span></code> file as well as to the <code class="code docutils literal notranslate"><span class="pre">src/odg/findings_cfg.yaml</span></code>
+file respectively. Those will be picked-up automatically if using the
 <code class="code docutils literal notranslate"><span class="pre">paths.extensions_cfg_path()</span></code> and <code class="code docutils literal notranslate"><span class="pre">paths.findings_cfg_path</span></code> utility functions.</p>
 </section>
 <section id="id1">

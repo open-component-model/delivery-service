@@ -35,7 +35,7 @@ Python Package
 
 A Python client implementation for the delivery-service is available at:
 
-`delivery/client.py <https://github.com/gardener/cc-utils/blob/f3bf7a0c5610b9148719de691cf99e52f51a147a/delivery/client.py#L128>`_
+`src/odg_client <https://github.com/open-component-model/odg-core/tree/master/src/odg_client>`_
 
 This client provides comprehensive functionality including:
 

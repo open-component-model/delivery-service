@@ -101,7 +101,7 @@ refer to <a class="reference internal" href="model.html"><span class="doc">Data 
 <span id="id1"></span><h2>Extensions Configuration<a class="headerlink" href="#extensions-configuration" title="Link to this heading"></a></h2>
 <p>Configuration for each extension should be provided via the interface defined
 in the <code class="code docutils literal notranslate"><span class="pre">odg.extensions_cfg</span></code> module
-(<a class="reference external" href="https://github.com/open-component-model/odg-core/blob/master/odg/extensions.py">ref</a>).
+(<a class="reference external" href="https://github.com/open-component-model/odg-core/blob/master/src/odg/extensions.py">ref</a>).
 A minimal set of configuration parameters is defined by the required base class
 <code class="code docutils literal notranslate"><span class="pre">ExtensionCfgMixins</span></code>. In case the extension is expected to be working with
 backlog items (more on that topic in <a class="reference internal" href="#extension-triggers"><span class="std std-ref">Extension Triggers</span></a> and
@@ -124,7 +124,7 @@ as an example for this chapter.</p>
 <p>If the extension emits findings (see <a class="reference internal" href="model.html"><span class="doc">Data Model</span></a> for information on the
 supported datatypes), it will also be necessary to add the new finding type to
 the findings configuration (see <code class="code docutils literal notranslate"><span class="pre">odg.findings_cfg</span></code> module for the model
-definition and <code class="code docutils literal notranslate"><span class="pre">odg/findings_cfg.yaml</span></code> for the example used for the local
+definition and <code class="code docutils literal notranslate"><span class="pre">src/odg/findings_cfg.yaml</span></code> for the example used for the local
 development). The most important part are the <code class="code docutils literal notranslate"><span class="pre">categorisations</span></code> which define
 the supported “severities” with extra information like for example the
 <code class="code docutils literal notranslate"><span class="pre">allowed_processing_time</span></code>. Also, if the findings should be reported as GitHub
@@ -190,7 +190,7 @@ the affected extension accordingly. This means, if the new extension uses
 this trigger, it should be designed to always process the <code class="code docutils literal notranslate"><span class="pre">artefact</span></code> defined
 by one <code class="code docutils literal notranslate"><span class="pre">BacklogItem</span></code> at a time. For that, the <code class="code docutils literal notranslate"><span class="pre">process_backlog_items</span></code>
 utility function, defined in the <code class="code docutils literal notranslate"><span class="pre">odg.util</span></code> module
-(<a class="reference external" href="https://github.com/open-component-model/odg-core/blob/master/odg/util.py">ref</a>),
+(<a class="reference external" href="https://github.com/open-component-model/odg-core/blob/master/src/odg/util.py">ref</a>),
 should be used.</p>
 </li>
 </ol>
@@ -214,7 +214,7 @@ findings, there is a well-defined overview of the supported states of a finding
 <p><span class="caption-text">Fig. 1: Finding State Machine</span><a class="headerlink" href="#id12" title="Link to this image"></a></p>
 </figcaption>
 </figure>
-<p>If the extension is written in Python, the <a class="reference external" href="https://github.com/gardener/cc-utils/blob/master/delivery/client.py">delivery-service-client</a> should
+<p>If the extension is written in Python, the <a class="reference external" href="https://github.com/open-component-model/odg-core/tree/master/src/odg_client">delivery-service-client</a> should
 be used which already contains functionality for the below described points:</p>
 <ol class="arabic">
 <li><p>Fetch existing <code class="code docutils literal notranslate"><span class="pre">ArtefactMetadata</span></code> entries</p>
