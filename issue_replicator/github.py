@@ -713,13 +713,25 @@ def ghas_summary(
     delivery_dashboard_url: str | None = None,
     sprint: sm.Sprint | None = None,
 ) -> tuple[str, str, str]:
+    def _locations_str(
+        locations: list[odg.model.GitHubSecretFindingLocation] | None,
+    ) -> str:
+        if locations is None:
+            return ''
+
+        return '<br>'.join(
+            f'[{location.location_type}]({location.url})'
+            if location.url
+            else str(location.location_type)
+            for location in locations
+        )
+
     finding_table_callback = {
         'Secret Type': lambda f, _: f'`{f.finding.data.secret_type}`',
         'Secret': lambda f, _: f'`{_redact_secret(f.finding.data.secret)}`',
-        'Path': lambda f, _: f'`{f.finding.data.path}`' if f.finding.data.path else '',
-        'Line': lambda f, _: f'`{f.finding.data.line}`' if f.finding.data.line else '',
         'Display Name': lambda f, _: f'`{f.finding.data.secret_type_display_name}`',
-        'Ref': lambda f, _: f'[ref]({f.finding.data.html_url})',
+        'Location(s)': lambda f, g: _locations_str(f.finding.data.locations),
+        'Alert Details': lambda f, _: f'[Alert]({f.finding.data.html_url})',
         'Severity': lambda f, g: _severity_str(
             aggregated_finding=f,
             finding_group=g,
