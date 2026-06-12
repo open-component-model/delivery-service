@@ -8,14 +8,14 @@ installation:
   ocm_references:
   - artefact:
       name: delivery-service
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: delivery-service
     mappings:
     - artefact_type: helmchart-imagemap
       name: delivery-service
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: host
     helm_chart_name: delivery-service
@@ -54,9 +54,9 @@ installation:
     mappings:
     - artefact_type: helmchart-imagemap
       name: postgresql
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: fullnameOverride
     helm_chart_name: postgresql
@@ -114,14 +114,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: clamav.enabled
     helm_chart_name: extensions
@@ -143,14 +143,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: backlog-controller.target_namespace
     helm_chart_name: extensions
@@ -169,14 +169,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: artefact-enumerator.target_namespace
     helm_chart_name: extensions
@@ -195,14 +195,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: cache-manager.target_namespace
     helm_chart_name: extensions
@@ -221,14 +221,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: access-manager.target_namespace
     helm_chart_name: extensions
@@ -248,14 +248,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: bdba.target_namespace
     helm_chart_name: extensions
@@ -279,14 +279,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: crypto.target_namespace
     helm_chart_name: extensions
@@ -309,14 +309,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: issue-replicator.target_namespace
     helm_chart_name: extensions
@@ -340,14 +340,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: osid.target_namespace
     helm_chart_name: extensions
@@ -371,14 +371,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: responsibles.target_namespace
     helm_chart_name: extensions
@@ -402,14 +402,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: sast.target_namespace
     helm_chart_name: extensions
@@ -432,14 +432,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: delivery-db-backup.target_namespace
     helm_chart_name: extensions
@@ -458,14 +458,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: ghas.target_namespace
     helm_chart_name: extensions
@@ -484,14 +484,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: sbom-generator.target_namespace
     helm_chart_name: extensions
@@ -514,14 +514,14 @@ installation:
   ocm_references:
   - artefact:
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     helm_chart_name: extensions
     mappings:
     - artefact_type: helmchart-imagemap
       name: extensions
-      version: 0.1346.0
+      version: 0.1347.0-dev
     name: ocm.software/open-delivery-gear/core
-    version: 0.1346.0
+    version: 0.1347.0-dev
   value_templates:
   - helm_attribute: sla-violation-profiler.target_namespace
     helm_chart_name: extensions
