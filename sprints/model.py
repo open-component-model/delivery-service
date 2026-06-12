@@ -18,6 +18,7 @@ class SprintOffsets:
 @dataclasses.dataclass
 class SprintMetadata:
     offsets: list[SprintOffsets] = dataclasses.field(default_factory=list)
+    finding_due_date_offset_name: str = SprintNames.END_DATE
 
 
 @dataclasses.dataclass
@@ -31,6 +32,7 @@ class SprintDate:
 class Sprint:
     name: str
     dates: list[SprintDate]
+    finding_due_date_offset_name: str = SprintNames.END_DATE
 
     def __post_init__(self):
         seen_names = set()
@@ -39,6 +41,9 @@ class Sprint:
             if sprint_date.name in seen_names:
                 raise ValueError(f'Found duplicate date with name {sprint_date.name} in {self}')
             seen_names.add(sprint_date.name)
+
+        if self.finding_due_date_offset_name not in seen_names:
+            raise ValueError(f'Did not find date for {self.finding_due_date_offset_name=} in {self}')
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, type(self)):
@@ -50,7 +55,7 @@ class Sprint:
 
     @property
     def due_date(self) -> datetime.date:
-        return self.find_sprint_date(SprintNames.END_DATE).value
+        return self.find_sprint_date(self.finding_due_date_offset_name).value
 
     def find_sprint_date(
         self,
@@ -73,7 +78,12 @@ class SprintsConfiguration:
     sprints: list[Sprint | dict]
 
     def __post_init__(self):
-        offsets = self.meta.offsets if self.meta else []
+        if self.meta:
+            offsets = self.meta.offsets
+            finding_due_date_offset_name = self.meta.finding_due_date_offset_name
+        else:
+            offsets = []
+            finding_due_date_offset_name = SprintNames.END_DATE
 
         sprints = []
         for sprint in self.sprints:
@@ -106,6 +116,7 @@ class SprintsConfiguration:
                 Sprint(
                     name=sprint['name'],
                     dates=sprint_dates,
+                    finding_due_date_offset_name=finding_due_date_offset_name,
                 ),
             )
 
@@ -117,6 +128,3 @@ class MilestoneConfiguration:
     title_callback: collections.abc.Callable[[Sprint], str] = lambda sprint: sprint.name
     title_prefix: str | None = 'sprint-'
     title_suffix: str | None = None
-    due_date_callback: collections.abc.Callable[[Sprint], datetime.date] = lambda sprint: (
-        sprint.due_date
-    )

@@ -570,12 +570,6 @@ extensions_cfg:
               date_string_format: "%Y-%m-%d"
             # @param extensions_cfg.issue_replicator.mappings[].milestones.title.suffix
             suffix: null
-          # @param extensions_cfg.issue_replicator.mappings[].milestones.due_date contains
-          # configuration options to specify how the GitHub milestone due-date is determined
-          due_date:
-            # @param extensions_cfg.issue_replicator.mappings[].milestones.due_date.date_name the
-            # name of the date as specified in the sprints configuration
-            date_name: end_date
 
   # @param extensions_cfg.osid workers which identify base image OS versions for OCI images
   osid:
@@ -852,6 +846,9 @@ sprints:
         # @param sprints.meta.offsets[].offset_days the offsets are relative to
         # sprints.sprints[].end_date
         offset_days: -1
+    # @param sprints.meta.finding_due_date_offset_name the name of the date which should be used as
+    # general due date within ODG (e.g. for GitHub milestone due dates, display in ODG UI, ...)
+    finding_due_date_offset_name: end_date
 
   sprints:
       # @param sprints.sprints[].name human-readable sprint name, must be unique within the list
@@ -1123,6 +1120,10 @@ features_cfg:
           # @param features_cfg.sprints.meta.offsets[].offset_days the offsets are relative to the
           # end date of the sprint
           offset_days: -1
+      # @param features_cfg.sprints.meta.finding_due_date_offset_name the name of the date which
+      # should be used as general due date within ODG (e.g. for GitHub milestone due dates, display
+      # in ODG UI, ...)
+      finding_due_date_offset_name: end_date
     # @param features_cfg.sprints.repoUrl GitHub html url of the repository where the sprints are
     # configured
     # e.g.
@@ -1135,6 +1136,7 @@ features_cfg:
     #     - name: release_decision
     #       display_name: Release Decision
     #       offset_days: -1
+    #   finding_due_date_offset_name: end_date
     # sprints:
     #   - name: <sprint-name>
     #     end_date: "<YYYY-MM-DD>"
