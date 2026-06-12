@@ -1,3 +1,4 @@
+import collections.abc
 import os
 
 import semver
@@ -15,12 +16,12 @@ def read_version(file: str) -> str:
         return f.read().strip()
 
 
-def finalize_version():
+def finalize_version() -> str:
     with open(os.path.join(own_dir, 'VERSION')) as f:
         return semver.finalize_version(f.read().strip())
 
 
-def requirements():
+def requirements() -> collections.abc.Iterable[str]:
     yield f'bdba-client=={read_version(BDBA_CLIENT_VERSION_FILE)}'
     yield f'odg-client=={read_version(ODG_CLIENT_VERSION_FILE)}'
 
@@ -33,7 +34,24 @@ def requirements():
             yield line
 
 
-def package_data():
+def modules() -> collections.abc.Iterable[str]:
+    return setuptools.discovery.ModuleFinder.find('src')
+
+
+def packages() -> collections.abc.Iterable[str]:
+    return (
+        package
+        for package in setuptools.discovery.PackageFinder.find('src')
+        if package
+        not in (
+            'bdba',  # already part of `bdba-client`
+            'delivery',  # already part of `odg-client`
+            'odg_client',  # already part of `odg-client`
+        )
+    )
+
+
+def package_data() -> dict[str, list[str]]:
     return {
         'features': ['*.yaml'],
         'freshclam': ['freshclam.conf'],
@@ -49,8 +67,9 @@ def package_data():
 setuptools.setup(
     name='odg-core-libs',
     version=os.environ.get('ODG_CORE_LIBS_VERSION', finalize_version()),
-    py_modules=setuptools.discovery.ModuleFinder.find(),
-    packages=setuptools.discovery.PackageFinder.find(),
+    package_dir={'': 'src'},
+    py_modules=list(modules()),
+    packages=list(packages()),
     package_data=package_data(),
     install_requires=list(requirements()),
     description='Mandatory system internals for the Open Delivery Gear',

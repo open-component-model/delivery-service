@@ -78,7 +78,7 @@ Secrets
 ^^^^^^^
 
 In case any credentials are required as part of the local setup, they may be
-added to the respective files in the `secrets` directory. Each sub-directory
+added to the respective files in the `src/secrets` directory. Each sub-directory
 reflects a certain secret _type_, whereas each file within a sub-directory
 corresponds to a secret _element_ of that type. If using one of the provided
 template files as a starting point, make sure to rename them as all templates
@@ -120,10 +120,10 @@ Start-Up
 .. code-block:: bash
 
     # Running with PostgreSQL
-    python3 <path-to-local-odg-core-repo>/app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+    python3 <path-to-local-odg-core-repo>/src/app.py --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
     # Running with SQLite3
-    python3 <path-to-local-odg-core-repo>/app.py --delivery-db-url sqlite+aiosqlite:///filename.db
+    python3 <path-to-local-odg-core-repo>/src/app.py --delivery-db-url sqlite+aiosqlite:///filename.db
 
 Start-up with useful development tooling (e.g. hot-reloading or enhanced
 request information upon errors):
@@ -131,10 +131,10 @@ request information upon errors):
 .. code-block:: bash
 
     # Running with PostgreSQL
-    adev runserver --port 5000 <path-to-local-odg-core-repo> -- --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
+    PYTHONPATH=<path-to-local-odg-core-repo>/src:$PYTHONPATH adev runserver --port 5000 <path-to-local-odg-core-repo>/src -- --delivery-db-url postgresql+psycopg://postgres:MyPassword@127.0.0.1:5432
 
     # Running with SQLite3
-    adev runserver --port 5000 <path-to-local-odg-core-repo> -- --delivery-db-url sqlite+aiosqlite:///filename.db
+    PYTHONPATH=<path-to-local-odg-core-repo>/src:$PYTHONPATH adev runserver --port 5000 <path-to-local-odg-core-repo>/src -- --delivery-db-url sqlite+aiosqlite:///filename.db
 
 Running the Extension
 =====================
@@ -143,8 +143,8 @@ Configuration
 ^^^^^^^^^^^^^
 
 The configuration required for the extension can be added locally to the
-`odg/extensions_cfg.yaml` file as well as to the `odg/findings_cfg.yaml` file
-respectively. Those will be picked-up automatically if using the
+`src/odg/extensions_cfg.yaml` file as well as to the `src/odg/findings_cfg.yaml`
+file respectively. Those will be picked-up automatically if using the
 `paths.extensions_cfg_path()` and `paths.findings_cfg_path` utility functions.
 
 Start-Up

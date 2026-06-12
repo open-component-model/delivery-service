@@ -19,7 +19,7 @@ Extensions Configuration
 
 Configuration for each extension should be provided via the interface defined
 in the `odg.extensions_cfg` module
-(`ref <https://github.com/open-component-model/odg-core/blob/master/odg/extensions.py>`_).
+(`ref <https://github.com/open-component-model/odg-core/blob/master/src/odg/extensions.py>`_).
 A minimal set of configuration parameters is defined by the required base class
 `ExtensionCfgMixins`. In case the extension is expected to be working with
 backlog items (more on that topic in :ref:`extension-triggers` and
@@ -46,7 +46,7 @@ Findings Configuration
 If the extension emits findings (see :doc:`/model` for information on the
 supported datatypes), it will also be necessary to add the new finding type to
 the findings configuration (see `odg.findings_cfg` module for the model
-definition and `odg/findings_cfg.yaml` for the example used for the local
+definition and `src/odg/findings_cfg.yaml` for the example used for the local
 development). The most important part are the `categorisations` which define
 the supported "severities" with extra information like for example the
 `allowed_processing_time`. Also, if the findings should be reported as GitHub
@@ -115,7 +115,7 @@ The Open Delivery Gear currently features two kinds of triggers:
    this trigger, it should be designed to always process the `artefact` defined
    by one `BacklogItem` at a time. For that, the `process_backlog_items`
    utility function, defined in the `odg.util` module
-   (`ref <https://github.com/open-component-model/odg-core/blob/master/odg/util.py>`_),
+   (`ref <https://github.com/open-component-model/odg-core/blob/master/src/odg/util.py>`_),
    should be used.
 
 .. note::
@@ -139,7 +139,7 @@ findings, there is a well-defined overview of the supported states of a finding
    Fig. 1: Finding State Machine
 
 If the extension is written in Python, the `delivery-service-client
-<https://github.com/gardener/cc-utils/blob/master/delivery/client.py>`_ should
+<https://github.com/open-component-model/odg-core/tree/master/src/odg_client>`_ should
 be used which already contains functionality for the below described points:
 
 #. Fetch existing `ArtefactMetadata` entries

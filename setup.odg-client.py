@@ -24,11 +24,12 @@ def bump_version():
 
 setuptools.setup(
     name='odg-client',
-    version=bump_version(),
+    version=str(bump_version()),
     description='Client library for the Open Delivery Gear',
     long_description='Client library for the Delivery Service (part of the Open Delivery Gear)',
     long_description_content_type='text/markdown',
     python_requires='>=3.11',
+    package_dir={'': 'src'},
     py_modules=[],
     packages=[
         'delivery',
